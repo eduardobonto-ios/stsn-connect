@@ -118,7 +118,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="font-display font-extrabold text-stsn-gold leading-none tracking-tight text-md">
-              STSN <span className="text-stsn-gold-light">Connect</span>
+              Theresian <span className="text-stsn-gold-light">Connect</span>
             </h1>
             <span className="text-[9px] text-stone-400 font-mono tracking-widest uppercase mt-0.5 block">Academia Enterprise v2</span>
           </div>
