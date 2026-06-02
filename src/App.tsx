@@ -16,14 +16,16 @@ import {
   LogOut,
   Sparkles,
   Building2,
-  Cpu,
   RefreshCw,
   Bell,
   Clock,
   Menu,
   ChevronDown,
   UserCheck,
-  School
+  School,
+  Settings,
+  CalendarDays,
+  BarChart3
 } from "lucide-react";
 
 // Module Imports
@@ -37,6 +39,8 @@ import CurriculumManagement from "./pages/CurriculumManagement";
 import AccountsManagement from "./pages/AccountsManagement";
 import StudentPortal from "./pages/StudentPortal";
 import FacultyPortal from "./pages/FacultyPortal";
+import CoreSetupModule from "./pages/CoreSetupModule";
+import SchedulingModule from "./pages/SchedulingModule";
 
 type STSNModule =
   | "DASHBOARD"
@@ -47,7 +51,9 @@ type STSNModule =
   | "STUDENT_PORTAL"
   | "FACULTY_PORTAL"
   | "HR_MANAGEMENT"
-  | "ACCOUNTS_SECURITY";
+  | "ACCOUNTS_SECURITY"
+  | "CORE_SETUP"
+  | "SCHEDULING";
 
 export default function App() {
   const { currentUser, login, logout, users } = useSTSNStore();
@@ -69,16 +75,17 @@ export default function App() {
     if (!currentUser) return;
     if (currentUser.role === "STUDENT") setActiveModule("STUDENT_PORTAL");
     else if (currentUser.role === "TEACHER" || currentUser.role === "EMPLOYEE") setActiveModule("FACULTY_PORTAL");
+    else if (currentUser.role === "ACCOUNTING") setActiveModule("ACCOUNTING");
     else setActiveModule("DASHBOARD");
   }, [currentUser]);
 
   if (!currentUser) return <LoginOverlay />;
 
   const rolePermissions: Record<string, STSNModule[]> = {
-    SUPER_ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY"],
-    ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY"],
-    REGISTRAR: ["DASHBOARD", "REGISTRAR", "CURRICULUM", "ACCOUNTS_SECURITY", "STUDENT_PORTAL"],
-    ACCOUNTING: ["DASHBOARD", "ACCOUNTING", "ACCOUNTS_SECURITY", "STUDENT_PORTAL"],
+    SUPER_ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING"],
+    ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING"],
+    REGISTRAR: ["DASHBOARD", "REGISTRAR", "CURRICULUM", "ACCOUNTS_SECURITY", "STUDENT_PORTAL", "SCHEDULING", "CORE_SETUP"],
+    ACCOUNTING: ["ACCOUNTING", "CORE_SETUP"],
     TEACHER: ["FACULTY_PORTAL", "GRADING", "CURRICULUM"],
     STUDENT: ["STUDENT_PORTAL"],
     HR: ["DASHBOARD", "HR_MANAGEMENT", "ACCOUNTS_SECURITY"],
@@ -90,13 +97,15 @@ export default function App() {
   const sidebarItems = [
     { id: "DASHBOARD", label: "System Dashboard", icon: LayoutDashboard, desc: "Live admissions & fees" },
     { id: "REGISTRAR", label: "Admissions & COR", icon: Compass, desc: "Student registrations" },
-    { id: "ACCOUNTING", label: "Collections & Billing", icon: Coins, desc: "Tuple assessments ledger" },
+    { id: "ACCOUNTING", label: "Accounting", icon: Coins, desc: "Ledger, discounts & reports" },
     { id: "GRADING", label: "Grades Directory", icon: GraduationCap, desc: "Midterm/Final score encodes" },
-    { id: "STUDENT_PORTAL", label: "Student Portal Room", icon: UserCheck, desc: "View grades, COR & ID" },
+    { id: "STUDENT_PORTAL", label: "Student Portal", icon: UserCheck, desc: "View grades, COR & ID" },
     { id: "FACULTY_PORTAL", label: "Teacher Board", icon: BookOpen, desc: "Schedules & class scores" },
     { id: "HR_MANAGEMENT", label: "HR Staff Payroll", icon: Users, desc: "Employee payslips database" },
     { id: "CURRICULUM", label: "Syllabus Pathways", icon: Building2, desc: "Academic subjects flow" },
-    { id: "ACCOUNTS_SECURITY", label: "Authority Clearances", icon: Shield, desc: "Credential security status" }
+    { id: "SCHEDULING", label: "Class Scheduling", icon: CalendarDays, desc: "Schedules & room assignments" },
+    { id: "ACCOUNTS_SECURITY", label: "Authority Clearances", icon: Shield, desc: "Credential security status" },
+    { id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance" },
   ] as const;
 
   const renderedSidebarItems = sidebarItems.filter((item) => allowedModules.includes(item.id));
@@ -258,6 +267,8 @@ export default function App() {
           {activeModule === "FACULTY_PORTAL" && allowedModules.includes("FACULTY_PORTAL") && <FacultyPortal />}
           {activeModule === "HR_MANAGEMENT" && allowedModules.includes("HR_MANAGEMENT") && <HRManagement />}
           {activeModule === "ACCOUNTS_SECURITY" && allowedModules.includes("ACCOUNTS_SECURITY") && <AccountsManagement />}
+          {activeModule === "CORE_SETUP" && allowedModules.includes("CORE_SETUP") && <CoreSetupModule />}
+          {activeModule === "SCHEDULING" && allowedModules.includes("SCHEDULING") && <SchedulingModule />}
         </main>
       </div>
 

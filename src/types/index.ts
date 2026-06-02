@@ -5,6 +5,7 @@
 
 export type UserRole =
   | "SUPER_ADMIN"
+  | "ADMIN"
   | "REGISTRAR"
   | "ACCOUNTING"
   | "TEACHER"
@@ -212,6 +213,94 @@ export interface PayrollRow {
   pagibigDeduction: number;
   taxDeduction: number;
   netPay: number;
-  period: string; // e.g., "May 16 - 31, 2026"
+  period: string;
   status: "Paid" | "Pending";
+}
+
+// ============================================================
+// CORE SETUP — Generic entity for all maintenance pages
+// ============================================================
+export interface SetupItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  createdBy?: string;
+  sortOrder?: number;
+  [key: string]: any;
+}
+
+// ============================================================
+// DISCOUNT MANAGEMENT
+// ============================================================
+export interface DiscountType {
+  id: string;
+  code: string;
+  name: string;
+  discountPercent: number;
+  discountSource: "Government" | "Sibling" | "Owner" | "Scholarship" | "Employee" | "Other";
+  requiresApproval: boolean;
+  maxBeneficiaries?: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  performedBy: string;
+  performedAt: string;
+  details?: string;
+}
+
+export interface DiscountRequest {
+  id: string;
+  referenceNo: string;
+  studentId: string;
+  studentName: string;
+  studentNo: string;
+  discountTypeId: string;
+  discountTypeName: string;
+  discountPercent: number;
+  requestedBy: string;
+  requestedAt: string;
+  status: "Pending" | "For Review" | "Approved" | "Rejected";
+  siblingStudentIds?: string[];
+  siblingNames?: string[];
+  level1Status?: "Pending" | "Approved" | "Rejected";
+  level1ApprovedBy?: string;
+  level1ApprovedAt?: string;
+  level2Status?: "Pending" | "Approved" | "Rejected";
+  level2ApprovedBy?: string;
+  level2ApprovedAt?: string;
+  remarks?: string;
+  attachmentNames?: string[];
+  auditTrail: AuditEntry[];
+}
+
+// ============================================================
+// CLASS SCHEDULING
+// ============================================================
+export interface ClassSchedule {
+  id: string;
+  subjectCode: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  section: string;
+  roomName: string;
+  day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
+  startTime: string;
+  endTime: string;
+  schoolYear: string;
+  semester: string;
+  isActive: boolean;
+  department: "Basic Education" | "College";
+  yearLevel?: string;
+  courseOrTrack?: string;
+  notes?: string;
 }

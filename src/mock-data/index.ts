@@ -19,7 +19,11 @@ import {
   Schedule,
   Announcement,
   SchoolEvent,
-  PayrollRow
+  PayrollRow,
+  SetupItem,
+  DiscountType,
+  DiscountRequest,
+  ClassSchedule
 } from "../types";
 
 export const MOCK_USERS: User[] = [
@@ -727,4 +731,536 @@ export const STARTING_PAYROLL: PayrollRow[] = [
     basicSalary: 45000, allowances: 3500, sssDeduction: 1300, philhealthDeduction: 700, pagibigDeduction: 150, taxDeduction: 3500, netPay: 42850,
     period: "May 16 - 31, 2026", status: "Paid"
   }
+];
+
+// ============================================================
+// CORE SETUP SEED DATA
+// ============================================================
+const d = (id: string, code: string, name: string, desc?: string, extra?: Record<string, any>): SetupItem => ({
+  id, code, name, description: desc, isActive: true, createdAt: "2026-01-01", createdBy: "Admin Administrator", ...extra
+});
+
+export const MOCK_SETUP_DATA: Record<string, SetupItem[]> = {
+  academic_categories: [
+    d("ac-1","PRESCH","Preschool Education","Early childhood learning"),
+    d("ac-2","PRIM","Primary Education","Grades 1 to 3"),
+    d("ac-3","INT","Intermediate Education","Grades 4 to 6"),
+    d("ac-4","JHS","Junior High School","Grades 7 to 10"),
+    d("ac-5","SHS","Senior High School","Grades 11 to 12"),
+    d("ac-6","COL","College / Tertiary","Undergraduate degree programs"),
+  ],
+  academic_levels: [
+    d("al-1","PRESCH","Preschool","Preschool level",{category:"Preschool Education"}),
+    d("al-2","ELEM","Elementary","Primary & Intermediate",{category:"Primary Education"}),
+    d("al-3","JHS","Junior High School","Grades 7-10",{category:"Junior High School"}),
+    d("al-4","SHS","Senior High School","Grades 11-12",{category:"Senior High School"}),
+    d("al-5","COLL","College","Tertiary level",{category:"College / Tertiary"}),
+  ],
+  year_levels: [
+    d("yl-1","NURS","Nursery","",{level:0,academicLevel:"Preschool"}),
+    d("yl-2","K1","Kinder 1","",{level:1,academicLevel:"Preschool"}),
+    d("yl-3","K2","Kinder 2","",{level:2,academicLevel:"Preschool"}),
+    d("yl-4","G1","Grade 1","",{level:3,academicLevel:"Elementary"}),
+    d("yl-5","G2","Grade 2","",{level:4,academicLevel:"Elementary"}),
+    d("yl-6","G3","Grade 3","",{level:5,academicLevel:"Elementary"}),
+    d("yl-7","G4","Grade 4","",{level:6,academicLevel:"Elementary"}),
+    d("yl-8","G5","Grade 5","",{level:7,academicLevel:"Elementary"}),
+    d("yl-9","G6","Grade 6","",{level:8,academicLevel:"Elementary"}),
+    d("yl-10","G7","Grade 7","",{level:9,academicLevel:"Junior High School"}),
+    d("yl-11","G8","Grade 8","",{level:10,academicLevel:"Junior High School"}),
+    d("yl-12","G9","Grade 9","",{level:11,academicLevel:"Junior High School"}),
+    d("yl-13","G10","Grade 10","",{level:12,academicLevel:"Junior High School"}),
+    d("yl-14","G11","Grade 11","",{level:13,academicLevel:"Senior High School"}),
+    d("yl-15","G12","Grade 12","",{level:14,academicLevel:"Senior High School"}),
+    d("yl-16","Y1","1st Year","",{level:15,academicLevel:"College"}),
+    d("yl-17","Y2","2nd Year","",{level:16,academicLevel:"College"}),
+    d("yl-18","Y3","3rd Year","",{level:17,academicLevel:"College"}),
+    d("yl-19","Y4","4th Year","",{level:18,academicLevel:"College"}),
+  ],
+  school_years: [
+    d("sy-1","SY2024","2024-2025","",{startDate:"2024-06-01",endDate:"2025-03-31",isCurrent:false}),
+    d("sy-2","SY2025","2025-2026","",{startDate:"2025-06-01",endDate:"2026-03-31",isCurrent:false}),
+    d("sy-3","SY2026","2026-2027","",{startDate:"2026-06-01",endDate:"2027-03-31",isCurrent:true}),
+  ],
+  semesters: [
+    d("sem-1","SEM1","First Semester","August to December",{semesterNumber:1}),
+    d("sem-2","SEM2","Second Semester","January to May",{semesterNumber:2}),
+    d("sem-3","SUM","Summer","May to June",{semesterNumber:3}),
+    d("sem-4","FY","Full Year","June to March — Basic Ed",{semesterNumber:0}),
+  ],
+  departments: [
+    d("dept-1","BASED","Basic Education","K-12 department"),
+    d("dept-2","COLL","College","Tertiary programs"),
+    d("dept-3","ACCT","Accounting","Finance and billing"),
+    d("dept-4","REGR","Registrar","Records management"),
+    d("dept-5","HR","Human Resources","Staff management"),
+    d("dept-6","ADMIN","Administration","Executive office"),
+  ],
+  holidays: [
+    d("hol-1","RH-NY","New Year's Day","January 1",{date:"2027-01-01",holidayType:"Regular"}),
+    d("hol-2","RH-PNR","Pampanga National Day","April 9",{date:"2027-04-09",holidayType:"Regular"}),
+    d("hol-3","RH-LD","Labor Day","May 1",{date:"2027-05-01",holidayType:"Regular"}),
+    d("hol-4","RH-IND","Independence Day","June 12",{date:"2027-06-12",holidayType:"Regular"}),
+    d("hol-5","SH-NDSR","National Day of Sacrifice for Rizal","December 30",{date:"2027-12-30",holidayType:"Special Non-Working"}),
+  ],
+  admission_types: [
+    d("at-1","NEW","New Student","First time enrollment"),
+    d("at-2","OLD","Old Student / Continuing","Returning from previous year"),
+    d("at-3","TRANS","Transferee","Coming from another school"),
+    d("at-4","RET","Returnee","Readmitted after absence"),
+    d("at-5","CROSS","Cross-Enrollee","Enrolled in another school"),
+  ],
+  enrollment_requirements: [
+    d("er-1","PSA","PSA Birth Certificate","Original and photocopy",{isRequired:true}),
+    d("er-2","GMC","Good Moral Certificate","From previous school",{isRequired:true}),
+    d("er-3","TOR","Transcript of Records","Official TOR from last school",{isRequired:true}),
+    d("er-4","F137","Form 137 / SF9","For basic education",{isRequired:true}),
+    d("er-5","2X2","ID Picture (2x2)","Recent photo on white background",{isRequired:true}),
+    d("er-6","BRGY","Barangay Clearance","For new students",{isRequired:false}),
+  ],
+  student_statuses: [
+    d("ss-1","ENRL","Enrolled","Currently enrolled and active"),
+    d("ss-2","PEND","Pending","Application under review"),
+    d("ss-3","APPR","Approved","Enrollment approved, pending payment"),
+    d("ss-4","REJ","Rejected","Application denied"),
+    d("ss-5","LOA","Leave of Absence","Temporary leave"),
+    d("ss-6","DROP","Dropped","Officially dropped enrollment"),
+    d("ss-7","GRAD","Graduated","Completed program"),
+  ],
+  campuses: [
+    d("camp-1","STSN","St. Theresa's School of Novaliches","Main campus",{address:"Novaliches, Quezon City",contactNo:"+63 2 1234 5678"}),
+    d("camp-2","CDSTA","Colegio de Sta. Teresa de Avila","College campus",{address:"Novaliches, Quezon City",contactNo:"+63 2 8765 4321"}),
+  ],
+  buildings: [
+    d("bld-1","MAIN","Main Building","Primary academic building",{campusId:"camp-1",numberOfFloors:4}),
+    d("bld-2","SCI","Science Building","Laboratories and science rooms",{campusId:"camp-1",numberOfFloors:3}),
+    d("bld-3","GYM","Gymnasium","Sports and events venue",{campusId:"camp-1",numberOfFloors:1}),
+    d("bld-4","COLL-MAIN","College Main Building","",{campusId:"camp-2",numberOfFloors:5}),
+    d("bld-5","LIB","Library Building","Academic resources",{campusId:"camp-1",numberOfFloors:2}),
+  ],
+  room_types: [
+    d("rt-1","REG","Regular Classroom","Standard learning room",{maxCapacity:45}),
+    d("rt-2","LAB","Computer Laboratory","IT lab",{maxCapacity:35}),
+    d("rt-3","SCI","Science Laboratory","Science experiments",{maxCapacity:30}),
+    d("rt-4","LANG","Language Laboratory","Audio-visual language room",{maxCapacity:30}),
+    d("rt-5","LEC","Lecture Hall","Large lecture venue",{maxCapacity:120}),
+    d("rt-6","CONF","Conference Room","Meetings and deliberations",{maxCapacity:20}),
+    d("rt-7","AUD","Auditorium","Events and ceremonies",{maxCapacity:500}),
+  ],
+  rooms: [
+    d("rm-1","101","Room 101","",{buildingId:"bld-1",roomTypeId:"rt-1",capacity:45}),
+    d("rm-2","102","Room 102","",{buildingId:"bld-1",roomTypeId:"rt-1",capacity:45}),
+    d("rm-3","201","Room 201","",{buildingId:"bld-1",roomTypeId:"rt-1",capacity:45}),
+    d("rm-4","202","Room 202","",{buildingId:"bld-1",roomTypeId:"rt-1",capacity:45}),
+    d("rm-5","SCI-L1","Science Lab 1","",{buildingId:"bld-2",roomTypeId:"rt-3",capacity:30}),
+    d("rm-6","IT-L1","IT Lab 1","",{buildingId:"bld-2",roomTypeId:"rt-2",capacity:35}),
+    d("rm-7","IT-L2","IT Lab 2","",{buildingId:"bld-2",roomTypeId:"rt-2",capacity:35}),
+    d("rm-8","GYM-MAIN","Main Gym","",{buildingId:"bld-3",roomTypeId:"rt-7",capacity:500}),
+  ],
+  time_slots: [
+    d("ts-1","7AM","07:00 AM - 08:00 AM","",{startTime:"07:00",endTime:"08:00",durationMinutes:60}),
+    d("ts-2","8AM","08:00 AM - 09:00 AM","",{startTime:"08:00",endTime:"09:00",durationMinutes:60}),
+    d("ts-3","9AM","09:00 AM - 10:00 AM","",{startTime:"09:00",endTime:"10:00",durationMinutes:60}),
+    d("ts-4","10AM","10:00 AM - 11:00 AM","",{startTime:"10:00",endTime:"11:00",durationMinutes:60}),
+    d("ts-5","11AM","11:00 AM - 12:00 PM","",{startTime:"11:00",endTime:"12:00",durationMinutes:60}),
+    d("ts-6","1PM","01:00 PM - 02:00 PM","",{startTime:"13:00",endTime:"14:00",durationMinutes:60}),
+    d("ts-7","2PM","02:00 PM - 03:00 PM","",{startTime:"14:00",endTime:"15:00",durationMinutes:60}),
+    d("ts-8","3PM","03:00 PM - 04:00 PM","",{startTime:"15:00",endTime:"16:00",durationMinutes:60}),
+    d("ts-9","4PM","04:00 PM - 05:00 PM","",{startTime:"16:00",endTime:"17:00",durationMinutes:60}),
+    d("ts-10","7-9AM","07:00 AM - 09:00 AM","",{startTime:"07:00",endTime:"09:00",durationMinutes:120}),
+    d("ts-11","9-11AM","09:00 AM - 11:00 AM","",{startTime:"09:00",endTime:"11:00",durationMinutes:120}),
+    d("ts-12","1-3PM","01:00 PM - 03:00 PM","",{startTime:"13:00",endTime:"15:00",durationMinutes:120}),
+    d("ts-13","3-5PM","03:00 PM - 05:00 PM","",{startTime:"15:00",endTime:"17:00",durationMinutes:120}),
+  ],
+  faculty_ranks: [
+    d("fr-1","INST-1","Instructor I","Entry level instructor",{level:1}),
+    d("fr-2","INST-2","Instructor II","",{level:2}),
+    d("fr-3","INST-3","Instructor III","",{level:3}),
+    d("fr-4","ASST-PROF-1","Assistant Professor I","",{level:4}),
+    d("fr-5","ASST-PROF-2","Assistant Professor II","",{level:5}),
+    d("fr-6","ASSOC-PROF","Associate Professor","",{level:6}),
+    d("fr-7","PROF","Professor","Full professor rank",{level:7}),
+  ],
+  employment_types: [
+    d("et-1","FT","Full-Time","Permanent full-time employee",{isFullTime:true}),
+    d("et-2","PT","Part-Time","Part-time or fractional",{isFullTime:false}),
+    d("et-3","CONT","Contractual","Fixed-term contract",{isFullTime:false}),
+    d("et-4","COS","Contract of Service","Per project/semester",{isFullTime:false}),
+  ],
+  fee_categories: [
+    d("fc-1","TUI","Tuition","Academic instruction fee"),
+    d("fc-2","MISC","Miscellaneous","Registration, activity, insurance"),
+    d("fc-3","LAB","Laboratory","Science and IT lab fees"),
+    d("fc-4","ID","ID / Facilities","School ID and facilities"),
+    d("fc-5","PEN","Penalty","Late payment penalties"),
+    d("fc-6","OTHER","Other Fees","Miscellaneous uncategorized fees"),
+  ],
+  fee_items: [
+    d("fi-1","SHS-TUI","SHS Tuition Fee","Standard SHS tuition",{categoryId:"fc-1",amount:18000}),
+    d("fi-2","COL-TUI","College Tuition per Unit","Per credit unit",{categoryId:"fc-1",amount:950}),
+    d("fi-3","REGFEE","Registration & Misc Fee","Annual registration",{categoryId:"fc-2",amount:4500}),
+    d("fi-4","LABFEE","Computer Lab Fee","IT laboratory access",{categoryId:"fc-3",amount:3500}),
+    d("fi-5","IDFEE","School ID / Facilities Fee","ID and campus access",{categoryId:"fc-4",amount:1000}),
+    d("fi-6","LATEPEN","Late Payment Penalty","Monthly late penalty",{categoryId:"fc-5",amount:500}),
+  ],
+  payment_terms: [
+    d("pt-1","CASH","Full Cash Payment","One-time full payment",{numberOfInstallments:1,downpaymentPercent:100}),
+    d("pt-2","SEMI","Installment - 2 Payments","Semestral payment",{numberOfInstallments:2,downpaymentPercent:60}),
+    d("pt-3","QTRLY","Installment - 4 Payments","Quarterly payment",{numberOfInstallments:4,downpaymentPercent:40}),
+  ],
+  payment_methods: [
+    d("pm-1","CASH","Cash","Over-the-counter cash",{type:"Cash"}),
+    d("pm-2","GCASH","GCash","Mobile wallet - GCash",{type:"Digital"}),
+    d("pm-3","BDO","Bank Transfer (BDO)","BDO bank deposit/transfer",{type:"Bank"}),
+    d("pm-4","BPI","Bank Transfer (BPI)","BPI bank deposit/transfer",{type:"Bank"}),
+    d("pm-5","CC","Credit Card","Visa/Mastercard",{type:"Card"}),
+    d("pm-6","CHECK","Manager's Check","Bank-certified check",{type:"Bank"}),
+  ],
+  chart_of_accounts: [
+    d("coa-1","1000","Cash on Hand","",{accountType:"Asset",accountNo:"1000"}),
+    d("coa-2","1100","Cash in Bank - BDO","",{accountType:"Asset",accountNo:"1100"}),
+    d("coa-3","1200","Cash in Bank - BPI","",{accountType:"Asset",accountNo:"1200"}),
+    d("coa-4","1300","Accounts Receivable - Students","",{accountType:"Asset",accountNo:"1300"}),
+    d("coa-5","4000","Tuition Revenue","",{accountType:"Revenue",accountNo:"4000"}),
+    d("coa-6","4100","Miscellaneous Revenue","",{accountType:"Revenue",accountNo:"4100"}),
+    d("coa-7","4200","Laboratory Fee Revenue","",{accountType:"Revenue",accountNo:"4200"}),
+    d("coa-8","5000","Salaries and Wages","",{accountType:"Expense",accountNo:"5000"}),
+    d("coa-9","5100","SSS Contribution","",{accountType:"Expense",accountNo:"5100"}),
+    d("coa-10","5200","PhilHealth Contribution","",{accountType:"Expense",accountNo:"5200"}),
+  ],
+  accounting_periods: [
+    d("ap-1","AY2025-S1","AY 2025-2026 - First Semester","Aug 2025 to Dec 2025",{startDate:"2025-08-01",endDate:"2025-12-31",isClosed:true}),
+    d("ap-2","AY2025-S2","AY 2025-2026 - Second Semester","Jan 2026 to May 2026",{startDate:"2026-01-01",endDate:"2026-05-31",isClosed:false}),
+    d("ap-3","AY2026-S1","AY 2026-2027 - First Semester","Aug 2026 to Dec 2026",{startDate:"2026-08-01",endDate:"2026-12-31",isClosed:false}),
+  ],
+  or_series: [
+    d("ors-1","OR2026","OR-2026-XXXXX","Official receipts for AY 2026-2027",{prefix:"OR-2026",currentSerial:10460,year:2026}),
+    d("ors-2","OR2025","OR-2025-XXXXX","Official receipts for AY 2025-2026",{prefix:"OR-2025",currentSerial:8832,year:2025}),
+  ],
+  refund_reasons: [
+    d("rr-1","OVERPY","Overpayment Refund","Amount paid exceeds assessment"),
+    d("rr-2","CANCEL","Enrollment Cancellation","Student cancelled before start"),
+    d("rr-3","DUP","Duplicate Payment","Payment recorded twice"),
+    d("rr-4","SCHOL","Scholarship Grant Applied","Refund due to retroactive scholarship"),
+  ],
+  void_reasons: [
+    d("vr-1","ERR","Data Entry Error","Incorrect receipt data"),
+    d("vr-2","DUP","Duplicate Receipt","Receipt issued twice for same payment"),
+    d("vr-3","CANCEL","Transaction Cancelled","Payment transaction reversed"),
+    d("vr-4","WRONG-STU","Wrong Student","Receipt issued to incorrect student"),
+  ],
+  nationalities: [
+    d("nat-1","FIL","Filipino","Philippine nationality"),
+    d("nat-2","CHN","Chinese",""),
+    d("nat-3","KOR","Korean",""),
+    d("nat-4","JPN","Japanese",""),
+    d("nat-5","USA","American",""),
+    d("nat-6","OTHER","Other","Non-listed nationality"),
+  ],
+  civil_statuses: [
+    d("cs-1","SGL","Single",""),
+    d("cs-2","MAR","Married",""),
+    d("cs-3","WIDW","Widowed",""),
+    d("cs-4","SEP","Legally Separated",""),
+    d("cs-5","ANN","Annulled",""),
+  ],
+  religions: [
+    d("rel-1","CAT","Roman Catholic",""),
+    d("rel-2","PROT","Protestant",""),
+    d("rel-3","IGL","Iglesia ni Cristo",""),
+    d("rel-4","ADB","Adventist",""),
+    d("rel-5","ISLAM","Islam",""),
+    d("rel-6","OTHER","Other Religion",""),
+  ],
+  student_types: [
+    d("st-1","REG","Regular Student","Full-time enrolled"),
+    d("st-2","IRREG","Irregular Student","Not following standard curriculum"),
+    d("st-3","CROSS","Cross-Enrollee","Enrolled from another school"),
+    d("st-4","SPEC","Special Student","Non-degree or certificate program"),
+  ],
+  grade_scales: [
+    d("gs-1","A","1.00","Excellent",{minGrade:98,maxGrade:100,equivalent:"1.00",remarks:"Excellent"}),
+    d("gs-2","B","1.25","Very Good",{minGrade:95,maxGrade:97,equivalent:"1.25",remarks:"Very Good"}),
+    d("gs-3","C","1.50","Good",{minGrade:92,maxGrade:94,equivalent:"1.50",remarks:"Good"}),
+    d("gs-4","D","1.75","Good",{minGrade:89,maxGrade:91,equivalent:"1.75",remarks:"Good"}),
+    d("gs-5","E","2.00","Satisfactory",{minGrade:86,maxGrade:88,equivalent:"2.00",remarks:"Satisfactory"}),
+    d("gs-6","F","2.25","Satisfactory",{minGrade:83,maxGrade:85,equivalent:"2.25",remarks:"Satisfactory"}),
+    d("gs-7","G","2.50","Fair",{minGrade:80,maxGrade:82,equivalent:"2.50",remarks:"Fair"}),
+    d("gs-8","H","2.75","Fair",{minGrade:77,maxGrade:79,equivalent:"2.75",remarks:"Fair"}),
+    d("gs-9","I","3.00","Passing",{minGrade:75,maxGrade:76,equivalent:"3.00",remarks:"Passing"}),
+    d("gs-10","F","5.00","Failed",{minGrade:0,maxGrade:74,equivalent:"5.00",remarks:"Failed"}),
+  ],
+  document_types: [
+    d("dt-1","TOR","Transcript of Records","Official TOR",{isRequired:true}),
+    d("dt-2","COR","Certificate of Registration","Semestral COR",{isRequired:false}),
+    d("dt-3","DIPL","Diploma","Graduation diploma",{isRequired:false}),
+    d("dt-4","CERT","Certificate of Good Moral","Moral character cert",{isRequired:true}),
+    d("dt-5","PSA","PSA Birth Certificate","Civil registry cert",{isRequired:true}),
+    d("dt-6","DISP","Certificate of Dismissal","Transfer credential",{isRequired:false}),
+  ],
+  collection_types: [
+    d("ct-1","TUI","Tuition Collection","Regular tuition payments"),
+    d("ct-2","MISC","Miscellaneous Collection","Misc fee payments"),
+    d("ct-3","PEN","Penalty Collection","Late fee penalties"),
+    d("ct-4","REFUND","Refund","Student refund transactions"),
+    d("ct-5","ADJ","Adjustment","Assessment corrections"),
+  ],
+  // Workflow, Access Control & ID Card setup items
+  roles_setup: [
+    d("role-1","SUPER_ADMIN","Super Administrator","Full system access",{level:10}),
+    d("role-2","ADMIN","Administrator","Module-level administration",{level:9}),
+    d("role-3","REGISTRAR","Registrar","Enrollment and records",{level:7}),
+    d("role-4","ACCOUNTING","Accounting Officer","Financial management",{level:7}),
+    d("role-5","TEACHER","Teacher","Grade encoding and attendance",{level:5}),
+    d("role-6","HR","HR Manager","Payroll and employee management",{level:6}),
+    d("role-7","STUDENT","Student","Portal access only",{level:1}),
+  ],
+  permissions_setup: [
+    d("perm-1","STUD_VIEW","View Students","Access student directory",{module:"Registrar"}),
+    d("perm-2","STUD_CREATE","Create Students","Add new student records",{module:"Registrar"}),
+    d("perm-3","STUD_EDIT","Edit Students","Modify student records",{module:"Registrar"}),
+    d("perm-4","ENRL_APPROVE","Approve Enrollment","Approve/reject enrollments",{module:"Registrar"}),
+    d("perm-5","PAY_VIEW","View Payments","Access payment history",{module:"Accounting"}),
+    d("perm-6","PAY_POST","Post Payments","Record new payments",{module:"Accounting"}),
+    d("perm-7","DISC_APPROVE","Approve Discounts","Approve discount requests",{module:"Accounting"}),
+    d("perm-8","GRADE_ENCODE","Encode Grades","Submit and edit grades",{module:"Grading"}),
+    d("perm-9","HR_PAYROLL","Process Payroll","Generate and post payroll",{module:"HR"}),
+    d("perm-10","SETUP_MANAGE","Manage Setup","Configure system setup",{module:"Core Setup"}),
+  ],
+  id_card_templates: [
+    d("ict-1","STSN-STUD","STSN Student ID 2026","Current student ID template",{campus:"St. Theresa's School",cardColor:"#5C4533",logoPath:"/logos/stsn.png"}),
+    d("ict-2","CDSTA-STUD","Colegio Student ID 2026","College student ID template",{campus:"Colegio de Sta. Teresa",cardColor:"#1d4ed8",logoPath:"/logos/cdsta.png"}),
+    d("ict-3","STAFF","Staff ID 2026","Employee and faculty ID",{campus:"Both",cardColor:"#4A3728",logoPath:"/logos/stsn.png"}),
+  ],
+  enrollment_workflows: [
+    d("ew-1","BASIC-ED","Basic Education Enrollment Flow","K-12 enrollment process",{steps:["Application","Document Submission","Assessment","Payment","Approval"]}),
+    d("ew-2","COLLEGE","College Enrollment Flow","Tertiary enrollment process",{steps:["Pre-enrollment","Requirements","Subject Selection","Assessment","Payment","Enrollment"]}),
+    d("ew-3","TRANSFER","Transferee Enrollment Flow","Transferee process",{steps:["Application","Evaluation","Document Verification","Assessment","Approval"]}),
+  ],
+  clearance_workflows: [
+    d("cw-1","SEM-CLEAR","Semestral Clearance","End of semester clearance",{departments:["Library","Accounting","Registrar","Subject Teachers","Dean/Principal"]}),
+    d("cw-2","GRAD-CLEAR","Graduation Clearance","Pre-graduation clearance",{departments:["All Academic","Accounting","Registrar","Guidance","Alumni"]}),
+  ],
+};
+
+// ============================================================
+// DISCOUNT TYPES SEED DATA
+// ============================================================
+export const MOCK_DISCOUNT_TYPES: DiscountType[] = [
+  {
+    id: "dt-gov-1", code: "GOV-PWD", name: "PWD Discount",
+    discountPercent: 20, discountSource: "Government",
+    requiresApproval: false, description: "Persons with Disability - RA 10524",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-gov-2", code: "GOV-SP", name: "Solo Parent Discount",
+    discountPercent: 10, discountSource: "Government",
+    requiresApproval: false, description: "Children of solo parents - RA 8972",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-gov-3", code: "GOV-4PS", name: "4Ps / Pantawid Pamilya",
+    discountPercent: 100, discountSource: "Government",
+    requiresApproval: false, description: "Beneficiaries of DSWD Pantawid Pamilyang Pilipino Program",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-sib-1", code: "SIB-2", name: "2nd Sibling Discount",
+    discountPercent: 5, discountSource: "Sibling",
+    requiresApproval: true, maxBeneficiaries: 1,
+    description: "5% discount for second sibling enrolled in the same school year",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-sib-2", code: "SIB-3", name: "3rd+ Sibling Discount",
+    discountPercent: 10, discountSource: "Sibling",
+    requiresApproval: true, maxBeneficiaries: 999,
+    description: "10% discount for 3rd and subsequent siblings",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-own-1", code: "OWN-EMP", name: "Employee / Owner Dependent Discount",
+    discountPercent: 100, discountSource: "Owner",
+    requiresApproval: true, maxBeneficiaries: 3,
+    description: "Full tuition waiver for qualified employee dependents",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-schol-1", code: "PRES-SCHOL", name: "Presidential Scholarship",
+    discountPercent: 100, discountSource: "Scholarship",
+    requiresApproval: true, maxBeneficiaries: 5,
+    description: "Full academic scholarship for top-performing students",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-schol-2", code: "ACAD-SCHOL", name: "Academic Excellence Award",
+    discountPercent: 50, discountSource: "Scholarship",
+    requiresApproval: true, maxBeneficiaries: 10,
+    description: "50% scholarship for Dean's Listers",
+    isActive: true, createdAt: "2026-01-01"
+  },
+  {
+    id: "dt-emp-1", code: "FAM-DISC", name: "Family Discount",
+    discountPercent: 10, discountSource: "Employee",
+    requiresApproval: false, description: "General family discount for staff members",
+    isActive: true, createdAt: "2026-01-01"
+  },
+];
+
+// ============================================================
+// DISCOUNT REQUESTS SEED DATA
+// ============================================================
+export const MOCK_DISCOUNT_REQUESTS: DiscountRequest[] = [
+  {
+    id: "dreq-1",
+    referenceNo: "DISC-2026-1001",
+    studentId: "stud-enrico",
+    studentName: "Enrico Veloso",
+    studentNo: "STSN-2026-0121",
+    discountTypeId: "dt-sib-1",
+    discountTypeName: "2nd Sibling Discount",
+    discountPercent: 5,
+    requestedBy: "Eduardo Bonto, CPA",
+    requestedAt: "2026-05-10 09:30",
+    status: "Approved",
+    siblingStudentIds: ["stud-g6-01"],
+    siblingNames: ["Maria Clara Veloso"],
+    level1Status: "Approved",
+    level1ApprovedBy: "Cynthia Ramos, LPT",
+    level1ApprovedAt: "2026-05-11 10:00",
+    level2Status: "Approved",
+    level2ApprovedBy: "Admin Administrator",
+    level2ApprovedAt: "2026-05-12 14:30",
+    remarks: "Verified sibling enrollment. Discount applied for AY 2026-2027.",
+    attachmentNames: ["enrollment_proof_sibling.pdf"],
+    auditTrail: [
+      { id: "ae-1", action: "REQUEST_SUBMITTED", performedBy: "Eduardo Bonto, CPA", performedAt: "2026-05-10 09:30", details: "Discount request submitted for 2nd Sibling Discount" },
+      { id: "ae-2", action: "LEVEL_1_APPROVED", performedBy: "Cynthia Ramos, LPT", performedAt: "2026-05-11 10:00", details: "Approved - Sibling enrollment verified in system" },
+      { id: "ae-3", action: "LEVEL_2_APPROVED", performedBy: "Admin Administrator", performedAt: "2026-05-12 14:30", details: "Final approval granted. 5% discount applied." },
+    ]
+  },
+  {
+    id: "dreq-2",
+    referenceNo: "DISC-2026-1002",
+    studentId: "stud-g11-stem",
+    studentName: "Gabrielle Torres",
+    studentNo: "STSN-2026-0119",
+    discountTypeId: "dt-gov-1",
+    discountTypeName: "PWD Discount",
+    discountPercent: 20,
+    requestedBy: "Eduardo Bonto, CPA",
+    requestedAt: "2026-05-14 11:00",
+    status: "Pending",
+    level1Status: "Pending",
+    level2Status: "Pending",
+    remarks: "",
+    attachmentNames: ["pwd_id_scan.jpg"],
+    auditTrail: [
+      { id: "ae-4", action: "REQUEST_SUBMITTED", performedBy: "Eduardo Bonto, CPA", performedAt: "2026-05-14 11:00", details: "PWD Discount request submitted. Awaiting L1 approval." }
+    ]
+  },
+  {
+    id: "dreq-3",
+    referenceNo: "DISC-2026-1003",
+    studentId: "stud-bsit-1",
+    studentName: "Andrei Santos",
+    studentNo: "STSN-2026-0301",
+    discountTypeId: "dt-sib-2",
+    discountTypeName: "3rd+ Sibling Discount",
+    discountPercent: 10,
+    requestedBy: "Eduardo Bonto, CPA",
+    requestedAt: "2026-05-20 14:00",
+    status: "For Review",
+    siblingStudentIds: ["stud-g11-stem","stud-g9-01"],
+    siblingNames: ["Gabrielle Santos", "Paolo Santos"],
+    level1Status: "Approved",
+    level1ApprovedBy: "Cynthia Ramos, LPT",
+    level1ApprovedAt: "2026-05-21 09:00",
+    level2Status: "Pending",
+    remarks: "L1 approved. Pending L2 final review.",
+    attachmentNames: [],
+    auditTrail: [
+      { id: "ae-5", action: "REQUEST_SUBMITTED", performedBy: "Eduardo Bonto, CPA", performedAt: "2026-05-20 14:00", details: "3rd sibling discount request submitted" },
+      { id: "ae-6", action: "LEVEL_1_APPROVED", performedBy: "Cynthia Ramos, LPT", performedAt: "2026-05-21 09:00", details: "Sibling IDs verified. Forwarded to L2." }
+    ]
+  },
+];
+
+// ============================================================
+// CLASS SCHEDULES SEED DATA
+// ============================================================
+export const MOCK_CLASS_SCHEDULES: ClassSchedule[] = [
+  {
+    id: "csched-1",
+    subjectCode: "IT-101", subjectName: "Introduction to Computing",
+    teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    section: "BSIT-1A", roomName: "IT Lab 1",
+    day: "Monday", startTime: "08:00", endTime: "10:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "College", yearLevel: "1st Year", courseOrTrack: "BSIT"
+  },
+  {
+    id: "csched-2",
+    subjectCode: "IT-101", subjectName: "Introduction to Computing",
+    teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    section: "BSIT-1A", roomName: "IT Lab 1",
+    day: "Wednesday", startTime: "08:00", endTime: "10:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "College", yearLevel: "1st Year", courseOrTrack: "BSIT"
+  },
+  {
+    id: "csched-3",
+    subjectCode: "CS-201", subjectName: "Data Structures & Algorithms",
+    teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    section: "BSCS-2A", roomName: "IT Lab 2",
+    day: "Tuesday", startTime: "10:00", endTime: "12:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "College", yearLevel: "2nd Year", courseOrTrack: "BSCS"
+  },
+  {
+    id: "csched-4",
+    subjectCode: "MATH-11", subjectName: "Pre-Calculus",
+    teacherId: "teach-mariz", teacherName: "Ma. Mariz Dizon",
+    section: "SHS-STEM-11A", roomName: "Room 201",
+    day: "Monday", startTime: "07:00", endTime: "09:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "Basic Education", yearLevel: "Grade 11", courseOrTrack: "STEM"
+  },
+  {
+    id: "csched-5",
+    subjectCode: "MATH-11", subjectName: "Pre-Calculus",
+    teacherId: "teach-mariz", teacherName: "Ma. Mariz Dizon",
+    section: "SHS-STEM-11A", roomName: "Room 201",
+    day: "Wednesday", startTime: "07:00", endTime: "09:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "Basic Education", yearLevel: "Grade 11", courseOrTrack: "STEM"
+  },
+  {
+    id: "csched-6",
+    subjectCode: "STEM-12A", subjectName: "Research in Daily Life",
+    teacherId: "teach-mariz", teacherName: "Ma. Mariz Dizon",
+    section: "SHS-STEM-12A", roomName: "Room 202",
+    day: "Friday", startTime: "13:00", endTime: "16:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "Basic Education", yearLevel: "Grade 12", courseOrTrack: "STEM"
+  },
+  {
+    id: "csched-7",
+    subjectCode: "ENG-101", subjectName: "Purposive Communication",
+    teacherId: "teach-aurora", teacherName: "Aurora Lim",
+    section: "BSBA-1A", roomName: "Room 101",
+    day: "Tuesday", startTime: "13:00", endTime: "15:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "College", yearLevel: "1st Year", courseOrTrack: "BSBA"
+  },
+  {
+    id: "csched-8",
+    subjectCode: "ENG-101", subjectName: "Purposive Communication",
+    teacherId: "teach-aurora", teacherName: "Aurora Lim",
+    section: "BSBA-1A", roomName: "Room 101",
+    day: "Thursday", startTime: "13:00", endTime: "15:00",
+    schoolYear: "2026-2027", semester: "First Semester",
+    isActive: true, department: "College", yearLevel: "1st Year", courseOrTrack: "BSBA"
+  },
 ];

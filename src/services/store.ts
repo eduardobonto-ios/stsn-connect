@@ -21,7 +21,12 @@ import {
   Announcement,
   SchoolEvent,
   PayrollRow,
-  UserRole
+  UserRole,
+  SetupItem,
+  DiscountType,
+  DiscountRequest,
+  AuditEntry,
+  ClassSchedule
 } from "../types";
 import {
   MOCK_USERS,
@@ -39,7 +44,11 @@ import {
   MOCK_SCHEDULES,
   MOCK_ANNOUNCEMENTS,
   MOCK_EVENTS,
-  STARTING_PAYROLL
+  STARTING_PAYROLL,
+  MOCK_SETUP_DATA,
+  MOCK_DISCOUNT_TYPES,
+  MOCK_DISCOUNT_REQUESTS,
+  MOCK_CLASS_SCHEDULES
 } from "../mock-data";
 
 interface STSNState {
@@ -60,6 +69,10 @@ interface STSNState {
   announcements: Announcement[];
   events: SchoolEvent[];
   payroll: PayrollRow[];
+  setupData: Record<string, SetupItem[]>;
+  discountTypes: DiscountType[];
+  discountRequests: DiscountRequest[];
+  classSchedules: ClassSchedule[];
 
   // Actions
   login: (email: string, role: string) => boolean;
@@ -110,10 +123,31 @@ interface STSNState {
   addCurriculum: (curriculum: Omit<Curriculum, "id">) => void;
   updateCurriculum: (id: string, updates: Partial<Curriculum>) => void;
   deleteCurriculum: (id: string) => void;
+
+  // Core Setup actions (generic CRUD)
+  addSetupItem: (category: string, item: Omit<SetupItem, "id" | "createdAt">) => SetupItem;
+  updateSetupItem: (category: string, id: string, updates: Partial<SetupItem>) => void;
+  deleteSetupItem: (category: string, id: string) => void;
+  toggleSetupItemActive: (category: string, id: string) => void;
+
+  // Discount Management actions
+  addDiscountType: (dt: Omit<DiscountType, "id" | "createdAt">) => void;
+  updateDiscountType: (id: string, updates: Partial<DiscountType>) => void;
+  deleteDiscountType: (id: string) => void;
+  toggleDiscountTypeActive: (id: string) => void;
+  addDiscountRequest: (req: Omit<DiscountRequest, "id" | "referenceNo" | "requestedAt" | "auditTrail">) => DiscountRequest;
+  approveDiscountRequest: (id: string, level: 1 | 2, approvedBy: string, remarks?: string) => void;
+  rejectDiscountRequest: (id: string, level: 1 | 2, approvedBy: string, remarks?: string) => void;
+
+  // Class Scheduling actions
+  addClassSchedule: (schedule: Omit<ClassSchedule, "id">) => ClassSchedule;
+  updateClassSchedule: (id: string, updates: Partial<ClassSchedule>) => void;
+  deleteClassSchedule: (id: string) => void;
+  toggleClassScheduleActive: (id: string) => void;
 }
 
 export const useSTSNStore = create<STSNState>((set, get) => ({
-  currentUser: MOCK_USERS.find((u) => u.role === "SUPER_ADMIN") || null, // Default logged-in as admin to show application populated instantly
+  currentUser: MOCK_USERS.find((u) => u.role === "SUPER_ADMIN") || null,
   users: MOCK_USERS,
   students: MOCK_STUDENTS,
   teachers: MOCK_TEACHERS,
@@ -130,6 +164,10 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   announcements: MOCK_ANNOUNCEMENTS,
   events: MOCK_EVENTS,
   payroll: STARTING_PAYROLL,
+  setupData: MOCK_SETUP_DATA,
+  discountTypes: MOCK_DISCOUNT_TYPES,
+  discountRequests: MOCK_DISCOUNT_REQUESTS,
+  classSchedules: MOCK_CLASS_SCHEDULES,
 
   login: (email: string, role: string) => {
     const user = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
@@ -503,6 +541,198 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   deleteCurriculum: (id) => {
     set((state) => ({
       curriculums: state.curriculums.filter((c) => c.id !== id)
+    }));
+  },
+
+  // ---- Core Setup Actions ----
+  addSetupItem: (category, itemData) => {
+    const newItem = {
+      ...itemData,
+      id: `setup-${category}-${Date.now()}`,
+      createdAt: new Date().toISOString().split("T")[0],
+      createdBy: get().currentUser?.name || "System",
+      isActive: itemData.isActive ?? true
+    } as SetupItem;
+    set((state) => ({
+      setupData: {
+        ...state.setupData,
+        [category]: [...(state.setupData[category] || []), newItem]
+      }
+    }));
+    return newItem;
+  },
+
+  updateSetupItem: (category, id, updates) => {
+    set((state) => ({
+      setupData: {
+        ...state.setupData,
+        [category]: (state.setupData[category] || []).map((item) =>
+          item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString().split("T")[0] } : item
+        )
+      }
+    }));
+  },
+
+  deleteSetupItem: (category, id) => {
+    set((state) => ({
+      setupData: {
+        ...state.setupData,
+        [category]: (state.setupData[category] || []).filter((item) => item.id !== id)
+      }
+    }));
+  },
+
+  toggleSetupItemActive: (category, id) => {
+    set((state) => ({
+      setupData: {
+        ...state.setupData,
+        [category]: (state.setupData[category] || []).map((item) =>
+          item.id === id ? { ...item, isActive: !item.isActive, updatedAt: new Date().toISOString().split("T")[0] } : item
+        )
+      }
+    }));
+  },
+
+  // ---- Discount Management Actions ----
+  addDiscountType: (dtData) => {
+    const newDT: DiscountType = {
+      ...dtData,
+      id: `dt-${Date.now()}`,
+      createdAt: new Date().toISOString().split("T")[0],
+      isActive: dtData.isActive ?? true
+    };
+    set((state) => ({ discountTypes: [...state.discountTypes, newDT] }));
+  },
+
+  updateDiscountType: (id, updates) => {
+    set((state) => ({
+      discountTypes: state.discountTypes.map((dt) => (dt.id === id ? { ...dt, ...updates } : dt))
+    }));
+  },
+
+  deleteDiscountType: (id) => {
+    set((state) => ({ discountTypes: state.discountTypes.filter((dt) => dt.id !== id) }));
+  },
+
+  toggleDiscountTypeActive: (id) => {
+    set((state) => ({
+      discountTypes: state.discountTypes.map((dt) => (dt.id === id ? { ...dt, isActive: !dt.isActive } : dt))
+    }));
+  },
+
+  addDiscountRequest: (reqData) => {
+    const serial = get().discountRequests.length + 1001;
+    const newReq: DiscountRequest = {
+      ...reqData,
+      id: `dreq-${Date.now()}`,
+      referenceNo: `DISC-${new Date().getFullYear()}-${String(serial).padStart(4, "0")}`,
+      requestedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
+      status: "Pending",
+      level1Status: "Pending",
+      level2Status: "Pending",
+      auditTrail: [{
+        id: `audit-${Date.now()}`,
+        action: "REQUEST_SUBMITTED",
+        performedBy: reqData.requestedBy,
+        performedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
+        details: `Discount request submitted for ${reqData.discountTypeName}`
+      }]
+    };
+    set((state) => ({ discountRequests: [newReq, ...state.discountRequests] }));
+    return newReq;
+  },
+
+  approveDiscountRequest: (id, level, approvedBy, remarks) => {
+    const now = new Date().toISOString().replace("T", " ").substring(0, 16);
+    const auditEntry: AuditEntry = {
+      id: `audit-${Date.now()}`,
+      action: `LEVEL_${level}_APPROVED`,
+      performedBy: approvedBy,
+      performedAt: now,
+      details: remarks || `Approved at Level ${level}`
+    };
+    set((state) => ({
+      discountRequests: state.discountRequests.map((req) => {
+        if (req.id !== id) return req;
+        const levelKey = level === 1 ? "level1" : "level2";
+        const otherLevelApproved = level === 1 ? req.level2Status : req.level1Status;
+        const newStatus = level === 1
+          ? (req.level2Status === "Approved" ? "Approved" : "For Review")
+          : (req.level1Status === "Approved" ? "Approved" : "For Review");
+        return {
+          ...req,
+          [`${levelKey}Status`]: "Approved",
+          [`${levelKey}ApprovedBy`]: approvedBy,
+          [`${levelKey}ApprovedAt`]: now,
+          status: (level === 1 && req.level2Status === "Approved") || (level === 2 && req.level1Status === "Approved") ? "Approved" : "For Review",
+          auditTrail: [...req.auditTrail, auditEntry]
+        };
+      })
+    }));
+    // Apply discount to assessment if fully approved
+    const req = get().discountRequests.find((r) => r.id === id);
+    if (req && req.level1Status === "Approved" && req.level2Status === "Approved") {
+      const assessment = get().assessments.find((a) => a.studentId === req.studentId);
+      if (assessment) {
+        const discountAmt = Math.round(assessment.totalAmount * (req.discountPercent / 100));
+        get().updateAssessment(assessment.id, {
+          discountPercentage: req.discountPercent,
+          discountAmount: discountAmt,
+          scholarshipName: req.discountTypeName,
+          balance: Math.max(0, assessment.totalAmount - discountAmt)
+        });
+      }
+    }
+  },
+
+  rejectDiscountRequest: (id, level, approvedBy, remarks) => {
+    const now = new Date().toISOString().replace("T", " ").substring(0, 16);
+    const auditEntry: AuditEntry = {
+      id: `audit-${Date.now()}`,
+      action: `LEVEL_${level}_REJECTED`,
+      performedBy: approvedBy,
+      performedAt: now,
+      details: remarks || `Rejected at Level ${level}`
+    };
+    set((state) => ({
+      discountRequests: state.discountRequests.map((req) => {
+        if (req.id !== id) return req;
+        const levelKey = level === 1 ? "level1" : "level2";
+        return {
+          ...req,
+          [`${levelKey}Status`]: "Rejected",
+          [`${levelKey}ApprovedBy`]: approvedBy,
+          [`${levelKey}ApprovedAt`]: now,
+          status: "Rejected",
+          auditTrail: [...req.auditTrail, auditEntry]
+        };
+      })
+    }));
+  },
+
+  // ---- Class Scheduling Actions ----
+  addClassSchedule: (scheduleData) => {
+    const newSchedule: ClassSchedule = {
+      ...scheduleData,
+      id: `csched-${Date.now()}`
+    };
+    set((state) => ({ classSchedules: [...state.classSchedules, newSchedule] }));
+    return newSchedule;
+  },
+
+  updateClassSchedule: (id, updates) => {
+    set((state) => ({
+      classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    }));
+  },
+
+  deleteClassSchedule: (id) => {
+    set((state) => ({ classSchedules: state.classSchedules.filter((s) => s.id !== id) }));
+  },
+
+  toggleClassScheduleActive: (id) => {
+    set((state) => ({
+      classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
     }));
   }
 }));
