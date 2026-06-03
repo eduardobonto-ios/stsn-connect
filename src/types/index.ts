@@ -13,8 +13,11 @@ export type UserRole =
   | "HR"
   | "EMPLOYEE";
 
+export type SchoolId = "STSN" | "CDSTA";
+
 export interface User {
   id: string;
+  schoolId?: SchoolId; // undefined = access to all schools (SUPER_ADMIN)
   email: string;
   name: string;
   role: UserRole;
@@ -25,6 +28,7 @@ export interface User {
 
 export interface Student {
   id: string;
+  schoolId?: SchoolId;
   studentNo: string;
   firstName: string;
   lastName: string;
@@ -42,7 +46,7 @@ export interface Student {
   municipality: string;
   zipCode: string;
   userId?: string;
-  
+
   // Academic Background
   department: "Basic Education" | "College";
   yearLevel: string; // e.g., "Grade 11", "1st Year"
@@ -53,6 +57,7 @@ export interface Student {
 
 export interface Teacher {
   id: string;
+  schoolId?: SchoolId;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -66,15 +71,20 @@ export interface Teacher {
 
 export interface Employee {
   id: string;
+  schoolId?: SchoolId;
   firstName: string;
   lastName: string;
   middleName: string;
   email: string;
   position: string;
+  positionTitle?: string;
   department: "Basic Education" | "College" | "Accounting" | "Registrar" | "HR" | "Administration";
   salary: number;
   status: "Full-Time" | "Part-Time" | "Contractual";
   leaveBalance: number;
+  contact?: string;
+  address?: string;
+  emergencyContact?: string;
 }
 
 export interface Course {
@@ -287,6 +297,7 @@ export interface DiscountRequest {
 // ============================================================
 export interface ClassSchedule {
   id: string;
+  schoolId?: SchoolId;
   subjectCode: string;
   subjectName: string;
   teacherId: string;
@@ -303,4 +314,31 @@ export interface ClassSchedule {
   yearLevel?: string;
   courseOrTrack?: string;
   notes?: string;
+}
+
+// ============================================================
+// ONLINE LEARNING / LMS
+// ============================================================
+export interface LearningMaterial {
+  id: string;
+  schoolId: SchoolId;
+  title: string;
+  description: string;
+  subjectCode: string;
+  subjectName: string;
+  section: string;
+  teacherId: string;
+  teacherName: string;
+  learningType: "Video" | "Module" | "Document";
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  publishStatus: "Published" | "Draft";
+  uploadDate: string;
+  department: "Basic Education" | "College";
+  yearLevel?: string;
+  trackOrCourse?: string;
+  tags?: string[];
 }

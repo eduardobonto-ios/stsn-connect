@@ -26,7 +26,9 @@ import {
   DiscountType,
   DiscountRequest,
   AuditEntry,
-  ClassSchedule
+  ClassSchedule,
+  LearningMaterial,
+  SchoolId
 } from "../types";
 import {
   MOCK_USERS,
@@ -48,11 +50,13 @@ import {
   MOCK_SETUP_DATA,
   MOCK_DISCOUNT_TYPES,
   MOCK_DISCOUNT_REQUESTS,
-  MOCK_CLASS_SCHEDULES
+  MOCK_CLASS_SCHEDULES,
+  MOCK_LEARNING_MATERIALS
 } from "../mock-data";
 
 interface STSNState {
   currentUser: User | null;
+  activeSchool: SchoolId | "ALL";
   users: User[];
   students: Student[];
   teachers: Teacher[];
@@ -73,6 +77,7 @@ interface STSNState {
   discountTypes: DiscountType[];
   discountRequests: DiscountRequest[];
   classSchedules: ClassSchedule[];
+  learningMaterials: LearningMaterial[];
 
   // Actions
   login: (email: string, role: string) => boolean;
@@ -144,10 +149,23 @@ interface STSNState {
   updateClassSchedule: (id: string, updates: Partial<ClassSchedule>) => void;
   deleteClassSchedule: (id: string) => void;
   toggleClassScheduleActive: (id: string) => void;
+
+  // Multi-school actions
+  setActiveSchool: (school: SchoolId | "ALL") => void;
+
+  // LMS actions
+  addLearningMaterial: (material: Omit<LearningMaterial, "id">) => LearningMaterial;
+  updateLearningMaterial: (id: string, updates: Partial<LearningMaterial>) => void;
+  deleteLearningMaterial: (id: string) => void;
+  toggleLearningMaterialPublish: (id: string) => void;
+
+  // HR Excel import
+  bulkImportEmployees: (employees: Omit<Employee, "id">[]) => void;
 }
 
 export const useSTSNStore = create<STSNState>((set, get) => ({
   currentUser: MOCK_USERS.find((u) => u.role === "SUPER_ADMIN") || null,
+  activeSchool: "ALL",
   users: MOCK_USERS,
   students: MOCK_STUDENTS,
   teachers: MOCK_TEACHERS,
@@ -168,17 +186,18 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   discountTypes: MOCK_DISCOUNT_TYPES,
   discountRequests: MOCK_DISCOUNT_REQUESTS,
   classSchedules: MOCK_CLASS_SCHEDULES,
+  learningMaterials: MOCK_LEARNING_MATERIALS,
 
   login: (email: string, role: string) => {
     const user = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (user && user.isActive) {
-      set({ currentUser: user });
+      set({ currentUser: user, activeSchool: user.schoolId || "ALL" });
       return true;
     }
     // Handle fallback if matching by email
     const fallbackUser = get().users.find((u) => u.role === role);
     if (fallbackUser) {
-      set({ currentUser: fallbackUser });
+      set({ currentUser: fallbackUser, activeSchool: fallbackUser.schoolId || "ALL" });
       return true;
     }
     return false;
@@ -734,5 +753,47 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     set((state) => ({
       classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
     }));
+  },
+
+  // ---- Multi-school ----
+  setActiveSchool: (school) => {
+    set({ activeSchool: school });
+  },
+
+  // ---- LMS Actions ----
+  addLearningMaterial: (materialData) => {
+    const newMaterial: LearningMaterial = {
+      ...materialData,
+      id: `lm-${Date.now()}`
+    };
+    set((state) => ({ learningMaterials: [newMaterial, ...state.learningMaterials] }));
+    return newMaterial;
+  },
+
+  updateLearningMaterial: (id, updates) => {
+    set((state) => ({
+      learningMaterials: state.learningMaterials.map((m) => (m.id === id ? { ...m, ...updates } : m))
+    }));
+  },
+
+  deleteLearningMaterial: (id) => {
+    set((state) => ({ learningMaterials: state.learningMaterials.filter((m) => m.id !== id) }));
+  },
+
+  toggleLearningMaterialPublish: (id) => {
+    set((state) => ({
+      learningMaterials: state.learningMaterials.map((m) =>
+        m.id === id ? { ...m, publishStatus: m.publishStatus === "Published" ? "Draft" : "Published" } : m
+      )
+    }));
+  },
+
+  // ---- HR Bulk Import ----
+  bulkImportEmployees: (employeesData) => {
+    const newEmployees: Employee[] = employeesData.map((emp, i) => ({
+      ...emp,
+      id: `emp-import-${Date.now()}-${i}`
+    }));
+    set((state) => ({ employees: [...state.employees, ...newEmployees] }));
   }
 }));

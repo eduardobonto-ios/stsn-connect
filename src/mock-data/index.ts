@@ -23,16 +23,26 @@ import {
   SetupItem,
   DiscountType,
   DiscountRequest,
-  ClassSchedule
+  ClassSchedule,
+  LearningMaterial
 } from "../types";
 
 export const MOCK_USERS: User[] = [
+  // ---- SUPER ADMIN (both schools) ----
   { id: "user-admin", email: "admin@stsn.edu.ph", name: "Admin Administrator", role: "SUPER_ADMIN", isActive: true, avatarUrl: "", department: "Administration" },
-  { id: "user-registrar", email: "registrar@stsn.edu.ph", name: "Cynthia Ramos, LPT", role: "REGISTRAR", isActive: true, avatarUrl: "", department: "Support" },
-  { id: "user-accounting", email: "accounting@stsn.edu.ph", name: "Eduardo Bonto, CPA", role: "ACCOUNTING", isActive: true, avatarUrl: "", department: "Support" },
-  { id: "user-teacher", email: "teacher@stsn.edu.ph", name: "Prof. Arthur Reyes", role: "TEACHER", isActive: true, avatarUrl: "", department: "College" },
-  { id: "user-student", email: "student@stsn.edu.ph", name: "Enrico Veloso", role: "STUDENT", isActive: true, avatarUrl: "", department: "Basic Education" },
-  { id: "user-hr", email: "hr@stsn.edu.ph", name: "Gemma Santos", role: "HR", isActive: true, avatarUrl: "", department: "Administration" }
+  // ---- St. Theresa's School of Novaliches (STSN) ----
+  { id: "user-registrar", schoolId: "STSN", email: "registrar@stsn.edu.ph", name: "Cynthia Ramos, LPT", role: "REGISTRAR", isActive: true, avatarUrl: "", department: "Support" },
+  { id: "user-accounting", schoolId: "STSN", email: "accounting@stsn.edu.ph", name: "Eduardo Bonto, CPA", role: "ACCOUNTING", isActive: true, avatarUrl: "", department: "Support" },
+  { id: "user-teacher", schoolId: "STSN", email: "teacher@stsn.edu.ph", name: "Prof. Arthur Reyes", role: "TEACHER", isActive: true, avatarUrl: "", department: "College" },
+  { id: "user-student", schoolId: "STSN", email: "student@stsn.edu.ph", name: "Enrico Veloso", role: "STUDENT", isActive: true, avatarUrl: "", department: "Basic Education" },
+  { id: "user-hr", schoolId: "STSN", email: "hr@stsn.edu.ph", name: "Gemma Santos", role: "HR", isActive: true, avatarUrl: "", department: "Administration" },
+  // ---- Colegio de Sta. Teresa de Avila (CDSTA) ----
+  { id: "user-cdsta-admin", schoolId: "CDSTA", email: "admin@cdsta.edu.ph", name: "CDSTA Administrator", role: "ADMIN", isActive: true, avatarUrl: "", department: "Administration" },
+  { id: "user-cdsta-registrar", schoolId: "CDSTA", email: "registrar@cdsta.edu.ph", name: "Maria Luz Aquino, LPT", role: "REGISTRAR", isActive: true, avatarUrl: "", department: "Support" },
+  { id: "user-cdsta-accounting", schoolId: "CDSTA", email: "accounting@cdsta.edu.ph", name: "Jose Macaraig, CPA", role: "ACCOUNTING", isActive: true, avatarUrl: "", department: "Support" },
+  { id: "user-cdsta-teacher", schoolId: "CDSTA", email: "teacher@cdsta.edu.ph", name: "Prof. Renato Villanueva", role: "TEACHER", isActive: true, avatarUrl: "", department: "College" },
+  { id: "user-cdsta-student", schoolId: "CDSTA", email: "student@cdsta.edu.ph", name: "Maria Clara Dela Cruz", role: "STUDENT", isActive: true, avatarUrl: "", department: "College" },
+  { id: "user-cdsta-hr", schoolId: "CDSTA", email: "hr@cdsta.edu.ph", name: "Teresa Navarro", role: "HR", isActive: true, avatarUrl: "", department: "Administration" },
 ];
 
 // ============================================================
@@ -303,33 +313,71 @@ export const MOCK_STUDENTS: Student[] = [
 ];
 
 export const MOCK_TEACHERS: Teacher[] = [
+  // ---- STSN Teachers ----
   {
-    id: "teach-arthur", firstName: "Arthur", lastName: "Reyes", middleName: "Panganiban",
+    id: "teach-arthur", schoolId: "STSN", firstName: "Arthur", lastName: "Reyes", middleName: "Panganiban",
     department: "College", email: "arthur.reyes@stsn.edu.ph", phone: "+639151231122",
     specialization: "Information Technology & Computer Networks", advisorySection: "IT101", isActive: true
   },
   {
-    id: "teach-beatriz", firstName: "Beatriz", lastName: "Cruz", middleName: "Soriano",
+    id: "teach-beatriz", schoolId: "STSN", firstName: "Beatriz", lastName: "Cruz", middleName: "Soriano",
     department: "Basic Education", email: "beatriz.cruz@stsn.edu.ph", phone: "+639163211155",
     specialization: "General Mathematics & Statistics", advisorySection: "St. Thomas", isActive: true
   },
   {
-    id: "teach-carlo", firstName: "Carlo", lastName: "Vergara", middleName: "Dizon",
+    id: "teach-carlo", schoolId: "STSN", firstName: "Carlo", lastName: "Vergara", middleName: "Dizon",
     department: "College", email: "carlo.vergara@stsn.edu.ph", phone: "+639174567890",
     specialization: "Business Economics & Finance", advisorySection: "BA201", isActive: true
   },
   {
-    id: "teach-elena", firstName: "Elena", lastName: "Soriano", middleName: "Basa",
+    id: "teach-elena", schoolId: "STSN", firstName: "Elena", lastName: "Soriano", middleName: "Basa",
     department: "Basic Education", email: "elena.soriano@stsn.edu.ph", phone: "+639182345678",
     specialization: "English Language & Literature", advisorySection: "St. Paul", isActive: true
+  },
+  // ---- CDSTA Teachers ----
+  {
+    id: "teach-renato", schoolId: "CDSTA", firstName: "Renato", lastName: "Villanueva", middleName: "De Vera",
+    department: "College", email: "teacher@cdsta.edu.ph", phone: "+639205551001",
+    specialization: "Programming & Software Engineering", advisorySection: "BSIT-1A", isActive: true
+  },
+  {
+    id: "teach-lorena", schoolId: "CDSTA", firstName: "Lorena", lastName: "Castaneda", middleName: "Sabado",
+    department: "College", email: "lorena.castaneda@cdsta.edu.ph", phone: "+639205551002",
+    specialization: "Accounting & Finance", advisorySection: "BSA-2A", isActive: true
+  },
+  {
+    id: "teach-jerome", schoolId: "CDSTA", firstName: "Jerome", lastName: "Navarro", middleName: "Cayco",
+    department: "College", email: "jerome.navarro@cdsta.edu.ph", phone: "+639205551003",
+    specialization: "Business Administration & Management", advisorySection: "BSBA-1A", isActive: true
+  },
+  {
+    id: "teach-fe", schoolId: "CDSTA", firstName: "Fe", lastName: "Domingo", middleName: "Lacson",
+    department: "College", email: "fe.domingo@cdsta.edu.ph", phone: "+639205551004",
+    specialization: "Hospitality Management", advisorySection: "BSHM-1A", isActive: true
   }
 ];
 
 export const MOCK_EMPLOYEES: Employee[] = [
-  { id: "emp-registrar", firstName: "Cynthia", lastName: "Ramos", middleName: "Bautista", email: "registrar@stsn.edu.ph", position: "Senior Registrar", department: "Registrar", salary: 42000, status: "Full-Time", leaveBalance: 15 },
-  { id: "emp-accounting", firstName: "Eduardo", lastName: "Bonto", middleName: "Marasigan", email: "accounting@stsn.edu.ph", position: "Chief Accountant", department: "Accounting", salary: 58000, status: "Full-Time", leaveBalance: 18 },
-  { id: "emp-hr", firstName: "Gemma", lastName: "Santos", middleName: "Macaraig", email: "hr@stsn.edu.ph", position: "HR Manager", department: "HR", salary: 45000, status: "Full-Time", leaveBalance: 14 },
-  { id: "emp-assistant", firstName: "Ronaldo", lastName: "Mercado", middleName: "Guevara", email: "ronald.mercado@stsn.edu.ph", position: "Administrative Assistant", department: "Administration", salary: 22000, status: "Full-Time", leaveBalance: 12 }
+  // ---- STSN Employees ----
+  { id: "emp-registrar", schoolId: "STSN", firstName: "Cynthia", lastName: "Ramos", middleName: "Bautista", email: "registrar@stsn.edu.ph", position: "Senior Registrar", positionTitle: "Senior Registrar", department: "Registrar", salary: 42000, status: "Full-Time", leaveBalance: 15, contact: "+639171000101", address: "#5 Rosario St., Novaliches, QC", emergencyContact: "Lino Ramos +639171000200" },
+  { id: "emp-accounting", schoolId: "STSN", firstName: "Eduardo", lastName: "Bonto", middleName: "Marasigan", email: "accounting@stsn.edu.ph", position: "Chief Accountant", positionTitle: "Chief Accountant / CPA", department: "Accounting", salary: 58000, status: "Full-Time", leaveBalance: 18, contact: "+639171000102", address: "#12 Avocado St., Fairview, QC", emergencyContact: "Lily Bonto +639171000201" },
+  { id: "emp-hr", schoolId: "STSN", firstName: "Gemma", lastName: "Santos", middleName: "Macaraig", email: "hr@stsn.edu.ph", position: "HR Manager", positionTitle: "Human Resources Manager", department: "HR", salary: 45000, status: "Full-Time", leaveBalance: 14, contact: "+639171000103", address: "#8 Sampaguita Ave., Novaliches, QC", emergencyContact: "Ramon Santos +639171000202" },
+  { id: "emp-assistant", schoolId: "STSN", firstName: "Ronaldo", lastName: "Mercado", middleName: "Guevara", email: "ronald.mercado@stsn.edu.ph", position: "Administrative Assistant", positionTitle: "Administrative Assistant I", department: "Administration", salary: 22000, status: "Full-Time", leaveBalance: 12, contact: "+639171000104", address: "#3 Maligaya Rd., Novaliches, QC", emergencyContact: "Luz Mercado +639171000203" },
+  { id: "emp-stsn-05", schoolId: "STSN", firstName: "Mariflor", lastName: "Belen", middleName: "Dela Torre", email: "mariflor.belen@stsn.edu.ph", position: "Guidance Counselor", positionTitle: "Guidance Counselor", department: "Administration", salary: 32000, status: "Full-Time", leaveBalance: 15, contact: "+639171000105", address: "#21 Kaibigan St., Novaliches, QC", emergencyContact: "Carlos Belen +639171000204" },
+  { id: "emp-stsn-06", schoolId: "STSN", firstName: "Roberto", lastName: "Espino", middleName: "Tanedo", email: "roberto.espino@stsn.edu.ph", position: "Librarian", positionTitle: "Head Librarian", department: "Administration", salary: 28000, status: "Full-Time", leaveBalance: 15, contact: "+639171000106", address: "#7 Limasawa St., Novaliches, QC", emergencyContact: "Fe Espino +639171000205" },
+  { id: "emp-stsn-07", schoolId: "STSN", firstName: "Natividad", lastName: "Pareja", middleName: "Cabrera", email: "natividad.pareja@stsn.edu.ph", position: "School Nurse", positionTitle: "Registered Nurse", department: "Administration", salary: 27000, status: "Full-Time", leaveBalance: 15, contact: "+639171000107", address: "#15 Bahaghari St., Novaliches, QC", emergencyContact: "Pedro Pareja +639171000206" },
+  { id: "emp-stsn-08", schoolId: "STSN", firstName: "Danilo", lastName: "Cruz", middleName: "Poblete", email: "danilo.cruz@stsn.edu.ph", position: "Instructor", positionTitle: "Instructor I — Math Dept.", department: "Basic Education", salary: 30000, status: "Full-Time", leaveBalance: 15, contact: "+639171000108", address: "#4 Kalayaan Blvd., Novaliches, QC", emergencyContact: "Elena Cruz +639171000207" },
+  { id: "emp-stsn-09", schoolId: "STSN", firstName: "Leonora", lastName: "Viray", middleName: "Sison", email: "leonora.viray@stsn.edu.ph", position: "Instructor", positionTitle: "Instructor II — English Dept.", department: "Basic Education", salary: 31000, status: "Part-Time", leaveBalance: 7, contact: "+639171000109", address: "#6 Maharlika St., Novaliches, QC", emergencyContact: "Domingo Viray +639171000208" },
+  { id: "emp-stsn-10", schoolId: "STSN", firstName: "Cesar", lastName: "Bonifacio", middleName: "Salanga", email: "cesar.bonifacio@stsn.edu.ph", position: "Instructor", positionTitle: "Instructor I — Science Dept.", department: "Basic Education", salary: 30000, status: "Contractual", leaveBalance: 5, contact: "+639171000110", address: "#19 Katipunan St., Novaliches, QC", emergencyContact: "Nenita Bonifacio +639171000209" },
+  // ---- CDSTA Employees ----
+  { id: "emp-cdsta-01", schoolId: "CDSTA", firstName: "Maria Luz", lastName: "Aquino", middleName: "Bañez", email: "registrar@cdsta.edu.ph", position: "Senior Registrar", positionTitle: "Senior Registrar", department: "Registrar", salary: 44000, status: "Full-Time", leaveBalance: 15, contact: "+639205552001", address: "#10 Sto. Tomas St., Novaliches, QC", emergencyContact: "Jose Aquino +639205552100" },
+  { id: "emp-cdsta-02", schoolId: "CDSTA", firstName: "Jose", lastName: "Macaraig", middleName: "Reyes", email: "accounting@cdsta.edu.ph", position: "Chief Accountant", positionTitle: "Chief Accountant / CPA", department: "Accounting", salary: 60000, status: "Full-Time", leaveBalance: 18, contact: "+639205552002", address: "#22 Sta. Cruz St., Novaliches, QC", emergencyContact: "Alma Macaraig +639205552101" },
+  { id: "emp-cdsta-03", schoolId: "CDSTA", firstName: "Teresa", lastName: "Navarro", middleName: "Ramos", email: "hr@cdsta.edu.ph", position: "HR Manager", positionTitle: "Human Resources Manager", department: "HR", salary: 46000, status: "Full-Time", leaveBalance: 14, contact: "+639205552003", address: "#5 Brgy. Pasong Putik, Novaliches, QC", emergencyContact: "Luis Navarro +639205552102" },
+  { id: "emp-cdsta-04", schoolId: "CDSTA", firstName: "Renato", lastName: "Villanueva", middleName: "De Vera", email: "teacher@cdsta.edu.ph", position: "Associate Professor", positionTitle: "Associate Professor — IT", department: "College", salary: 52000, status: "Full-Time", leaveBalance: 15, contact: "+639205552004", address: "#8 Commonwealth Ave., Ext.", emergencyContact: "Anita Villanueva +639205552103" },
+  { id: "emp-cdsta-05", schoolId: "CDSTA", firstName: "Lorena", lastName: "Castaneda", middleName: "Sabado", email: "lorena.castaneda@cdsta.edu.ph", position: "Instructor", positionTitle: "Instructor II — Accounting", department: "Accounting", salary: 38000, status: "Full-Time", leaveBalance: 15, contact: "+639205552005", address: "#17 BF Homes, Quezon City", emergencyContact: "Mario Castaneda +639205552104" },
+  { id: "emp-cdsta-06", schoolId: "CDSTA", firstName: "Jerome", lastName: "Navarro", middleName: "Cayco", email: "jerome.navarro@cdsta.edu.ph", position: "Instructor", positionTitle: "Instructor III — Business", department: "College", salary: 36000, status: "Full-Time", leaveBalance: 15, contact: "+639205552006", address: "#3 Congressional Ave., QC", emergencyContact: "Carla Navarro +639205552105" },
+  { id: "emp-cdsta-07", schoolId: "CDSTA", firstName: "Elisa", lastName: "Medina", middleName: "Flores", email: "elisa.medina@cdsta.edu.ph", position: "Administrative Assistant", positionTitle: "Admin. Assistant II", department: "Administration", salary: 24000, status: "Full-Time", leaveBalance: 12, contact: "+639205552007", address: "#9 Villa Carmel Subd., QC", emergencyContact: "Pedro Medina +639205552106" },
+  { id: "emp-cdsta-08", schoolId: "CDSTA", firstName: "Armando", lastName: "Lajom", middleName: "Santos", email: "armando.lajom@cdsta.edu.ph", position: "Campus Security Head", positionTitle: "Security Head / Senior Guard", department: "Administration", salary: 20000, status: "Full-Time", leaveBalance: 10, contact: "+639205552008", address: "#45 Muñoz, Novaliches, QC", emergencyContact: "Rosa Lajom +639205552107" },
 ];
 
 export const MOCK_COURSES: Course[] = [
@@ -1262,5 +1310,343 @@ export const MOCK_CLASS_SCHEDULES: ClassSchedule[] = [
     day: "Thursday", startTime: "13:00", endTime: "15:00",
     schoolYear: "2026-2027", semester: "First Semester",
     isActive: true, department: "College", yearLevel: "1st Year", courseOrTrack: "BSBA"
+  },
+];
+
+// ============================================================
+// LEARNING MATERIALS — STSN & CDSTA (LMS Demo Data)
+// ============================================================
+export const MOCK_LEARNING_MATERIALS: LearningMaterial[] = [
+  // ---- STSN — Basic Education — Videos ----
+  {
+    id: "lm-stsn-v01", schoolId: "STSN",
+    title: "Algebra Basics: Linear Equations Explained",
+    description: "Comprehensive introduction to solving linear equations with step-by-step examples and practice problems for Grade 9 students.",
+    subjectCode: "JHS-MATH9", subjectName: "Mathematics 9 (Algebra)",
+    section: "St. Mark", teacherId: "teach-beatriz", teacherName: "Prof. Beatriz Cruz",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/NybHckSEQBI",
+    thumbnailUrl: "https://img.youtube.com/vi/NybHckSEQBI/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-10",
+    department: "Basic Education", yearLevel: "Grade 9", trackOrCourse: "Junior High",
+    tags: ["algebra", "math", "grade9"]
+  },
+  {
+    id: "lm-stsn-v02", schoolId: "STSN",
+    title: "Earth Science: Structure of the Earth",
+    description: "Visual guide to the Earth's interior layers, plate tectonics, and geological processes. Includes diagrams and animations.",
+    subjectCode: "JHS-SCI8", subjectName: "Earth Science 8",
+    section: "St. Paul", teacherId: "teach-beatriz", teacherName: "Prof. Beatriz Cruz",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/eIBe6qB0HdI",
+    thumbnailUrl: "https://img.youtube.com/vi/eIBe6qB0HdI/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-12",
+    department: "Basic Education", yearLevel: "Grade 8", trackOrCourse: "Junior High",
+    tags: ["earth science", "geology"]
+  },
+  {
+    id: "lm-stsn-v03", schoolId: "STSN",
+    title: "Oral Communication: Public Speaking Techniques",
+    description: "Learn effective public speaking, voice projection, and non-verbal communication skills required for SHS Oral Communication.",
+    subjectCode: "SHS-ORAL-COM", subjectName: "Oral Communication",
+    section: "St. Thomas", teacherId: "teach-elena", teacherName: "Prof. Elena Soriano",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/tShavGuo0_E",
+    thumbnailUrl: "https://img.youtube.com/vi/tShavGuo0_E/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-14",
+    department: "Basic Education", yearLevel: "Grade 11", trackOrCourse: "STEM",
+    tags: ["communication", "speech", "grade11"]
+  },
+  {
+    id: "lm-stsn-v04", schoolId: "STSN",
+    title: "General Mathematics: Functions and Relations",
+    description: "Master functions, domain, range, and function operations. Perfect review for Grade 11 STEM students.",
+    subjectCode: "SHS-GEN-MATH", subjectName: "General Mathematics",
+    section: "St. Thomas", teacherId: "teach-beatriz", teacherName: "Prof. Beatriz Cruz",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/52tpYl2tTqk",
+    thumbnailUrl: "https://img.youtube.com/vi/52tpYl2tTqk/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-16",
+    department: "Basic Education", yearLevel: "Grade 11", trackOrCourse: "STEM",
+    tags: ["functions", "math", "stem"]
+  },
+  {
+    id: "lm-stsn-v05", schoolId: "STSN",
+    title: "Statistics and Probability: Measures of Central Tendency",
+    description: "Deep dive into mean, median, mode, and their applications in real-world data analysis for SHS STEM.",
+    subjectCode: "SHS-STAT-PROB", subjectName: "Statistics and Probability",
+    section: "St. Thomas", teacherId: "teach-beatriz", teacherName: "Prof. Beatriz Cruz",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/kn83BA7cRNM",
+    thumbnailUrl: "https://img.youtube.com/vi/kn83BA7cRNM/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-18",
+    department: "Basic Education", yearLevel: "Grade 11", trackOrCourse: "STEM",
+    tags: ["statistics", "probability", "stem"]
+  },
+  {
+    id: "lm-stsn-v06", schoolId: "STSN",
+    title: "Biology 9: Cell Division — Mitosis & Meiosis",
+    description: "Animated walkthrough of cell division processes, with clear diagrams of mitosis and meiosis phases for Grade 9.",
+    subjectCode: "JHS-SCI9", subjectName: "Biology 9",
+    section: "St. Mark", teacherId: "teach-beatriz", teacherName: "Prof. Beatriz Cruz",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/L0k-enzoeOM",
+    thumbnailUrl: "https://img.youtube.com/vi/L0k-enzoeOM/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-20",
+    department: "Basic Education", yearLevel: "Grade 9", trackOrCourse: "Junior High",
+    tags: ["biology", "cell division", "science"]
+  },
+  // ---- STSN — Basic Education — Modules / Documents ----
+  {
+    id: "lm-stsn-m01", schoolId: "STSN",
+    title: "English Grammar: Parts of Speech Complete Guide",
+    description: "Comprehensive written module covering nouns, pronouns, verbs, adjectives, adverbs, prepositions, conjunctions, and interjections.",
+    subjectCode: "JHS-ENG7", subjectName: "English 7",
+    section: "St. Theresa", teacherId: "teach-elena", teacherName: "Prof. Elena Soriano",
+    learningType: "Module",
+    fileUrl: "#module-pdf-grammar",
+    fileName: "English_Grammar_Parts_of_Speech.pdf",
+    fileSize: "2.4 MB",
+    thumbnailUrl: "",
+    publishStatus: "Published", uploadDate: "2026-05-08",
+    department: "Basic Education", yearLevel: "Grade 7", trackOrCourse: "Junior High",
+    tags: ["english", "grammar", "grade7"]
+  },
+  {
+    id: "lm-stsn-m02", schoolId: "STSN",
+    title: "Entrepreneurship: Business Plan Workshop Workbook",
+    description: "Step-by-step workbook for creating a business plan including market research, financial projections, and SWOT analysis.",
+    subjectCode: "SHS-ABM-PRIN", subjectName: "Fundamentals of ABM",
+    section: "St. Catherine", teacherId: "teach-carlo", teacherName: "Prof. Carlo Vergara",
+    learningType: "Document",
+    fileUrl: "#doc-biz-plan",
+    fileName: "Business_Plan_Workshop.docx",
+    fileSize: "1.8 MB",
+    thumbnailUrl: "",
+    publishStatus: "Published", uploadDate: "2026-05-22",
+    department: "Basic Education", yearLevel: "Grade 11", trackOrCourse: "ABM",
+    tags: ["entrepreneurship", "abm", "business"]
+  },
+  {
+    id: "lm-stsn-m03", schoolId: "STSN",
+    title: "ICT Fundamentals: Introduction to Computers & Operating Systems",
+    description: "Module covering computer hardware, software, operating systems, and basic troubleshooting for Grade 11 students.",
+    subjectCode: "SHS-GEN-MATH", subjectName: "General Mathematics",
+    section: "St. Thomas", teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    learningType: "Module",
+    fileUrl: "#module-ict-fundamentals",
+    fileName: "ICT_Fundamentals_Module1.pdf",
+    fileSize: "3.1 MB",
+    thumbnailUrl: "",
+    publishStatus: "Published", uploadDate: "2026-05-25",
+    department: "Basic Education", yearLevel: "Grade 11", trackOrCourse: "STEM",
+    tags: ["ict", "computers", "technology"]
+  },
+  // ---- STSN — College — Videos ----
+  {
+    id: "lm-stsn-cv01", schoolId: "STSN",
+    title: "Programming Logic: Introduction to Algorithms",
+    description: "Foundational concepts of algorithms, flowcharts, pseudocode, and problem-solving approaches for BSIT 1st year students.",
+    subjectCode: "IT101", subjectName: "Introduction to Computing",
+    section: "IT101", teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/rL8X2mlNHPM",
+    thumbnailUrl: "https://img.youtube.com/vi/rL8X2mlNHPM/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-06",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSIT",
+    tags: ["programming", "algorithms", "bsit"]
+  },
+  {
+    id: "lm-stsn-cv02", schoolId: "STSN",
+    title: "Computer Programming 1: Variables and Data Types",
+    description: "Learn Python variables, data types, type casting, and basic input/output operations with live coding demonstrations.",
+    subjectCode: "IT102", subjectName: "Computer Programming 1",
+    section: "IT101", teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/rfscVS0vtbw",
+    thumbnailUrl: "https://img.youtube.com/vi/rfscVS0vtbw/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-09",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSIT",
+    tags: ["python", "programming", "variables"]
+  },
+  {
+    id: "lm-stsn-cv03", schoolId: "STSN",
+    title: "Database Management: SQL SELECT Statements",
+    description: "Complete SQL SELECT tutorial covering WHERE clauses, ORDER BY, GROUP BY, JOINs, and subqueries for BSIT 2nd year.",
+    subjectCode: "IT202", subjectName: "Database Management Systems",
+    section: "IT201", teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/7S_tz1z_5bA",
+    thumbnailUrl: "https://img.youtube.com/vi/7S_tz1z_5bA/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-11",
+    department: "College", yearLevel: "2nd Year", trackOrCourse: "BSIT",
+    tags: ["sql", "database", "bsit"]
+  },
+  {
+    id: "lm-stsn-cm01", schoolId: "STSN",
+    title: "Web Development 1: HTML & CSS Fundamentals",
+    description: "Comprehensive module covering HTML5 structure, semantic tags, CSS selectors, box model, flexbox, and responsive design.",
+    subjectCode: "IT201", subjectName: "Web Development 1",
+    section: "IT201", teacherId: "teach-arthur", teacherName: "Prof. Arthur Reyes",
+    learningType: "Module",
+    fileUrl: "#module-web-dev",
+    fileName: "WebDev1_HTML_CSS_Module.pdf",
+    fileSize: "4.2 MB",
+    thumbnailUrl: "",
+    publishStatus: "Published", uploadDate: "2026-05-15",
+    department: "College", yearLevel: "2nd Year", trackOrCourse: "BSIT",
+    tags: ["html", "css", "web development"]
+  },
+  // ---- CDSTA — College — Videos ----
+  {
+    id: "lm-cdsta-v01", schoolId: "CDSTA",
+    title: "Programming Logic & Design: Introduction",
+    description: "Foundational course on programming logic, flowcharts, pseudocode, and structured programming for BSIT freshmen.",
+    subjectCode: "IT101", subjectName: "Introduction to Computing",
+    section: "BSIT-1A", teacherId: "teach-renato", teacherName: "Prof. Renato Villanueva",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/zOjov-2OZ0E",
+    thumbnailUrl: "https://img.youtube.com/vi/zOjov-2OZ0E/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-07",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSIT",
+    tags: ["programming", "logic", "bsit"]
+  },
+  {
+    id: "lm-cdsta-v02", schoolId: "CDSTA",
+    title: "Fundamentals of Accounting 1: The Accounting Cycle",
+    description: "Full walkthrough of the accounting cycle from source documents to trial balance, with journal and ledger examples.",
+    subjectCode: "ACCT101", subjectName: "Fundamentals of Accounting 1",
+    section: "BSA-1A", teacherId: "teach-lorena", teacherName: "Prof. Lorena Castaneda",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/WNcXFoypWN0",
+    thumbnailUrl: "https://img.youtube.com/vi/WNcXFoypWN0/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-08",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSA",
+    tags: ["accounting", "cycle", "bsa"]
+  },
+  {
+    id: "lm-cdsta-v03", schoolId: "CDSTA",
+    title: "Principles of Management: Planning & Organizing",
+    description: "Management functions explained with real-world business case studies. Covers planning, organizing, leading, and controlling.",
+    subjectCode: "BA101", subjectName: "Principles of Management",
+    section: "BSBA-1A", teacherId: "teach-jerome", teacherName: "Prof. Jerome Navarro",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/KBpoBocJg_U",
+    thumbnailUrl: "https://img.youtube.com/vi/KBpoBocJg_U/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-10",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSBA",
+    tags: ["management", "business", "bsba"]
+  },
+  {
+    id: "lm-cdsta-v04", schoolId: "CDSTA",
+    title: "Hospitality Industry: Introduction to Hotel Operations",
+    description: "Overview of hotel departments, front desk operations, housekeeping standards, and food & beverage service for BSHM 1st year.",
+    subjectCode: "HM101", subjectName: "Introduction to Hospitality Industry",
+    section: "BSHM-1A", teacherId: "teach-fe", teacherName: "Prof. Fe Domingo",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/q0A24RDKLXA",
+    thumbnailUrl: "https://img.youtube.com/vi/q0A24RDKLXA/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-12",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSHM",
+    tags: ["hospitality", "hotel", "bshm"]
+  },
+  {
+    id: "lm-cdsta-v05", schoolId: "CDSTA",
+    title: "Data Structures: Arrays and Linked Lists",
+    description: "Visual explanation of arrays, singly linked lists, doubly linked lists, and circular linked lists with code implementations.",
+    subjectCode: "CS201", subjectName: "Data Structures",
+    section: "BSCS-2A", teacherId: "teach-renato", teacherName: "Prof. Renato Villanueva",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/B31LgI4Y4DQ",
+    thumbnailUrl: "https://img.youtube.com/vi/B31LgI4Y4DQ/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-14",
+    department: "College", yearLevel: "2nd Year", trackOrCourse: "BSCS",
+    tags: ["data structures", "arrays", "bscs"]
+  },
+  {
+    id: "lm-cdsta-v06", schoolId: "CDSTA",
+    title: "Biology Introduction: Cell Structure and Function",
+    description: "Learn about prokaryotic and eukaryotic cells, organelles, cell membrane, and cellular processes for Biology 101.",
+    subjectCode: "ED101", subjectName: "Child and Adolescent Development",
+    section: "BSED-1A", teacherId: "teach-fe", teacherName: "Prof. Fe Domingo",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/URUJD5NEXC8",
+    thumbnailUrl: "https://img.youtube.com/vi/URUJD5NEXC8/hqdefault.jpg",
+    publishStatus: "Published", uploadDate: "2026-05-16",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSED",
+    tags: ["biology", "cells", "bsed"]
+  },
+  // ---- CDSTA — Modules / Documents ----
+  {
+    id: "lm-cdsta-m01", schoolId: "CDSTA",
+    title: "Financial Accounting: Balance Sheet & Income Statement",
+    description: "Detailed module on preparing financial statements, analyzing balance sheets, and income statement components for BSA 2nd year.",
+    subjectCode: "ACCT201", subjectName: "Financial Accounting",
+    section: "BSA-2A", teacherId: "teach-lorena", teacherName: "Prof. Lorena Castaneda",
+    learningType: "Module",
+    fileUrl: "#module-financial-accounting",
+    fileName: "Financial_Accounting_Module2.pdf",
+    fileSize: "3.6 MB",
+    thumbnailUrl: "",
+    publishStatus: "Published", uploadDate: "2026-05-20",
+    department: "College", yearLevel: "2nd Year", trackOrCourse: "BSA",
+    tags: ["financial accounting", "balance sheet", "bsa"]
+  },
+  {
+    id: "lm-cdsta-m02", schoolId: "CDSTA",
+    title: "Human Resource Management: Recruitment & Selection",
+    description: "Complete guide to HR planning, job analysis, recruitment strategies, selection process, and onboarding procedures.",
+    subjectCode: "BA201", subjectName: "Human Resource Management",
+    section: "BSBA-2A", teacherId: "teach-jerome", teacherName: "Prof. Jerome Navarro",
+    learningType: "Document",
+    fileUrl: "#doc-hrm",
+    fileName: "HRM_Recruitment_Selection_Guide.docx",
+    fileSize: "2.1 MB",
+    thumbnailUrl: "",
+    publishStatus: "Published", uploadDate: "2026-05-22",
+    department: "College", yearLevel: "2nd Year", trackOrCourse: "BSBA",
+    tags: ["hrm", "recruitment", "bsba"]
+  },
+  {
+    id: "lm-cdsta-m03", schoolId: "CDSTA",
+    title: "Food and Beverage Service: Table Setting Standards",
+    description: "Illustrated guide to formal and informal table settings, service styles (American, French, Russian), and dining etiquette.",
+    subjectCode: "HM102", subjectName: "Food and Beverage Service",
+    section: "BSHM-1A", teacherId: "teach-fe", teacherName: "Prof. Fe Domingo",
+    learningType: "Module",
+    fileUrl: "#module-fnb",
+    fileName: "FnB_Table_Setting_Standards.pdf",
+    fileSize: "5.2 MB",
+    thumbnailUrl: "",
+    publishStatus: "Published", uploadDate: "2026-05-24",
+    department: "College", yearLevel: "1st Year", trackOrCourse: "BSHM",
+    tags: ["hospitality", "food beverage", "table setting"]
+  },
+  // ---- Draft materials ----
+  {
+    id: "lm-stsn-draft01", schoolId: "STSN",
+    title: "Physical Science: Newton's Laws of Motion [DRAFT]",
+    description: "Video lesson on Newton's three laws with practical demonstrations and problem-solving exercises. Pending review.",
+    subjectCode: "SHS-PHYS-SCI", subjectName: "Physical Science",
+    section: "St. Thomas", teacherId: "teach-beatriz", teacherName: "Prof. Beatriz Cruz",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/kKKM8Y-u7ds",
+    thumbnailUrl: "https://img.youtube.com/vi/kKKM8Y-u7ds/hqdefault.jpg",
+    publishStatus: "Draft", uploadDate: "2026-06-01",
+    department: "Basic Education", yearLevel: "Grade 11", trackOrCourse: "STEM",
+    tags: ["physics", "newton", "stem"]
+  },
+  {
+    id: "lm-cdsta-draft01", schoolId: "CDSTA",
+    title: "Network Administration: IP Addressing & Subnetting [DRAFT]",
+    description: "Comprehensive video covering IPv4/IPv6 addressing, subnet masks, CIDR notation, and network design principles.",
+    subjectCode: "IT302", subjectName: "Network Administration",
+    section: "BSIT-3A", teacherId: "teach-renato", teacherName: "Prof. Renato Villanueva",
+    learningType: "Video",
+    videoUrl: "https://www.youtube.com/embed/s_gy5jSLkVA",
+    thumbnailUrl: "https://img.youtube.com/vi/s_gy5jSLkVA/hqdefault.jpg",
+    publishStatus: "Draft", uploadDate: "2026-06-02",
+    department: "College", yearLevel: "3rd Year", trackOrCourse: "BSIT",
+    tags: ["networking", "ip", "bsit"]
   },
 ];

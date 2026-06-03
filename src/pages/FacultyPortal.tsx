@@ -19,12 +19,15 @@ import {
   ListFilter,
   Check,
   AlertCircle,
-  GraduationCap
+  GraduationCap,
+  MapPin,
+  Sun,
+  ChevronRight
 } from "lucide-react";
 import GradingModule from "./GradingModule";
 
 export default function FacultyPortal() {
-  const { teachers, currentUser, students, announcements, grades, subjects } = useSTSNStore();
+  const { teachers, currentUser, students, announcements, grades, subjects, classSchedules } = useSTSNStore();
   const currentTeacher = teachers.find((t) => t.email === currentUser?.email) || teachers[0]; // defaults to Mrs Beatriz
 
   // Advisory Class Details
@@ -398,105 +401,227 @@ export default function FacultyPortal() {
         </div>
       )}
 
-      {/* TAB B: CLASS SCHEDULE & ASSIGNED SUBJECTS */}
-      {activeTab === "schedule" && (
-        <div className="space-y-6">
-          
-          <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 uppercase pb-2 border-b border-stone-100 flex items-center gap-1.5">
-              <Calendar className="w-4.5 h-4.5 text-stsn-gold" />
-              Weekly Instructor Timetable Slot-map
-            </h3>
+      {/* TAB B: CLASS SCHEDULE & ASSIGNED SUBJECTS (DYNAMIC) */}
+      {activeTab === "schedule" && (() => {
+        const teacherSchedules = classSchedules.filter((s) => s.teacherId === currentTeacher.id && s.isActive);
+        const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+        const today = new Date().toLocaleDateString("en-US", { weekday: "long" }) as typeof days[number];
+        const uniqueSubjects = Array.from(new Map(teacherSchedules.map((s) => [s.subjectCode, s])).values());
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-stsn-cream border-l-4 border-stsn-gold rounded-r-xl space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="font-mono text-[9px] font-bold text-stsn-brown block uppercase">Lec Room C-101</span>
-                  <span className="text-[9px] bg-white border border-stsn-beige text-stone-500 rounded px-1.5 py-0.5 font-bold uppercase">Basic Ed</span>
+        const DAY_COLORS: Record<string, string> = {
+          Monday: "border-blue-400 bg-blue-50",
+          Tuesday: "border-emerald-400 bg-emerald-50",
+          Wednesday: "border-purple-400 bg-purple-50",
+          Thursday: "border-orange-400 bg-orange-50",
+          Friday: "border-red-400 bg-red-50",
+          Saturday: "border-stone-400 bg-stone-50"
+        };
+
+        return (
+          <div className="space-y-6">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: "Total Classes", value: teacherSchedules.length, color: "from-stsn-brown to-stsn-gold" },
+                { label: "Unique Subjects", value: uniqueSubjects.length, color: "from-blue-600 to-blue-500" },
+                { label: "Sections", value: new Set(teacherSchedules.map((s) => s.section)).size, color: "from-emerald-600 to-emerald-500" },
+                { label: "School Year", value: "2026-27", color: "from-purple-600 to-purple-500" }
+              ].map((stat) => (
+                <div key={stat.label} className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
+                  <p className={`text-2xl font-display font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>{stat.value}</p>
+                  <p className="text-[10px] text-stone-400 font-mono uppercase tracking-wide mt-0.5">{stat.label}</p>
                 </div>
-                <h4 className="text-xs font-bold text-stone-900 mt-1">Senior High Gen Math</h4>
-                <p className="text-[11px] text-stone-500 font-medium font-semibold">MWF 08:30 AM - 10:00 AM</p>
-                <div className="pt-2 border-t border-stone-200/50 flex justify-between text-[10px] text-stone-400 font-mono">
-                  <span>Section: St. Thomas</span>
-                  <span>Units: 3.0</span>
+              ))}
+            </div>
+
+            {/* Today's Highlight */}
+            {teacherSchedules.filter((s) => s.day === today).length > 0 && (
+              <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark rounded-xl p-4 text-white">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sun className="w-4 h-4 text-stsn-gold" />
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-stsn-gold">Today — {today}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {teacherSchedules.filter((s) => s.day === today).map((sched) => (
+                    <div key={sched.id} className="bg-white/10 rounded-xl p-3 border border-white/10">
+                      <p className="text-xs font-bold text-white">{sched.subjectName}</p>
+                      <p className="text-[10px] text-stsn-gold-light mt-1">{sched.startTime} – {sched.endTime}</p>
+                      <div className="flex items-center gap-3 mt-1 text-[10px] text-stone-300">
+                        <span className="flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{sched.roomName}</span>
+                        <span>{sched.section}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+            )}
 
-              <div className="p-4 bg-stsn-cream border-l-4 border-stsn-gold rounded-r-xl space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="font-mono text-[9px] font-bold text-stsn-brown block uppercase">Lec Room C-105</span>
-                  <span className="text-[9px] bg-white border border-stsn-beige text-stone-500 rounded px-1.5 py-0.5 font-bold uppercase">Basic Ed</span>
-                </div>
-                <h4 className="text-xs font-bold text-stone-900 mt-1">Pre-Calculus Core 1</h4>
-                <p className="text-[11px] text-stone-500 font-medium font-semibold">MWF 11:30 AM - 01:00 PM</p>
-                <div className="pt-2 border-t border-stone-200/50 flex justify-between text-[10px] text-stone-400 font-mono">
-                  <span>Section: St. Thomas</span>
-                  <span>Units: 3.0</span>
-                </div>
+            {/* Weekly Calendar Grid */}
+            <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-stone-100">
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-stsn-gold" />
+                  Weekly Schedule — SY 2026-2027 | First Semester
+                </h3>
               </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-stone-50 border-b border-stone-100">
+                      {days.map((d) => (
+                        <th key={d} className={`p-3 text-center font-bold text-[10px] uppercase tracking-wide ${d === today ? "text-stsn-brown bg-stsn-cream" : "text-stone-500"}`}>
+                          {d === today && <span className="block text-[8px] text-stsn-gold font-mono mb-0.5">TODAY</span>}
+                          {d.slice(0, 3)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {days.map((day) => {
+                        const dayScheds = teacherSchedules.filter((s) => s.day === day);
+                        return (
+                          <td key={day} className={`p-2 align-top min-w-[130px] border-r border-stone-100 last:border-r-0 ${day === today ? "bg-stsn-cream/30" : ""}`}>
+                            {dayScheds.length === 0 ? (
+                              <div className="text-center py-4 text-[10px] text-stone-300 italic">Free</div>
+                            ) : (
+                              <div className="space-y-2">
+                                {dayScheds.map((sched) => (
+                                  <div key={sched.id} className={`p-2 rounded-lg border-l-4 ${DAY_COLORS[day]} border border-opacity-30`}>
+                                    <p className="font-bold text-stone-800 text-[10px] leading-tight">{sched.subjectName}</p>
+                                    <p className="text-[9px] text-stone-500 font-mono mt-0.5">{sched.startTime} – {sched.endTime}</p>
+                                    <div className="flex items-center gap-1 mt-1 text-[9px] text-stone-400">
+                                      <MapPin className="w-2.5 h-2.5" />
+                                      <span>{sched.roomName}</span>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-stone-600">{sched.section}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-              <div className="p-4 bg-stone-50 border-l-4 border-stone-400 rounded-r-xl space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="font-mono text-[9px] font-bold text-stone-500 block uppercase">Lec Room LAB-201</span>
-                  <span className="text-[9px] bg-white border border-stone-200 text-stone-500 rounded px-1.5 py-0.5 font-bold uppercase">College Acad</span>
-                </div>
-                <h4 className="text-xs font-bold text-stone-900 mt-1">Applied Calculus Lab</h4>
-                <p className="text-[11px] text-stone-500 font-medium font-semibold">TTh 02:00 PM - 03:30 PM</p>
-                <div className="pt-2 border-t border-stone-200/50 flex justify-between text-[10px] text-stone-400 font-mono">
-                  <span>Section: IT101</span>
-                  <span>Units: 3.0</span>
-                </div>
+            {/* Detailed Schedule Table */}
+            <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-stone-100">
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-stsn-gold" />
+                  Full Schedule Details & Room Assignments
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-stone-50 border-b border-stone-100">
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Subject</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Section</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Room</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Day</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Start</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">End</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Semester</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Dept</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-50">
+                    {teacherSchedules.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-stone-400 text-xs italic">
+                          No class schedules assigned. Contact the admin to assign your teaching load.
+                        </td>
+                      </tr>
+                    ) : (
+                      teacherSchedules.map((sched) => (
+                        <tr key={sched.id} className={`hover:bg-stone-50 transition-colors ${sched.day === today ? "bg-stsn-cream/20" : ""}`}>
+                          <td className="px-4 py-3">
+                            <p className="font-bold text-stone-800">{sched.subjectName}</p>
+                            <p className="text-[10px] text-stone-400 font-mono">{sched.subjectCode}</p>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-stone-700">{sched.section}</td>
+                          <td className="px-4 py-3 text-stone-600 flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-stsn-gold flex-shrink-0" />{sched.roomName}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${sched.day === today ? "bg-stsn-brown text-white" : "bg-stone-100 text-stone-600"}`}>
+                              {sched.day}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-stone-600">{sched.startTime}</td>
+                          <td className="px-4 py-3 font-mono text-stone-600">{sched.endTime}</td>
+                          <td className="px-4 py-3 text-stone-500">{sched.semester}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${sched.department === "College" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                              {sched.department === "College" ? "College" : "Basic Ed"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Assigned Subjects Summary */}
+            <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-stone-100">
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-stsn-gold" />
+                  Assigned Subjects Summary
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-stone-50 border-b border-stone-100">
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Subject Code</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Subject Name</th>
+                      <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Department</th>
+                      <th className="px-4 py-3 text-center font-bold text-stone-500 text-[10px] uppercase tracking-wide">Sections</th>
+                      <th className="px-4 py-3 text-center font-bold text-stone-500 text-[10px] uppercase tracking-wide">Classes/Week</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-50">
+                    {uniqueSubjects.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-6 text-center text-stone-400 text-xs italic">No subjects assigned.</td>
+                      </tr>
+                    ) : (
+                      uniqueSubjects.map((sched) => {
+                        const allClasses = teacherSchedules.filter((s) => s.subjectCode === sched.subjectCode);
+                        const sections = Array.from(new Set(allClasses.map((s) => s.section)));
+                        const subjectInfo = subjects.find((sub) => sub.code === sched.subjectCode);
+                        return (
+                          <tr key={sched.id} className="hover:bg-stone-50">
+                            <td className="px-4 py-3 font-mono font-bold text-stsn-brown">{sched.subjectCode}</td>
+                            <td className="px-4 py-3 font-bold text-stone-800">{sched.subjectName}</td>
+                            <td className="px-4 py-3 text-stone-500">{sched.department}</td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex flex-wrap gap-1 justify-center">
+                                {sections.map((sec) => (
+                                  <span key={sec} className="px-1.5 py-0.5 rounded bg-stsn-cream text-stsn-brown text-[9px] font-bold">{sec}</span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center font-bold text-stone-700">{allClasses.length}x</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
-
-          {/* Assigned Subjects detail view */}
-          <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 uppercase pb-2 border-b border-stone-100 italic flex items-center gap-1.5">
-              <BookOpen className="w-4.5 h-4.5 text-stsn-gold" />
-              Assigned Subjects & Teaching Agenda Details
-            </h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border border-stone-100 rounded-lg overflow-hidden">
-                <thead>
-                  <tr className="bg-stone-50 border-b border-stone-100 font-bold text-stone-500 text-[10px] uppercase">
-                    <th className="p-3">Subject Code</th>
-                    <th className="p-3">Subject Name</th>
-                    <th className="p-3">Academic Department</th>
-                    <th className="p-3 text-center">Semester Load</th>
-                    <th className="p-3 text-center font-mono">Teaching Units</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100 font-medium">
-                  <tr>
-                    <td className="p-3 font-mono font-bold text-stsn-brown">SHS-GEN-MATH</td>
-                    <td className="p-3 text-stone-900 font-bold">General Mathematics</td>
-                    <td className="p-3 text-stone-500">Basic Education (Senior High)</td>
-                    <td className="p-3 text-center text-stone-600">First Semester</td>
-                    <td className="p-3 text-center text-stone-950 font-bold">3.0 Units</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-mono font-bold text-stsn-brown">SHS-READ-WRITE</td>
-                    <td className="p-3 text-stone-900 font-bold">Reading and Writing</td>
-                    <td className="p-3 text-stone-500">Basic Education (Senior High)</td>
-                    <td className="p-3 text-center text-stone-600">First Semester</td>
-                    <td className="p-3 text-center text-stone-950 font-bold">3.0 Units</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-mono font-bold text-stsn-brown">SHS-STAT-PROB</td>
-                    <td className="p-3 text-stone-900 font-bold">Statistics and Probability</td>
-                    <td className="p-3 text-stone-500">Basic Education (Senior High)</td>
-                    <td className="p-3 text-center text-stone-600">First Semester</td>
-                    <td className="p-3 text-center text-stone-950 font-bold">3.0 Units</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-      )}
+        );
+      })()}
 
       {/* TAB C: INTERACTIVE ATTENDANCE MONITORING */}
       {activeTab === "attendance" && (

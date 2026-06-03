@@ -41,6 +41,7 @@ import StudentPortal from "./pages/StudentPortal";
 import FacultyPortal from "./pages/FacultyPortal";
 import CoreSetupModule from "./pages/CoreSetupModule";
 import SchedulingModule from "./pages/SchedulingModule";
+import OnlineLearning from "./pages/OnlineLearning";
 
 type STSNModule =
   | "DASHBOARD"
@@ -53,10 +54,11 @@ type STSNModule =
   | "HR_MANAGEMENT"
   | "ACCOUNTS_SECURITY"
   | "CORE_SETUP"
-  | "SCHEDULING";
+  | "SCHEDULING"
+  | "ONLINE_LEARNING";
 
 export default function App() {
-  const { currentUser, login, logout, users } = useSTSNStore();
+  const { currentUser, login, logout, users, activeSchool } = useSTSNStore();
   const [activeModule, setActiveModule] = useState<STSNModule>("DASHBOARD");
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
@@ -82,11 +84,11 @@ export default function App() {
   if (!currentUser) return <LoginOverlay />;
 
   const rolePermissions: Record<string, STSNModule[]> = {
-    SUPER_ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING"],
-    ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING"],
+    SUPER_ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "ONLINE_LEARNING"],
+    ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "ONLINE_LEARNING"],
     REGISTRAR: ["DASHBOARD", "REGISTRAR", "CURRICULUM", "ACCOUNTS_SECURITY", "STUDENT_PORTAL", "SCHEDULING", "CORE_SETUP"],
     ACCOUNTING: ["ACCOUNTING", "CORE_SETUP"],
-    TEACHER: ["FACULTY_PORTAL", "GRADING", "CURRICULUM"],
+    TEACHER: ["FACULTY_PORTAL", "GRADING", "CURRICULUM", "ONLINE_LEARNING"],
     STUDENT: ["STUDENT_PORTAL"],
     HR: ["DASHBOARD", "HR_MANAGEMENT", "ACCOUNTS_SECURITY"],
     EMPLOYEE: ["FACULTY_PORTAL", "GRADING"]
@@ -101,6 +103,7 @@ export default function App() {
     { id: "GRADING", label: "Grades Directory", icon: GraduationCap, desc: "Midterm/Final score encodes" },
     { id: "STUDENT_PORTAL", label: "Student Portal", icon: UserCheck, desc: "View grades, COR & ID" },
     { id: "FACULTY_PORTAL", label: "Teacher Board", icon: BookOpen, desc: "Schedules & class scores" },
+    { id: "ONLINE_LEARNING", label: "Online Learning", icon: BarChart3, desc: "LMS • Videos & modules" },
     { id: "HR_MANAGEMENT", label: "HR Staff Payroll", icon: Users, desc: "Employee payslips database" },
     { id: "CURRICULUM", label: "Syllabus Pathways", icon: Building2, desc: "Academic subjects flow" },
     { id: "SCHEDULING", label: "Class Scheduling", icon: CalendarDays, desc: "Schedules & room assignments" },
@@ -135,14 +138,35 @@ export default function App() {
 
         {/* School badges */}
         <div className="px-4 py-2.5 space-y-1.5 border-b border-white/5">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/8">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
+            activeSchool === "STSN" || activeSchool === "ALL"
+              ? "bg-white/10 border-stsn-gold/30"
+              : "bg-white/5 border-white/8"
+          }`}>
             <School className="w-3 h-3 text-stsn-gold flex-shrink-0" />
-            <span className="text-[8.5px] font-mono text-stone-300 truncate">St. Theresa's School of Novaliches</span>
+            <span className="text-[8.5px] font-mono text-stone-300 truncate flex-1">St. Theresa's School of Novaliches</span>
+            {(activeSchool === "STSN" || activeSchool === "ALL") && (
+              <span className="w-1.5 h-1.5 rounded-full bg-stsn-gold animate-pulse flex-shrink-0" />
+            )}
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-400/15">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
+            activeSchool === "CDSTA" || activeSchool === "ALL"
+              ? "bg-blue-500/15 border-blue-400/30"
+              : "bg-white/5 border-white/8"
+          }`}>
             <GraduationCap className="w-3 h-3 text-blue-400 flex-shrink-0" />
-            <span className="text-[8.5px] font-mono text-blue-300 truncate">Colegio de Sta. Teresa de Avila</span>
+            <span className="text-[8.5px] font-mono text-blue-300 truncate flex-1">Colegio de Sta. Teresa de Avila</span>
+            {(activeSchool === "CDSTA" || activeSchool === "ALL") && (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse flex-shrink-0" />
+            )}
           </div>
+          {activeSchool !== "ALL" && (
+            <div className="px-2.5 py-1 text-center">
+              <span className="text-[8px] font-mono text-stsn-gold/60 uppercase tracking-widest">
+                Viewing: {activeSchool === "STSN" ? "STSN Data" : "CDSTA Data"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Authenticated Staff Card */}
@@ -269,6 +293,7 @@ export default function App() {
           {activeModule === "ACCOUNTS_SECURITY" && allowedModules.includes("ACCOUNTS_SECURITY") && <AccountsManagement />}
           {activeModule === "CORE_SETUP" && allowedModules.includes("CORE_SETUP") && <CoreSetupModule />}
           {activeModule === "SCHEDULING" && allowedModules.includes("SCHEDULING") && <SchedulingModule />}
+          {activeModule === "ONLINE_LEARNING" && allowedModules.includes("ONLINE_LEARNING") && <OnlineLearning />}
         </main>
       </div>
 

@@ -5,7 +5,9 @@
 
 import React, { useState } from "react";
 import { useSTSNStore } from "../services/store";
-import { BookOpen, ShieldAlert, CheckCircle, Key, Mail, Sparkles, Building2, Landmark } from "lucide-react";
+import { BookOpen, ShieldAlert, CheckCircle, Key, Mail, Sparkles, Building2, Landmark, School, GraduationCap } from "lucide-react";
+
+type SchoolContext = "STSN" | "CDSTA";
 
 export default function LoginOverlay() {
   const { login, currentUser, users } = useSTSNStore();
@@ -13,6 +15,7 @@ export default function LoginOverlay() {
   const [password, setPassword] = useState("password123");
   const [errorMsg, setErrorMsg] = useState("");
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [selectedSchool, setSelectedSchool] = useState<SchoolContext>("STSN");
 
   // Registration states
   const [regFirst, setRegFirst] = useState("");
@@ -21,6 +24,17 @@ export default function LoginOverlay() {
   const [regRole, setRegRole] = useState<"STUDENT" | "TEACHER">("STUDENT");
 
   if (currentUser) return null; // Already logged in
+
+  const SCHOOL_ACCOUNTS: Record<SchoolContext, { label: string; accounts: string[] }> = {
+    STSN: {
+      label: "St. Theresa's School of Novaliches",
+      accounts: ["admin@stsn.edu.ph", "registrar@stsn.edu.ph", "accounting@stsn.edu.ph", "teacher@stsn.edu.ph", "student@stsn.edu.ph", "hr@stsn.edu.ph"]
+    },
+    CDSTA: {
+      label: "Colegio de Sta. Teresa de Avila",
+      accounts: ["admin@cdsta.edu.ph", "registrar@cdsta.edu.ph", "accounting@cdsta.edu.ph", "teacher@cdsta.edu.ph", "student@cdsta.edu.ph", "hr@cdsta.edu.ph"]
+    }
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,23 +216,57 @@ export default function LoginOverlay() {
           </div>
         </div>
 
+        {/* School Selector */}
+        <div className="mb-4">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-stone-500 mb-2 font-semibold">Select School Context</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => { setSelectedSchool("STSN"); setEmail("admin@stsn.edu.ph"); }}
+              className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
+                selectedSchool === "STSN"
+                  ? "bg-stsn-cream border-stsn-gold text-stsn-brown"
+                  : "bg-white border-stone-200 text-stone-600 hover:border-stsn-brown/30"
+              }`}
+            >
+              <School className={`w-4 h-4 flex-shrink-0 ${selectedSchool === "STSN" ? "text-stsn-gold" : "text-stone-400"}`} />
+              <span className="leading-tight text-[10px]">St. Theresa's School<br/><span className="text-[9px] font-normal opacity-70">Novaliches, QC</span></span>
+            </button>
+            <button
+              onClick={() => { setSelectedSchool("CDSTA"); setEmail("admin@cdsta.edu.ph"); }}
+              className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
+                selectedSchool === "CDSTA"
+                  ? "bg-blue-50 border-blue-400 text-blue-700"
+                  : "bg-white border-stone-200 text-stone-600 hover:border-blue-300"
+              }`}
+            >
+              <GraduationCap className={`w-4 h-4 flex-shrink-0 ${selectedSchool === "CDSTA" ? "text-blue-500" : "text-stone-400"}`} />
+              <span className="leading-tight text-[10px]">Colegio de Sta. Teresa<br/><span className="text-[9px] font-normal opacity-70">de Avila</span></span>
+            </button>
+          </div>
+        </div>
+
         {/* Quick Presenter Accounts Box */}
         <div className="p-4 bg-stsn-cream border border-stsn-beige rounded-xl">
-          <p className="text-xs text-stsn-brown font-semibold flex items-center gap-1.5 mb-2.5">
+          <p className="text-xs text-stsn-brown font-semibold flex items-center gap-1.5 mb-1">
             <Sparkles className="w-3.5 h-3.5 text-stsn-gold" />
-            Quick Live Presentation Accounts
+            Quick Demo Accounts
           </p>
+          <p className="text-[9px] text-stone-400 font-mono mb-2.5 uppercase tracking-wider">{SCHOOL_ACCOUNTS[selectedSchool].label}</p>
           <div className="grid grid-cols-2 gap-1.5">
-            {users.map((u) => (
-              <button
-                key={u.role}
-                onClick={() => handleQuickLogin(u.email)}
-                className="bg-white hover:bg-stsn-beige text-[11px] text-stone-700 hover:text-stsn-brown border border-stone-200/80 rounded px-2 py-1 text-left font-medium transition-all flex items-center gap-1 truncate"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-stsn-gold" />
-                <span className="truncate">{u.role.replace("_", " ")}</span>
-              </button>
-            ))}
+            {SCHOOL_ACCOUNTS[selectedSchool].accounts.map((accountEmail) => {
+              const u = users.find((usr) => usr.email === accountEmail);
+              if (!u) return null;
+              return (
+                <button
+                  key={u.email}
+                  onClick={() => handleQuickLogin(u.email)}
+                  className="bg-white hover:bg-stsn-beige text-[11px] text-stone-700 hover:text-stsn-brown border border-stone-200/80 rounded px-2 py-1 text-left font-medium transition-all flex items-center gap-1 truncate"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedSchool === "STSN" ? "bg-stsn-gold" : "bg-blue-400"}`} />
+                  <span className="truncate">{u.role.replace("_", " ")}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

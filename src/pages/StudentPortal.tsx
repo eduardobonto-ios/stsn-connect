@@ -30,11 +30,16 @@ import {
   RefreshCw,
   ChevronRight,
   Info,
-  PlusCircle
+  PlusCircle,
+  Monitor,
+  Play,
+  Download,
+  Video,
+  Search
 } from "lucide-react";
 import { PreviewModal, CORPreview, IDCardPreview } from "../components/ModalPreviews";
 
-type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment";
+type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
 
 export default function StudentPortal() {
   const {
@@ -45,13 +50,19 @@ export default function StudentPortal() {
     subjects,
     enrollments,
     currentUser,
-    announcements
+    announcements,
+    learningMaterials
   } = useSTSNStore();
   const updateStudentProfile = undefined;
 
   const [activeTab, setActiveTab] = useState<PortalTab>("overview");
   const [isCorModalOpen, setIsCorModalOpen] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
+
+  // Online Learning state (must be at top level — hooks rule)
+  const [lmsSearch, setLmsSearch] = useState("");
+  const [lmsType, setLmsType] = useState<"All" | "Video" | "Module" | "Document">("All");
+  const [viewingLms, setViewingLms] = useState<typeof learningMaterials[0] | null>(null);
 
   // Enrollment module state
   const [enrollmentOpen] = useState(true); // toggle to false to show closed state
@@ -139,6 +150,7 @@ export default function StudentPortal() {
   const tabDef: { id: PortalTab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "My Dashboard & Schedule", icon: Calendar },
     { id: "grades", label: `Academic Report Card${gradesLocked ? " 🔒" : ""}`, icon: BookOpen },
+    { id: "elearning", label: "Online Learning", icon: Monitor },
     { id: "ledger", label: "Financial Ledger Statement", icon: CreditCard },
     { id: "profile", label: "Editable Student Profile", icon: User },
     { id: "enrollment", label: "Enrollment", icon: ClipboardList }
@@ -504,6 +516,210 @@ export default function StudentPortal() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ========================== TAB: ONLINE LEARNING ========================== */}
+      {activeTab === "elearning" && (
+        <div className="space-y-5">
+          {/* Video Player Modal */}
+          {viewingLms && viewingLms.learningType === "Video" && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-fade-in" onClick={() => setViewingLms(null)}>
+              <div className="bg-stone-900 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+                  <h3 className="text-sm font-bold text-white leading-tight truncate pr-4">{viewingLms.title}</h3>
+                  <button onClick={() => setViewingLms(null)} className="p-1.5 rounded-lg hover:bg-white/10 text-stone-400 hover:text-white cursor-pointer flex-shrink-0">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                {viewingLms.videoUrl && (
+                  <div className="aspect-video w-full bg-black">
+                    <iframe src={viewingLms.videoUrl} title={viewingLms.title} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                  </div>
+                )}
+                <div className="px-5 py-3 border-t border-white/10">
+                  <p className="text-xs text-stone-400">{viewingLms.description}</p>
+                  <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono text-stone-500">
+                    <span>{viewingLms.subjectName}</span><span>•</span><span>{viewingLms.teacherName}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Document Viewer Modal */}
+          {viewingLms && viewingLms.learningType !== "Video" && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in" onClick={() => setViewingLms(null)}>
+              <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md mx-4 text-center" onClick={(e) => e.stopPropagation()}>
+                <div className="w-12 h-12 rounded-2xl bg-stsn-cream mx-auto mb-3 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-stsn-brown" />
+                </div>
+                <h3 className="text-sm font-bold text-stone-800">{viewingLms.title}</h3>
+                <p className="text-xs text-stone-500 mt-1 mb-2">{viewingLms.subjectName} • {viewingLms.teacherName}</p>
+                <p className="text-xs text-stone-400 mb-3">{viewingLms.description}</p>
+                {viewingLms.fileName && <p className="text-[10px] font-mono bg-stone-50 rounded-lg p-2 mb-3">{viewingLms.fileName}{viewingLms.fileSize && ` • ${viewingLms.fileSize}`}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => setViewingLms(null)} className="flex-1 py-2 rounded-lg border border-stone-200 text-xs font-medium cursor-pointer hover:bg-stone-50">Close</button>
+                  <button className="flex-1 py-2 rounded-lg bg-stsn-brown text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer">
+                    <Download className="w-3.5 h-3.5" />Download
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Header Banner */}
+          <div className="flex items-center gap-4 bg-gradient-to-r from-stsn-brown to-stsn-brown-dark rounded-2xl p-5 text-white">
+            <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+              <Monitor className="w-5 h-5 text-stsn-gold" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-bold">Online Learning Portal</h3>
+              <p className="text-xs text-stone-300 mt-0.5">All published lessons from your teachers</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-display font-black text-stsn-gold">
+                {learningMaterials.filter((m) => m.publishStatus === "Published").length}
+              </p>
+              <p className="text-[10px] font-mono text-stone-300">Available Lessons</p>
+            </div>
+          </div>
+
+          {/* Search + Filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Search lessons, subjects, teachers..."
+                value={lmsSearch}
+                onChange={(e) => setLmsSearch(e.target.value)}
+                className="w-full bg-white border border-stone-200 rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-stsn-brown/20 focus:border-stsn-brown"
+              />
+            </div>
+            <div className="flex gap-1">
+              {(["All", "Video", "Module", "Document"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setLmsType(t)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    lmsType === t
+                      ? "bg-stsn-brown text-white border-stsn-brown shadow-sm"
+                      : "bg-white text-stone-600 border-stone-200 hover:border-stsn-brown/40"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Materials Grid — show ALL published for demo */}
+          {(() => {
+            const allPublished = learningMaterials.filter((m) => {
+              if (m.publishStatus !== "Published") return false;
+              const q = lmsSearch.toLowerCase();
+              const matchSearch = !q || m.title.toLowerCase().includes(q) || m.subjectName.toLowerCase().includes(q) || m.teacherName.toLowerCase().includes(q);
+              const matchType = lmsType === "All" || m.learningType === lmsType;
+              return matchSearch && matchType;
+            });
+
+            if (allPublished.length === 0) {
+              return (
+                <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
+                  <Monitor className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-stone-500">No learning materials found</p>
+                  <p className="text-xs text-stone-400 mt-1">Try adjusting your search or filters</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {allPublished.map((m) => {
+                  const isVideo = m.learningType === "Video";
+                  const thumb = m.thumbnailUrl || undefined;
+                  return (
+                    <div key={m.id} className="bg-white rounded-2xl border border-stone-200/70 shadow-sm hover:shadow-lg transition-all overflow-hidden flex flex-col group">
+                      {/* Thumbnail */}
+                      <div
+                        className="h-32 bg-gradient-to-br from-stsn-brown/10 to-stsn-gold/5 relative cursor-pointer overflow-hidden flex-shrink-0"
+                        style={thumb ? { backgroundImage: `url("${thumb}")`, backgroundSize: "cover", backgroundPosition: "center" } : {}}
+                        onClick={() => setViewingLms(m)}
+                      >
+                        {!thumb && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            {isVideo
+                              ? <Play className="w-10 h-10 text-stsn-brown/25" />
+                              : <FileText className="w-10 h-10 text-stsn-brown/25" />}
+                          </div>
+                        )}
+                        {isVideo && thumb && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 group-hover:opacity-100 transition-all">
+                            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                              <Play className="w-4 h-4 text-stsn-brown ml-0.5" />
+                            </div>
+                          </div>
+                        )}
+                        {/* Type badge */}
+                        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 border ${
+                          m.learningType === "Video" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                          m.learningType === "Module" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                          "bg-amber-100 text-amber-700 border-amber-200"
+                        }`}>
+                          {isVideo ? <Video className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+                          {m.learningType}
+                        </div>
+                        {/* School badge */}
+                        <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[8px] font-bold ${
+                          m.schoolId === "STSN" ? "bg-stsn-brown/80 text-stsn-gold-light" : "bg-blue-700/80 text-blue-100"
+                        }`}>
+                          {m.schoolId}
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-4 flex flex-col flex-1">
+                        <h4
+                          className="text-xs font-bold text-stone-800 line-clamp-2 cursor-pointer hover:text-stsn-brown transition-colors"
+                          onClick={() => setViewingLms(m)}
+                        >
+                          {m.title}
+                        </h4>
+                        <p className="text-[10px] text-stone-500 mt-1.5 line-clamp-2 flex-1 leading-relaxed">{m.description}</p>
+
+                        <div className="mt-2 space-y-0.5">
+                          <p className="text-[10px] text-stone-500">
+                            <span className="font-semibold text-stsn-gold">Subject:</span> {m.subjectName}
+                          </p>
+                          <p className="text-[10px] text-stone-400">
+                            <span className="font-semibold">Teacher:</span> {m.teacherName}
+                          </p>
+                          <p className="text-[10px] text-stone-400 font-mono">
+                            {m.section} • {m.uploadDate}
+                          </p>
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-stone-100 flex gap-2">
+                          <button
+                            onClick={() => setViewingLms(m)}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-stsn-brown hover:bg-stsn-brown-dark text-white text-[11px] font-semibold cursor-pointer transition-all"
+                          >
+                            {isVideo ? <><Play className="w-3 h-3" />Watch</> : <><Eye className="w-3 h-3" />Open</>}
+                          </button>
+                          {!isVideo && (
+                            <button className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-semibold cursor-pointer flex items-center gap-1 transition-all">
+                              <Download className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 
