@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STSN Connect — Official User Guide</title>
+  <style>
+    /* =============================================
+       FONTS & RESET
+       ============================================= */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brown-dark:    #2E1C10;
+      --brown-mid:     #4A3728;
+      --brown:         #5C4533;
+      --brown-light:   #6B5242;
+      --gold:          #C5A059;
+      --gold-light:    #D6CFB5;
+      --cream:         #FFFDF5;
+      --beige:         #E5E0D5;
+      --beige-dark:    #D4CFC5;
+      --text:          #2D241E;
+      --text-soft:     #5C4C3F;
+      --text-muted:    #8B7355;
+      --white:         #FFFFFF;
+
+      --blue:          #1d4ed8;
+      --blue-light:    #dbeafe;
+      --emerald:       #047857;
+      --emerald-light: #d1fae5;
+      --amber:         #92400e;
+      --amber-light:   #fef3c7;
+      --red:           #b91c1c;
+      --red-light:     #fee2e2;
+      --purple:        #5b21b6;
+      --purple-light:  #ede9fe;
+      --teal:          #0f766e;
+      --teal-light:    #ccfbf1;
+    }
+
+    html { font-size: 10pt; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* =============================================
+       SCREEN: FLOATING DOWNLOAD BAR
+       ============================================= */
+    .download-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9999;
+      background: linear-gradient(135deg, var(--brown-dark) 0%, var(--brown-mid) 60%, var(--brown) 100%);
+      color: var(--cream);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 28px;
+      box-shadow: 0 4px 24px rgba(46,28,16,0.45);
+      gap: 16px;
+    }
+    .download-bar .brand {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .download-bar .brand-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, rgba(197,160,89,0.3), rgba(92,69,51,0.8));
+      border: 1px solid rgba(197,160,89,0.4);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .download-bar .brand-text h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px; font-weight: 800;
+      color: var(--gold); letter-spacing: -0.3px; line-height: 1;
+    }
+    .download-bar .brand-text p {
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;
+    }
+    .download-bar .actions { display: flex; align-items: center; gap: 10px; }
+    .btn-download {
+      background: linear-gradient(135deg, var(--gold) 0%, #A37B3E 100%);
+      color: var(--brown-dark);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px; font-weight: 800;
+      padding: 8px 20px; border-radius: 8px;
+      border: none; cursor: pointer;
+      box-shadow: 0 2px 10px rgba(197,160,89,0.4);
+      display: flex; align-items: center; gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-download:hover {
+      background: linear-gradient(135deg, #D4AF6A 0%, var(--gold) 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(197,160,89,0.5);
+    }
+    .btn-download svg { width: 14px; height: 14px; }
+    .doc-meta {
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      color: rgba(255,255,255,0.5); letter-spacing: 0.5px;
+      text-align: right; line-height: 1.6;
+    }
+
+    /* =============================================
+       MAIN GUIDE CONTAINER
+       ============================================= */
+    .guide { max-width: 900px; margin: 0 auto; padding: 0 32px 80px; }
+    .guide.with-bar { padding-top: 72px; }
+
+    /* =============================================
+       COVER PAGE
+       ============================================= */
+    .cover {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      background: linear-gradient(160deg, var(--brown-dark) 0%, var(--brown-mid) 35%, var(--brown) 65%, var(--brown-light) 100%);
+      position: relative; overflow: hidden;
+      padding: 0;
+      margin: 0 -32px;
+    }
+    .cover::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 700px 600px at 80% 20%, rgba(197,160,89,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 500px 400px at 10% 80%, rgba(197,160,89,0.06) 0%, transparent 60%);
+    }
+    .cover-inner {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column;
+      padding: 64px 80px 56px;
+      height: 100%;
+    }
+    .cover-schools {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: auto;
+    }
+    .school-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px; padding: 8px 14px;
+    }
+    .school-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+    .school-badge .dot.blue { background: #60a5fa; }
+    .school-badge span {
+      font-size: 9.5px; font-family: 'JetBrains Mono', monospace;
+      color: rgba(255,255,255,0.7); letter-spacing: 0.3px;
+    }
+    .cover-main { margin-top: 80px; }
+    .cover-eyebrow {
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase; letter-spacing: 3px;
+      color: var(--gold); opacity: 0.9; margin-bottom: 16px;
+    }
+    .cover-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 56px; font-weight: 800; line-height: 1.05;
+      color: var(--cream); letter-spacing: -2px;
+    }
+    .cover-title span { color: var(--gold); }
+    .cover-subtitle {
+      font-size: 18px; font-weight: 400; color: rgba(255,253,245,0.7);
+      margin-top: 12px; letter-spacing: -0.3px;
+    }
+    .cover-divider {
+      width: 80px; height: 3px;
+      background: linear-gradient(90deg, var(--gold), transparent);
+      margin: 32px 0;
+    }
+    .cover-description {
+      font-size: 12px; color: rgba(255,253,245,0.6);
+      max-width: 480px; line-height: 1.7;
+    }
+    .cover-footer {
+      margin-top: 60px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .cover-meta { display: flex; flex-direction: column; gap: 4px; }
+    .cover-meta span {
+      font-size: 9.5px; font-family: 'JetBrains Mono', monospace;
+      color: rgba(255,255,255,0.4); letter-spacing: 0.5px;
+    }
+    .cover-version {
+      font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700;
+      color: var(--gold); letter-spacing: -0.3px;
+    }
+    .cover-stamp {
+      background: rgba(197,160,89,0.15);
+      border: 1px solid rgba(197,160,89,0.3);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      color: var(--gold); text-align: center; letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* =============================================
+       TABLE OF CONTENTS
+       ============================================= */
+    .toc-page {
+      padding: 64px 0 48px;
+    }
+    .toc-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 32px;
+    }
+    .toc-header .accent-bar {
+      width: 4px; height: 40px;
+      background: linear-gradient(180deg, var(--gold), var(--brown));
+      border-radius: 2px;
+    }
+    .toc-header h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px; font-weight: 800; color: var(--brown-dark);
+    }
+    .toc-header p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .toc-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .toc-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 8px;
+      border: 1px solid var(--beige);
+      background: var(--white);
+      text-decoration: none; color: var(--text);
+      transition: all 0.15s;
+    }
+    .toc-item:hover {
+      background: var(--cream); border-color: var(--gold);
+    }
+    .toc-num {
+      min-width: 26px; height: 26px;
+      background: linear-gradient(135deg, var(--brown), var(--brown-mid));
+      border-radius: 6px; color: var(--gold);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .toc-text { flex: 1; }
+    .toc-text .toc-chapter {
+      font-size: 11px; font-weight: 700; color: var(--brown-dark); display: block; line-height: 1.2;
+    }
+    .toc-text .toc-desc { font-size: 9.5px; color: var(--text-muted); }
+
+    /* =============================================
+       SECTION / CHAPTER STYLES
+       ============================================= */
+    .chapter { padding: 56px 0 40px; }
+    .chapter + .chapter { border-top: 2px solid var(--beige); }
+
+    .chapter-header {
+      margin-bottom: 32px;
+    }
+    .chapter-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--brown-dark), var(--brown));
+      color: var(--gold);
+      font-size: 8.5px; font-family: 'JetBrains Mono', monospace;
+      font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 20px;
+      margin-bottom: 12px;
+    }
+    .chapter-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 30px; font-weight: 800;
+      color: var(--brown-dark); line-height: 1.1; letter-spacing: -0.8px;
+    }
+    .chapter-lead {
+      font-size: 13px; color: var(--text-soft);
+      margin-top: 8px; max-width: 640px; line-height: 1.7;
+    }
+
+    .section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 17px; font-weight: 700; color: var(--brown);
+      margin: 28px 0 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(90deg, var(--beige), transparent);
+    }
+
+    p { font-size: 11px; color: var(--text-soft); line-height: 1.75; margin-bottom: 10px; }
+
+    /* =============================================
+       ROLE BADGE
+       ============================================= */
+    .role-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+    .role-badge {
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 3px 9px; border-radius: 20px; border: 1px solid;
+    }
+    .role-badge.gold { background: #fef3c7; border-color: #d97706; color: #92400e; }
+    .role-badge.brown { background: #f5ede0; border-color: var(--brown); color: var(--brown-dark); }
+    .role-badge.blue { background: var(--blue-light); border-color: #2563eb; color: var(--blue); }
+    .role-badge.green { background: var(--emerald-light); border-color: #059669; color: var(--emerald); }
+    .role-badge.purple { background: var(--purple-light); border-color: #7c3aed; color: var(--purple); }
+    .role-badge.teal { background: var(--teal-light); border-color: #0d9488; color: var(--teal); }
+    .role-badge.red { background: var(--red-light); border-color: #dc2626; color: var(--red); }
+    .role-badge.all { background: linear-gradient(135deg,var(--brown-dark),var(--brown)); color: var(--gold); border-color: var(--gold); }
+
+    /* =============================================
+       STEP CARDS
+       ============================================= */
+    .steps { display: flex; flex-direction: column; gap: 0; margin: 16px 0; }
+    .step {
+      display: flex; gap: 0; align-items: stretch;
+    }
+    .step-connector {
+      display: flex; flex-direction: column; align-items: center; width: 40px; flex-shrink: 0;
+    }
+    .step-num {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--brown-dark), var(--brown));
+      color: var(--gold); border-radius: 50%;
+      font-size: 11px; font-weight: 800; font-family: 'Space Grotesk', sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; border: 2px solid var(--gold);
+    }
+    .step-line {
+      flex: 1; width: 2px;
+      background: linear-gradient(180deg, var(--brown), transparent);
+      margin: 4px 0;
+    }
+    .step:last-child .step-line { display: none; }
+    .step-body {
+      flex: 1; padding: 4px 0 20px 12px;
+    }
+    .step-body h4 {
+      font-size: 12px; font-weight: 700; color: var(--brown-dark);
+      margin-bottom: 4px;
+    }
+    .step-body p {
+      margin-bottom: 0; font-size: 11px;
+    }
+
+    /* =============================================
+       INFO / TIP / WARNING CALLOUTS
+       ============================================= */
+    .callout {
+      display: flex; gap: 12px;
+      padding: 14px 16px; border-radius: 10px;
+      margin: 16px 0; align-items: flex-start;
+    }
+    .callout.info { background: var(--blue-light); border-left: 4px solid #2563eb; }
+    .callout.tip { background: var(--emerald-light); border-left: 4px solid #059669; }
+    .callout.warning { background: var(--amber-light); border-left: 4px solid #d97706; }
+    .callout.important { background: var(--red-light); border-left: 4px solid #dc2626; }
+    .callout-icon { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+    .callout-body h4 { font-size: 11px; font-weight: 800; margin-bottom: 3px; color: var(--brown-dark); }
+    .callout-body p { font-size: 10.5px; margin: 0; color: var(--text); line-height: 1.65; }
+
+    /* =============================================
+       FEATURE CARDS
+       ============================================= */
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin: 16px 0;
+    }
+    .feature-card {
+      background: var(--white);
+      border: 1px solid var(--beige);
+      border-radius: 10px; padding: 16px;
+    }
+    .feature-card .fc-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--brown-dark), var(--brown));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; margin-bottom: 10px;
+    }
+    .feature-card h4 { font-size: 11px; font-weight: 700; color: var(--brown-dark); margin-bottom: 4px; }
+    .feature-card p { font-size: 10px; color: var(--text-muted); margin: 0; line-height: 1.55; }
+
+    /* =============================================
+       DATA TABLES
+       ============================================= */
+    .data-table-wrap { overflow-x: auto; margin: 16px 0; border-radius: 10px; border: 1px solid var(--beige); }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 10.5px; background: var(--white);
+    }
+    thead tr {
+      background: linear-gradient(135deg, var(--brown-dark), var(--brown));
+      color: var(--cream);
+    }
+    thead th {
+      padding: 10px 12px; text-align: left;
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--beige); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:nth-child(even) { background: #FFFDF5; }
+    tbody td { padding: 9px 12px; color: var(--text-soft); vertical-align: top; }
+    tbody td:first-child { font-weight: 600; color: var(--brown-dark); }
+    .tag {
+      display: inline-flex; align-items: center;
+      font-size: 9px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+      padding: 2px 8px; border-radius: 12px; border: 1px solid;
+      letter-spacing: 0.3px;
+    }
+    .tag.green { background: var(--emerald-light); border-color: #059669; color: var(--emerald); }
+    .tag.amber { background: var(--amber-light); border-color: #d97706; color: var(--amber); }
+    .tag.blue { background: var(--blue-light); border-color: #2563eb; color: var(--blue); }
+    .tag.red { background: var(--red-light); border-color: #dc2626; color: var(--red); }
+    .tag.gray { background: #f3f4f6; border-color: #9ca3af; color: #4b5563; }
+
+    /* =============================================
+       KEYBOARD / UI REFERENCE
+       ============================================= */
+    .kbd {
+      display: inline-block;
+      background: var(--beige); border: 1px solid var(--beige-dark);
+      border-radius: 4px; padding: 1px 6px;
+      font-size: 9.5px; font-family: 'JetBrains Mono', monospace; font-weight: 600;
+      color: var(--brown-dark); letter-spacing: 0.3px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }
+    .ui-path {
+      display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      background: linear-gradient(135deg, #fef3c7, #fef9ee);
+      border: 1px solid #d97706;
+      border-radius: 6px; padding: 4px 10px;
+      font-size: 10px; font-family: 'JetBrains Mono', monospace;
+      color: var(--amber); font-weight: 600; margin: 4px 0;
+      display: inline-flex;
+    }
+    .ui-path .sep { color: var(--gold); margin: 0 2px; font-weight: 400; }
+
+    /* =============================================
+       NUMBERED LIST & BULLET
+       ============================================= */
+    ol, ul { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 11px; color: var(--text-soft); line-height: 1.75; margin-bottom: 4px; }
+    li strong { color: var(--brown-dark); }
+    ul { list-style: none; padding-left: 0; }
+    ul li::before { content: '▸ '; color: var(--gold); font-size: 9px; margin-right: 6px; }
+
+    /* =============================================
+       PERMISSION MATRIX
+       ============================================= */
+    .perm-check { color: var(--emerald); font-weight: 700; font-size: 13px; }
+    .perm-cross { color: #d1d5db; font-size: 13px; }
+
+    /* =============================================
+       APPENDIX / GLOSSARY
+       ============================================= */
+    .glossary-list { margin: 12px 0; }
+    .glossary-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--beige); }
+    .glossary-term {
+      min-width: 140px; font-size: 11px; font-weight: 700;
+      color: var(--brown); font-family: 'Space Grotesk', sans-serif;
+    }
+    .glossary-def { font-size: 11px; color: var(--text-soft); line-height: 1.6; }
+
+    /* =============================================
+       SCREEN MOCKUP BLOCKS
+       ============================================= */
+    .screen-box {
+      background: linear-gradient(135deg, var(--brown-dark), var(--brown-mid));
+      border-radius: 10px; overflow: hidden;
+      margin: 16px 0; box-shadow: 0 4px 24px rgba(46,28,16,0.2);
+    }
+    .screen-bar {
+      background: rgba(0,0,0,0.2);
+      padding: 8px 14px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .screen-dots { display: flex; gap: 5px; }
+    .screen-dot { width: 9px; height: 9px; border-radius: 50%; }
+    .screen-dot.r { background: #ff5f57; }
+    .screen-dot.y { background: #febc2e; }
+    .screen-dot.g { background: #28c840; }
+    .screen-label {
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      color: rgba(255,255,255,0.5); margin-left: 4px;
+    }
+    .screen-content { padding: 20px; }
+    .screen-content p { color: rgba(255,253,245,0.75); font-size: 10.5px; line-height: 1.6; margin: 0; }
+    .screen-nav {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .screen-nav-item {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,253,245,0.7); border-radius: 6px; padding: 5px 12px;
+      font-size: 9.5px; font-weight: 600;
+    }
+    .screen-nav-item.active {
+      background: rgba(197,160,89,0.2); border-color: rgba(197,160,89,0.4);
+      color: var(--gold);
+    }
+    .screen-row {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .screen-card {
+      flex: 1; min-width: 100px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 12px;
+    }
+    .screen-card .sc-label { font-size: 8px; color: rgba(255,253,245,0.4); font-family: monospace; text-transform: uppercase; letter-spacing: 1px; }
+    .screen-card .sc-val { font-size: 18px; font-weight: 800; font-family: 'Space Grotesk', sans-serif; color: var(--gold); margin-top: 4px; }
+
+    /* =============================================
+       FAQ
+       ============================================= */
+    .faq-item { margin-bottom: 16px; }
+    .faq-q {
+      font-size: 12px; font-weight: 700; color: var(--brown-dark);
+      margin-bottom: 6px; display: flex; gap: 8px; align-items: flex-start;
+    }
+    .faq-q::before { content: 'Q'; background: var(--brown); color: var(--gold); border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+    .faq-a { font-size: 11px; color: var(--text-soft); padding-left: 26px; line-height: 1.7; }
+
+    /* =============================================
+       PAGE BREAK
+       ============================================= */
+    .page-break { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+
+    /* =============================================
+       PRINT STYLES
+       ============================================= */
+    @media print {
+      .download-bar { display: none !important; }
+      .guide { padding-top: 0 !important; margin: 0; max-width: 100%; }
+      body { background: white; font-size: 9pt; }
+      .cover { margin: 0 !important; min-height: 100vh; }
+      .cover-inner { padding: 40px 60px 40px; }
+      .cover-title { font-size: 44px; }
+      .chapter { padding: 36px 0 28px; }
+      .chapter + .chapter { page-break-before: always; border-top: none; }
+      .toc-page { page-break-after: always; }
+      .no-break { page-break-inside: avoid; }
+      @page { margin: 15mm 18mm; size: A4; }
+      a { color: inherit; text-decoration: none; }
+      .data-table-wrap { page-break-inside: avoid; }
+      .steps { page-break-inside: avoid; }
+      .feature-grid { page-break-inside: avoid; }
+      .screen-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      thead { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .chapter-eyebrow { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .role-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- DOWNLOAD BAR (screen only) -->
+<div class="download-bar">
+  <div class="brand">
+    <div class="brand-icon">🏫</div>
+    <div class="brand-text">
+      <h1>Theresian Connect</h1>
+      <p>Academia Enterprise v2 — User Documentation</p>
+    </div>
+  </div>
+  <div class="actions">
+    <div class="doc-meta">
+      <div>STSN Connect ERP v2.0</div>
+      <div>Academic Year 2026–2027</div>
+    </div>
+    <button class="btn-download" onclick="window.print()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download PDF
+    </button>
+  </div>
+</div>
+
+<div class="guide with-bar">
+
+  <!-- ====================================================
+       COVER PAGE
+       ==================================================== -->
+  <div class="cover">
+    <div class="cover-inner">
+      <div class="cover-schools">
+        <div class="school-badge"><div class="dot"></div><span>St. Theresa's School of Novaliches</span></div>
+        <div class="school-badge"><div class="dot blue"></div><span>Colegio de Sta. Teresa de Avila</span></div>
+      </div>
+
+      <div class="cover-main">
+        <div class="cover-eyebrow">📋 &nbsp; Official System Documentation</div>
+        <div class="cover-title">
+          STSN<br><span>Connect</span>
+        </div>
+        <div class="cover-subtitle">Enterprise Management System — User Guide</div>
+        <div class="cover-divider"></div>
+        <div class="cover-description">
+          This comprehensive guide covers all modules of the STSN Connect ERP system — from student enrollment
+          and financial management to class scheduling, grading, and system administration. Designed for all
+          staff roles: Registrar, Accounting, Faculty, HR, and Administrators.
+        </div>
+      </div>
+
+      <div class="cover-footer">
+        <div class="cover-meta">
+          <span class="cover-version">Version 2.0 — AY 2026–2027</span>
+          <span>Document Date: June 2026</span>
+          <span>Prepared by: STSN IT / Academic Operations Office</span>
+          <span>Classification: INTERNAL USE ONLY</span>
+        </div>
+        <div class="cover-stamp">
+          Theresian Connect<br>ERP Enterprise Platform
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       TABLE OF CONTENTS
+       ==================================================== -->
+  <div class="toc-page page-break">
+    <div class="toc-header">
+      <div class="accent-bar"></div>
+      <div>
+        <h2>Table of Contents</h2>
+        <p>Navigate this guide by chapter. Each section includes step-by-step instructions, role access, and tips.</p>
+      </div>
+    </div>
+    <div class="toc-grid">
+      <a class="toc-item" href="#ch1"><div class="toc-num">01</div><div class="toc-text"><span class="toc-chapter">Getting Started</span><span class="toc-desc">Login, navigation, roles & interface overview</span></div></a>
+      <a class="toc-item" href="#ch2"><div class="toc-num">02</div><div class="toc-text"><span class="toc-chapter">System Dashboard</span><span class="toc-desc">Live metrics, KPIs & enrollment trends</span></div></a>
+      <a class="toc-item" href="#ch3"><div class="toc-num">03</div><div class="toc-text"><span class="toc-chapter">Admissions & COR</span><span class="toc-desc">Student registration & enrollment workflow</span></div></a>
+      <a class="toc-item" href="#ch4"><div class="toc-num">04</div><div class="toc-text"><span class="toc-chapter">Accounting Module</span><span class="toc-desc">Dashboard, ledger & discount management</span></div></a>
+      <a class="toc-item" href="#ch5"><div class="toc-num">05</div><div class="toc-text"><span class="toc-chapter">Grades Directory</span><span class="toc-desc">Grade encoding & report card generation</span></div></a>
+      <a class="toc-item" href="#ch6"><div class="toc-num">06</div><div class="toc-text"><span class="toc-chapter">Student Portal</span><span class="toc-desc">Student self-service — grades, ID, ledger, enrollment</span></div></a>
+      <a class="toc-item" href="#ch7"><div class="toc-num">07</div><div class="toc-text"><span class="toc-chapter">Teacher Board</span><span class="toc-desc">Faculty dashboard, attendance & class management</span></div></a>
+      <a class="toc-item" href="#ch8"><div class="toc-num">08</div><div class="toc-text"><span class="toc-chapter">HR Staff Payroll</span><span class="toc-desc">Employee records & payroll processing</span></div></a>
+      <a class="toc-item" href="#ch9"><div class="toc-num">09</div><div class="toc-text"><span class="toc-chapter">Syllabus Pathways</span><span class="toc-desc">Curriculum, courses & subject management</span></div></a>
+      <a class="toc-item" href="#ch10"><div class="toc-num">10</div><div class="toc-text"><span class="toc-chapter">Class Scheduling</span><span class="toc-desc">Schedules, room assignment & conflict detection</span></div></a>
+      <a class="toc-item" href="#ch11"><div class="toc-num">11</div><div class="toc-text"><span class="toc-chapter">Core Setup</span><span class="toc-desc">System-wide configuration & maintenance pages</span></div></a>
+      <a class="toc-item" href="#ch12"><div class="toc-num">12</div><div class="toc-text"><span class="toc-chapter">Authority Clearances</span><span class="toc-desc">User accounts, roles & access control</span></div></a>
+      <a class="toc-item" href="#app"><div class="toc-num">⊕</div><div class="toc-text"><span class="toc-chapter">Appendix</span><span class="toc-desc">Roles matrix, glossary & FAQs</span></div></a>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 1 — GETTING STARTED
+       ==================================================== -->
+  <div class="chapter page-break" id="ch1">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 01</div>
+      <div class="chapter-title">Getting Started</div>
+      <div class="chapter-lead">This chapter introduces STSN Connect, explains how to log in, and provides an orientation to the system interface — navigation, roles, and the presenter sandbox.</div>
+    </div>
+
+    <div class="section-title">1.1 &nbsp; What is STSN Connect?</div>
+    <p>STSN Connect is the unified Enterprise Resource Planning (ERP) system for St. Theresa's School of Novaliches and Colegio de Sta. Teresa de Avila. It consolidates student admissions, enrollment, academic records, accounting, grading, faculty management, HR payroll, and system configuration into a single web-based platform.</p>
+    <p>The system supports multiple user roles — each with a customized view and permission scope — ensuring data security and workflow efficiency across all departments.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="fc-icon">🎓</div>
+        <h4>K-12 &amp; College Unified</h4>
+        <p>Supports both Basic Education (Preschool → Grade 12) and Tertiary programs under one platform.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🔐</div>
+        <h4>Role-Based Access</h4>
+        <p>8 distinct roles ensure each user only sees and accesses what's relevant to their function.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">📱</div>
+        <h4>Responsive Design</h4>
+        <p>Works on desktop, tablet, and mobile browsers — optimized for everyday school operations.</p>
+      </div>
+    </div>
+
+    <div class="section-title">1.2 &nbsp; Logging In</div>
+    <p>Access STSN Connect through your school-assigned URL. Use your institutional email address and password.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <h4>Open the STSN Connect portal</h4>
+          <p>Navigate to the system URL in any modern browser (Chrome, Safari, Edge). You will see the login screen.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <h4>Enter your institutional credentials</h4>
+          <p>Type your <strong>school-issued email address</strong> (e.g., <kbd class="kbd">registrar@stsn.edu.ph</kbd>) and your <strong>password</strong>. Passwords are case-sensitive.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <h4>Click "Sign In to STSN Connect"</h4>
+          <p>Upon successful authentication, you are redirected to your role's default starting module. Students land in the Student Portal; faculty land in the Teacher Board.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <h4>Contact IT if access is denied</h4>
+          <p>If you see an "Invalid credentials" message, verify your email spelling. If problems persist, contact the IT/Admin office to verify your account status in Authority Clearances.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <h4>Presenter Sandbox Mode</h4>
+        <p>The top header contains a <strong>Role Switcher</strong> dropdown (labeled "Role: …"). Administrators and demo users can use this to instantly switch between any user role for presentation purposes without logging out.</p>
+      </div>
+    </div>
+
+    <div class="section-title">1.3 &nbsp; Interface Overview</div>
+    <div class="screen-box">
+      <div class="screen-bar">
+        <div class="screen-dots"><div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div></div>
+        <div class="screen-label">STSN Connect — System Interface Layout</div>
+      </div>
+      <div class="screen-content">
+        <p>The interface is divided into three main zones:</p>
+        <div class="screen-row" style="margin-top:12px;">
+          <div class="screen-card" style="min-width:160px;">
+            <div class="sc-label">Left Sidebar</div>
+            <div class="sc-val" style="font-size:13px;margin-top:6px;">Navigation</div>
+            <p style="color:rgba(255,253,245,0.55);font-size:9.5px;margin-top:6px;">Module links filtered by your role. Click any item to open that module.</p>
+          </div>
+          <div class="screen-card" style="min-width:160px;">
+            <div class="sc-label">Top Header</div>
+            <div class="sc-val" style="font-size:13px;margin-top:6px;">Toolbar</div>
+            <p style="color:rgba(255,253,245,0.55);font-size:9.5px;margin-top:6px;">Role switcher, live clock, and sandbox indicator.</p>
+          </div>
+          <div class="screen-card" style="flex:2;">
+            <div class="sc-label">Main Content Area</div>
+            <div class="sc-val" style="font-size:13px;margin-top:6px;">Active Module</div>
+            <p style="color:rgba(255,253,245,0.55);font-size:9.5px;margin-top:6px;">The selected module renders here. All forms, tables, and dashboards appear in this scrollable area.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">1.4 &nbsp; User Roles Summary</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Primary User</th><th>Default Landing Page</th><th>Key Access</th></tr></thead>
+        <tbody>
+          <tr><td>Super Administrator</td><td>IT Admin / Principal</td><td>System Dashboard</td><td>All 11 modules</td></tr>
+          <tr><td>Registrar</td><td>Registrar Staff</td><td>System Dashboard</td><td>Admissions, Scheduling, Core Setup, Student Portal</td></tr>
+          <tr><td>Accounting</td><td>Accounting Officer / CPA</td><td>Accounting Module</td><td>Accounting, Core Setup only</td></tr>
+          <tr><td>Teacher</td><td>Faculty Members</td><td>Teacher Board</td><td>Teacher Board, Grades, Curriculum</td></tr>
+          <tr><td>Student</td><td>Enrolled Students</td><td>Student Portal</td><td>Student Portal only</td></tr>
+          <tr><td>HR</td><td>HR Manager</td><td>System Dashboard</td><td>HR Payroll, Authority Clearances</td></tr>
+          <tr><td>Employee</td><td>Non-teaching Staff</td><td>Teacher Board</td><td>Teacher Board, Grades</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">1.5 &nbsp; Logging Out</div>
+    <p>Click <strong>"Exit Connect Session"</strong> at the bottom of the left sidebar. You will be logged out and returned to the login screen. Always log out when using shared workstations.</p>
+
+    <div class="callout important">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <h4>Session Security</h4>
+        <p>STSN Connect does not automatically time out in the current version. Always click "Exit Connect Session" before leaving your workstation. Never share your login credentials with colleagues.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 2 — SYSTEM DASHBOARD
+       ==================================================== -->
+  <div class="chapter page-break" id="ch2">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 02</div>
+      <div class="chapter-title">System Dashboard</div>
+      <div class="chapter-lead">The System Dashboard provides a real-time executive overview of the school's academic and operational status. It is the default landing page for Administrators, Registrars, and HR users.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge brown">Registrar</span>
+      <span class="role-badge teal">HR</span>
+    </div>
+    <p>Navigate to the dashboard by clicking <span class="ui-path">System Dashboard</span> in the left sidebar.</p>
+
+    <div class="section-title">2.1 &nbsp; Key Performance Indicators</div>
+    <p>The top of the dashboard shows 5 KPI cards in a responsive grid. These are automatically computed from live system data:</p>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>KPI Card</th><th>What It Shows</th><th>Data Source</th></tr></thead>
+        <tbody>
+          <tr><td>Total Enrolled Students</td><td>Count of all students with "Enrolled" status</td><td>Student records</td></tr>
+          <tr><td>Active Records</td><td>Total student records in the system</td><td>Student directory</td></tr>
+          <tr><td>Admin Faculty Count</td><td>Number of registered teachers</td><td>Teacher records</td></tr>
+          <tr><td>Collections Fee Total</td><td>Sum of all recorded payments</td><td>Payment ledger</td></tr>
+          <tr><td>Pending Enrollments</td><td>Enrollment applications awaiting Registrar action</td><td>Enrollment queue</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">2.2 &nbsp; Enrollment Trends Chart</div>
+    <p>The bar chart shows year-over-year enrollment growth from 2023 to 2027. Each bar represents total students enrolled for that academic year. Use this to assess institutional growth trajectory and compare year-on-year performance.</p>
+
+    <div class="section-title">2.3 &nbsp; Department Breakdown &amp; Events</div>
+    <ul>
+      <li>The <strong>Department Breakdown</strong> panel shows the split between Basic Education and College enrollments.</li>
+      <li>The <strong>Recent Announcements</strong> feed displays the 4 latest announcements (Academic, Billing, Event, or General categories).</li>
+      <li>The <strong>School Events Calendar</strong> lists upcoming school events with department filters (All, Basic Education, College).</li>
+    </ul>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 3 — ADMISSIONS & COR
+       ==================================================== -->
+  <div class="chapter page-break" id="ch3">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 03</div>
+      <div class="chapter-title">Admissions &amp; COR</div>
+      <div class="chapter-lead">Manage the full student lifecycle — from initial registration through enrollment approval, requirements verification, subject assignment, and Certificate of Registration (COR) generation.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge brown">Registrar</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Admissions &amp; COR</span> in the sidebar.</p>
+
+    <div class="section-title">3.1 &nbsp; School Context Switcher</div>
+    <p>At the top of the module, toggle between <strong>Basic Education</strong> (St. Theresa's School) and <strong>College</strong> (Colegio de Sta. Teresa) contexts. The cascading dropdown fields and COR branding change according to your selection.</p>
+
+    <div class="section-title">3.2 &nbsp; Registering a New Student</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Register New Student"</h4><p>Found in the Admissions &amp; COR header. A multi-step form will open.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Step 1 — Personal Information</h4><p>Fill in the student's <strong>Last Name, First Name, Middle Name, Gender, Civil Status, Religion, Nationality, Birthday, Birthplace</strong>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Step 2 — Contact &amp; Address</h4><p>Enter <strong>email address, contact number, home address, province, municipality</strong>, and <strong>zip code</strong>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Step 3 — Academic Placement</h4><p>Select the <strong>Department</strong> (Basic Education or College), then use the cascading dropdowns to choose <strong>Category → Year Level → Strand/Course</strong>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">5</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Register Student"</h4><p>The system assigns a unique <strong>Student Number</strong> (format: STSN-YYYY-XXXX) and creates the student profile with a "Pending" status.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">3.3 &nbsp; Processing an Enrollment Application</div>
+    <p>When a student submits a re-enrollment through the Student Portal, the Registrar receives it in the <strong>Pending Enrollments</strong> queue.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Navigate to the Pending Enrollments tab</h4><p>Click the enrollment queue tab to see all pending applications with submission dates and subject selections.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Review the application</h4><p>Verify document submissions (PSA, Good Moral, TOR, Form 137, ID Photo). Update requirement status to "Submitted" or "Rejected" as appropriate.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Assign a section and click "Approve"</h4><p>Enter the <strong>Section</strong> (e.g., "BSIT-1A") in the assignment field, then click <strong>Approve Enrollment</strong>. The student status updates to "Enrolled."</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Generate the COR</h4><p>After approval, open the student record and click <strong>Preview COR</strong>. The system generates a school-branded Certificate of Registration that can be printed.</p></div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-icon">📌</div>
+      <div class="callout-body">
+        <h4>Enrollment Rejection</h4>
+        <p>Clicking <strong>Reject</strong> sets the student status to "Rejected" and removes the application from the pending queue. The student must re-submit through the Student Portal. Always add a reason in the remarks field before rejecting.</p>
+      </div>
+    </div>
+
+    <div class="section-title">3.4 &nbsp; Requirement Tracking</div>
+    <p>Each student has a <strong>Requirements Checklist</strong> in their profile. Registrar staff update document statuses as documents are received:</p>
+    <ul>
+      <li><strong>PSA Birth Certificate</strong> — Original and photocopy</li>
+      <li><strong>Good Moral Certificate</strong> — From previous school</li>
+      <li><strong>Transcript of Records (TOR)</strong> — College applicants</li>
+      <li><strong>Form 137 / SF9</strong> — Basic Education applicants</li>
+      <li><strong>ID Picture (2×2)</strong> — Recent photo on white background</li>
+    </ul>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 4 — ACCOUNTING MODULE
+       ==================================================== -->
+  <div class="chapter page-break" id="ch4">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 04</div>
+      <div class="chapter-title">Accounting Module</div>
+      <div class="chapter-lead">The Accounting Module provides the school's financial operations hub — analytics dashboards, student ledger management, and a complete discount administration workflow. Payment desk operations are handled through the Student Portal.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge gold">Accounting</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Accounting</span> in the sidebar. The module has three tabs.</p>
+
+    <div class="section-title">4.1 &nbsp; Accounting Dashboard</div>
+    <p>The dashboard provides a financial snapshot of the current academic year — without any payment-posting functionality. It is designed for monitoring and reporting only.</p>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Dashboard Component</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Total Assessed</td><td>Sum of all student fee assessments for the period</td></tr>
+          <tr><td>Total Collections</td><td>Sum of all payments received and recorded</td></tr>
+          <tr><td>Outstanding Balances</td><td>Total unpaid amount across all student accounts</td></tr>
+          <tr><td>Total Discounts Given</td><td>Sum of all approved discount amounts applied</td></tr>
+          <tr><td>Accounts with Balance</td><td>Count of students with remaining balance &gt; 0</td></tr>
+          <tr><td>Cleared Accounts</td><td>Count of students whose balance is fully settled</td></tr>
+          <tr><td>Collection by Method Chart</td><td>Breakdown of payments by Cash, GCash, Bank Transfer, Credit Card</td></tr>
+          <tr><td>Student Receivables List</td><td>Per-student outstanding balance list</td></tr>
+          <tr><td>Recent Activity Feed</td><td>Latest 6 payment transactions with OR numbers</td></tr>
+          <tr><td>Discount &amp; Scholarship Summary</td><td>Table of all applied discounts and scholarship amounts</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">4.2 &nbsp; Student Ledger</div>
+    <p>The Student Ledger provides a per-student double-entry view of all financial transactions. It shows a running balance updated after every transaction.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click the "Student Ledger" tab</h4><p>The left panel shows all students sorted alphabetically with their current balance (red = outstanding, green = cleared).</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Select a student from the list</h4><p>Search by name or student number using the search bar. Click the student row to load their ledger.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Apply filters as needed</h4><p>Use the <strong>School Year</strong>, <strong>Semester</strong>, and <strong>Transaction Type</strong> dropdowns to narrow the ledger view (Assessment, Payment, Discount, or All).</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Review the transaction table</h4><p>The ledger shows: Date/Reference, Description, Debit, Credit, and Running Balance. Assessment rows are debits; payments and discounts are credits.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">5</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Export if required</h4><p>Click <strong>Export PDF</strong> or <strong>Export Excel</strong> to download the ledger for the selected student and period.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">4.3 &nbsp; Discount Management — Discount Types</div>
+    <p>Before creating discount requests, maintain your catalog of discount types. Navigate to <span class="ui-path">Accounting <span class="sep">›</span> Discount Management <span class="sep">›</span> Discount Types</span>.</p>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Description</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>Code</td><td>Unique shortcode for the discount type</td><td><kbd class="kbd">SIB-2</kbd></td></tr>
+          <tr><td>Name</td><td>Descriptive name shown in requests and ledger</td><td>2nd Sibling Discount</td></tr>
+          <tr><td>Source</td><td>Category: Government, Sibling, Owner, Scholarship, Employee, Other</td><td>Sibling</td></tr>
+          <tr><td>Discount %</td><td>Percentage off the total assessment amount</td><td>5%</td></tr>
+          <tr><td>Approval Required</td><td>If "Yes", a 2-level approval workflow is triggered</td><td>Yes</td></tr>
+          <tr><td>Status</td><td>Active/Inactive toggle — inactive types cannot be used in new requests</td><td>Active</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">4.4 &nbsp; Discount Management — Sibling / Government Approval Workflow</div>
+    <p>Discounts that require approval (e.g., Sibling, Owner, Scholarship) follow a 2-level review process.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Create a Discount Request</h4><p>Click <strong>"New Request"</strong>. Select the <strong>Student</strong>, choose the <strong>Discount Type</strong>, optionally enter sibling names and attachment filenames, then click <strong>"Submit for Approval."</strong></p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Level 1 Review</h4><p>A Level 1 approver (typically the Registrar or Department Head) reviews the request and clicks <strong>"L1 Approve"</strong> or <strong>"L1 Reject"</strong>. The status moves to "For Review."</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Level 2 Final Approval</h4><p>A Level 2 approver (typically the Principal or Finance Director) performs the final review and clicks <strong>"L2 Final Approve."</strong> Status becomes <span class="tag green">Approved</span>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Discount Applied Automatically</h4><p>Upon full L1 + L2 approval, the discount percentage is automatically applied to the student's assessment, updating their balance in the ledger.</p></div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-icon">ℹ️</div>
+      <div class="callout-body">
+        <h4>Audit Trail</h4>
+        <p>Every action on a discount request is recorded in the audit trail. Click the <strong>"Audit Trail"</strong> button on any request to view a chronological log of all approvals, rejections, and status changes with timestamps and user names.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 5 — GRADES DIRECTORY
+       ==================================================== -->
+  <div class="chapter page-break" id="ch5">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 05</div>
+      <div class="chapter-title">Grades Directory</div>
+      <div class="chapter-lead">Faculty and administrators use the Grades Directory to encode midterm and final grades, compute GPAs, and generate student report cards.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge purple">Teacher</span>
+      <span class="role-badge blue">Employee</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Grades Directory</span> in the sidebar.</p>
+
+    <div class="section-title">5.1 &nbsp; Encoding Grades</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Filter the class roster</h4><p>Use the <strong>Subject</strong> and <strong>Section</strong> dropdowns at the top to narrow the grade table to a specific class.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Enter Midterm and Final grades</h4><p>Each student row has two input fields: <strong>Midterm</strong> and <strong>Final</strong>. Grades are on a 50–100 scale. The system automatically computes Pass (≥75) or Fail.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Save Grade"</h4><p>Changes are saved immediately to the student's academic record. The Remarks column updates automatically to "Passed" or "Failed."</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Preview the Report Card</h4><p>Click <strong>"Preview Report Card"</strong> for any student to open a printable academic transcript showing all subjects, grades, GPA, and pass/fail status.</p></div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-icon">🔒</div>
+      <div class="callout-body">
+        <h4>Balance Lock on Grades</h4>
+        <p>Students with an outstanding balance cannot view their grades in the Student Portal. The grade lock is lifted automatically once the balance is cleared in the Accounting module.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 6 — STUDENT PORTAL
+       ==================================================== -->
+  <div class="chapter page-break" id="ch6">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 06</div>
+      <div class="chapter-title">Student Portal</div>
+      <div class="chapter-lead">The Student Portal is the self-service hub for enrolled students. It provides access to grades, financial ledger, school ID, COR, profile management, and the re-enrollment workflow — all in one place.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge red">Student</span>
+      <span class="role-badge all">Super Admin</span>
+    </div>
+    <p>Students land here automatically after login. Navigate via <span class="ui-path">Student Portal</span> in the sidebar.</p>
+
+    <div class="section-title">6.1 &nbsp; Portal Tabs Overview</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Tab</th><th>Contents</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Overview</td><td>Dashboard, enrolled subjects, class schedule, school announcements</td><td>Default landing tab</td></tr>
+          <tr><td>Grades</td><td>Academic report card, GPA, pass/fail per subject</td><td>Locked if balance outstanding</td></tr>
+          <tr><td>Financial Ledger</td><td>Fee assessment, payment history, outstanding balance</td><td>Read-only view for students</td></tr>
+          <tr><td>Profile</td><td>Personal information, guardian contacts, photo upload</td><td>Changes are audit-logged</td></tr>
+          <tr><td>Enrollment</td><td>Re-enrollment form, subject selection, status tracking</td><td>Multi-step workflow</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">6.2 &nbsp; Submitting a Re-enrollment Application</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Open the Enrollment tab</h4><p>Click the <strong>Enrollment</strong> tab in the Student Portal. If you are not yet enrolled for the current year, you will see a "Begin Pre-Enrollment" prompt.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Complete the pre-enrollment form</h4><p>Confirm your personal details, verify your contact information, and select your intended <strong>School Year</strong> and <strong>Semester</strong>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Select subjects</h4><p>Choose the subjects for the upcoming semester from the available curriculum. The system shows prerequisite compliance automatically.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Submit the application</h4><p>Click <strong>"Submit Enrollment"</strong>. Your status changes to "Pending" and your application enters the Registrar's approval queue.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">6.3 &nbsp; Viewing Your ID Card &amp; COR</div>
+    <ul>
+      <li>From the <strong>Overview</strong> tab, click <strong>"Preview ID Card"</strong> to open the animated 3D flip card — front and back. Click to flip. Print using browser print.</li>
+      <li>From the <strong>Overview</strong> tab, click <strong>"Preview COR"</strong> to open the Certificate of Registration with full enrollment details, branding, and signature lines ready for printing.</li>
+    </ul>
+
+    <div class="section-title">6.4 &nbsp; Updating Your Profile</div>
+    <p>Open the <strong>Profile</strong> tab to update your contact number, email, address, religion, and nationality. Upload a new profile photo using the photo upload area. All changes are saved to the audit trail with your user ID and timestamp.</p>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <h4>Cannot See Grades?</h4>
+        <p>If the Grades tab shows a "balance outstanding" lock icon, you must first settle your remaining school fees. Contact the Accounting Office. Your grades will become visible automatically once the balance is cleared.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 7 — TEACHER BOARD
+       ==================================================== -->
+  <div class="chapter page-break" id="ch7">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 07</div>
+      <div class="chapter-title">Teacher Board</div>
+      <div class="chapter-lead">The Teacher Board is the faculty dashboard for managing advisory classes, recording daily attendance, viewing class schedules, and encoding grades — all in one interface.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge purple">Teacher</span>
+      <span class="role-badge blue">Employee</span>
+      <span class="role-badge all">Super Admin</span>
+    </div>
+
+    <div class="section-title">7.1 &nbsp; Advisory Class Management</div>
+    <p>The <strong>Advisory Section</strong> panel shows all students assigned to your advisory class. You can view each student's enrollment status and section from this panel.</p>
+
+    <div class="section-title">7.2 &nbsp; Recording Attendance</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Select the attendance date</h4><p>Use the date picker in the Attendance panel to select today's or a past date.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Mark each student's status</h4><p>For each student, select <span class="tag green">Present</span>, <span class="tag amber">Late</span>, or <span class="tag red">Absent</span>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Submit attendance</h4><p>Click <strong>"Submit Attendance"</strong>. The system logs the attendance records. If SMS notifications are enabled, parents of absent students receive an alert.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">7.3 &nbsp; Class Schedule View</div>
+    <p>The <strong>Class Schedule</strong> section shows your full weekly teaching schedule — subject code, day, time, room, and section. This is read-only; schedule changes must go through the Registrar via the <strong>Class Scheduling</strong> module.</p>
+
+    <div class="section-title">7.4 &nbsp; Grade Encoding from Teacher Board</div>
+    <p>The Teacher Board has an integrated grade encoding section. Click the <strong>Grade Encoding</strong> tab to access the same interface as the Grades Directory, filtered to your assigned subjects only.</p>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 8 — HR STAFF PAYROLL
+       ==================================================== -->
+  <div class="chapter page-break" id="ch8">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 08</div>
+      <div class="chapter-title">HR Staff Payroll</div>
+      <div class="chapter-lead">The HR module manages the complete employee lifecycle — registration, records management, and bi-weekly payroll processing with automatic statutory deductions.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge teal">HR</span>
+      <span class="role-badge all">Super Admin</span>
+    </div>
+
+    <div class="section-title">8.1 &nbsp; Employee Directory</div>
+    <p>The Employee Directory lists all registered staff members. Use the search bar to filter by name or position. Each employee card shows: Department, Position, Employment Status (Full-Time / Part-Time / Contractual), and current salary.</p>
+
+    <div class="section-title">8.2 &nbsp; Registering a New Employee</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Add New Employee"</h4><p>A registration form appears requiring: Full Name, Department, Position, Employment Status, Monthly Salary, and Leave Balance.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Fill in all required fields</h4><p>The system auto-generates an institutional email (firstname.lastname@stsn.edu.ph) based on the name entered.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Register Employee"</h4><p>The employee is added to the directory and becomes eligible for payroll processing.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">8.3 &nbsp; Payroll Processing</div>
+    <p>STSN Connect processes payroll on a <strong>bi-weekly basis</strong> (15th and end of month). The system computes all deductions automatically per DOLE and BIR guidelines:</p>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Rate</th><th>Basis</th></tr></thead>
+        <tbody>
+          <tr><td>Gross Salary (Bi-Weekly)</td><td>Monthly ÷ 2</td><td>Employee salary record</td></tr>
+          <tr><td>SSS Deduction</td><td>4% of gross</td><td>Social Security System</td></tr>
+          <tr><td>PhilHealth Deduction</td><td>1.5% of gross</td><td>National Health Insurance</td></tr>
+          <tr><td>Pag-IBIG Deduction</td><td>₱100 fixed</td><td>Home Development Fund</td></tr>
+          <tr><td>Income Tax Withholding</td><td>8% of (gross – deductions)</td><td>BIR table computation</td></tr>
+          <tr><td>Allowance</td><td>₱1,750 (Full-Time) / ₱500 (Part-Time)</td><td>Employment type</td></tr>
+          <tr><td>Net Pay</td><td>Gross + Allowance – Total Deductions</td><td>Final take-home</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Click <strong>"Process Bi-Weekly Payroll"</strong> to generate payroll rows for all active employees. Then click <strong>"Mark as Paid"</strong> on individual rows to confirm disbursement. Click <strong>"Preview Payslip"</strong> to open a printable payslip.</p>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 9 — SYLLABUS PATHWAYS
+       ==================================================== -->
+  <div class="chapter page-break" id="ch9">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 09</div>
+      <div class="chapter-title">Syllabus Pathways</div>
+      <div class="chapter-lead">Manage the academic foundation of the school — curricula, degree programs/courses, and the full subject catalog for both Basic Education and College departments.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge brown">Registrar</span>
+      <span class="role-badge purple">Teacher</span>
+    </div>
+
+    <div class="section-title">9.1 &nbsp; Managing Curricula</div>
+    <p>A <strong>Curriculum</strong> maps subjects to year levels and semesters for a specific program or strand. Each curriculum belongs to one Course or SHS Strand.</p>
+    <ul>
+      <li>Click <strong>"Add Curriculum"</strong> → name it (e.g., "BSIT Curriculum 2026") → save.</li>
+      <li>Open a curriculum and click <strong>"Map Subjects"</strong> to assign subjects per year level and semester.</li>
+      <li>Edit or delete curricula that are no longer in use.</li>
+    </ul>
+
+    <div class="section-title">9.2 &nbsp; Managing Courses &amp; Programs</div>
+    <p>Courses represent degree programs (BSIT, BSBA, BSHM) or Basic Education tracks (STEM, HUMSS, ABM, Preschool, Elementary). Each course has a code, name, department, and duration in years.</p>
+
+    <div class="section-title">9.3 &nbsp; Managing Subjects</div>
+    <p>The Subject catalog is shared across the system — the same subjects appear in grade encoding, student enrollment, and curriculum mapping.</p>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Subject Code</td><td>Unique identifier (e.g., IT-101, MATH-11)</td></tr>
+          <tr><td>Subject Name</td><td>Full descriptive title</td></tr>
+          <tr><td>Units</td><td>Credit units (used for college tuition computation)</td></tr>
+          <tr><td>Department</td><td>Basic Education or College</td></tr>
+          <tr><td>Year Level</td><td>The year/grade level this subject is offered</td></tr>
+          <tr><td>Semester</td><td>First Semester, Second Semester, or Full Year</td></tr>
+          <tr><td>Track/Course</td><td>Limits the subject to a specific strand or program</td></tr>
+          <tr><td>Prerequisites</td><td>Subject codes that must be completed before taking this subject</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 10 — CLASS SCHEDULING
+       ==================================================== -->
+  <div class="chapter page-break" id="ch10">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 10</div>
+      <div class="chapter-title">Class Scheduling</div>
+      <div class="chapter-lead">Create and manage class schedules, assign rooms to sections, detect scheduling conflicts, and monitor faculty teaching loads and room utilization — all in one module.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge brown">Registrar</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Class Scheduling</span> in the sidebar.</p>
+
+    <div class="section-title">10.1 &nbsp; Creating a New Schedule</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "New Schedule"</h4><p>A comprehensive form opens. All red-asterisk fields are required.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Select the Subject and Section</h4><p>Choose from the subject dropdown (linked to the subject catalog) and enter the section code (e.g., <kbd class="kbd">BSIT-1A</kbd>).</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Assign Faculty and Room</h4><p>Select the teacher from the faculty list. Enter the room name (e.g., <kbd class="kbd">IT Lab 1</kbd>). The conflict detector will flag issues immediately if needed.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Set Day and Time</h4><p>Choose the <strong>Day</strong> (Monday–Saturday), <strong>Start Time</strong>, and <strong>End Time</strong>. End time must be after start time — the system validates this.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">5</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Set School Year, Semester &amp; Department</h4><p>Select the applicable academic context, then click <strong>"Create Schedule."</strong></p></div>
+      </div>
+    </div>
+
+    <div class="section-title">10.2 &nbsp; Conflict Detection</div>
+    <p>The system automatically detects two types of scheduling conflicts:</p>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Conflict Type</th><th>Condition</th><th>Visual Indicator</th></tr></thead>
+        <tbody>
+          <tr><td>Faculty Conflict</td><td>Same teacher assigned to two classes on the same day with overlapping times</td><td>⚠️ Red highlight on row + conflict counter in header</td></tr>
+          <tr><td>Room Conflict</td><td>Same room booked for two different classes at the same day and overlapping time</td><td>⚠️ Red highlight on row + conflict counter in header</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Click the red <strong>Conflicts</strong> button in the header to filter and show only conflicting entries. Resolve by editing the day, time, room, or faculty assignment.</p>
+
+    <div class="section-title">10.3 &nbsp; Calendar Grid View</div>
+    <p>Toggle from List view to <strong>Calendar Grid</strong> view using the grid icon in the filter bar. The calendar shows a weekly time grid (07:00–17:00) with all 6 days as columns. Each scheduled class appears as a block in the correct day/time cell. Conflicting classes appear with a red border.</p>
+
+    <div class="section-title">10.4 &nbsp; Filters</div>
+    <ul>
+      <li><strong>School Year</strong> — Filter schedules by academic year</li>
+      <li><strong>Semester</strong> — First Semester, Second Semester, Full Year, Summer</li>
+      <li><strong>Department</strong> — Basic Education or College</li>
+      <li><strong>Faculty</strong> — View schedules for a specific teacher</li>
+      <li><strong>Day</strong> — View a single day's schedule</li>
+      <li><strong>Search bar</strong> — Search by subject, section, teacher, or room name</li>
+    </ul>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 11 — CORE SETUP
+       ==================================================== -->
+  <div class="chapter page-break" id="ch11">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 11</div>
+      <div class="chapter-title">Core Setup</div>
+      <div class="chapter-lead">Core Setup is the centralized configuration hub for all system reference data. Every dropdown, selection list, and configuration option used across STSN Connect is maintained here.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge brown">Registrar</span>
+      <span class="role-badge gold">Accounting</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Core Setup</span> in the sidebar.</p>
+
+    <div class="section-title">11.1 &nbsp; Module Structure</div>
+    <p>Core Setup has a <strong>left sidebar</strong> with 12 collapsible category groups. Click a group to expand it and reveal the individual setup pages. Click any page name to open its CRUD table in the main content area.</p>
+
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Category Group</th><th>Setup Pages Included</th></tr></thead>
+        <tbody>
+          <tr><td>Academic Setup</td><td>Academic Categories, Levels, Year Levels, School Years, Semesters, Departments, Holiday Maintenance</td></tr>
+          <tr><td>Admission &amp; Enrollment</td><td>Admission Types, Enrollment Requirements, Student Status, Student Types</td></tr>
+          <tr><td>Campus &amp; Facilities</td><td>Campuses, Buildings, Room Types, Rooms / Classrooms</td></tr>
+          <tr><td>Scheduling &amp; Sectioning</td><td>Time Slots</td></tr>
+          <tr><td>Faculty Management</td><td>Faculty Ranks, Employment Types</td></tr>
+          <tr><td>Accounting Setup</td><td>Fee Categories, Fee Items, Payment Terms, Payment Methods, Chart of Accounts, Accounting Periods, OR Series, Collection Types, Refund Reasons, Void Reasons</td></tr>
+          <tr><td>Student Profile References</td><td>Nationalities, Civil Statuses, Religions</td></tr>
+          <tr><td>Grading &amp; Academic Rules</td><td>Grade Scale</td></tr>
+          <tr><td>Document Management</td><td>Document Types</td></tr>
+          <tr><td>Access Control &amp; Security</td><td>Roles (Setup), Permissions</td></tr>
+          <tr><td>ID Card Management</td><td>ID Card Templates</td></tr>
+          <tr><td>Workflow Configuration</td><td>Enrollment Workflows, Clearance Workflows</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">11.2 &nbsp; Standard CRUD Operations (All Pages)</div>
+    <p>Every setup page follows the same interaction pattern:</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Search &amp; Filter</h4><p>Use the search bar at the top to filter records by name, code, or description. Results update in real time.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Create a Record</h4><p>Click <strong>"Add [Record Type]."</strong> A modal form opens with the required and optional fields for that entity. Fill in the Code, Name, and any extra fields, then click <strong>"Create."</strong></p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Edit a Record</h4><p>Click the ✏️ edit icon on any table row. The same form opens pre-filled with the current values. Make changes and click <strong>"Save Changes."</strong></p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Toggle Active / Inactive</h4><p>Click the <span class="tag green">Active</span> / <span class="tag gray">Inactive</span> button on any row to toggle the status. Inactive records are hidden from dropdowns throughout the system but remain in the database.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">5</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Delete a Record</h4><p>Click the 🗑️ delete icon. A confirmation dialog appears. Deletion is <strong>permanent</strong> — ensure the record is not in use before deleting.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">6</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Pagination</h4><p>The table shows 10 records per page. Use the <strong>Prev / Next</strong> buttons or page numbers at the bottom to navigate large datasets.</p></div>
+      </div>
+    </div>
+
+    <div class="callout important">
+      <div class="callout-icon">🔴</div>
+      <div class="callout-body">
+        <h4>Setup Records Are System-Wide</h4>
+        <p>Changes to Core Setup affect all modules. For example, deactivating a Fee Category will remove it from the Accounting assessment forms. Always coordinate with department heads before modifying active setup records.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 12 — AUTHORITY CLEARANCES
+       ==================================================== -->
+  <div class="chapter page-break" id="ch12">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 12</div>
+      <div class="chapter-title">Authority Clearances</div>
+      <div class="chapter-lead">Manage system user accounts — create logins, assign roles, and activate or deactivate access for all staff and students. This module is restricted to administrators and HR.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge teal">HR</span>
+      <span class="role-badge brown">Registrar</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Authority Clearances</span> in the sidebar.</p>
+
+    <div class="section-title">12.1 &nbsp; Creating a User Account</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Add New User"</h4><p>A user creation form appears.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Fill in user details</h4><p>Enter the user's <strong>Full Name</strong>, <strong>Email Address</strong> (institutional email), and assign their <strong>Role</strong> (Super Admin, Registrar, Accounting, Teacher, Student, HR, Employee).</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Create Account"</h4><p>The user is added to the system and can log in with the default password. Advise the user to change their password on first login.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">12.2 &nbsp; Activating &amp; Deactivating Accounts</div>
+    <p>Each user row in the registry has an <strong>Active / Inactive</strong> toggle. Clicking it immediately changes the account status. Inactive accounts cannot log in to the system. Use this for temporary suspensions or when staff leave the institution.</p>
+
+    <div class="section-title">12.3 &nbsp; Searching Users</div>
+    <p>Use the search bar to filter users by name or email. Use the Role dropdown to filter by specific role. The table shows: Name, Email, Role, Department, and Status.</p>
+  </div>
+
+  <!-- ====================================================
+       APPENDIX
+       ==================================================== -->
+  <div class="chapter page-break" id="app">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Appendix</div>
+      <div class="chapter-title">Reference &amp; Quick Guides</div>
+      <div class="chapter-lead">Role permission matrix, system glossary, and frequently asked questions for all users.</div>
+    </div>
+
+    <div class="section-title">A.1 &nbsp; Role Permissions Matrix</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Module</th>
+            <th>Super Admin</th>
+            <th>Registrar</th>
+            <th>Accounting</th>
+            <th>Teacher</th>
+            <th>Student</th>
+            <th>HR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>System Dashboard</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td></tr>
+          <tr><td>Admissions &amp; COR</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Accounting Module</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Grades Directory</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Student Portal</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td></tr>
+          <tr><td>Teacher Board</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>HR Staff Payroll</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td></tr>
+          <tr><td>Syllabus Pathways</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Class Scheduling</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Core Setup</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Authority Clearances</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">A.2 &nbsp; Key Default User Accounts</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Email</th><th>Name</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td>admin@stsn.edu.ph</td><td>Admin Administrator</td><td><span class="tag amber">Super Admin</span></td></tr>
+          <tr><td>registrar@stsn.edu.ph</td><td>Cynthia Ramos, LPT</td><td><span class="tag blue">Registrar</span></td></tr>
+          <tr><td>accounting@stsn.edu.ph</td><td>Eduardo Bonto, CPA</td><td><span class="tag green">Accounting</span></td></tr>
+          <tr><td>teacher@stsn.edu.ph</td><td>Prof. Arthur Reyes</td><td><span class="tag gray">Teacher</span></td></tr>
+          <tr><td>student@stsn.edu.ph</td><td>Enrico Veloso</td><td><span class="tag gray">Student</span></td></tr>
+          <tr><td>hr@stsn.edu.ph</td><td>Gemma Santos</td><td><span class="tag gray">HR</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">A.3 &nbsp; Glossary</div>
+    <div class="glossary-list">
+      <div class="glossary-item"><div class="glossary-term">COR</div><div class="glossary-def">Certificate of Registration. Official document confirming a student's enrolled subjects and academic status for a given semester.</div></div>
+      <div class="glossary-item"><div class="glossary-term">OR / Official Receipt</div><div class="glossary-def">Numbered document issued upon payment receipt. Format: OR-YYYY-XXXXX.</div></div>
+      <div class="glossary-item"><div class="glossary-term">GPA</div><div class="glossary-def">Grade Point Average. Computed automatically from all final grades, weighted by subject units.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Assessment</div><div class="glossary-def">The complete billing statement for a student per semester, including all fee line items, discounts, and balance.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Enrollment Status</div><div class="glossary-def">Tracks the lifecycle: Draft → Pending → Enrolled / Approved / Rejected.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Sibling Discount</div><div class="glossary-def">Tuition reduction applied when two or more siblings are concurrently enrolled in the same school year. Requires 2-level approval.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Curriculum Mapping</div><div class="glossary-def">The structured assignment of subjects to specific year levels and semesters within a curriculum framework.</div></div>
+      <div class="glossary-item"><div class="glossary-term">SHS Strand</div><div class="glossary-def">Senior High School academic track: STEM, HUMSS, ABM, or GAS.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Audit Trail</div><div class="glossary-def">A chronological log of all actions performed on a record, including who made the change and when.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Section</div><div class="glossary-def">A named group of students sharing the same schedule (e.g., BSIT-1A, SHS-STEM-11A).</div></div>
+      <div class="glossary-item"><div class="glossary-term">Conflict (Scheduling)</div><div class="glossary-def">Two schedule entries with the same teacher or room, on the same day, with overlapping times.</div></div>
+      <div class="glossary-item"><div class="glossary-term">RBAC</div><div class="glossary-def">Role-Based Access Control. The security model that limits each user's access to only the modules and functions relevant to their role.</div></div>
+    </div>
+
+    <div class="section-title">A.4 &nbsp; Frequently Asked Questions</div>
+    <div class="faq-item">
+      <div class="faq-q">I cannot see some modules in my sidebar. Is this normal?</div>
+      <div class="faq-a">Yes. The sidebar only shows modules your role is authorized to access. If you believe you need access to an additional module, contact the System Administrator to update your role or permissions.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">A student says they cannot view their grades. What should I do?</div>
+      <div class="faq-a">The student likely has an outstanding balance. Go to Accounting → Student Ledger, find the student, and verify their balance. Once the balance is cleared (payment recorded), the grades become visible automatically in the Student Portal.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I apply a government-sponsored discount (e.g., PWD, Solo Parent)?</div>
+      <div class="faq-a">Go to Accounting → Discount Management → Government Discounts tab. Click "New Request," select the student and the appropriate discount type. Government discounts (PWD, Solo Parent, 4Ps) are set to "Auto" approval and do not require the 2-level review process — they are applied immediately upon submission.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I resolve a scheduling conflict?</div>
+      <div class="faq-a">In Class Scheduling, click the red Conflicts button to isolate conflicting entries. Open the conflicting schedule using the edit (✏️) icon and either change the Day, Time, Room, or Faculty assignment to eliminate the overlap. The conflict indicator will disappear automatically once resolved.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can I undo a deletion in Core Setup?</div>
+      <div class="faq-a">No. Deletions in Core Setup are permanent. If a record was accidentally deleted, it must be re-created. As best practice, deactivate records (toggle to "Inactive") instead of deleting them, so they can be reactivated later if needed.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I generate a student's payslip / COR / ID card?</div>
+      <div class="faq-a">For ID cards and COR: log in as the student (or open Student Portal as Admin) and use the "Preview ID Card" and "Preview COR" buttons in the Overview tab. For payslips: go to HR Staff Payroll, find the payroll row, and click "Preview Payslip."</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What is the Presenter Sandbox mode?</div>
+      <div class="faq-a">The Presenter Sandbox is a role-switching feature in the top header (visible to all users). It lets authorized users switch instantly between different user roles for demonstration purposes, without needing separate login credentials. This is intended for presentations and training sessions only.</div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="margin-top: 64px; padding: 32px; background: linear-gradient(135deg, var(--brown-dark), var(--brown)); border-radius: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: gap;">
+      <div>
+        <p style="font-family:'Space Grotesk',sans-serif; font-size: 16px; font-weight: 800; color: var(--gold); margin-bottom: 4px;">Theresian Connect — ERP Enterprise v2</p>
+        <p style="font-size: 9.5px; font-family: 'JetBrains Mono', monospace; color: rgba(255,253,245,0.5); margin: 0;">© 2026 St. Theresa's School of Novaliches &amp; Colegio de Sta. Teresa de Avila • Internal Use Only</p>
+      </div>
+      <div style="text-align:right;">
+        <p style="font-size: 9px; font-family: monospace; color: rgba(255,253,245,0.4); margin: 0;">Document v2.0 — June 2026</p>
+        <p style="font-size: 9px; font-family: monospace; color: rgba(255,253,245,0.3); margin: 0;">Prepared by Academic Operations Office</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /guide -->
+
+<script>
+  // Smooth scroll for TOC links
+  document.querySelectorAll('.toc-item').forEach(link => {
+    link.addEventListener('click', function(e) {
+      const href = this.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        e.preventDefault();
+        const target = document.querySelector(href);
+        if (target) {
+          const offset = 80;
+          window.scrollTo({ top: target.offsetTop - offset, behavior: 'smooth' });
+        }
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
