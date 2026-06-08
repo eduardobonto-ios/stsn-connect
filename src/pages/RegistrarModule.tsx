@@ -5,37 +5,22 @@
 
 import React, { useState, useMemo } from "react";
 import { useSTSNStore } from "../services/store";
-import { Student, Enrollment, Subject } from "../types";
+import { Student, Enrollment, Subject, Requirement } from "../types";
 import {
-  FileCheck,
-  CheckCircle,
-  XCircle,
-  FileText,
-  UserPlus,
-  Compass,
-  ArrowRight,
-  Printer,
-  Sparkles,
-  Award,
-  Search,
-  BookOpen,
-  Layers,
-  Grid,
-  Filter,
-  UploadCloud,
-  FileSpreadsheet,
-  UserCheck,
-  Cpu,
-  GraduationCap,
-  Building2,
-  School,
-  Plus,
-  Trash2,
-  Users,
-  ChevronDown,
-  Info
+  FileCheck, CheckCircle, XCircle, FileText, UserPlus, Compass,
+  ArrowRight, Printer, Search, BookOpen, Layers, Grid, Filter,
+  UploadCloud, FileSpreadsheet, UserCheck, Cpu, GraduationCap,
+  Building2, School, Plus, Trash2, Users, ChevronDown, Info,
+  Upload, ShieldCheck, Package, DollarSign, Calendar, CreditCard,
+  AlertCircle, RefreshCw, CheckSquare, Clock, X
 } from "lucide-react";
 import { PreviewModal, CORPreview } from "../components/ModalPreviews";
+import {
+  computeMockAssessment,
+  DISCOUNT_OPTIONS,
+  PAYMENT_TERM_OPTIONS as MOCK_PAYMENT_TERM_OPTIONS,
+  type MockPaymentTerm,
+} from "../services/mockAssessmentService";
 
 // =====================================================
 // Basic Education cascading dropdown data
@@ -57,18 +42,64 @@ const BE_STRANDS_BY_LEVEL: Record<string, string[]> = {
   "Grade 12": ["STEM", "HUMSS", "ABM", "GAS"]
 };
 
+const PAYMENT_TERMS = ["Cash Basis", "Quarterly", "Semestral", "Installment - 2 Payments", "Installment - 4 Payments"] as const;
+
+function getPaymentSchedule(totalAfterDiscount: number, term: string, schoolYear: string): { due: string; amount: number }[] {
+  if (term === "Cash Basis") return [{ due: `${schoolYear} — Upon Enrollment`, amount: totalAfterDiscount }];
+  if (term === "Quarterly") {
+    const q = Math.round(totalAfterDiscount / 4);
+    return [
+      { due: "1st Quarter (June)", amount: q },
+      { due: "2nd Quarter (September)", amount: q },
+      { due: "3rd Quarter (December)", amount: q },
+      { due: "4th Quarter (March)", amount: totalAfterDiscount - q * 3 },
+    ];
+  }
+  if (term === "Semestral") {
+    const half = Math.round(totalAfterDiscount / 2);
+    return [
+      { due: "1st Semester (June)", amount: half },
+      { due: "2nd Semester (November)", amount: totalAfterDiscount - half },
+    ];
+  }
+  if (term === "Installment - 2 Payments") {
+    const h = Math.round(totalAfterDiscount / 2);
+    return [
+      { due: "1st Payment (Enrollment)", amount: h },
+      { due: "2nd Payment (Midterm)", amount: totalAfterDiscount - h },
+    ];
+  }
+  if (term === "Installment - 4 Payments") {
+    const q = Math.round(totalAfterDiscount / 4);
+    return [
+      { due: "Downpayment (Enrollment)", amount: q },
+      { due: "1st Installment", amount: q },
+      { due: "2nd Installment", amount: q },
+      { due: "Final Payment", amount: totalAfterDiscount - q * 3 },
+    ];
+  }
+  return [];
+}
+
 type SchoolContext = "BASIC_ED" | "COLLEGE";
-type DetailTab = "info" | "guardian" | "academic" | "enrollment" | "subjects" | "curriculum";
+type DetailTab = "info" | "guardian" | "academic" | "assessment_fees" | "documents" | "enrollment" | "subjects" | "curriculum";
 
 export default function RegistrarModule() {
   const {
-    students, requirements, enrollments, subjects, courses,
+    students, requirements, enrollments, subjects, courses, assessments, currentUser, activeSchool,
     addStudent, updateStudentRequirements,
-    submitNewEnrollment, approveEnrollment, rejectEnrollment
+    submitNewEnrollment, approveEnrollment, rejectEnrollment,
+    updateAssessment, updateRequirementUpload, verifyRequirement, markHardcopySubmitted
   } = useSTSNStore();
 
-  // School context — which registrar view
-  const [schoolContext, setSchoolContext] = useState<SchoolContext>("BASIC_ED");
+  // Auto-detect school context from logged-in user
+  const schoolContext: SchoolContext = useMemo(() => {
+    if (!currentUser) return "BASIC_ED";
+    if (currentUser.schoolId === "CDSTA") return "COLLEGE";
+    if (activeSchool === "CDSTA") return "COLLEGE";
+    return "BASIC_ED";
+  }, [currentUser, activeSchool]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("info");
@@ -82,7 +113,7 @@ export default function RegistrarModule() {
   const [lastName, setLastName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [gender, setGender] = useState<"Male" | "Female">("Male");
-  const [dept, setDept] = useState<"Basic Education" | "College">("Basic Education");
+  const [dept, setDept] = useState<"Basic Education" | "College">(schoolContext === "COLLEGE" ? "College" : "Basic Education");
 
   // Basic Ed cascading dropdown
   const [beProgramCategory, setBeProgramCategory] = useState("Senior High School");
@@ -108,10 +139,13 @@ export default function RegistrarModule() {
   const [mockRowsPreview, setMockRowsPreview] = useState<any[]>([]);
   const [bulkImportSuccess, setBulkImportSuccess] = useState("");
 
-  // Filtered students by school context
+  // Document verification modal
+  const [verifyModal, setVerifyModal] = useState<{ reqName: string; studentId: string } | null>(null);
+  const [verifyRemarks, setVerifyRemarks] = useState("");
+
   const contextStudents = useMemo(() => {
-    const dept = schoolContext === "BASIC_ED" ? "Basic Education" : "College";
-    return students.filter((s) => s.department === dept);
+    const deptFilter = schoolContext === "BASIC_ED" ? "Basic Education" : "College";
+    return students.filter((s) => s.department === deptFilter);
   }, [students, schoolContext]);
 
   const filteredStudents = contextStudents.filter((s) => {
@@ -119,7 +153,33 @@ export default function RegistrarModule() {
     return fullName.includes(searchQuery.toLowerCase()) || s.studentNo.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  const studentReqs = selectedStudent ? requirements.filter((r) => r.studentId === selectedStudent.id) : [];
+  const studentReqs = useMemo(() => selectedStudent ? requirements.filter((r) => r.studentId === selectedStudent.id) : [], [selectedStudent, requirements]);
+
+  const studentAssessment = useMemo(() => selectedStudent ? assessments.find((a) => a.studentId === selectedStudent.id) : undefined, [selectedStudent, assessments]);
+
+  const isFeesPaid = useMemo(() => {
+    if (!studentAssessment) return false;
+    return studentAssessment.balance === 0 || studentAssessment.isPaid === true;
+  }, [studentAssessment]);
+
+  // Fallback mock assessment when no stored assessment exists for the selected student
+  const [regDiscountId, setRegDiscountId] = useState("none");
+  const [regPaymentTerm, setRegPaymentTerm] = useState<MockPaymentTerm>("Quarterly");
+  const regSelectedDiscount = DISCOUNT_OPTIONS.find((d) => d.id === regDiscountId) ?? DISCOUNT_OPTIONS[0];
+  const mockFallbackAssessment = useMemo(
+    () =>
+      selectedStudent
+        ? computeMockAssessment(
+            selectedStudent.department,
+            selectedStudent.yearLevel ?? "Grade 11",
+            selectedStudent.trackOrCourse ?? undefined,
+            regSelectedDiscount.percentage,
+            regPaymentTerm,
+            "2026-2027"
+          )
+        : null,
+    [selectedStudent, regSelectedDiscount.percentage, regPaymentTerm]
+  );
 
   const getEnrolledSubjects = (studentId: string): Subject[] => {
     const latest = enrollments.find((e) => e.studentId === studentId && e.status === "Enrolled");
@@ -127,11 +187,8 @@ export default function RegistrarModule() {
     return subjects.filter((s) => latest.subjectCodes.includes(s.code));
   };
 
-  // Available subjects for form step 3
   const currentAvailableSubjects = useMemo(() => {
-    if (dept === "College") {
-      return subjects.filter((s) => s.department === "College" && s.trackOrCourse === collegeCourse);
-    }
+    if (dept === "College") return subjects.filter((s) => s.department === "College" && s.trackOrCourse === collegeCourse);
     return subjects.filter((s) => s.department === "Basic Education" && s.trackOrCourse === courseCode && s.yearLevel === yearLvl);
   }, [subjects, dept, collegeCourse, courseCode, yearLvl]);
 
@@ -141,7 +198,6 @@ export default function RegistrarModule() {
   const handleCreateStudent = () => {
     const finalCourse = dept === "College" ? collegeCourse : courseCode;
     const finalYear = dept === "College" ? collegeYear : yearLvl;
-
     const baseNewStudent = addStudent({
       firstName, lastName, middleName, gender,
       civilStatus: "Single", religion: "Catholic", nationality: "Filipino",
@@ -150,23 +206,15 @@ export default function RegistrarModule() {
       contactNo: "+639170000000",
       address: dept === "College" ? "Novaliches, QC" : "Zabarte Subdivision",
       province: "Metro Manila", municipality: "Quezon City", zipCode: "1123",
-      department: dept,
-      yearLevel: finalYear,
-      trackOrCourse: finalCourse,
-      section: "",
-      enrollmentStatus: "Pending"
+      department: dept, yearLevel: finalYear, trackOrCourse: finalCourse,
+      section: "", enrollmentStatus: "Pending"
     });
-
     submitNewEnrollment({
-      studentId: baseNewStudent.id,
-      schoolYear: "2026-2027",
+      studentId: baseNewStudent.id, schoolYear: "2026-2027",
       semester: dept === "College" ? "First Semester" : "N/A",
-      enrollmentType: "New Student",
-      subjectCodes: selectedSubjectCodes,
-      status: "Pending",
-      submittedAt: new Date().toISOString().replace("T", " ").substring(0, 16)
+      enrollmentType: "New Student", subjectCodes: selectedSubjectCodes,
+      status: "Pending", submittedAt: new Date().toISOString().replace("T", " ").substring(0, 16)
     });
-
     setIsNewStudentModalOpen(false);
     setFormStep(1);
     setFirstName(""); setLastName(""); setMiddleName("");
@@ -174,7 +222,6 @@ export default function RegistrarModule() {
     setSelectedStudent(baseNewStudent);
   };
 
-  // When BE category changes, reset year level and course
   const handleBeCategoryChange = (category: string) => {
     setBeProgramCategory(category);
     const levels = BE_PROGRAM_CATEGORIES[category] || [];
@@ -190,21 +237,24 @@ export default function RegistrarModule() {
     if (!strands.includes(courseCode)) setCourseCode(strands[0]);
   };
 
-  // Tabs shown per school context
   const getDetailTabs = (): { id: DetailTab; label: string }[] => {
     if (schoolContext === "BASIC_ED") {
       return [
         { id: "info", label: "Student Info" },
-        { id: "guardian", label: "Guardian Info" },
+        { id: "guardian", label: "Guardian" },
         { id: "academic", label: "Academic Info" },
+        { id: "assessment_fees", label: "Assessment Fees" },
+        { id: "documents", label: "Documents" },
         { id: "enrollment", label: "Enrollment" }
       ];
     }
     return [
       { id: "info", label: "Student Info" },
       { id: "academic", label: "Academic Info" },
-      { id: "subjects", label: "Subject Selection" },
-      { id: "curriculum", label: "Curriculum Assignment" }
+      { id: "assessment_fees", label: "Assessment Fees" },
+      { id: "documents", label: "Documents" },
+      { id: "subjects", label: "Subjects" },
+      { id: "curriculum", label: "Curriculum" }
     ];
   };
 
@@ -212,7 +262,7 @@ export default function RegistrarModule() {
     setMockFileName(importType === "masterlist" ? "DepEd_Learners_SF9_SHS_ABM_BatchA.xlsx" : "Advisory_Class_Roster_Sectioning.xlsx");
     if (importType === "masterlist") {
       setMockRowsPreview([
-        { colA: "10281940173", colB: "Reyes", colC: "Cesar Daniel", colD: "Gomez", colE: schoolContext === "BASIC_ED" ? "Basic Education" : "College", colF: schoolContext === "BASIC_ED" ? "STEM" : "BSIT", colG: schoolContext === "BASIC_ED" ? "Grade 11" : "1st Year", colH: "Novaliches, Quezon City", colI: "Elena Reyes", colJ: "+639194918204" },
+        { colA: "10281940173", colB: "Reyes", colC: "Cesar Daniel", colD: "Gomez", colE: schoolContext === "BASIC_ED" ? "Basic Education" : "College", colF: schoolContext === "BASIC_ED" ? "STEM" : "BSIT", colG: schoolContext === "BASIC_ED" ? "Grade 11" : "1st Year", colH: "Novaliches, QC", colI: "Elena Reyes", colJ: "+639194918204" },
         { colA: "30294029184", colB: "Sy", colC: "Jonathan", colD: "Co", colE: schoolContext === "BASIC_ED" ? "Basic Education" : "College", colF: schoolContext === "BASIC_ED" ? "ABM" : "BSCS", colG: schoolContext === "BASIC_ED" ? "Grade 12" : "1st Year", colH: "Binondo, Manila", colI: "Robert Sy", colJ: "+639151234567" },
         { colA: "20148591820", colB: "Salvador", colC: "Marcus", colD: "Reyes", colE: schoolContext === "BASIC_ED" ? "Basic Education" : "College", colF: schoolContext === "BASIC_ED" ? "HUMSS" : "BSBA", colG: schoolContext === "BASIC_ED" ? "Grade 11" : "2nd Year", colH: "Caloocan City", colI: "Sonia Salvador", colJ: "+639228889911" }
       ]);
@@ -231,39 +281,7 @@ export default function RegistrarModule() {
   return (
     <div className="space-y-6 animate-fade-in font-sans">
 
-      {/* SCHOOL CONTEXT SWITCHER */}
-      <div className="flex flex-col sm:flex-row gap-3 p-1 bg-stone-100 border border-stone-200 rounded-2xl">
-        <button
-          onClick={() => { setSchoolContext("BASIC_ED"); setSelectedStudent(null); setSearchQuery(""); }}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-            schoolContext === "BASIC_ED"
-              ? "btn-primary-gradient text-white shadow-lg"
-              : "bg-white text-stone-600 hover:bg-stone-50 border border-stone-200"
-          }`}
-        >
-          <School className="w-4 h-4" />
-          <div className="text-left">
-            <span className="block">Basic Education Registrar</span>
-            <span className={`text-[9px] font-mono uppercase ${schoolContext === "BASIC_ED" ? "text-stsn-gold-light" : "text-stone-400"}`}>St. Theresa's School of Novaliches</span>
-          </div>
-        </button>
-        <button
-          onClick={() => { setSchoolContext("COLLEGE"); setSelectedStudent(null); setSearchQuery(""); }}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-            schoolContext === "COLLEGE"
-              ? "bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg"
-              : "bg-white text-stone-600 hover:bg-stone-50 border border-stone-200"
-          }`}
-        >
-          <GraduationCap className="w-4 h-4" />
-          <div className="text-left">
-            <span className="block">College Registrar</span>
-            <span className={`text-[9px] font-mono uppercase ${schoolContext === "COLLEGE" ? "text-blue-200" : "text-stone-400"}`}>Colegio de Sta. Teresa de Avila</span>
-          </div>
-        </button>
-      </div>
-
-      {/* MODULE HEADER */}
+      {/* MODULE HEADER — no manual school switcher, auto-detected */}
       <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 rounded-xl shadow-sm gap-4 ${schoolContext === "BASIC_ED" ? "card-gold-accent border border-stsn-beige" : "bg-blue-50 border border-blue-200"}`}>
         <div>
           <div className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-full border inline-block mb-1.5 ${schoolBadgeClass}`}>
@@ -271,7 +289,7 @@ export default function RegistrarModule() {
           </div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <Compass className={`w-5 h-5 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`} />
-            {schoolContext === "BASIC_ED" ? "Basic Education Registrar & Admissions" : "College Registrar & Admissions Bureau"}
+            {schoolContext === "BASIC_ED" ? "Basic Education Admissions & COR" : "College Admissions Bureau & COR"}
           </h2>
           <p className="text-stone-500 text-xs mt-1">{schoolLabel} • {contextStudents.length} students enrolled</p>
         </div>
@@ -281,8 +299,7 @@ export default function RegistrarModule() {
             setBeProgramCategory("Senior High School");
             setYearLvl(schoolContext === "BASIC_ED" ? "Grade 11" : "1st Year");
             setCourseCode(schoolContext === "BASIC_ED" ? "STEM" : "BSIT");
-            setCollegeCourse("BSIT");
-            setCollegeYear("1st Year");
+            setCollegeCourse("BSIT"); setCollegeYear("1st Year");
             setIsNewStudentModalOpen(true);
           }}
           className={`text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer shadow flex items-center gap-2 transition ${schoolContext === "BASIC_ED" ? "btn-primary-gradient" : "bg-blue-600 hover:bg-blue-700"}`}
@@ -342,67 +359,63 @@ export default function RegistrarModule() {
                     <th className="p-3">Student ID</th>
                     <th className="p-3">Full Name</th>
                     <th className="p-3">Year Level</th>
-                    <th className="p-3">{schoolContext === "BASIC_ED" ? "Strand" : "Program"}</th>
+                    <th className="p-3">Strand / Track</th>
                     <th className="p-3 text-center">Status</th>
-                    <th className="p-3 text-right">Action</th>
+                    <th className="p-3 text-right">COR</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {filteredStudents.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-12 text-center text-stone-400 italic">No students found in this directory.</td>
-                    </tr>
-                  ) : (
-                    filteredStudents.map((stud) => {
-                      const isSelected = selectedStudent?.id === stud.id;
-                      const isEnrolled = stud.enrollmentStatus === "Enrolled";
-                      return (
-                        <tr
-                          key={stud.id}
-                          onClick={() => { setSelectedStudent(stud); setDetailTab("info"); }}
-                          className={`cursor-pointer transition-all ${isSelected ? "row-selected" : "hover:bg-stone-50"}`}
-                          style={isSelected ? { borderLeft: "4px solid #C5A059" } : {}}
-                        >
-                          <td className={`p-3 font-mono font-bold text-xs ${isSelected ? "pl-2" : ""} ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}>
-                            {stud.studentNo}
-                          </td>
-                          <td className="p-3">
-                            <div className="font-semibold text-stone-900">{stud.lastName}, {stud.firstName}</div>
-                            <span className="text-[10px] text-stone-400 block">{stud.section ? `Section: ${stud.section}` : "No section"}</span>
-                          </td>
-                          <td className="p-3 text-stone-600 font-medium">{stud.yearLevel}</td>
-                          <td className="p-3">
-                            <span className={`rounded px-2 py-0.5 text-[10.5px] font-bold ${schoolBadgeClass}`}>
-                              {stud.trackOrCourse || "N/A"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-block text-[9.5px] font-bold leading-none px-2 py-1 rounded-full ${
-                              stud.enrollmentStatus === "Enrolled" ? "bg-green-50 text-green-700 border border-green-200" :
-                              stud.enrollmentStatus === "Approved" ? "bg-blue-50 text-blue-700 border border-blue-200" :
-                              stud.enrollmentStatus === "Rejected" ? "bg-red-50 text-red-700 border border-red-200" :
-                              "bg-amber-50 text-amber-700 border border-amber-200"
-                            }`}>
-                              {stud.enrollmentStatus}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedStudent(stud);
-                                if (isEnrolled) setIsCorModalOpen(true);
-                                else alert(`Status: ${stud.enrollmentStatus}. Verify requirements first.`);
-                              }}
-                              className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition ${isEnrolled ? (schoolContext === "BASIC_ED" ? "btn-primary-gradient text-white" : "bg-blue-600 hover:bg-blue-700 text-white") : "bg-stone-100 text-stone-400 cursor-not-allowed"}`}
-                            >
-                              COR
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
+                    <tr><td colSpan={6} className="p-12 text-center text-stone-400 italic">No students found.</td></tr>
+                  ) : filteredStudents.map((stud) => {
+                    const isSelected = selectedStudent?.id === stud.id;
+                    const isEnrolled = stud.enrollmentStatus === "Enrolled";
+                    return (
+                      <tr
+                        key={stud.id}
+                        onClick={() => { setSelectedStudent(stud); setDetailTab("info"); }}
+                        className={`cursor-pointer transition-all ${isSelected ? "row-selected" : "hover:bg-stone-50"}`}
+                        style={isSelected ? { borderLeft: "4px solid #C5A059" } : {}}
+                      >
+                        <td className={`p-3 font-mono font-bold text-xs ${isSelected ? "pl-2" : ""} ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}>
+                          {stud.studentNo}
+                        </td>
+                        <td className="p-3">
+                          <div className="font-semibold text-stone-900">{stud.lastName}, {stud.firstName}</div>
+                          <span className="text-[10px] text-stone-400 block">{stud.section ? `Section: ${stud.section}` : "No section"}</span>
+                        </td>
+                        <td className="p-3 text-stone-600 font-medium">{stud.yearLevel}</td>
+                        <td className="p-3">
+                          <span className={`rounded px-2 py-0.5 text-[10.5px] font-bold ${schoolBadgeClass}`}>
+                            {stud.trackOrCourse || "N/A"}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-block text-[9.5px] font-bold leading-none px-2 py-1 rounded-full ${
+                            stud.enrollmentStatus === "Enrolled" ? "bg-green-50 text-green-700 border border-green-200" :
+                            stud.enrollmentStatus === "Approved" ? "bg-blue-50 text-blue-700 border border-blue-200" :
+                            stud.enrollmentStatus === "Rejected" ? "bg-red-50 text-red-700 border border-red-200" :
+                            "bg-amber-50 text-amber-700 border border-amber-200"
+                          }`}>
+                            {stud.enrollmentStatus}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedStudent(stud);
+                              if (isEnrolled) setIsCorModalOpen(true);
+                              else alert(`Status: ${stud.enrollmentStatus}. Complete enrollment first.`);
+                            }}
+                            className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition ${isEnrolled ? (schoolContext === "BASIC_ED" ? "btn-primary-gradient text-white" : "bg-blue-600 hover:bg-blue-700 text-white") : "bg-stone-100 text-stone-400 cursor-not-allowed"}`}
+                          >
+                            COR
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -425,7 +438,7 @@ export default function RegistrarModule() {
                     <button
                       key={tab.id}
                       onClick={() => setDetailTab(tab.id)}
-                      className={`px-2.5 py-1.5 text-[10px] font-bold rounded-md whitespace-nowrap transition ${
+                      className={`px-2 py-1.5 text-[10px] font-bold rounded-md whitespace-nowrap transition ${
                         detailTab === tab.id
                           ? (schoolContext === "BASIC_ED" ? "bg-stsn-brown text-white" : "bg-blue-600 text-white")
                           : "text-stone-500 hover:bg-stone-100"
@@ -437,6 +450,7 @@ export default function RegistrarModule() {
                 </div>
 
                 <div className="p-5 space-y-4">
+
                   {/* Student Info Tab */}
                   {detailTab === "info" && (
                     <div className="space-y-3 text-xs">
@@ -489,7 +503,7 @@ export default function RegistrarModule() {
                       {[
                         ["Department", selectedStudent.department],
                         ["Year Level", selectedStudent.yearLevel],
-                        [schoolContext === "BASIC_ED" ? "Strand / Level" : "Program / Course", selectedStudent.trackOrCourse],
+                        [schoolContext === "BASIC_ED" ? "Strand / Track" : "Program / Course", selectedStudent.trackOrCourse],
                         ["Advisory Section", selectedStudent.section || "Unassigned"],
                         ["Enrollment Status", selectedStudent.enrollmentStatus],
                         ["School Year", "2026-2027"]
@@ -499,7 +513,6 @@ export default function RegistrarModule() {
                           <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${val === "Enrolled" ? "bg-green-50 text-green-700 border border-green-200" : "text-stone-800"}`}>{val}</span>
                         </div>
                       ))}
-
                       {/* Requirements Checklist */}
                       <div className="pt-3">
                         <h4 className="text-[10px] font-display font-semibold text-stone-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
@@ -508,7 +521,7 @@ export default function RegistrarModule() {
                         </h4>
                         <div className="space-y-2">
                           {studentReqs.length === 0 ? (
-                            <p className="text-[11px] text-stone-400 italic">No requirements found for this student.</p>
+                            <p className="text-[11px] text-stone-400 italic">No requirements found.</p>
                           ) : studentReqs.map((req) => (
                             <div key={req.id} className="p-2.5 bg-stone-50 border border-stone-200/80 rounded-lg flex items-center justify-between">
                               <div>
@@ -531,6 +544,351 @@ export default function RegistrarModule() {
                     </div>
                   )}
 
+                  {/* Assessment Fees Tab */}
+                  {detailTab === "assessment_fees" && (
+                    <div className="space-y-4 text-xs">
+                      <h4 className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5" /> Assessment Fees
+                      </h4>
+
+                      {!studentAssessment ? (
+                        /* ── MOCK PREVIEW when no stored assessment exists ── */
+                        mockFallbackAssessment ? (
+                          <div className="space-y-4">
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2 text-blue-700 text-[11px]">
+                              <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="font-medium">Assessment Preview — Standard fee schedule based on student profile. Subject to Accounting Office confirmation.</span>
+                            </div>
+
+                            {/* Fee Breakdown */}
+                            <div className="border border-stone-200 rounded-lg overflow-hidden">
+                              <div className="bg-stone-50 px-3 py-2 border-b border-stone-200">
+                                <span className="text-[10px] font-bold text-stone-600 uppercase">Fee Breakdown</span>
+                              </div>
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className={`text-white text-[10px] uppercase font-bold ${schoolContext === "BASIC_ED" ? "bg-stsn-brown" : "bg-blue-700"}`}>
+                                    <th className="p-2.5 text-left">Fee Name</th>
+                                    <th className="p-2.5 text-left">Category</th>
+                                    <th className="p-2.5 text-right">Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-stone-100">
+                                  {mockFallbackAssessment.fees.map((fee, i) => (
+                                    <tr key={i} className="hover:bg-stone-50">
+                                      <td className="p-2.5 font-medium text-stone-700">{fee.feeName}</td>
+                                      <td className="p-2.5">
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                          fee.category === "Tuition" ? "bg-blue-50 text-blue-700" :
+                                          fee.category === "Miscellaneous" ? "bg-amber-50 text-amber-700" :
+                                          fee.category === "Laboratory" ? "bg-emerald-50 text-emerald-700" :
+                                          "bg-stone-100 text-stone-600"
+                                        }`}>{fee.category}</span>
+                                      </td>
+                                      <td className="p-2.5 text-right font-mono font-bold text-stone-800">₱{fee.amount.toLocaleString()}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="border-t-2 border-stone-200">
+                                    <td colSpan={2} className="p-2.5 font-bold text-stone-700">Gross Total</td>
+                                    <td className="p-2.5 text-right font-mono font-black text-stone-900">₱{mockFallbackAssessment.grossTotal.toLocaleString()}</td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+
+                            {/* Discount selector */}
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Scholarship / Discount</label>
+                              <select
+                                value={regDiscountId}
+                                onChange={(e) => setRegDiscountId(e.target.value)}
+                                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                              >
+                                {DISCOUNT_OPTIONS.map((d) => (
+                                  <option key={d.id} value={d.id}>{d.label}{d.percentage > 0 ? ` (${d.percentage}%)` : ""}</option>
+                                ))}
+                              </select>
+                              {regSelectedDiscount.percentage > 0 && (
+                                <div className="mt-2 p-2.5 bg-green-50 border border-green-200 rounded-lg flex justify-between items-center">
+                                  <span className="text-[11px] text-green-700 font-medium">{regSelectedDiscount.label}</span>
+                                  <span className="text-[11px] font-mono font-bold text-green-700">−₱{mockFallbackAssessment.discountAmount.toLocaleString()} ({regSelectedDiscount.percentage}%)</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Payment Term selector */}
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Payment Term</label>
+                              <select
+                                value={regPaymentTerm}
+                                onChange={(e) => setRegPaymentTerm(e.target.value as MockPaymentTerm)}
+                                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                              >
+                                {MOCK_PAYMENT_TERM_OPTIONS.map((t) => <option key={t}>{t}</option>)}
+                              </select>
+                            </div>
+
+                            {/* Payment Schedule */}
+                            <div className="border border-stone-200 rounded-lg overflow-hidden">
+                              <div className="bg-stone-50 px-3 py-2 border-b border-stone-200 flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-stone-600 uppercase">Payment Schedule</span>
+                                <span className="text-[10px] font-mono text-stone-500">{regPaymentTerm}</span>
+                              </div>
+                              {mockFallbackAssessment.paymentSchedule.map((item, i) => (
+                                <div key={i} className="flex justify-between items-center px-3 py-2.5 border-b border-stone-100 last:border-none hover:bg-stone-50">
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="w-3.5 h-3.5 text-stsn-gold flex-shrink-0" />
+                                    <div>
+                                      <span className="font-medium text-stone-700 text-[11px] block">{item.dueLabel}</span>
+                                      <span className="text-[9.5px] text-stone-400 font-mono">{item.dueDate}</span>
+                                    </div>
+                                  </div>
+                                  <span className="font-mono font-bold text-stsn-brown text-xs">₱{item.amount.toLocaleString()}</span>
+                                </div>
+                              ))}
+                              <div className="px-3 py-2.5 bg-stsn-cream flex justify-between font-bold border-t border-stsn-beige">
+                                <span className="text-stsn-brown text-xs">Net Payable</span>
+                                <span className="font-mono text-stsn-brown text-xs">₱{mockFallbackAssessment.netPayable.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null
+                      ) : (
+                        <>
+                          {/* Tuition & Misc Fees */}
+                          <div className="border border-stone-200 rounded-lg overflow-hidden">
+                            <div className="bg-stone-50 px-3 py-2 border-b border-stone-200">
+                              <span className="text-[10px] font-bold text-stone-600 uppercase">Fee Breakdown</span>
+                            </div>
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className={`text-white text-[10px] uppercase font-bold ${schoolContext === "BASIC_ED" ? "bg-stsn-brown" : "bg-blue-700"}`}>
+                                  <th className="p-2.5 text-left">Fee Name</th>
+                                  <th className="p-2.5 text-left">Category</th>
+                                  <th className="p-2.5 text-right">Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-stone-100">
+                                {studentAssessment.fees.map((fee, i) => (
+                                  <tr key={i} className="hover:bg-stone-50">
+                                    <td className="p-2.5 font-medium text-stone-700">{fee.feeName}</td>
+                                    <td className="p-2.5">
+                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                        fee.category === "Tuition" ? "bg-blue-50 text-blue-700" :
+                                        fee.category === "Miscellaneous" ? "bg-amber-50 text-amber-700" :
+                                        fee.category === "Laboratory" ? "bg-emerald-50 text-emerald-700" :
+                                        "bg-stone-100 text-stone-600"
+                                      }`}>
+                                        {fee.category}
+                                      </span>
+                                    </td>
+                                    <td className="p-2.5 text-right font-mono font-bold text-stone-800">₱{fee.amount.toLocaleString()}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="border-t-2 border-stone-200">
+                                  <td colSpan={2} className="p-2.5 font-bold text-stone-700">Gross Total</td>
+                                  <td className="p-2.5 text-right font-mono font-black text-stone-900">₱{studentAssessment.totalAmount.toLocaleString()}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+
+                          {/* Discounts */}
+                          {studentAssessment.discountPercentage > 0 && (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <span className="text-[10px] font-bold text-green-700 uppercase block">Discount Applied</span>
+                                  <span className="text-[11px] text-green-600">{studentAssessment.scholarshipName || "Scholarship"}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] text-green-700 font-bold">{studentAssessment.discountPercentage}%</span>
+                                  <span className="text-[10px] text-green-600 block font-mono">−₱{studentAssessment.discountAmount.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Payment Terms */}
+                          <div>
+                            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Payment Term</label>
+                            <select
+                              value={studentAssessment.paymentTerm}
+                              onChange={(e: any) => updateAssessment(studentAssessment.id, { paymentTerm: e.target.value })}
+                              className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                            >
+                              {PAYMENT_TERMS.map((t) => <option key={t}>{t}</option>)}
+                            </select>
+                          </div>
+
+                          {/* Payment Schedule */}
+                          {(() => {
+                            const netAmount = studentAssessment.totalAmount - studentAssessment.discountAmount;
+                            const schedule = getPaymentSchedule(netAmount, studentAssessment.paymentTerm, studentAssessment.schoolYear);
+                            return (
+                              <div className="border border-stone-200 rounded-lg overflow-hidden">
+                                <div className="bg-stone-50 px-3 py-2 border-b border-stone-200 flex justify-between items-center">
+                                  <span className="text-[10px] font-bold text-stone-600 uppercase">Payment Schedule</span>
+                                  <span className="text-[10px] font-mono text-stone-500">{studentAssessment.paymentTerm}</span>
+                                </div>
+                                {schedule.map((item, i) => (
+                                  <div key={i} className="flex justify-between items-center px-3 py-2.5 border-b border-stone-100 last:border-none hover:bg-stone-50">
+                                    <div className="flex items-center gap-2">
+                                      <Calendar className="w-3.5 h-3.5 text-stsn-gold flex-shrink-0" />
+                                      <span className="font-medium text-stone-700">{item.due}</span>
+                                    </div>
+                                    <span className="font-mono font-bold text-stsn-brown">₱{item.amount.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                                <div className="px-3 py-2 bg-stsn-cream flex justify-between font-bold border-t border-stsn-beige">
+                                  <span className="text-stsn-brown">Net Payable</span>
+                                  <span className="font-mono text-stsn-brown">₱{netAmount.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Balance & Paid Status */}
+                          <div className={`p-3 rounded-xl border flex items-center justify-between ${isFeesPaid ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+                            <div className="flex items-center gap-2">
+                              {isFeesPaid
+                                ? <CheckCircle className="w-4 h-4 text-green-600" />
+                                : <AlertCircle className="w-4 h-4 text-amber-600" />
+                              }
+                              <div>
+                                <span className={`text-[10px] font-bold uppercase block ${isFeesPaid ? "text-green-700" : "text-amber-700"}`}>
+                                  {isFeesPaid ? "Assessment Cleared" : "Balance Outstanding"}
+                                </span>
+                                <span className={`text-xs font-mono font-black ${isFeesPaid ? "text-green-800" : "text-amber-800"}`}>
+                                  ₱{studentAssessment.balance.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                            {!isFeesPaid && (
+                              <button
+                                onClick={() => updateAssessment(studentAssessment.id, { balance: 0, isPaid: true })}
+                                className="text-[10px] font-bold px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg cursor-pointer transition"
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Documents Tab */}
+                  {detailTab === "documents" && (
+                    <div className="space-y-3 text-xs">
+                      <h4 className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5" /> Document Requirements
+                      </h4>
+                      <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-[10.5px] flex items-start gap-2">
+                        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>Review student-uploaded documents. You can verify, reject, or mark hardcopy as submitted.</span>
+                      </div>
+                      {studentReqs.length === 0 ? (
+                        <p className="text-stone-400 italic text-[11px]">No requirements found for this student.</p>
+                      ) : studentReqs.map((req) => (
+                        <div key={req.id} className="border border-stone-200 rounded-xl overflow-hidden">
+                          {/* Document Header */}
+                          <div className="px-3 py-2 bg-stone-50 border-b border-stone-100 flex justify-between items-start">
+                            <div>
+                              <span className="text-xs font-bold text-stone-800">{req.name}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {/* Upload status */}
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${req.uploadStatus === "Uploaded" ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-stone-100 text-stone-500"}`}>
+                                  {req.uploadStatus === "Uploaded" ? "Uploaded" : "Not Uploaded"}
+                                </span>
+                                {/* Verification status */}
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${req.verificationStatus === "Verified" ? "bg-green-50 text-green-700 border border-green-200" : req.verificationStatus === "Rejected" ? "bg-red-50 text-red-700 border border-red-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                                  {req.verificationStatus || "Pending Verification"}
+                                </span>
+                                {/* Hardcopy status */}
+                                {req.hardcopySubmitted && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                    Hardcopy ✓
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Details */}
+                          <div className="px-3 py-2.5 space-y-1.5 text-[10.5px]">
+                            {req.uploadFileName && (
+                              <div className="flex items-center gap-1.5 text-stone-600">
+                                <FileText className="w-3 h-3 text-stsn-gold flex-shrink-0" />
+                                <span className="font-medium">{req.uploadFileName}</span>
+                                {req.uploadDate && <span className="text-stone-400 font-mono ml-auto">{req.uploadDate}</span>}
+                              </div>
+                            )}
+                            {req.verifiedBy && (
+                              <div className="text-stone-500 font-mono text-[9px]">
+                                Verified by: {req.verifiedBy} {req.verifiedAt ? `• ${req.verifiedAt}` : ""}
+                              </div>
+                            )}
+                            {req.hardcopySubmittedDate && (
+                              <div className="text-purple-600 font-mono text-[9px]">
+                                Hardcopy submitted: {req.hardcopySubmittedDate}
+                              </div>
+                            )}
+                            {req.remarks && (
+                              <div className="text-stone-500 italic text-[10px]">Remarks: {req.remarks}</div>
+                            )}
+                          </div>
+
+                          {/* Registrar Actions */}
+                          <div className="px-3 pb-2.5 flex flex-wrap gap-1.5">
+                            {req.uploadStatus === "Uploaded" && req.verificationStatus !== "Verified" && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    verifyRequirement(selectedStudent.id, req.name, "Verified", currentUser?.name || "Registrar");
+                                  }}
+                                  className="text-[9px] font-bold px-2.5 py-1 bg-green-50 border border-green-200 text-green-700 rounded-lg hover:bg-green-100 cursor-pointer flex items-center gap-1 transition"
+                                >
+                                  <ShieldCheck className="w-3 h-3" /> Verify
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const remarks = prompt("Rejection reason (optional):") || "";
+                                    verifyRequirement(selectedStudent.id, req.name, "Rejected", currentUser?.name || "Registrar", remarks);
+                                  }}
+                                  className="text-[9px] font-bold px-2.5 py-1 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 cursor-pointer flex items-center gap-1 transition"
+                                >
+                                  <XCircle className="w-3 h-3" /> Reject
+                                </button>
+                              </>
+                            )}
+                            {!req.hardcopySubmitted && (
+                              <button
+                                onClick={() => markHardcopySubmitted(selectedStudent.id, req.name)}
+                                className="text-[9px] font-bold px-2.5 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-100 cursor-pointer flex items-center gap-1 transition"
+                              >
+                                <Package className="w-3 h-3" /> Mark Hardcopy Submitted
+                              </button>
+                            )}
+                            {/* Simulate upload for registrar testing */}
+                            {!req.uploadStatus && (
+                              <button
+                                onClick={() => updateRequirementUpload(selectedStudent.id, req.name, `${req.name.replace(/\s+/g, "_")}_scan.pdf`)}
+                                className="text-[9px] font-bold px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 cursor-pointer flex items-center gap-1 transition"
+                              >
+                                <Upload className="w-3 h-3" /> Simulate Upload
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Enrollment Tab — Basic Ed */}
                   {detailTab === "enrollment" && (
                     <div className="space-y-3 text-xs">
@@ -543,11 +901,24 @@ export default function RegistrarModule() {
                             {selectedStudent.enrollmentStatus}
                           </span>
                         </div>
+                        <div className="flex justify-between"><span className="text-stone-400">Fees Paid:</span>
+                          <span className={`font-bold text-[10px] ${isFeesPaid ? "text-green-600" : "text-amber-600"}`}>
+                            {isFeesPaid ? "Yes — Cleared" : "No — Outstanding"}
+                          </span>
+                        </div>
                       </div>
+
+                      {!isFeesPaid && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-amber-800 text-[10.5px]">
+                          <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <span>Assessment fees must be cleared before enrollment can be approved. Go to the <strong>Assessment Fees</strong> tab to process payment.</span>
+                        </div>
+                      )}
 
                       {selectedStudent.enrollmentStatus !== "Enrolled" && (
                         <div className="grid grid-cols-2 gap-2 pt-2">
                           <button
+                            disabled={!isFeesPaid}
                             onClick={() => {
                               const section = "St. Thomas";
                               approveEnrollment(`enr-${selectedStudent.id}`, section);
@@ -555,7 +926,8 @@ export default function RegistrarModule() {
                               selectedStudent.section = section;
                               alert(`Approved! Assigned to: ${section}`);
                             }}
-                            className="btn-primary-gradient text-white text-xs font-semibold py-2 rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                            title={!isFeesPaid ? "Assessment fees must be paid first" : "Clear and Enroll"}
+                            className={`text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1 transition ${isFeesPaid ? "btn-primary-gradient cursor-pointer" : "bg-stone-300 cursor-not-allowed opacity-60"}`}
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                             Clear & Enroll
@@ -580,10 +952,6 @@ export default function RegistrarModule() {
                   {detailTab === "subjects" && (
                     <div className="space-y-3 text-xs">
                       <h4 className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-widest">Subject Load Selection</h4>
-                      <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-[10.5px] flex items-start gap-2">
-                        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                        <span>College subject load is based on the student's curriculum. Irregular students may be assigned back subjects.</span>
-                      </div>
                       {(() => {
                         const enrolled = getEnrolledSubjects(selectedStudent.id);
                         return (
@@ -591,21 +959,20 @@ export default function RegistrarModule() {
                             <table className="w-full text-left text-[11px] border border-stone-100 rounded-lg overflow-hidden">
                               <thead>
                                 <tr className="bg-blue-700 text-white text-[9px] uppercase font-bold">
-                                  <th className="p-2">Code</th>
-                                  <th className="p-2">Subject</th>
-                                  <th className="p-2 text-center">Units</th>
+                                  <th className="p-2">Code</th><th className="p-2">Subject</th><th className="p-2 text-center">Units</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-stone-100">
-                                {enrolled.length === 0 ? (
-                                  <tr><td colSpan={3} className="p-3 text-center text-stone-400 italic">No subjects loaded.</td></tr>
-                                ) : enrolled.map((sub) => (
-                                  <tr key={sub.id} className="hover:bg-stone-50">
-                                    <td className="p-2 font-mono font-bold text-blue-700">{sub.code}</td>
-                                    <td className="p-2 text-stone-700">{sub.name}</td>
-                                    <td className="p-2 text-center font-bold">{sub.units}</td>
-                                  </tr>
-                                ))}
+                                {enrolled.length === 0
+                                  ? <tr><td colSpan={3} className="p-3 text-center text-stone-400 italic">No subjects loaded.</td></tr>
+                                  : enrolled.map((sub) => (
+                                    <tr key={sub.id} className="hover:bg-stone-50">
+                                      <td className="p-2 font-mono font-bold text-blue-700">{sub.code}</td>
+                                      <td className="p-2 text-stone-700">{sub.name}</td>
+                                      <td className="p-2 text-center font-bold">{sub.units}</td>
+                                    </tr>
+                                  ))
+                                }
                               </tbody>
                             </table>
                             {enrolled.length > 0 && (
@@ -627,17 +994,24 @@ export default function RegistrarModule() {
                       <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-2">
                         <div className="flex justify-between"><span className="text-stone-400">Program:</span><strong>{selectedStudent.trackOrCourse}</strong></div>
                         <div className="flex justify-between"><span className="text-stone-400">Year Level:</span><strong>{selectedStudent.yearLevel}</strong></div>
-                        <div className="flex justify-between"><span className="text-stone-400">Curriculum Version:</span><strong>{selectedStudent.trackOrCourse} v3 (2026)</strong></div>
+                        <div className="flex justify-between"><span className="text-stone-400">Curriculum:</span><strong>{selectedStudent.trackOrCourse} v3 (2026)</strong></div>
                       </div>
                       <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                         <span className="text-green-800 font-bold text-[10px] uppercase block">Curriculum Assigned</span>
-                        <p className="text-green-700 text-[10.5px] mt-1">
-                          Standard {selectedStudent.trackOrCourse} curriculum has been auto-assigned. Irregular students may have modified loads.
-                        </p>
+                        <p className="text-green-700 text-[10.5px] mt-1">Standard {selectedStudent.trackOrCourse} curriculum auto-assigned.</p>
                       </div>
+
+                      {!isFeesPaid && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-amber-800 text-[10.5px]">
+                          <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <span>Assessment fees must be cleared before enrollment. Visit <strong>Assessment Fees</strong> tab.</span>
+                        </div>
+                      )}
+
                       {selectedStudent.enrollmentStatus !== "Enrolled" && (
                         <div className="grid grid-cols-2 gap-2 pt-2">
                           <button
+                            disabled={!isFeesPaid}
                             onClick={() => {
                               const section = "IT101";
                               approveEnrollment(`enr-${selectedStudent.id}`, section);
@@ -645,21 +1019,16 @@ export default function RegistrarModule() {
                               selectedStudent.section = section;
                               alert(`Approved! Section: ${section}`);
                             }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                            className={`text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1 transition ${isFeesPaid ? "bg-blue-600 hover:bg-blue-700 cursor-pointer" : "bg-stone-300 cursor-not-allowed opacity-60"}`}
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                             Clear & Enroll
                           </button>
                           <button
-                            onClick={() => {
-                              rejectEnrollment(`enr-${selectedStudent.id}`);
-                              selectedStudent.enrollmentStatus = "Rejected";
-                              alert("Marked as incomplete.");
-                            }}
+                            onClick={() => { rejectEnrollment(`enr-${selectedStudent.id}`); selectedStudent.enrollmentStatus = "Rejected"; alert("Marked as incomplete."); }}
                             className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-semibold py-2 rounded-lg cursor-pointer flex items-center justify-center gap-1"
                           >
-                            <XCircle className="w-3.5 h-3.5" />
-                            Reject
+                            <XCircle className="w-3.5 h-3.5" /> Reject
                           </button>
                         </div>
                       )}
@@ -685,12 +1054,6 @@ export default function RegistrarModule() {
               <FileSpreadsheet className={`w-5 h-5 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`} />
               {schoolContext === "BASIC_ED" ? "DepEd Learner Excel Upload Portal" : "CHEd College Student Masterlist Upload"}
             </h3>
-            <p className="text-stone-500 text-xs mt-1">
-              Supports standard {schoolContext === "BASIC_ED" ? "DepEd" : "CHEd"} multi-column formats (Columns A to AQ).
-              <span className={`ml-2 text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded border inline-block ${schoolBadgeClass}`}>
-                {schoolLabel}
-              </span>
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -700,17 +1063,12 @@ export default function RegistrarModule() {
                 onClick={() => { setImportType(type); setMockFileName(null); setMockRowsPreview([]); setBulkImportSuccess(""); }}
                 className={`p-4 border rounded-xl cursor-pointer transition ${importType === type ? "card-gold-accent border-stsn-brown shadow-sm" : "border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-50/50"}`}
               >
-                <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-stsn-brown-dark flex items-center gap-1.5">
-                    {type === "masterlist" ? <UserPlus className="w-4 h-4" /> : <Layers className="w-4 h-4" />}
-                    {type === "masterlist" ? "Option A: Masterlist Batch Upload" : "Option B: Advisory Roster Assignments"}
-                  </h4>
-                  <input type="radio" checked={importType === type} readOnly className="accent-stsn-brown" />
-                </div>
-                <p className="text-[11px] text-stone-500 mt-2 leading-relaxed">
-                  {type === "masterlist"
-                    ? `Registers new ${schoolContext === "BASIC_ED" ? "learner" : "college student"} accounts with automatic ID generation.`
-                    : "Imports section-to-student assignments to update enrollment rosters in one step."}
+                <h4 className="text-xs font-bold uppercase text-stsn-brown-dark flex items-center gap-1.5">
+                  {type === "masterlist" ? <UserPlus className="w-4 h-4" /> : <Layers className="w-4 h-4" />}
+                  {type === "masterlist" ? "Option A: Masterlist Batch Upload" : "Option B: Advisory Roster Assignments"}
+                </h4>
+                <p className="text-[11px] text-stone-500 mt-2">
+                  {type === "masterlist" ? "Registers new student accounts with automatic ID generation." : "Imports section-to-student assignments to update enrollment rosters."}
                 </p>
               </div>
             ))}
@@ -724,7 +1082,7 @@ export default function RegistrarModule() {
               onClick={mockBulkDrop}
               className={`p-10 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition ${dragActive ? "border-stsn-gold bg-stsn-cream/30" : "border-stone-300 hover:border-stone-400"}`}
             >
-              <UploadCloud className={`w-12 h-12 hover:scale-105 transition ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`} />
+              <UploadCloud className={`w-12 h-12 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`} />
               <p className="text-stone-700 text-xs font-bold mt-3">Drag & drop your Excel file here, or click to browse</p>
               <p className="text-stone-400 text-[10px] uppercase font-mono mt-1">Conforming Excel format (.xlsx, .csv) up to 50MB</p>
             </div>
@@ -735,75 +1093,67 @@ export default function RegistrarModule() {
                   <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
                   <div>
                     <span className="font-mono text-xs font-bold block text-stone-800">{mockFileName}</span>
-                    <span className="text-[10px] text-green-700 font-bold block">✓ Parsed successfully. Found 3 records.</span>
+                    <span className="text-[10px] text-green-700 font-bold">✓ Parsed — {mockRowsPreview.length} records found.</span>
                   </div>
                 </div>
                 <button onClick={() => { setMockFileName(null); setMockRowsPreview([]); setBulkImportSuccess(""); }} className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer">Change File</button>
               </div>
 
               <div className="overflow-x-auto border border-stone-200 rounded-lg max-h-[290px]">
-                {importType === "masterlist" ? (
-                  <table className="w-full text-left text-xs text-stone-750">
-                    <thead>
-                      <tr className={`text-white font-mono text-[9px] uppercase border-b ${schoolContext === "BASIC_ED" ? "bg-stsn-brown" : "bg-blue-700"}`}>
-                        {["Col A (LRN)", "Col B (Surname)", "Col C (First Name)", "Col D (Middle)", "Col E (Dept)", "Col F (Strand/Course)", "Col G (Year Level)", "Col H (Address)", "Col I (Guardian)", "Col J (Contact)", "Cols K–AQ"].map((h) => (
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className={`text-white font-mono text-[9px] uppercase border-b ${schoolContext === "BASIC_ED" ? "bg-stsn-brown" : "bg-blue-700"}`}>
+                      {importType === "masterlist"
+                        ? ["LRN", "Surname", "First Name", "Middle", "Dept", "Strand/Course", "Year Level", "Address", "Guardian", "Contact", "Cols K–AQ"].map((h) => (
                           <th key={h} className="p-2 border-r border-white/20">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-150 font-medium">
-                      {mockRowsPreview.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-stone-50">
-                          <td className={`p-2 border-r border-stone-150 font-bold font-mono text-[10.5px] ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}>{row.colA}</td>
-                          <td className="p-2 border-r border-stone-150 font-bold">{row.colB}</td>
-                          <td className="p-2 border-r border-stone-150">{row.colC}</td>
-                          <td className="p-2 border-r border-stone-150 text-stone-400">{row.colD}</td>
-                          <td className="p-2 border-r border-stone-150 font-mono text-[10px]">{row.colE}</td>
-                          <td className="p-2 border-r border-stone-150 font-bold">{row.colF}</td>
-                          <td className="p-2 border-r border-stone-150">{row.colG}</td>
-                          <td className="p-2 border-r border-stone-150 text-stone-500 truncate max-w-[120px]">{row.colH}</td>
-                          <td className="p-2 border-r border-stone-150 text-stone-500">{row.colI}</td>
-                          <td className="p-2 border-r border-stone-150 font-mono text-stone-450">{row.colJ}</td>
-                          <td className="p-2 text-stone-300 italic text-[10px] font-mono">Mapped DepEd tags</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <table className="w-full text-left text-xs text-stone-750">
-                    <thead>
-                      <tr className={`text-white font-mono text-[9.5px] uppercase border-b ${schoolContext === "BASIC_ED" ? "bg-stsn-brown" : "bg-blue-700"}`}>
-                        {["Col A (LRN Key)", "Col B (Full Name)", "Col C (Target Section)", "Col D (Adviser)", "Validation"].map((h) => (
+                        ))
+                        : ["LRN", "Full Name", "Section", "Adviser", "Validation"].map((h) => (
                           <th key={h} className="p-2 border-r border-white/20">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-150 font-medium">
-                      {mockRowsPreview.map((row, idx) => (
+                        ))
+                      }
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {importType === "masterlist"
+                      ? mockRowsPreview.map((row, idx) => (
                         <tr key={idx} className="hover:bg-stone-50">
-                          <td className={`p-2 border-r font-bold font-mono text-[10.5px] ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}>{row.lrn}</td>
-                          <td className="p-2 border-r font-bold">{row.name}</td>
-                          <td className="p-2 border-r font-mono font-bold text-green-700 bg-green-50/20">{row.section}</td>
-                          <td className="p-2 border-r">{row.adviser}</td>
-                          <td className="p-2 text-green-700 font-mono text-[10px] font-semibold">Ready (Matched)</td>
+                          <td className={`p-2 font-bold font-mono text-[10.5px] ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}>{row.colA}</td>
+                          <td className="p-2 font-bold">{row.colB}</td>
+                          <td className="p-2">{row.colC}</td>
+                          <td className="p-2 text-stone-400">{row.colD}</td>
+                          <td className="p-2 font-mono text-[10px]">{row.colE}</td>
+                          <td className="p-2 font-bold">{row.colF}</td>
+                          <td className="p-2">{row.colG}</td>
+                          <td className="p-2 text-stone-500 truncate max-w-[100px]">{row.colH}</td>
+                          <td className="p-2 text-stone-500">{row.colI}</td>
+                          <td className="p-2 font-mono">{row.colJ}</td>
+                          <td className="p-2 text-stone-300 italic font-mono text-[10px]">Mapped tags</td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                      ))
+                      : mockRowsPreview.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-stone-50">
+                          <td className={`p-2 font-bold font-mono text-[10.5px] ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}>{row.lrn}</td>
+                          <td className="p-2 font-bold">{row.name}</td>
+                          <td className="p-2 font-mono font-bold text-green-700">{row.section}</td>
+                          <td className="p-2">{row.adviser}</td>
+                          <td className="p-2 text-green-700 font-mono text-[10px]">Ready (Matched)</td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
               </div>
 
               <div className="bg-stsn-cream p-4 border border-stsn-beige rounded-xl flex justify-between items-center">
                 <div className="text-xs text-stone-600">
                   <strong className="text-stsn-brown uppercase font-mono text-[10px] block">Academic Integrity Check</strong>
-                  <span className="text-[11px]">Committing will register {mockRowsPreview.length} students into the live directory in "Pending" status.</span>
+                  <span className="text-[11px]">Committing will register {mockRowsPreview.length} students in "Pending" status.</span>
                 </div>
                 <button
                   onClick={() => setBulkImportSuccess(`Success: ${mockRowsPreview.length} students batch-registered under ${schoolLabel}.`)}
                   className={`text-white text-xs font-bold px-4 py-2.5 rounded-lg inline-flex items-center gap-1.5 cursor-pointer shadow-md ${schoolContext === "BASIC_ED" ? "btn-primary-gradient" : "bg-blue-600 hover:bg-blue-700"}`}
                 >
-                  <Cpu className="w-4 h-4" />
-                  Commit & Authorize Sync
+                  <Cpu className="w-4 h-4" /> Commit & Authorize
                 </button>
               </div>
 
@@ -830,7 +1180,7 @@ export default function RegistrarModule() {
                 <UserPlus className="w-5 h-5 text-stsn-gold" />
                 {schoolContext === "BASIC_ED" ? "Basic Ed" : "College"} Student Enrollment Form
               </h3>
-              <button onClick={() => setIsNewStudentModalOpen(false)} className="p-1 hover:bg-white/10 rounded-lg">
+              <button onClick={() => setIsNewStudentModalOpen(false)} className="p-1 hover:bg-white/10 rounded-lg cursor-pointer">
                 <XCircle className="w-5 h-5" />
               </button>
             </div>
@@ -849,7 +1199,6 @@ export default function RegistrarModule() {
             </div>
 
             <div className="p-6 bg-stsn-cream flex-1 overflow-y-auto space-y-4">
-
               {/* STEP 1 */}
               {formStep === 1 && (
                 <div className="space-y-4 bg-white p-5 rounded-xl border border-stsn-beige animate-fade-in">
@@ -870,8 +1219,7 @@ export default function RegistrarModule() {
                     <div>
                       <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Gender *</label>
                       <select value={gender} onChange={(e: any) => setGender(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold">
-                        <option>Male</option>
-                        <option>Female</option>
+                        <option>Male</option><option>Female</option>
                       </select>
                     </div>
                   </div>
@@ -887,49 +1235,35 @@ export default function RegistrarModule() {
               {formStep === 2 && (
                 <div className="space-y-4 bg-white p-5 rounded-xl border border-stsn-beige animate-fade-in">
                   <h4 className="text-xs font-bold text-stsn-brown uppercase">Academic Program Setup</h4>
-
                   {schoolContext === "BASIC_ED" ? (
                     <>
-                      {/* Cascading dropdown for Basic Ed */}
                       <div>
                         <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Program Category</label>
                         <select value={beProgramCategory} onChange={(e) => handleBeCategoryChange(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold">
-                          {Object.keys(BE_PROGRAM_CATEGORIES).map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
+                          {Object.keys(BE_PROGRAM_CATEGORIES).map((cat) => <option key={cat}>{cat}</option>)}
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level / Grade</label>
                         <select value={yearLvl} onChange={(e) => handleBeYearChange(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold">
-                          {(BE_PROGRAM_CATEGORIES[beProgramCategory] || []).map((lvl) => (
-                            <option key={lvl} value={lvl}>{lvl}</option>
-                          ))}
+                          {(BE_PROGRAM_CATEGORIES[beProgramCategory] || []).map((lvl) => <option key={lvl}>{lvl}</option>)}
                         </select>
                       </div>
                       {(BE_STRANDS_BY_LEVEL[yearLvl] || []).length > 1 && (
                         <div>
-                          <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Strand</label>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Strand / Track</label>
                           <select value={courseCode} onChange={(e) => setCourseCode(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold">
-                            {(BE_STRANDS_BY_LEVEL[yearLvl] || []).map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
+                            {(BE_STRANDS_BY_LEVEL[yearLvl] || []).map((s) => <option key={s}>{s}</option>)}
                           </select>
                         </div>
                       )}
-                      <p className="text-[10px] text-stone-400 font-mono bg-stone-50 p-2 rounded">
-                        Selected: <strong>{beProgramCategory}</strong> → <strong>{yearLvl}</strong>{courseCode !== "Elementary" && courseCode !== "Junior High" && courseCode !== "Preschool" ? ` (${courseCode})` : ""}
-                      </p>
                     </>
                   ) : (
                     <>
-                      {/* College dropdowns */}
                       <div>
                         <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">College Program</label>
                         <select value={collegeCourse} onChange={(e) => setCollegeCourse(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-blue-500">
-                          {courses.filter((c) => c.department === "College").map((c) => (
-                            <option key={c.id} value={c.code}>{c.code} — {c.name}</option>
-                          ))}
+                          {courses.filter((c) => c.department === "College").map((c) => <option key={c.id} value={c.code}>{c.code} — {c.name}</option>)}
                         </select>
                       </div>
                       <div>
@@ -940,17 +1274,14 @@ export default function RegistrarModule() {
                       </div>
                     </>
                   )}
-
                   <div className="flex justify-between pt-2">
-                    <button onClick={() => setFormStep(1)} className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg">Back</button>
+                    <button onClick={() => setFormStep(1)} className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer">Back</button>
                     <button
                       onClick={() => {
-                        const defaults = subjects
-                          .filter((s) => {
-                            if (schoolContext === "COLLEGE") return s.department === "College" && s.trackOrCourse === collegeCourse;
-                            return s.department === "Basic Education" && s.trackOrCourse === courseCode && s.yearLevel === yearLvl;
-                          })
-                          .map((s) => s.code);
+                        const defaults = subjects.filter((s) => {
+                          if (schoolContext === "COLLEGE") return s.department === "College" && s.trackOrCourse === collegeCourse;
+                          return s.department === "Basic Education" && s.trackOrCourse === courseCode && s.yearLevel === yearLvl;
+                        }).map((s) => s.code);
                         setSelectedSubjectCodes(defaults);
                         setFormStep(3);
                       }}
@@ -968,22 +1299,16 @@ export default function RegistrarModule() {
                   <div className="flex justify-between items-center pb-2 border-b border-stone-100">
                     <h4 className="text-xs font-bold text-stsn-brown uppercase">Subject Load Setup</h4>
                     {schoolContext === "COLLEGE" && (
-                      <button
-                        onClick={() => setIsIrregular(!isIrregular)}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${isIrregular ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-stone-50 border-stone-200 text-stone-500"}`}
-                      >
+                      <button onClick={() => setIsIrregular(!isIrregular)} className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer ${isIrregular ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-stone-50 border-stone-200 text-stone-500"}`}>
                         {isIrregular ? "✓ Irregular Student" : "Mark as Irregular"}
                       </button>
                     )}
                   </div>
-
-                  {/* Subject Table */}
                   <div className="border border-stone-200 rounded-lg overflow-hidden">
                     <table className="w-full text-left text-xs">
                       <thead>
                         <tr className={`text-[10px] font-bold uppercase text-white ${schoolContext === "BASIC_ED" ? "bg-stsn-brown" : "bg-blue-600"}`}>
-                          <th className="p-2.5">Subject Code</th>
-                          <th className="p-2.5">Subject Description</th>
+                          <th className="p-2.5">Code</th><th className="p-2.5">Subject</th>
                           <th className="p-2.5 text-center">{schoolContext === "COLLEGE" ? "Units" : "Type"}</th>
                           <th className="p-2.5 text-center">Action</th>
                         </tr>
@@ -992,26 +1317,18 @@ export default function RegistrarModule() {
                         {currentAvailableSubjects.length === 0 ? (
                           <tr><td colSpan={4} className="p-4 text-center text-stone-400 italic">No subjects available for this level.</td></tr>
                         ) : currentAvailableSubjects.map((sub) => {
-                          const isSelected = selectedSubjectCodes.includes(sub.code);
+                          const isSel = selectedSubjectCodes.includes(sub.code);
                           return (
-                            <tr key={sub.id} className={`hover:bg-stone-50 ${isSelected ? "bg-stsn-cream/30" : ""}`}>
+                            <tr key={sub.id} className={`hover:bg-stone-50 ${isSel ? "bg-stsn-cream/30" : ""}`}>
                               <td className={`p-2.5 font-mono font-bold text-[11px] ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}>{sub.code}</td>
                               <td className="p-2.5 text-stone-700 font-medium">{sub.name}</td>
-                              <td className="p-2.5 text-center font-bold font-mono">
-                                {schoolContext === "COLLEGE" ? (sub.units > 0 ? sub.units : "—") : "K-12"}
-                              </td>
+                              <td className="p-2.5 text-center font-bold font-mono">{schoolContext === "COLLEGE" ? sub.units || "—" : "K-12"}</td>
                               <td className="p-2.5 text-center">
                                 <button
-                                  onClick={() => {
-                                    if (isSelected) {
-                                      setSelectedSubjectCodes(selectedSubjectCodes.filter((c) => c !== sub.code));
-                                    } else {
-                                      setSelectedSubjectCodes([...selectedSubjectCodes, sub.code]);
-                                    }
-                                  }}
-                                  className={`text-[9px] font-bold px-2 py-0.5 rounded border transition cursor-pointer ${isSelected ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" : "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"}`}
+                                  onClick={() => isSel ? setSelectedSubjectCodes(selectedSubjectCodes.filter((c) => c !== sub.code)) : setSelectedSubjectCodes([...selectedSubjectCodes, sub.code])}
+                                  className={`text-[9px] font-bold px-2 py-0.5 rounded border cursor-pointer transition ${isSel ? "bg-red-50 border-red-200 text-red-600" : "bg-green-50 border-green-200 text-green-700"}`}
                                 >
-                                  {isSelected ? "Remove" : "Add"}
+                                  {isSel ? "Remove" : "Add"}
                                 </button>
                               </td>
                             </tr>
@@ -1020,71 +1337,14 @@ export default function RegistrarModule() {
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Back Subjects (Irregular College) */}
-                  {isIrregular && schoolContext === "COLLEGE" && (
-                    <div className="mt-2">
-                      <h5 className="text-[10px] font-mono font-bold text-amber-700 uppercase mb-2 flex items-center gap-1.5">
-                        <Info className="w-3.5 h-3.5" /> Back Subjects (Irregular Load)
-                      </h5>
-                      <div className="border border-amber-200 rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-xs">
-                          <thead>
-                            <tr className="bg-amber-50 text-amber-700 text-[10px] font-bold uppercase border-b border-amber-200">
-                              <th className="p-2">Subject Code</th>
-                              <th className="p-2">Description</th>
-                              <th className="p-2">Source Semester</th>
-                              <th className="p-2 text-center">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-amber-100">
-                            {backSubjects.map((bs) => (
-                              <tr key={bs.code} className="hover:bg-amber-50/30">
-                                <td className="p-2 font-mono font-bold text-amber-700">{bs.code}</td>
-                                <td className="p-2 text-stone-700">{bs.name}</td>
-                                <td className="p-2 text-stone-500 font-mono text-[10px]">{bs.sourceSem}</td>
-                                <td className="p-2 text-center">
-                                  <button
-                                    onClick={() => {
-                                      if (!selectedSubjectCodes.includes(bs.code)) {
-                                        setSelectedSubjectCodes([...selectedSubjectCodes, bs.code]);
-                                      }
-                                    }}
-                                    className="text-[9px] font-bold px-2 py-0.5 bg-amber-50 border border-amber-300 text-amber-700 rounded cursor-pointer hover:bg-amber-100"
-                                  >
-                                    + Add Back Subject
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Summary */}
                   <div className={`p-3 rounded-lg border text-xs font-mono flex justify-between items-center ${schoolContext === "BASIC_ED" ? "bg-stsn-cream border-stsn-beige text-stsn-brown" : "bg-blue-50 border-blue-100 text-blue-800"}`}>
-                    <div>
-                      <span className="font-bold uppercase text-[9px] block">Summary</span>
-                      <span>Total Subjects: <strong>{selectedSubjectCodes.length}</strong></span>
-                    </div>
-                    {schoolContext === "COLLEGE" && (
-                      <div className="text-right">
-                        <span className="font-bold uppercase text-[9px] block">Total Units</span>
-                        <span className="text-lg font-black">{totalUnits}</span>
-                      </div>
-                    )}
+                    <span>Total Subjects: <strong>{selectedSubjectCodes.length}</strong></span>
+                    {schoolContext === "COLLEGE" && <span>Total Units: <strong>{totalUnits}</strong></span>}
                   </div>
-
                   <div className="flex justify-between pt-2">
-                    <button onClick={() => setFormStep(2)} className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg">Back</button>
-                    <button
-                      onClick={handleCreateStudent}
-                      className={`text-white text-xs font-bold px-5 py-2 rounded-lg flex items-center gap-1.5 ${schoolContext === "BASIC_ED" ? "btn-gold-gradient" : "bg-green-600 hover:bg-green-700"}`}
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Finalize Registration
+                    <button onClick={() => setFormStep(2)} className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer">Back</button>
+                    <button onClick={handleCreateStudent} className={`text-white text-xs font-bold px-5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer ${schoolContext === "BASIC_ED" ? "btn-gold-gradient" : "bg-green-600 hover:bg-green-700"}`}>
+                      <CheckCircle className="w-4 h-4" /> Finalize Registration
                     </button>
                   </div>
                 </div>
@@ -1094,7 +1354,7 @@ export default function RegistrarModule() {
         </div>
       )}
 
-      {/* COR MODAL */}
+      {/* COR MODAL — dynamic logo based on school context */}
       <PreviewModal isOpen={isCorModalOpen} onClose={() => setIsCorModalOpen(false)} title="Student Registration Card (COR)">
         {selectedStudent && (
           <CORPreview student={selectedStudent} subjects={getEnrolledSubjects(selectedStudent.id)} />

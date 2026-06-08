@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { useSTSNStore } from "../services/store";
 import {
   BookOpen,
@@ -35,9 +35,21 @@ import {
   Play,
   Download,
   Video,
-  Search
+  Search,
+  Receipt,
+  Percent,
+  Calculator,
+  Printer,
+  Tag
 } from "lucide-react";
 import { PreviewModal, CORPreview, IDCardPreview } from "../components/ModalPreviews";
+import {
+  computeMockAssessment,
+  DISCOUNT_OPTIONS,
+  PAYMENT_TERM_OPTIONS,
+  PAYMENT_TERM_DESCRIPTIONS,
+  type MockPaymentTerm,
+} from "../services/mockAssessmentService";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
 
@@ -49,11 +61,12 @@ export default function StudentPortal() {
     grades,
     subjects,
     enrollments,
+    requirements,
     currentUser,
     announcements,
-    learningMaterials
+    learningMaterials,
+    updateRequirementUpload
   } = useSTSNStore();
-  const updateStudentProfile = undefined;
 
   const [activeTab, setActiveTab] = useState<PortalTab>("overview");
   const [isCorModalOpen, setIsCorModalOpen] = useState(false);
@@ -66,7 +79,7 @@ export default function StudentPortal() {
 
   // Enrollment module state
   const [enrollmentOpen] = useState(true); // toggle to false to show closed state
-  const [enrollmentStep, setEnrollmentStep] = useState<"landing" | "preform" | "status">("landing");
+  const [enrollmentStep, setEnrollmentStep] = useState<"landing" | "preform" | "status" | "fees">("landing");
   const [reEnrollConfirmed, setReEnrollConfirmed] = useState(false);
 
   const student = students.find((s) => s.email === currentUser?.email) || students[0];
@@ -91,8 +104,29 @@ export default function StudentPortal() {
     { date: "2026-05-30 14:20", action: "Cleared Accounting finance credentials", category: "Finance" }
   ]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [pendingUploadReqName, setPendingUploadReqName] = useState<string | null>(null);
+
+  // Assessment Fees tab — TODO: Pre-populate from GET /api/scholarships/eligible?studentId=...
+  const [selectedDiscountId, setSelectedDiscountId] = useState("none");
+  const [selectedPaymentTerm, setSelectedPaymentTerm] = useState<MockPaymentTerm>("Quarterly");
+  const selectedDiscount = DISCOUNT_OPTIONS.find((d) => d.id === selectedDiscountId) ?? DISCOUNT_OPTIONS[0];
+  // TODO: Replace with GET /api/assessment/compute?studentId=...
+  const mockAssessment = useMemo(
+    () =>
+      computeMockAssessment(
+        student.department,
+        student.yearLevel ?? "Grade 11",
+        student.trackOrCourse ?? undefined,
+        selectedDiscount.percentage,
+        selectedPaymentTerm,
+        "2026-2027"
+      ),
+    [student.department, student.yearLevel, student.trackOrCourse, selectedDiscount.percentage, selectedPaymentTerm]
+  );
 
   const assessment = assessments.find((a) => a.studentId === student.id);
+  const studentReqs = requirements.filter((r) => r.studentId === student.id);
   const studentGrades = grades.filter((g) => g.studentId === student.id);
   const hasOutstandingBalance = assessment ? (assessment.balance > 0 && !overrideSettleBalance) : false;
   const isBasicEd = student.department === "Basic Education";
@@ -145,6 +179,26 @@ export default function StudentPortal() {
       };
       setAuditLogs((prev) => [newLog, ...prev]);
     }
+  };
+
+  const handleDocumentFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!pendingUploadReqName) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    updateRequirementUpload(student.id, pendingUploadReqName, file.name);
+    const newLog = {
+      date: new Date().toISOString().replace("T", " ").substring(0, 16),
+      action: `Uploaded document: "${pendingUploadReqName}" — ${file.name}`,
+      category: "Upload"
+    };
+    setAuditLogs((prev) => [newLog, ...prev]);
+    setPendingUploadReqName(null);
+    if (uploadInputRef.current) uploadInputRef.current.value = "";
+  };
+
+  const triggerDocUpload = (reqName: string) => {
+    setPendingUploadReqName(reqName);
+    uploadInputRef.current?.click();
   };
 
   const tabDef: { id: PortalTab; label: string; icon: React.ElementType }[] = [
@@ -967,29 +1021,103 @@ export default function StudentPortal() {
               </div>
             </div>
 
+            {/* Hidden file input for document uploads */}
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              className="hidden"
+              onChange={handleDocumentFileSelect}
+            />
+
             <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
               <h4 className="text-xs font-display font-extrabold text-stone-950 uppercase tracking-widest pb-2 border-b border-stone-100 flex items-center gap-1.5">
                 <UploadCloud className="w-4 h-4 text-stsn-gold" />
                 Enrollment Credentials
               </h4>
-              <div className="space-y-2 text-xs">
-                {[
-                  { name: "SF9 / Report Card Grade", note: "Checked by admissions desk", status: "SUBMITTED", color: "green" },
-                  { name: "PSA Birth Certificate", note: "Official authenticated copy", status: "SUBMITTED", color: "green" },
-                  { name: "Certificate of Good Moral", note: "Issued by previous principal", status: "SUBMITTED", color: "green" },
-                  { name: "ID Picture 2x2 Frontal", note: "Required for physical ID tag", status: "PENDING REVIEW", color: "amber" }
-                ].map(({ name, note, status, color }) => (
-                  <div key={name} className="p-2.5 bg-stone-50 border border-stone-200 rounded-lg flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-stone-900 block leading-none">{name}</span>
-                      <span className="text-[9px] text-stone-400 block font-mono mt-0.5">{note}</span>
-                    </div>
-                    <span className={`font-bold font-mono px-1.5 py-0.5 rounded text-[9px] uppercase border ${color === "green" ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                      {status}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {studentReqs.length === 0 ? (
+                <p className="text-xs text-stone-400 italic">No requirement records found for your account.</p>
+              ) : (
+                <div className="space-y-3 text-xs">
+                  {studentReqs.map((req) => {
+                    const isHardcopyDone = req.hardcopySubmitted === true;
+                    const isVerified = req.verificationStatus === "Verified";
+                    const isRejected = req.verificationStatus === "Rejected";
+                    const isUploaded = req.uploadStatus === "Uploaded";
+                    const canUpload = !isHardcopyDone;
+
+                    return (
+                      <div key={req.id} className={`p-3 border rounded-xl space-y-2 ${isHardcopyDone ? "bg-green-50 border-green-200" : isRejected ? "bg-red-50 border-red-200" : isUploaded ? "bg-blue-50 border-blue-200" : "bg-stone-50 border-stone-200"}`}>
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-bold text-stone-900 block leading-tight">{req.name}</span>
+                            {req.uploadFileName && (
+                              <span className="text-[9px] text-stone-500 font-mono block mt-0.5 truncate">
+                                📎 {req.uploadFileName} {req.uploadDate ? `• ${req.uploadDate}` : ""}
+                              </span>
+                            )}
+                            {req.remarks && (
+                              <span className="text-[9px] text-red-600 italic block mt-0.5">
+                                Registrar: "{req.remarks}"
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                            {/* Upload status badge */}
+                            <span className={`font-bold font-mono px-1.5 py-0.5 rounded text-[9px] uppercase border ${
+                              isHardcopyDone ? "bg-green-100 text-green-700 border-green-300" :
+                              isVerified ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                              isRejected ? "bg-red-50 text-red-600 border-red-200" :
+                              isUploaded ? "bg-blue-50 text-blue-700 border-blue-200" :
+                              "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}>
+                              {isHardcopyDone ? "✓ Hardcopy OK" :
+                               isVerified ? "✓ Verified" :
+                               isRejected ? "✗ Rejected" :
+                               isUploaded ? "Uploaded" : "Not Uploaded"}
+                            </span>
+                            {/* Verification badge */}
+                            {req.verificationStatus && !isHardcopyDone && (
+                              <span className={`text-[8px] font-mono px-1 py-0.5 rounded border ${
+                                isVerified ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                                isRejected ? "bg-red-50 text-red-600 border-red-100" :
+                                "bg-stone-100 text-stone-500 border-stone-200"
+                              }`}>
+                                {req.verificationStatus}
+                                {req.verifiedBy ? ` by ${req.verifiedBy}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Upload button — disabled if hardcopy already submitted */}
+                        {canUpload && (
+                          <button
+                            onClick={() => triggerDocUpload(req.name)}
+                            className={`w-full text-[10px] font-bold py-1.5 px-3 rounded-lg border cursor-pointer flex items-center justify-center gap-1.5 transition ${
+                              isRejected
+                                ? "bg-red-600 hover:bg-red-700 text-white border-red-600"
+                                : isUploaded
+                                ? "bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200"
+                                : "bg-stsn-brown hover:bg-stsn-brown-dark text-white border-stsn-brown"
+                            }`}
+                          >
+                            <UploadCloud className="w-3.5 h-3.5" />
+                            {isRejected ? "Re-Upload (Rejected)" : isUploaded ? "Replace File" : "Upload Document"}
+                          </button>
+                        )}
+
+                        {isHardcopyDone && (
+                          <div className="flex items-center gap-1.5 text-[9px] text-green-700 font-mono">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Hardcopy submitted{req.hardcopySubmittedDate ? ` on ${req.hardcopySubmittedDate}` : ""}. Re-upload disabled.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
@@ -1138,7 +1266,7 @@ export default function StudentPortal() {
                   </div>
 
                   {/* Payment Assessment Preview */}
-                  <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm smooth-hover cursor-pointer group" onClick={() => setActiveTab("ledger")}>
+                  <div className="bg-white p-6 rounded-xl border border-green-200 shadow-sm smooth-hover cursor-pointer group" onClick={() => setEnrollmentStep("fees")}>
                     <div className="p-3 bg-green-50 border border-green-200 rounded-xl w-fit mb-4">
                       <CreditCard className="w-6 h-6 text-green-600" />
                     </div>
@@ -1146,7 +1274,10 @@ export default function StudentPortal() {
                     <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">Preview your tuition fees and payment schedule for the next enrollment.</p>
                     <div className="mt-3 flex justify-between text-xs font-mono">
                       <span className="text-stone-400">Estimated Total:</span>
-                      <strong className="text-stsn-brown">₱{assessment?.totalAmount.toLocaleString() || "27,200"}</strong>
+                      <strong className="text-stsn-brown">₱{mockAssessment.grossTotal.toLocaleString()}</strong>
+                    </div>
+                    <div className="mt-3 flex items-center gap-1 text-xs font-bold text-green-600 group-hover:gap-2 transition-all">
+                      View Assessment <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                   </div>
                 </div>
@@ -1240,6 +1371,284 @@ export default function StudentPortal() {
                       <button onClick={() => setEnrollmentStep("landing")} className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-lg cursor-pointer transition">
                         Cancel
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── ASSESSMENT FEES VIEW ─────────────────────────────────────── */}
+              {enrollmentStep === "fees" && (
+                <div className="space-y-5 animate-fade-in">
+                  {/* Header bar */}
+                  <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div>
+                        <button onClick={() => setEnrollmentStep("landing")} className="text-xs text-stone-500 hover:text-stone-800 font-bold underline cursor-pointer mb-2 block">
+                          ← Back to Enrollment
+                        </button>
+                        <h3 className="text-sm font-display font-bold text-stone-900 uppercase tracking-wide flex items-center gap-2">
+                          <Receipt className="w-4 h-4 text-stsn-gold" />
+                          Assessment of Fees — SY 2026-2027
+                        </h3>
+                        <p className="text-[10.5px] text-stone-400 font-mono mt-1">
+                          {student.lastName}, {student.firstName} • {student.department} • {student.yearLevel}{student.trackOrCourse ? ` — ${student.trackOrCourse}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[9px] font-mono bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full font-bold uppercase">
+                          Demo Preview
+                        </span>
+                        <button
+                          onClick={() => {
+                            const printContent = `
+                              <html><head><title>Assessment of Fees — ${student.lastName}, ${student.firstName}</title>
+                              <style>
+                                body{font-family:Arial,sans-serif;padding:24px;font-size:12px;color:#222}
+                                h1{font-size:17px;margin-bottom:4px}
+                                h2{font-size:13px;border-bottom:1px solid #ccc;padding-bottom:6px;margin-top:18px;color:#3a0000}
+                                table{width:100%;border-collapse:collapse;margin-top:8px}
+                                th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}
+                                th{background:#f5f5f5;font-size:10px;text-transform:uppercase}
+                                .right{text-align:right}
+                                .sub{font-weight:bold;background:#fdf6ee}
+                                .disc{color:#c53030}
+                                .net{background:#3a0000;color:white;font-weight:bold}
+                                .footer{margin-top:36px;font-size:10px;color:#888;text-align:center;border-top:1px solid #eee;padding-top:10px}
+                              </style></head><body>
+                              <h1>St. Theresa School Network — Assessment of Fees</h1>
+                              <p><strong>Student:</strong> ${student.lastName}, ${student.firstName} ${student.middleName || ""} &nbsp;&nbsp; <strong>Student No.:</strong> ${student.studentNo}</p>
+                              <p><strong>Department:</strong> ${student.department} &nbsp; <strong>Year Level:</strong> ${student.yearLevel} &nbsp; <strong>Course/Strand:</strong> ${student.trackOrCourse || "—"}</p>
+                              <p><strong>Academic Year:</strong> 2026-2027 &nbsp; <strong>Payment Term:</strong> ${selectedPaymentTerm}${selectedDiscount.percentage > 0 ? ` &nbsp; <strong>Discount:</strong> ${selectedDiscount.label} (${selectedDiscount.percentage}%)` : ""}</p>
+                              <h2>Fee Breakdown</h2>
+                              <table>
+                                <tr><th>Fee Name</th><th>Category</th><th class="right">Amount (PHP)</th></tr>
+                                ${mockAssessment.fees.map((f) => `<tr><td>${f.feeName}</td><td>${f.category}</td><td class="right">₱${f.amount.toLocaleString()}</td></tr>`).join("")}
+                                <tr class="sub"><td colspan="2">Gross Total</td><td class="right">₱${mockAssessment.grossTotal.toLocaleString()}</td></tr>
+                                ${mockAssessment.discountAmount > 0 ? `<tr class="disc"><td colspan="2">Discount — ${selectedDiscount.label} (${selectedDiscount.percentage}%)</td><td class="right">– ₱${mockAssessment.discountAmount.toLocaleString()}</td></tr>` : ""}
+                                <tr class="net"><td colspan="2">NET PAYABLE</td><td class="right">₱${mockAssessment.netPayable.toLocaleString()}</td></tr>
+                              </table>
+                              <h2>Payment Schedule — ${selectedPaymentTerm}</h2>
+                              <table>
+                                <tr><th>#</th><th>Installment</th><th>Due Date</th><th class="right">Amount (PHP)</th></tr>
+                                ${mockAssessment.paymentSchedule.map((s, i) => `<tr><td>${i + 1}</td><td>${s.dueLabel}</td><td>${s.dueDate}</td><td class="right">₱${s.amount.toLocaleString()}</td></tr>`).join("")}
+                              </table>
+                              <div class="footer">Computer-generated assessment preview. Subject to verification by the Accounting Office.<br/>Generated: ${new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}</div>
+                              </body></html>`;
+                            const w = window.open("", "_blank");
+                            if (w) { w.document.write(printContent); w.document.close(); w.print(); }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-stsn-brown text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-stsn-brown-dark transition"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          Print Assessment
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+                    {/* LEFT: fee tables + discount + payment term */}
+                    <div className="lg:col-span-2 space-y-5">
+
+                      {/* A — Tuition & Laboratory Fees */}
+                      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 bg-stsn-cream border-b border-stsn-beige flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-stsn-brown" />
+                          <span className="text-xs font-display font-bold text-stsn-brown uppercase tracking-wide">A. Tuition &amp; Laboratory Fees</span>
+                        </div>
+                        <table className="w-full">
+                          <thead className="bg-stone-50">
+                            <tr>
+                              <th className="text-left text-[10px] font-bold font-mono uppercase text-stone-400 px-4 py-2.5">Fee Name</th>
+                              <th className="text-left text-[10px] font-bold font-mono uppercase text-stone-400 px-4 py-2.5 hidden sm:table-cell">Notes</th>
+                              <th className="text-right text-[10px] font-bold font-mono uppercase text-stone-400 px-4 py-2.5">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-50">
+                            {mockAssessment.fees.filter((f) => f.category === "Tuition" || f.category === "Laboratory").map((fee) => (
+                              <tr key={fee.feeName} className="hover:bg-stone-50/50 transition">
+                                <td className="px-4 py-2.5 text-xs font-semibold text-stone-800">{fee.feeName}</td>
+                                <td className="px-4 py-2.5 text-[10.5px] text-stone-400 hidden sm:table-cell">{fee.note}</td>
+                                <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-stone-900">₱{fee.amount.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-stsn-cream border-t border-stsn-beige">
+                            <tr>
+                              <td colSpan={2} className="px-4 py-2.5 text-xs font-bold text-stsn-brown">Sub-total (Tuition + Lab)</td>
+                              <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-stsn-brown">₱{(mockAssessment.tuitionTotal + mockAssessment.labTotal).toLocaleString()}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+
+                      {/* B — Miscellaneous Fees */}
+                      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                          <span className="text-xs font-display font-bold text-blue-700 uppercase tracking-wide">B. Miscellaneous Fees</span>
+                        </div>
+                        <table className="w-full">
+                          <thead className="bg-stone-50">
+                            <tr>
+                              <th className="text-left text-[10px] font-bold font-mono uppercase text-stone-400 px-4 py-2.5">Fee Name</th>
+                              <th className="text-left text-[10px] font-bold font-mono uppercase text-stone-400 px-4 py-2.5 hidden sm:table-cell">Notes</th>
+                              <th className="text-right text-[10px] font-bold font-mono uppercase text-stone-400 px-4 py-2.5">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-50">
+                            {mockAssessment.fees.filter((f) => f.category === "Miscellaneous").map((fee) => (
+                              <tr key={fee.feeName} className="hover:bg-stone-50/50 transition">
+                                <td className="px-4 py-2.5 text-xs font-semibold text-stone-800">{fee.feeName}</td>
+                                <td className="px-4 py-2.5 text-[10.5px] text-stone-400 hidden sm:table-cell">{fee.note}</td>
+                                <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-stone-900">₱{fee.amount.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-blue-50 border-t border-blue-100">
+                            <tr>
+                              <td colSpan={2} className="px-4 py-2.5 text-xs font-bold text-blue-700">Miscellaneous Sub-total</td>
+                              <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-blue-700">₱{mockAssessment.miscTotal.toLocaleString()}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+
+                      {/* C — Discount / Scholarship */}
+                      <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm space-y-3">
+                        <div className="flex items-center gap-2 pb-2.5 border-b border-stone-100">
+                          <Percent className="w-4 h-4 text-green-600" />
+                          <span className="text-xs font-display font-bold text-stone-900 uppercase tracking-wide">C. Discount / Scholarship</span>
+                          <span className="text-[9px] font-mono bg-amber-50 border border-amber-200 text-amber-600 px-1.5 py-0.5 rounded font-bold ml-auto">
+                            TODO: auto-fetch eligibility
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {DISCOUNT_OPTIONS.map((opt) => {
+                            const isSel = selectedDiscountId === opt.id;
+                            return (
+                              <label key={opt.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${isSel ? "bg-green-50 border-green-300 shadow-sm" : "bg-stone-50 border-stone-200 hover:border-stone-300"}`}>
+                                <input type="radio" name="portal-discount" value={opt.id} checked={isSel} onChange={() => setSelectedDiscountId(opt.id)} className="accent-green-600 flex-shrink-0" />
+                                <span className="text-xs font-semibold text-stone-900 flex-1 leading-tight">{opt.label}</span>
+                                {opt.percentage > 0 && (
+                                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${isSel ? "bg-green-100 border-green-300 text-green-700" : "bg-stone-100 border-stone-300 text-stone-500"}`}>
+                                    -{opt.percentage}%
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* D — Payment Terms */}
+                      <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm space-y-3">
+                        <div className="flex items-center gap-2 pb-2.5 border-b border-stone-100">
+                          <Calculator className="w-4 h-4 text-stsn-brown" />
+                          <span className="text-xs font-display font-bold text-stone-900 uppercase tracking-wide">D. Payment Terms</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {PAYMENT_TERM_OPTIONS.map((term) => {
+                            const isSel = selectedPaymentTerm === term;
+                            return (
+                              <label key={term} className={`flex flex-col gap-2 p-4 rounded-xl border cursor-pointer transition ${isSel ? "bg-stsn-cream border-stsn-gold shadow-sm" : "bg-stone-50 border-stone-200 hover:border-stone-300"}`}>
+                                <div className="flex items-center gap-2">
+                                  <input type="radio" name="portal-term" value={term} checked={isSel} onChange={() => setSelectedPaymentTerm(term)} className="accent-stsn-brown flex-shrink-0" />
+                                  <span className={`text-xs font-bold ${isSel ? "text-stsn-brown" : "text-stone-700"}`}>{term}</span>
+                                </div>
+                                <p className="text-[10.5px] text-stone-500 leading-relaxed">{PAYMENT_TERM_DESCRIPTIONS[term]}</p>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RIGHT: Summary + Schedule + Notice */}
+                    <div className="space-y-5">
+
+                      {/* E — Total Assessment Summary */}
+                      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+                        <div className="px-5 py-3.5 btn-primary-gradient text-white flex items-center gap-2">
+                          <Tag className="w-4 h-4" />
+                          <span className="text-xs font-display font-bold uppercase tracking-wide">E. Total Assessment</span>
+                        </div>
+                        <div className="p-5 space-y-2.5">
+                          <div className="flex justify-between text-xs py-1.5 border-b border-stone-100">
+                            <span className="text-stone-500">Tuition &amp; Laboratory</span>
+                            <span className="font-mono font-bold text-stone-900">₱{(mockAssessment.tuitionTotal + mockAssessment.labTotal).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-xs py-1.5 border-b border-stone-100">
+                            <span className="text-stone-500">Miscellaneous Fees</span>
+                            <span className="font-mono font-bold text-stone-900">₱{mockAssessment.miscTotal.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-xs py-1.5 border-b border-stone-200">
+                            <span className="font-bold text-stone-700">Gross Total</span>
+                            <span className="font-mono font-bold text-stone-900">₱{mockAssessment.grossTotal.toLocaleString()}</span>
+                          </div>
+                          {mockAssessment.discountAmount > 0 && (
+                            <div className="flex justify-between text-xs py-1.5 border-b border-stone-100">
+                              <span className="text-green-600 font-medium">Discount ({selectedDiscount.percentage}%)</span>
+                              <span className="font-mono font-bold text-green-600">– ₱{mockAssessment.discountAmount.toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center p-3.5 bg-stsn-brown rounded-xl mt-1">
+                            <span className="text-xs font-bold text-stsn-gold-light uppercase tracking-wide">Net Payable</span>
+                            <span className="font-mono text-lg font-black text-white">₱{mockAssessment.netPayable.toLocaleString()}</span>
+                          </div>
+                          <p className="text-[9.5px] text-stone-400 font-mono text-center leading-snug pt-1">
+                            Term: {selectedPaymentTerm} • SY 2026-2027
+                            {/* TODO: Connect real balance from accounting ledger */}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* F — Payment Schedule */}
+                      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+                        <div className="px-5 py-3.5 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-amber-600" />
+                          <span className="text-xs font-display font-bold text-amber-700 uppercase tracking-wide">F. Payment Schedule</span>
+                        </div>
+                        <div className="divide-y divide-stone-50">
+                          {mockAssessment.paymentSchedule.map((item, idx) => (
+                            <div key={idx} className="p-4 flex gap-3 hover:bg-stone-50/40 transition">
+                              <div className="w-7 h-7 rounded-full bg-stsn-cream border border-stsn-beige flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span className="text-[9px] font-bold font-mono text-stsn-brown">{idx + 1}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-stone-900 leading-tight">{item.dueLabel}</p>
+                                <p className="text-[10px] text-stone-400 font-mono mt-0.5">Due: {item.dueDate}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-xs font-mono font-black text-stsn-brown">₱{item.amount.toLocaleString()}</p>
+                                <span className="text-[8.5px] font-mono font-bold bg-amber-50 border border-amber-200 text-amber-600 px-1.5 py-0.5 rounded uppercase">
+                                  {item.status}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="px-5 py-3 bg-stone-50 border-t border-stone-100">
+                          {/* TODO: Replace mock status with real payment status from accounting */}
+                          <p className="text-[9.5px] text-stone-400 font-mono leading-snug">
+                            * Schedule is subject to change upon confirmation by the Accounting Office.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Demo notice */}
+                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                        <div className="flex items-start gap-2">
+                          <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-bold uppercase font-mono text-[10px]">Demo Preview Mode</p>
+                            <p className="mt-1 leading-relaxed text-amber-700">
+                              This assessment is generated from standard fee schedules for demo purposes. Final figures will be confirmed by the Registrar and Accounting Office.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

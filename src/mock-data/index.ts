@@ -24,7 +24,9 @@ import {
   DiscountType,
   DiscountRequest,
   ClassSchedule,
-  LearningMaterial
+  LearningMaterial,
+  SchoolSection,
+  Room
 } from "../types";
 
 export const MOCK_USERS: User[] = [
@@ -665,7 +667,7 @@ export const MOCK_ASSESSMENTS: StudentAssessment[] = [
       { feeName: "University ID Card Fee", category: "ID/Other", amount: 1500 }
     ],
     totalAmount: 22100, discountPercentage: 0, discountAmount: 0,
-    paymentTerm: "Cash", balance: 0
+    paymentTerm: "Cash Basis", balance: 0
   },
   {
     id: "as-miguel", studentId: "stud-miguel", schoolYear: "2026-2027", semester: "First Semester",
@@ -675,7 +677,7 @@ export const MOCK_ASSESSMENTS: StudentAssessment[] = [
       { feeName: "Computer Laboratory Fee", category: "Laboratory", amount: 3500 }
     ],
     totalAmount: 26000, discountPercentage: 100, discountAmount: 26000,
-    scholarshipName: "STSN Presidential Scholarship (Full Academic)", paymentTerm: "Cash", balance: 0
+    scholarshipName: "STSN Presidential Scholarship (Full Academic)", paymentTerm: "Cash Basis", balance: 0
   },
   {
     id: "as-juan", studentId: "stud-juan", schoolYear: "2026-2027", semester: "First Semester",
@@ -1649,4 +1651,44 @@ export const MOCK_LEARNING_MATERIALS: LearningMaterial[] = [
     department: "College", yearLevel: "3rd Year", trackOrCourse: "BSIT",
     tags: ["networking", "ip", "bsit"]
   },
+];
+
+// ============================================================
+// MASTER SECTIONS — Class Sectioning Repository
+// ============================================================
+export const MOCK_SECTIONS: SchoolSection[] = [
+  // Basic Ed — Junior High
+  { id: "sec-g7-avila", schoolId: "STSN", code: "G7-AVILA", name: "St. Avila", department: "Basic Education", yearLevel: "Grade 7", strandOrTrack: "Junior High", adviserId: "teach-beatriz", adviserName: "Prof. Beatriz Cruz", capacity: 40, currentCount: 35, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-g8-thomas", schoolId: "STSN", code: "G8-THOMAS", name: "St. Thomas", department: "Basic Education", yearLevel: "Grade 8", strandOrTrack: "Junior High", adviserId: "teach-arthur", adviserName: "Prof. Arthur Reyes", capacity: 40, currentCount: 38, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-g9-cath", schoolId: "STSN", code: "G9-CATH", name: "St. Catherine", department: "Basic Education", yearLevel: "Grade 9", strandOrTrack: "Junior High", adviserId: "teach-beatriz", adviserName: "Prof. Beatriz Cruz", capacity: 40, currentCount: 30, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-g10-albert", schoolId: "STSN", code: "G10-ALBERT", name: "St. Albert", department: "Basic Education", yearLevel: "Grade 10", strandOrTrack: "Junior High", adviserId: "teach-arthur", adviserName: "Prof. Arthur Reyes", capacity: 40, currentCount: 32, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  // Basic Ed — Senior High
+  { id: "sec-g11-stem-a", schoolId: "STSN", code: "G11-STEM-A", name: "STEM 11-A", department: "Basic Education", yearLevel: "Grade 11", strandOrTrack: "STEM", adviserId: "teach-arthur", adviserName: "Prof. Arthur Reyes", capacity: 45, currentCount: 42, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-g11-humss-a", schoolId: "STSN", code: "G11-HUMSS-A", name: "HUMSS 11-A", department: "Basic Education", yearLevel: "Grade 11", strandOrTrack: "HUMSS", adviserId: "teach-beatriz", adviserName: "Prof. Beatriz Cruz", capacity: 45, currentCount: 40, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-g12-abm-a", schoolId: "STSN", code: "G12-ABM-A", name: "ABM 12-A", department: "Basic Education", yearLevel: "Grade 12", strandOrTrack: "ABM", adviserId: "teach-beatriz", adviserName: "Prof. Beatriz Cruz", capacity: 45, currentCount: 38, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-g12-stem-a", schoolId: "STSN", code: "G12-STEM-A", name: "STEM 12-A", department: "Basic Education", yearLevel: "Grade 12", strandOrTrack: "STEM", adviserId: "teach-arthur", adviserName: "Prof. Arthur Reyes", capacity: 45, currentCount: 44, academicYear: "2026-2027", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  // College — BSIT
+  { id: "sec-bsit-1a", schoolId: "CDSTA", code: "BSIT-1A", name: "BSIT 1-A", department: "College", yearLevel: "1st Year", strandOrTrack: "BSIT", adviserId: "teach-renato", adviserName: "Prof. Renato Villanueva", capacity: 35, currentCount: 33, academicYear: "2026-2027", semester: "First Semester", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-bsit-2a", schoolId: "CDSTA", code: "BSIT-2A", name: "BSIT 2-A", department: "College", yearLevel: "2nd Year", strandOrTrack: "BSIT", adviserId: "teach-renato", adviserName: "Prof. Renato Villanueva", capacity: 35, currentCount: 28, academicYear: "2026-2027", semester: "First Semester", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-bsba-1a", schoolId: "CDSTA", code: "BSBA-1A", name: "BSBA 1-A", department: "College", yearLevel: "1st Year", strandOrTrack: "BSBA", adviserId: "teach-lorena", adviserName: "Prof. Lorena Santos", capacity: 35, currentCount: 30, academicYear: "2026-2027", semester: "First Semester", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+  { id: "sec-bsed-1a", schoolId: "CDSTA", code: "BSED-1A", name: "BSED 1-A", department: "College", yearLevel: "1st Year", strandOrTrack: "BSED", adviserId: "teach-jerome", adviserName: "Prof. Jerome Garcia", capacity: 35, currentCount: 25, academicYear: "2026-2027", semester: "First Semester", isActive: true, createdAt: "2026-06-01", enrolledStudentIds: [] },
+];
+
+// ============================================================
+// ROOMS — Room Management Repository
+// ============================================================
+export const MOCK_ROOMS: Room[] = [
+  { id: "room-101", schoolId: "STSN", code: "R101", name: "Room 101", building: "Main Building", floor: "1st Floor", capacity: 45, type: "Classroom", isActive: true, status: "Available" },
+  { id: "room-102", schoolId: "STSN", code: "R102", name: "Room 102", building: "Main Building", floor: "1st Floor", capacity: 45, type: "Classroom", isActive: true, status: "Available" },
+  { id: "room-201", schoolId: "STSN", code: "R201", name: "Room 201", building: "Main Building", floor: "2nd Floor", capacity: 45, type: "Classroom", isActive: true, status: "Available" },
+  { id: "room-202", schoolId: "STSN", code: "R202", name: "Room 202", building: "Main Building", floor: "2nd Floor", capacity: 45, type: "Classroom", isActive: true, status: "Available" },
+  { id: "room-lab1", schoolId: "STSN", code: "LAB1", name: "Science Lab 1", building: "Science Wing", floor: "1st Floor", capacity: 30, type: "Laboratory", isActive: true, status: "Available" },
+  { id: "room-itlab1", schoolId: "STSN", code: "ITLAB1", name: "IT Lab 1", building: "Technology Wing", floor: "1st Floor", capacity: 35, type: "Laboratory", isActive: true, status: "Available" },
+  { id: "room-gym", schoolId: "STSN", code: "GYM", name: "Gymnasium", building: "Sports Complex", floor: "Ground Floor", capacity: 200, type: "Gymnasium", isActive: true, status: "Available" },
+  { id: "room-aud", schoolId: "STSN", code: "AUD", name: "Auditorium", building: "Main Building", floor: "Ground Floor", capacity: 300, type: "Auditorium", isActive: true, status: "Available" },
+  // CDSTA Rooms
+  { id: "room-cdsta-101", schoolId: "CDSTA", code: "C-R101", name: "College Room 101", building: "College Building", floor: "1st Floor", capacity: 40, type: "Classroom", isActive: true, status: "Available" },
+  { id: "room-cdsta-102", schoolId: "CDSTA", code: "C-R102", name: "College Room 102", building: "College Building", floor: "1st Floor", capacity: 40, type: "Classroom", isActive: true, status: "Available" },
+  { id: "room-cdsta-itlab", schoolId: "CDSTA", code: "C-ITLAB", name: "College IT Lab", building: "IT Building", floor: "2nd Floor", capacity: 35, type: "Laboratory", isActive: true, status: "Available" },
+  { id: "room-cdsta-301", schoolId: "CDSTA", code: "C-R301", name: "College Room 301", building: "College Building", floor: "3rd Floor", capacity: 40, type: "Classroom", isActive: true, status: "Under Maintenance" },
 ];

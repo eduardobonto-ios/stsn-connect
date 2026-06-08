@@ -25,7 +25,8 @@ import {
   School,
   Settings,
   CalendarDays,
-  BarChart3
+  BarChart3,
+  Layers
 } from "lucide-react";
 
 // Module Imports
@@ -42,6 +43,7 @@ import FacultyPortal from "./pages/FacultyPortal";
 import CoreSetupModule from "./pages/CoreSetupModule";
 import SchedulingModule from "./pages/SchedulingModule";
 import OnlineLearning from "./pages/OnlineLearning";
+import ClassSectioningModule from "./pages/ClassSectioningModule";
 
 type STSNModule =
   | "DASHBOARD"
@@ -55,6 +57,7 @@ type STSNModule =
   | "ACCOUNTS_SECURITY"
   | "CORE_SETUP"
   | "SCHEDULING"
+  | "CLASS_SECTIONING"
   | "ONLINE_LEARNING";
 
 export default function App() {
@@ -84,9 +87,9 @@ export default function App() {
   if (!currentUser) return <LoginOverlay />;
 
   const rolePermissions: Record<string, STSNModule[]> = {
-    SUPER_ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "ONLINE_LEARNING"],
-    ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "ONLINE_LEARNING"],
-    REGISTRAR: ["DASHBOARD", "REGISTRAR", "CURRICULUM", "ACCOUNTS_SECURITY", "STUDENT_PORTAL", "SCHEDULING", "CORE_SETUP"],
+    SUPER_ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "CLASS_SECTIONING", "ONLINE_LEARNING"],
+    ADMIN: ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "CLASS_SECTIONING", "ONLINE_LEARNING"],
+    REGISTRAR: ["DASHBOARD", "REGISTRAR", "CURRICULUM", "ACCOUNTS_SECURITY", "STUDENT_PORTAL", "SCHEDULING", "CLASS_SECTIONING", "CORE_SETUP"],
     ACCOUNTING: ["ACCOUNTING", "CORE_SETUP"],
     TEACHER: ["FACULTY_PORTAL", "GRADING", "CURRICULUM", "ONLINE_LEARNING"],
     STUDENT: ["STUDENT_PORTAL"],
@@ -97,7 +100,7 @@ export default function App() {
   const allowedModules = rolePermissions[currentUser.role] || ["DASHBOARD"];
 
   const sidebarItems = [
-    { id: "DASHBOARD", label: "System Dashboard", icon: LayoutDashboard, desc: "Live admissions & fees" },
+    { id: "DASHBOARD", label: "Registrar Dashboard", icon: LayoutDashboard, desc: "Live admissions & fees" },
     { id: "REGISTRAR", label: "Admissions & COR", icon: Compass, desc: "Student registrations" },
     { id: "ACCOUNTING", label: "Accounting", icon: Coins, desc: "Ledger, discounts & reports" },
     { id: "GRADING", label: "Grades Directory", icon: GraduationCap, desc: "Midterm/Final score encodes" },
@@ -107,6 +110,7 @@ export default function App() {
     { id: "HR_MANAGEMENT", label: "HR Staff Payroll", icon: Users, desc: "Employee payslips database" },
     { id: "CURRICULUM", label: "Syllabus Pathways", icon: Building2, desc: "Academic subjects flow" },
     { id: "SCHEDULING", label: "Class Scheduling", icon: CalendarDays, desc: "Schedules & room assignments" },
+    { id: "CLASS_SECTIONING", label: "Class Sectioning", icon: Layers, desc: "Section management & student assignment" },
     { id: "ACCOUNTS_SECURITY", label: "Authority Clearances", icon: Shield, desc: "Credential security status" },
     { id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance" },
   ] as const;
@@ -293,6 +297,7 @@ export default function App() {
           {activeModule === "ACCOUNTS_SECURITY" && allowedModules.includes("ACCOUNTS_SECURITY") && <AccountsManagement />}
           {activeModule === "CORE_SETUP" && allowedModules.includes("CORE_SETUP") && <CoreSetupModule />}
           {activeModule === "SCHEDULING" && allowedModules.includes("SCHEDULING") && <SchedulingModule />}
+          {activeModule === "CLASS_SECTIONING" && allowedModules.includes("CLASS_SECTIONING") && <ClassSectioningModule />}
           {activeModule === "ONLINE_LEARNING" && allowedModules.includes("ONLINE_LEARNING") && <OnlineLearning />}
         </main>
       </div>

@@ -28,7 +28,9 @@ import {
   AuditEntry,
   ClassSchedule,
   LearningMaterial,
-  SchoolId
+  SchoolId,
+  SchoolSection,
+  Room
 } from "../types";
 import {
   MOCK_USERS,
@@ -51,7 +53,9 @@ import {
   MOCK_DISCOUNT_TYPES,
   MOCK_DISCOUNT_REQUESTS,
   MOCK_CLASS_SCHEDULES,
-  MOCK_LEARNING_MATERIALS
+  MOCK_LEARNING_MATERIALS,
+  MOCK_SECTIONS,
+  MOCK_ROOMS
 } from "../mock-data";
 
 interface STSNState {
@@ -78,6 +82,8 @@ interface STSNState {
   discountRequests: DiscountRequest[];
   classSchedules: ClassSchedule[];
   learningMaterials: LearningMaterial[];
+  sections: SchoolSection[];
+  rooms: Room[];
 
   // Actions
   login: (email: string, role: string) => boolean;
@@ -161,6 +167,24 @@ interface STSNState {
 
   // HR Excel import
   bulkImportEmployees: (employees: Omit<Employee, "id">[]) => void;
+
+  // Section CRUD
+  addSection: (section: Omit<SchoolSection, "id" | "createdAt">) => SchoolSection;
+  updateSection: (id: string, updates: Partial<SchoolSection>) => void;
+  deleteSection: (id: string) => void;
+  toggleSectionActive: (id: string) => void;
+  assignStudentsToSection: (sectionId: string, studentIds: string[]) => void;
+
+  // Room CRUD
+  addRoom: (room: Omit<Room, "id">) => Room;
+  updateRoom: (id: string, updates: Partial<Room>) => void;
+  deleteRoom: (id: string) => void;
+  toggleRoomActive: (id: string) => void;
+
+  // Document verification workflow
+  updateRequirementUpload: (studentId: string, reqName: string, fileName: string) => void;
+  verifyRequirement: (studentId: string, reqName: string, status: "Verified" | "Rejected", verifiedBy: string, remarks?: string) => void;
+  markHardcopySubmitted: (studentId: string, reqName: string) => void;
 }
 
 export const useSTSNStore = create<STSNState>((set, get) => ({
@@ -187,6 +211,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   discountRequests: MOCK_DISCOUNT_REQUESTS,
   classSchedules: MOCK_CLASS_SCHEDULES,
   learningMaterials: MOCK_LEARNING_MATERIALS,
+  sections: MOCK_SECTIONS,
+  rooms: MOCK_ROOMS,
 
   login: (email: string, role: string) => {
     const user = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
@@ -795,5 +821,113 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       id: `emp-import-${Date.now()}-${i}`
     }));
     set((state) => ({ employees: [...state.employees, ...newEmployees] }));
+  },
+
+  // ---- Section CRUD ----
+  addSection: (sectionData) => {
+    const newSection: SchoolSection = {
+      ...sectionData,
+      id: `sec-${Date.now()}`,
+      createdAt: new Date().toISOString().split("T")[0],
+      currentCount: sectionData.currentCount ?? 0,
+      enrolledStudentIds: sectionData.enrolledStudentIds ?? []
+    };
+    set((state) => ({ sections: [...state.sections, newSection] }));
+    return newSection;
+  },
+
+  updateSection: (id, updates) => {
+    set((state) => ({
+      sections: state.sections.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    }));
+  },
+
+  deleteSection: (id) => {
+    set((state) => ({ sections: state.sections.filter((s) => s.id !== id) }));
+  },
+
+  toggleSectionActive: (id) => {
+    set((state) => ({
+      sections: state.sections.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
+    }));
+  },
+
+  assignStudentsToSection: (sectionId, studentIds) => {
+    set((state) => ({
+      sections: state.sections.map((s) => {
+        if (s.id !== sectionId) return s;
+        const merged = Array.from(new Set([...(s.enrolledStudentIds || []), ...studentIds]));
+        return { ...s, enrolledStudentIds: merged, currentCount: merged.length };
+      }),
+      students: state.students.map((stu) => {
+        if (!studentIds.includes(stu.id)) return stu;
+        const sec = state.sections.find((s) => s.id === sectionId);
+        return sec ? { ...stu, section: sec.name } : stu;
+      })
+    }));
+  },
+
+  // ---- Room CRUD ----
+  addRoom: (roomData) => {
+    const newRoom: Room = { ...roomData, id: `room-${Date.now()}` };
+    set((state) => ({ rooms: [...state.rooms, newRoom] }));
+    return newRoom;
+  },
+
+  updateRoom: (id, updates) => {
+    set((state) => ({
+      rooms: state.rooms.map((r) => (r.id === id ? { ...r, ...updates } : r))
+    }));
+  },
+
+  deleteRoom: (id) => {
+    set((state) => ({ rooms: state.rooms.filter((r) => r.id !== id) }));
+  },
+
+  toggleRoomActive: (id) => {
+    set((state) => ({
+      rooms: state.rooms.map((r) => (r.id === id ? { ...r, isActive: !r.isActive } : r))
+    }));
+  },
+
+  // ---- Document Verification Workflow ----
+  updateRequirementUpload: (studentId, reqName, fileName) => {
+    const now = new Date().toISOString().split("T")[0];
+    set((state) => ({
+      requirements: state.requirements.map((req) =>
+        req.studentId === studentId && req.name === reqName
+          ? { ...req, uploadStatus: "Uploaded", uploadFileName: fileName, uploadDate: now, verificationStatus: "Pending" }
+          : req
+      )
+    }));
+  },
+
+  verifyRequirement: (studentId, reqName, status, verifiedBy, remarks) => {
+    const now = new Date().toISOString().replace("T", " ").substring(0, 16);
+    set((state) => ({
+      requirements: state.requirements.map((req) =>
+        req.studentId === studentId && req.name === reqName
+          ? {
+              ...req,
+              verificationStatus: status,
+              verifiedBy,
+              verifiedAt: now,
+              remarks: remarks || req.remarks,
+              status: status === "Verified" ? "Submitted" : "Rejected"
+            }
+          : req
+      )
+    }));
+  },
+
+  markHardcopySubmitted: (studentId, reqName) => {
+    const now = new Date().toISOString().split("T")[0];
+    set((state) => ({
+      requirements: state.requirements.map((req) =>
+        req.studentId === studentId && req.name === reqName
+          ? { ...req, hardcopySubmitted: true, hardcopySubmittedDate: now }
+          : req
+      )
+    }));
   }
 }));

@@ -19,6 +19,14 @@ const SCHOOL_YEARS = ["2026-2027", "2025-2026", "2024-2025"];
 const SEMESTERS = ["First Semester", "Second Semester", "Full Year", "Summer"];
 const DEPARTMENTS: ClassSchedule["department"][] = ["Basic Education", "College"];
 
+const BE_YEAR_LEVELS_SCHED = [
+  "Nursery", "Kinder 1", "Kinder 2",
+  "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
+  "Grade 7", "Grade 8", "Grade 9", "Grade 10",
+  "Grade 11", "Grade 12"
+];
+const COLLEGE_YEAR_LEVELS_SCHED = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+
 const DAY_SHORT: Record<string, string> = {
   Monday: "Mon", Tuesday: "Tue", Wednesday: "Wed", Thursday: "Thu", Friday: "Fri", Saturday: "Sat"
 };
@@ -63,43 +71,137 @@ interface ScheduleFormProps {
 }
 
 function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
-  const { subjects, teachers } = useSTSNStore();
-  const [form, setForm] = useState<Omit<ClassSchedule, "id">>({
-    subjectCode: initial?.subjectCode || "",
-    subjectName: initial?.subjectName || "",
-    teacherId: initial?.teacherId || "",
-    teacherName: initial?.teacherName || "",
-    section: initial?.section || "",
-    roomName: initial?.roomName || "",
-    day: initial?.day || "Monday",
-    startTime: initial?.startTime || "08:00",
-    endTime: initial?.endTime || "10:00",
-    schoolYear: initial?.schoolYear || "2026-2027",
-    semester: initial?.semester || "First Semester",
-    isActive: initial?.isActive ?? true,
-    department: initial?.department || "College",
-    yearLevel: initial?.yearLevel || "",
-    courseOrTrack: initial?.courseOrTrack || "",
-    notes: initial?.notes || "",
-  });
+  const { subjects, teachers, sections, rooms, classSchedules } = useSTSNStore();
 
-  const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const sub = subjects.find((s) => s.code === e.target.value);
-    setForm((f) => ({ ...f, subjectCode: sub?.code || "", subjectName: sub?.name || e.target.value }));
+  // Derive department from selected teacher (auto-detected)
+  const [yearLevel, setYearLevel] = useState(initial?.yearLevel || "");
+  const [teacherId, setTeacherId] = useState(initial?.teacherId || "");
+  const [subjectCode, setSubjectCode] = useState(initial?.subjectCode || "");
+  const [subjectName, setSubjectName] = useState(initial?.subjectName || "");
+  const [sectionName, setSectionName] = useState(initial?.section || "");
+  const [roomName, setRoomName] = useState(initial?.roomName || "");
+  const [day, setDay] = useState<ClassSchedule["day"]>(initial?.day || "Monday");
+  const [startTime, setStartTime] = useState(initial?.startTime || "08:00");
+  const [endTime, setEndTime] = useState(initial?.endTime || "10:00");
+  const [semester, setSemester] = useState(initial?.semester || "First Semester");
+  const [courseOrTrack, setCourseOrTrack] = useState(initial?.courseOrTrack || "");
+  const [notes, setNotes] = useState(initial?.notes || "");
+
+  const [roomConflictWarning, setRoomConflictWarning] = useState("");
+  const [sectionConflictWarning, setSectionConflictWarning] = useState("");
+
+  const selectedTeacher = teachers.find((t) => t.id === teacherId);
+  const teacherDept: ClassSchedule["department"] = selectedTeacher?.department === "College" ? "College" : "Basic Education";
+
+  const yearLevelsForDept = teacherDept === "Basic Education" ? BE_YEAR_LEVELS_SCHED : COLLEGE_YEAR_LEVELS_SCHED;
+
+  // Subjects filtered by teacher's department + selected year level
+  const availableSubjects = useMemo(() => {
+    return subjects.filter((s) => {
+      if (teacherDept === "College") return s.department === "College";
+      return s.department === "Basic Education" && (!yearLevel || s.yearLevel === yearLevel || !s.yearLevel);
+    });
+  }, [subjects, teacherDept, yearLevel]);
+
+  // Sections filtered by teacher's department + year level
+  const availableSections = useMemo(() => {
+    return sections.filter((sec) => {
+      if (sec.department !== teacherDept) return false;
+      if (yearLevel && sec.yearLevel !== yearLevel) return false;
+      return sec.isActive;
+    });
+  }, [sections, teacherDept, yearLevel]);
+
+  // Rooms filtered to active & not Under Maintenance
+  const availableRooms = useMemo(() => rooms.filter((r) => r.isActive && r.status !== "Under Maintenance"), [rooms]);
+
+  const handleTeacherChange = (newTeacherId: string) => {
+    setTeacherId(newTeacherId);
+    // Reset subject and section when teacher changes
+    setSubjectCode("");
+    setSubjectName("");
+    setSectionName("");
+    setSectionConflictWarning("");
   };
 
-  const handleTeacherChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const teacher = teachers.find((t) => t.id === e.target.value);
-    setForm((f) => ({ ...f, teacherId: teacher?.id || "", teacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : "" }));
+  const handleSectionChange = (newSection: string) => {
+    setSectionName(newSection);
+    if (!newSection || !teacherId) { setSectionConflictWarning(""); return; }
+    // Check if this teacher already has this section in any existing schedule
+    const conflict = classSchedules.find(
+      (cs) => cs.teacherId === teacherId && cs.section === newSection && cs.id !== initial?.id
+    );
+    if (conflict) {
+      setSectionConflictWarning(`⚠ ${selectedTeacher?.firstName} ${selectedTeacher?.lastName} already has section "${newSection}" assigned (${conflict.subjectCode}, ${conflict.day}).`);
+    } else {
+      setSectionConflictWarning("");
+    }
+  };
+
+  const handleRoomChange = (newRoom: string) => {
+    setRoomName(newRoom);
+    if (!newRoom || !day || !startTime || !endTime) { setRoomConflictWarning(""); return; }
+    checkRoomConflict(newRoom, day, startTime, endTime);
+  };
+
+  const checkRoomConflict = (room: string, d: string, st: string, et: string) => {
+    const conflict = classSchedules.find((cs) => {
+      if (cs.id === initial?.id) return false;
+      if (cs.roomName !== room) return false;
+      if (cs.day !== d) return false;
+      return st < cs.endTime && cs.startTime < et;
+    });
+    if (conflict) {
+      setRoomConflictWarning(`⚠ Room "${room}" is already booked on ${conflict.day} from ${conflict.startTime}–${conflict.endTime} (${conflict.subjectCode}, ${conflict.section}).`);
+    } else {
+      setRoomConflictWarning("");
+    }
+  };
+
+  const handleDayChange = (newDay: ClassSchedule["day"]) => {
+    setDay(newDay);
+    if (roomName) checkRoomConflict(roomName, newDay, startTime, endTime);
+  };
+
+  const handleTimeChange = (type: "start" | "end", val: string) => {
+    const newStart = type === "start" ? val : startTime;
+    const newEnd = type === "end" ? val : endTime;
+    if (type === "start") setStartTime(val);
+    else setEndTime(val);
+    if (roomName && newStart && newEnd) checkRoomConflict(roomName, day, newStart, newEnd);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.startTime >= form.endTime) {
+    if (startTime >= endTime) {
       alert("End time must be after start time.");
       return;
     }
-    onSave(form);
+    if (roomConflictWarning) {
+      if (!window.confirm("Room conflict detected. Proceed anyway?")) return;
+    }
+    if (sectionConflictWarning) {
+      if (!window.confirm("Section already assigned to this teacher. Proceed anyway?")) return;
+    }
+    const selectedSub = subjects.find((s) => s.code === subjectCode);
+    onSave({
+      subjectCode,
+      subjectName: selectedSub?.name || subjectName,
+      teacherId,
+      teacherName: selectedTeacher ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}` : "",
+      section: sectionName,
+      roomName,
+      day,
+      startTime,
+      endTime,
+      schoolYear: "2026-2027",
+      semester,
+      isActive: initial?.isActive ?? true,
+      department: teacherDept,
+      yearLevel,
+      courseOrTrack,
+      notes,
+    });
   };
 
   return (
@@ -113,98 +215,149 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
           <button type="button" onClick={onClose} className="cursor-pointer hover:bg-white/10 p-1 rounded transition"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="p-5 bg-stsn-cream space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* Subject & Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Subject *</label>
-              <select required value={form.subjectCode} onChange={handleSubjectChange} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
-                <option value="">— Select Subject —</option>
-                {subjects.map((s) => <option key={s.id} value={s.code}>{s.code} — {s.name}</option>)}
-              </select>
-              {form.subjectCode === "" && (
-                <div className="mt-1">
-                  <input value={form.subjectName} onChange={(e) => setForm((f) => ({ ...f, subjectName: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="Or type subject name..." />
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Section *</label>
-              <input required value={form.section} onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. BSIT-1A, SHS-STEM-11A" />
-            </div>
+        <div className="p-5 bg-stsn-cream space-y-4 max-h-[80vh] overflow-y-auto">
+
+          {/* Row 1: Year Level */}
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level *</label>
+            <select
+              required
+              value={yearLevel}
+              onChange={(e) => setYearLevel(e.target.value)}
+              className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+            >
+              <option value="">— Select Year Level —</option>
+              {yearLevelsForDept.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
           </div>
 
-          {/* Teacher & Room */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Faculty *</label>
-              <select required value={form.teacherId} onChange={handleTeacherChange} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
-                <option value="">— Assign Faculty —</option>
-                {teachers.map((t) => <option key={t.id} value={t.id}>{t.firstName} {t.lastName} — {t.specialization}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Room *</label>
-              <input required value={form.roomName} onChange={(e) => setForm((f) => ({ ...f, roomName: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. IT Lab 1, Room 201" />
-            </div>
+          {/* Row 2: Teacher */}
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Faculty / Teacher *</label>
+            <select
+              required
+              value={teacherId}
+              onChange={(e) => handleTeacherChange(e.target.value)}
+              className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+            >
+              <option value="">— Assign Faculty —</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>{t.firstName} {t.lastName} — {t.specialization} ({t.department})</option>
+              ))}
+            </select>
+            {selectedTeacher && (
+              <p className="text-[10px] text-stone-400 font-mono mt-1">
+                Dept auto-detected: <strong className="text-stsn-brown">{teacherDept}</strong>
+              </p>
+            )}
           </div>
 
-          {/* Day & Times */}
+          {/* Row 3: Subject */}
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Subject *</label>
+            <select
+              required
+              value={subjectCode}
+              onChange={(e) => {
+                const sub = subjects.find((s) => s.code === e.target.value);
+                setSubjectCode(sub?.code || e.target.value);
+                setSubjectName(sub?.name || "");
+              }}
+              className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+            >
+              <option value="">— Select Subject —</option>
+              {availableSubjects.map((s) => <option key={s.id} value={s.code}>{s.code} — {s.name}</option>)}
+            </select>
+            {subjectCode === "" && (
+              <input
+                value={subjectName}
+                onChange={(e) => setSubjectName(e.target.value)}
+                className="w-full mt-1 bg-white border border-stone-200 rounded-lg py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                placeholder="Or type subject name if not in list..."
+              />
+            )}
+          </div>
+
+          {/* Row 4: Section dropdown (from Class Sectioning) */}
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Section *</label>
+            <select
+              required
+              value={sectionName}
+              onChange={(e) => handleSectionChange(e.target.value)}
+              className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown ${sectionConflictWarning ? "border-amber-400 bg-amber-50" : "border-stone-200"}`}
+            >
+              <option value="">— Select Section —</option>
+              {availableSections.map((sec) => (
+                <option key={sec.id} value={sec.name}>{sec.name} ({sec.yearLevel}{sec.strandOrTrack ? ` / ${sec.strandOrTrack}` : ""})</option>
+              ))}
+            </select>
+            {sectionConflictWarning && (
+              <div className="mt-1.5 p-2 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <span className="text-[10px] text-amber-700 font-medium">{sectionConflictWarning}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Row 5: Room dropdown (from rooms store) */}
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Room *</label>
+            <select
+              required
+              value={roomName}
+              onChange={(e) => handleRoomChange(e.target.value)}
+              className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown ${roomConflictWarning ? "border-red-400 bg-red-50" : "border-stone-200"}`}
+            >
+              <option value="">— Select Room —</option>
+              {availableRooms.map((r) => (
+                <option key={r.id} value={r.name}>{r.name} — {r.type} (Cap. {r.capacity})</option>
+              ))}
+            </select>
+            {roomConflictWarning && (
+              <div className="mt-1.5 p-2 bg-red-50 border border-red-300 rounded-lg flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+                <span className="text-[10px] text-red-700 font-medium">{roomConflictWarning}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Row 6: Day & Times */}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Day *</label>
-              <select required value={form.day} onChange={(e: any) => setForm((f) => ({ ...f, day: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
+              <select required value={day} onChange={(e: any) => handleDayChange(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
                 {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Start Time *</label>
-              <input required type="time" value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" />
+              <input required type="time" value={startTime} onChange={(e) => handleTimeChange("start", e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" />
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">End Time *</label>
-              <input required type="time" value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" />
+              <input required type="time" value={endTime} onChange={(e) => handleTimeChange("end", e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" />
             </div>
           </div>
 
-          {/* School Year & Semester */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">School Year *</label>
-              <select required value={form.schoolYear} onChange={(e) => setForm((f) => ({ ...f, schoolYear: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
-                {SCHOOL_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
+          {/* Row 7: Semester & Course/Track */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Semester *</label>
-              <select required value={form.semester} onChange={(e) => setForm((f) => ({ ...f, semester: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
+              <select required value={semester} onChange={(e) => setSemester(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
                 {SEMESTERS.map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Department *</label>
-              <select required value={form.department} onChange={(e: any) => setForm((f) => ({ ...f, department: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
-                {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
-              </select>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Course / Strand</label>
+              <input value={courseOrTrack} onChange={(e) => setCourseOrTrack(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. BSIT, STEM, ABM" />
             </div>
           </div>
 
-          {/* Year Level & Course */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level</label>
-              <input value={form.yearLevel || ""} onChange={(e) => setForm((f) => ({ ...f, yearLevel: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. 1st Year, Grade 11" />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Course / Track</label>
-              <input value={form.courseOrTrack || ""} onChange={(e) => setForm((f) => ({ ...f, courseOrTrack: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. BSIT, STEM" />
-            </div>
-          </div>
-
-          {/* Notes */}
+          {/* Row 8: Notes */}
           <div>
             <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Notes</label>
-            <textarea value={form.notes || ""} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs focus:outline-none resize-none" placeholder="Optional scheduling notes..." />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs focus:outline-none resize-none" placeholder="Optional scheduling notes..." />
           </div>
 
           <button type="submit" className="w-full bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream font-bold text-xs py-2.5 rounded-lg shadow cursor-pointer transition">

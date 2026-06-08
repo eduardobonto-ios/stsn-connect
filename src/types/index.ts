@@ -125,6 +125,15 @@ export interface Requirement {
   status: "Submitted" | "Pending" | "Rejected";
   submittedDate?: string;
   remarks?: string;
+  // Document upload workflow
+  uploadStatus?: "Uploaded" | "Not Uploaded";
+  uploadFileName?: string;
+  uploadDate?: string;
+  verificationStatus?: "Pending" | "Verified" | "Rejected";
+  verifiedBy?: string;
+  verifiedAt?: string;
+  hardcopySubmitted?: boolean;
+  hardcopySubmittedDate?: string;
 }
 
 export interface Enrollment {
@@ -156,8 +165,9 @@ export interface StudentAssessment {
   discountPercentage: number;
   discountAmount: number;
   scholarshipName?: string;
-  paymentTerm: "Cash" | "Installment - 2 Payments" | "Installment - 4 Payments";
+  paymentTerm: "Cash Basis" | "Quarterly" | "Semestral" | "Installment - 2 Payments" | "Installment - 4 Payments";
   balance: number;
+  isPaid?: boolean;
 }
 
 export interface Payment {
@@ -314,6 +324,44 @@ export interface ClassSchedule {
   yearLevel?: string;
   courseOrTrack?: string;
   notes?: string;
+}
+
+// ============================================================
+// CLASS SECTIONING — Master Section Repository
+// ============================================================
+export interface SchoolSection {
+  id: string;
+  schoolId?: SchoolId;
+  code: string;
+  name: string;
+  department: "Basic Education" | "College";
+  yearLevel: string;
+  strandOrTrack?: string;
+  adviserId?: string;
+  adviserName?: string;
+  capacity: number;
+  currentCount: number;
+  academicYear: string;
+  semester?: string;
+  isActive: boolean;
+  createdAt: string;
+  enrolledStudentIds?: string[];
+}
+
+// ============================================================
+// ROOM MANAGEMENT
+// ============================================================
+export interface Room {
+  id: string;
+  schoolId?: SchoolId;
+  code: string;
+  name: string;
+  building?: string;
+  floor?: string;
+  capacity: number;
+  type: "Classroom" | "Laboratory" | "Gymnasium" | "Auditorium" | "Office" | "Other";
+  isActive: boolean;
+  status: "Available" | "Under Maintenance" | "Reserved";
 }
 
 // ============================================================
