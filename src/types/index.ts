@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { AcademicUnit } from "./school.types";
+
 export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
@@ -11,7 +13,8 @@ export type UserRole =
   | "TEACHER"
   | "STUDENT"
   | "HR"
-  | "EMPLOYEE";
+  | "EMPLOYEE"
+  | "CASHIER";
 
 export type SchoolId = "STSN" | "CDSTA";
 
@@ -58,6 +61,8 @@ export interface Student {
 export interface Teacher {
   id: string;
   schoolId?: SchoolId;
+  /** Links this teacher record to its login account (User.id) — preferred over email matching. */
+  userId?: string;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -157,6 +162,7 @@ export interface AssessmentFee {
 
 export interface StudentAssessment {
   id: string;
+  schoolId?: SchoolId;
   studentId: string;
   schoolYear: string;
   semester: string;
@@ -168,10 +174,30 @@ export interface StudentAssessment {
   paymentTerm: "Cash Basis" | "Quarterly" | "Semestral" | "Installment - 2 Payments" | "Installment - 4 Payments";
   balance: number;
   isPaid?: boolean;
+  financialHoldStatus?: "None" | "Hold" | "Cleared";
+  lastPaymentDate?: string;
+
+  // ============================================================
+  // ACCOUNTING APPROVAL WORKFLOW (additive, optional)
+  // Cashier may only collect payment when approvalStatus === "Approved for Payment".
+  // ============================================================
+  /** Books apply to Basic Education only — Accounting approves/returns the whole assessment, never individual books. */
+  booksAvailed?: boolean;
+  bookPackageId?: string;
+  /** Accounting approval workflow status. Undefined = not yet submitted for approval. */
+  approvalStatus?: "Pending Accounting Approval" | "Approved for Payment" | "Returned to Registrar" | "Rejected";
+  submittedBy?: string;
+  submittedDate?: string;
+  registrarRemarks?: string;
+  accountingRemarks?: string;
+  approvedBy?: string;
+  approvedDate?: string;
+  auditTrail?: AuditEntry[];
 }
 
 export interface Payment {
   id: string;
+  schoolId?: SchoolId;
   studentId: string;
   amount: number;
   paymentDate: string;
@@ -267,6 +293,16 @@ export interface DiscountType {
   description?: string;
   isActive: boolean;
   createdAt: string;
+  // Enterprise policy fields (Phase 2 foundation — optional, prototype-friendly)
+  effectiveSchoolYear?: string;
+  applicableAcademicUnit?: AcademicUnit | "both";
+  appliesTo?: "Tuition" | "Miscellaneous" | "Laboratory" | "Total Assessment";
+  discountBasis?: "Percentage" | "Fixed Amount";
+  discountFixedAmount?: number;
+  isStackable?: boolean;
+  requiresDocument?: boolean;
+  maxAmount?: number;
+  glCode?: string;
 }
 
 export interface AuditEntry {
@@ -288,7 +324,7 @@ export interface DiscountRequest {
   discountPercent: number;
   requestedBy: string;
   requestedAt: string;
-  status: "Pending" | "For Review" | "Approved" | "Rejected";
+  status: "Pending" | "For Review" | "Approved" | "Rejected" | "Returned for Documents" | "Cancelled" | "Expired";
   siblingStudentIds?: string[];
   siblingNames?: string[];
   level1Status?: "Pending" | "Approved" | "Rejected";
@@ -367,6 +403,119 @@ export interface Room {
 // ============================================================
 // ONLINE LEARNING / LMS
 // ============================================================
+// ============================================================
+// ACCOUNTING — Foundation types (Phase 2)
+// ============================================================
+export type AccountingTab = "dashboard" | "ledger" | "discounts" | "billing" | "holds" | "reports";
+
+export interface AccountingKpi {
+  id: string;
+  label: string;
+  value: string | number;
+  hint?: string;
+}
+
+export interface LedgerTransaction {
+  id: string;
+  studentId: string;
+  date: string;
+  description: string;
+  type: "Assessment" | "Payment" | "Discount" | "Adjustment";
+  debit: number;
+  credit: number;
+  balance: number;
+  reference?: string;
+}
+
+export interface StudentLedgerSummary {
+  studentId: string;
+  schoolYear: string;
+  totalAssessed: number;
+  totalPaid: number;
+  discountApplied: number;
+  balance: number;
+  financialHoldStatus: "None" | "Hold" | "Cleared";
+  clearanceStatus: "Cleared" | "Not Cleared";
+  lastPaymentDate?: string;
+}
+
+export interface FinancialHold {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNo: string;
+  holdType: "Enrollment" | "COR" | "Exam Permit" | "Transcript" | "Graduation Clearance" | "Transfer Credentials";
+  /** Root-cause category for the hold (distinct from the blocked process above). */
+  holdCategory?: "Unpaid Balance" | "Missing Payment" | "Registrar Hold" | "Incomplete Documents" | "Returned Payment";
+  reason: string;
+  balanceAmount: number;
+  createdBy: string;
+  createdAt: string;
+  status: "Active" | "Cleared";
+  clearedBy?: string;
+  clearedAt?: string;
+  clearanceRemarks?: string;
+}
+
+export interface AssessmentBillingSummary {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNo: string;
+  schoolYear: string;
+  semester: string;
+  academicUnit: AcademicUnit;
+  feeTemplateName: string;
+  totalAssessment: number;
+  amountDue: number;
+  balance: number;
+  status: "Draft" | "Pending Approval" | "Approved" | "Voided";
+}
+
+export interface PaymentCollectionSummary {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  paymentMethod: Payment["paymentMethod"];
+  referenceNo: string;
+  paymentDate: string;
+  cashier: string;
+  term: string;
+  verificationStatus: "Verified" | "Pending Verification" | "Voided";
+}
+
+// ============================================================
+// BOOKS SETUP — Basic Education book package configuration
+// ============================================================
+/**
+ * A single book line item within a BookPackage.
+ * Students cannot select individual books — these are display-only,
+ * the package as a whole is added/removed as one unit.
+ */
+export interface BookPackageItem {
+  id: string;
+  title: string;
+  subjectCode?: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface BookPackage {
+  id: string; // packageId, e.g. "bp-grade1"
+  packageName: string;
+  gradeLevel: string; // e.g. "Grade 1" — Basic Education only
+  schoolId: SchoolId;
+  academicUnit: AcademicUnit; // always "basic-ed"
+  schoolYear: string; // effective school year, e.g. "2026-2027"
+  books: BookPackageItem[];
+  totalAmount: number;
+  isRequired: boolean;
+  status: "Active" | "Inactive";
+  lastUpdated: string;
+  updatedBy?: string;
+}
+
 export interface LearningMaterial {
   id: string;
   schoolId: SchoolId;

@@ -21,7 +21,6 @@ import {
   Announcement,
   SchoolEvent,
   PayrollRow,
-  UserRole,
   SetupItem,
   DiscountType,
   DiscountRequest,
@@ -30,37 +29,32 @@ import {
   LearningMaterial,
   SchoolId,
   SchoolSection,
-  Room
+  Room,
+  BookPackage,
+  StudentLedgerSummary,
+  LedgerTransaction,
+  FinancialHold,
+  AssessmentBillingSummary,
+  PaymentCollectionSummary
 } from "../types";
-import {
-  MOCK_USERS,
-  MOCK_STUDENTS,
-  MOCK_TEACHERS,
-  MOCK_EMPLOYEES,
-  MOCK_COURSES,
-  MOCK_SUBJECTS,
-  MOCK_CURRICULUMS,
-  MOCK_REQUIREMENTS,
-  MOCK_ENROLLMENTS,
-  MOCK_ASSESSMENTS,
-  MOCK_PAYMENTS,
-  MOCK_GRADES,
-  MOCK_SCHEDULES,
-  MOCK_ANNOUNCEMENTS,
-  MOCK_EVENTS,
-  STARTING_PAYROLL,
-  MOCK_SETUP_DATA,
-  MOCK_DISCOUNT_TYPES,
-  MOCK_DISCOUNT_REQUESTS,
-  MOCK_CLASS_SCHEDULES,
-  MOCK_LEARNING_MATERIALS,
-  MOCK_SECTIONS,
-  MOCK_ROOMS
-} from "../mock-data";
+import type { AcademicUnit } from "../types/school.types";
+import { getAcademicUnit } from "../config/schools.config";
+import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent, GradeItem, GradeCategory } from "../types/grading";
+import { supabase } from "../lib/supabase";
+import { loadAllData } from "./dataLoader";
+import { newId, dbInsert, dbUpdate, dbDelete, dbDeleteWhere } from "./supabaseCrud";
+import { resolveSchoolId, resolveSubjectId, subjectCodeToId } from "./idMaps";
+
+const nowStamp = () => new Date().toISOString().replace("T", " ").substring(0, 16);
+const todayStamp = () => new Date().toISOString().split("T")[0];
 
 interface STSNState {
+  isLoading: boolean;
   currentUser: User | null;
   activeSchool: SchoolId | "ALL";
+  /** Academic unit derived from activeSchool — drives academic structure & workflow behavior (never role-driven). */
+  academicUnit: AcademicUnit;
+  schools: { id: string; uuid: string; name: string; shortName: string; location: string; academicUnit: string; brandingLabel: string; supportedRoles: string[] }[];
   users: User[];
   students: Student[];
   teachers: Teacher[];
@@ -84,12 +78,34 @@ interface STSNState {
   learningMaterials: LearningMaterial[];
   sections: SchoolSection[];
   rooms: Room[];
+  bookPackages: BookPackage[];
+  studentLedgerSummaries: StudentLedgerSummary[];
+  ledgerTransactions: LedgerTransaction[];
+  financialHolds: FinancialHold[];
+  assessmentBillingSummaries: AssessmentBillingSummary[];
+  paymentCollectionSummaries: PaymentCollectionSummary[];
+  promissoryNotes: { id: string; studentId: string; amount: number; dueDate: string; status: string }[];
+  classLoads: SubjectClassLoad[];
+  gradePeriods: GradePeriod[];
+  studentGradeEntries: StudentGradeEntry[];
+  demoStudents: GradeRosterStudent[];
+  activityLogs: { id: string; action: string; subject: string; type: string; time?: string }[];
+  enrollmentHistoryStats: { year: string; stsn: number; cdsta: number }[];
+  tuitionFeeSchedule: { yearLevel: string; tuition: number; lab: number; computer: number; label: string }[];
+  miscFeeSchedule: { feeName: string; category: "Miscellaneous"; amount: number; isRequired: boolean; note?: string }[];
+  labFeeAdjustments: { scope: "SHS" | "College"; programCode: string; amount: number }[];
+  discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
+  paymentTermOptions: { term: string; description: string }[];
+  studentGuardians: { id: string; studentId: string; guardianName: string; relationship?: string; contactNo?: string; email?: string; address?: string; isPrimary: boolean }[];
+
+  // Bootstrap
+  initialize: () => Promise<void>;
 
   // Actions
-  login: (email: string, role: string) => boolean;
+  login: (email: string, role: string, schoolContext?: SchoolId) => boolean;
   logout: () => void;
   setCurrentUser: (user: User | null) => void;
-  
+
   // Registrar Actions
   addStudent: (student: Omit<Student, "id" | "studentNo">) => Student;
   updateStudent: (id: string, updates: Partial<Student>) => void;
@@ -103,8 +119,17 @@ interface STSNState {
   updateAssessment: (id: string, updates: Partial<StudentAssessment>) => void;
   addPayment: (payment: Omit<Payment, "id" | "orNumber" | "paymentDate">) => Payment;
 
+  // Accounting Approval Workflow Actions
+  approveAssessment: (assessmentId: string, approvedBy: string, remarks?: string) => void;
+  returnAssessmentToRegistrar: (assessmentId: string, performedBy: string, remarks: string) => void;
+  rejectAssessment: (assessmentId: string, performedBy: string, remarks: string) => void;
+
   // Grading Actions
   saveGrade: (studentId: string, subjectCode: string, midterm: number, final: number) => void;
+  saveGradeEntry: (studentId: string, gradeItemId: string, score: number | null) => void;
+  addGradeItem: (periodId: string, item: GradeItem, categoryWeight: number) => void;
+  updateGradeCategories: (periodId: string, categories: GradeCategory[]) => void;
+  finalizeGradePeriod: (periodId: string, finalizedBy: string) => void;
 
   // Human Resource & Admin Actions
   addEmployee: (employee: Omit<Employee, "id">) => void;
@@ -175,6 +200,9 @@ interface STSNState {
   toggleSectionActive: (id: string) => void;
   assignStudentsToSection: (sectionId: string, studentIds: string[]) => void;
 
+  // Book Package CRUD
+  updateBookPackage: (id: string, updates: Partial<BookPackage>) => void;
+
   // Room CRUD
   addRoom: (room: Omit<Room, "id">) => Room;
   updateRoom: (id: string, updates: Partial<Room>) => void;
@@ -185,73 +213,110 @@ interface STSNState {
   updateRequirementUpload: (studentId: string, reqName: string, fileName: string) => void;
   verifyRequirement: (studentId: string, reqName: string, status: "Verified" | "Rejected", verifiedBy: string, remarks?: string) => void;
   markHardcopySubmitted: (studentId: string, reqName: string) => void;
+
+  // Guardian Information (Admission & Enrollment)
+  addStudentGuardian: (guardian: Omit<STSNState["studentGuardians"][number], "id">) => void;
+  updateStudentGuardian: (id: string, updates: Partial<STSNState["studentGuardians"][number]>) => void;
+  deleteStudentGuardian: (id: string) => void;
 }
 
-export const useSTSNStore = create<STSNState>((set, get) => ({
-  currentUser: MOCK_USERS.find((u) => u.role === "SUPER_ADMIN") || null,
-  activeSchool: "ALL",
-  users: MOCK_USERS,
-  students: MOCK_STUDENTS,
-  teachers: MOCK_TEACHERS,
-  employees: MOCK_EMPLOYEES,
-  courses: MOCK_COURSES,
-  subjects: MOCK_SUBJECTS,
-  curriculums: MOCK_CURRICULUMS,
-  requirements: MOCK_REQUIREMENTS,
-  enrollments: MOCK_ENROLLMENTS,
-  assessments: MOCK_ASSESSMENTS,
-  payments: MOCK_PAYMENTS,
-  grades: MOCK_GRADES,
-  schedules: MOCK_SCHEDULES,
-  announcements: MOCK_ANNOUNCEMENTS,
-  events: MOCK_EVENTS,
-  payroll: STARTING_PAYROLL,
-  setupData: MOCK_SETUP_DATA,
-  discountTypes: MOCK_DISCOUNT_TYPES,
-  discountRequests: MOCK_DISCOUNT_REQUESTS,
-  classSchedules: MOCK_CLASS_SCHEDULES,
-  learningMaterials: MOCK_LEARNING_MATERIALS,
-  sections: MOCK_SECTIONS,
-  rooms: MOCK_ROOMS,
+/** Strips a code-based field and replaces it with the resolved FK column, so
+ *  the generic snake-case writer never sees the business-code string. */
+const withSchoolFk = <T extends { schoolId?: string }>(row: T) => {
+  const { schoolId, ...rest } = row as any;
+  return { ...rest, school_id: resolveSchoolId(schoolId) };
+};
+const withSubjectFk = (row: any, codeField = "subjectCode") => {
+  const { [codeField]: code, ...rest } = row;
+  return { ...rest, subject_id: resolveSubjectId(code) };
+};
 
-  login: (email: string, role: string) => {
+export const useSTSNStore = create<STSNState>((set, get) => ({
+  isLoading: true,
+  currentUser: null,
+  activeSchool: "ALL",
+  academicUnit: getAcademicUnit("ALL"),
+  schools: [],
+  users: [],
+  students: [],
+  teachers: [],
+  employees: [],
+  courses: [],
+  subjects: [],
+  curriculums: [],
+  requirements: [],
+  enrollments: [],
+  assessments: [],
+  payments: [],
+  grades: [],
+  schedules: [],
+  announcements: [],
+  events: [],
+  payroll: [],
+  setupData: {},
+  discountTypes: [],
+  discountRequests: [],
+  classSchedules: [],
+  learningMaterials: [],
+  sections: [],
+  rooms: [],
+  bookPackages: [],
+  studentLedgerSummaries: [],
+  ledgerTransactions: [],
+  financialHolds: [],
+  assessmentBillingSummaries: [],
+  paymentCollectionSummaries: [],
+  promissoryNotes: [],
+  classLoads: [],
+  gradePeriods: [],
+  studentGradeEntries: [],
+  demoStudents: [],
+  activityLogs: [],
+  enrollmentHistoryStats: [],
+  tuitionFeeSchedule: [],
+  miscFeeSchedule: [],
+  labFeeAdjustments: [],
+  discountOptions: [],
+  paymentTermOptions: [],
+  studentGuardians: [],
+
+  initialize: async () => {
+    const data = await loadAllData();
+    set({
+      ...data,
+      isLoading: false,
+      currentUser: data.users.find((u) => u.role === "SUPER_ADMIN") || null,
+    });
+  },
+
+  login: (email: string, role: string, schoolContext?: SchoolId) => {
     const user = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (user && user.isActive) {
-      set({ currentUser: user, activeSchool: user.schoolId || "ALL" });
+      const resolvedSchool = user.schoolId || schoolContext || "ALL";
+      set({ currentUser: user, activeSchool: resolvedSchool, academicUnit: getAcademicUnit(resolvedSchool) });
       return true;
     }
-    // Handle fallback if matching by email
     const fallbackUser = get().users.find((u) => u.role === role);
     if (fallbackUser) {
-      set({ currentUser: fallbackUser, activeSchool: fallbackUser.schoolId || "ALL" });
+      const resolvedSchool = fallbackUser.schoolId || schoolContext || "ALL";
+      set({ currentUser: fallbackUser, activeSchool: resolvedSchool, academicUnit: getAcademicUnit(resolvedSchool) });
       return true;
     }
     return false;
   },
 
-  logout: () => {
-    set({ currentUser: null });
-  },
-
-  setCurrentUser: (user) => {
-    set({ currentUser: user });
-  },
+  logout: () => set({ currentUser: null }),
+  setCurrentUser: (user) => set({ currentUser: user }),
 
   addStudent: (studentData) => {
     const serial = get().students.length + 1;
     const studentNo = `STSN-2026-${String(serial).padStart(4, "0")}`;
-    const newId = `stud-${Date.now()}`;
-    const newStudent: Student = {
-      ...studentData,
-      id: newId,
-      studentNo
-    };
+    const newStudentId = newId();
+    const newStudent: Student = { ...studentData, id: newStudentId, studentNo };
 
-    set((state) => ({
-      students: [...state.students, newStudent]
-    }));
+    set((state) => ({ students: [...state.students, newStudent] }));
+    dbInsert("students", withSchoolFk({ ...studentData, id: newStudentId, studentNo }));
 
-    // Generate requirement items
     const requiredChecklists: ("PSA Birth Certificate" | "Good Moral Certificate" | "Transcript of Records (TOR)" | "Form 137 / SF9" | "ID Picture (2x2)")[] = [
       "PSA Birth Certificate",
       "Good Moral Certificate",
@@ -263,43 +328,38 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       requiredChecklists.push("Form 137 / SF9");
     }
 
-    const newReqs: Requirement[] = requiredChecklists.map((name, i) => ({
-      id: `req-new-${newId}-${i}`,
-      studentId: newId,
+    const newReqs: Requirement[] = requiredChecklists.map((name) => ({
+      id: newId(),
+      studentId: newStudentId,
       name,
       status: "Pending"
     }));
 
-    set((state) => ({
-      requirements: [...state.requirements, ...newReqs]
-    }));
+    set((state) => ({ requirements: [...state.requirements, ...newReqs] }));
+    for (const r of newReqs) dbInsert("requirements", r);
 
     return newStudent;
   },
 
   updateStudent: (id, updates) => {
-    set((state) => ({
-      students: state.students.map((s) => (s.id === id ? { ...s, ...updates } : s))
-    }));
+    set((state) => ({ students: state.students.map((s) => (s.id === id ? { ...s, ...updates } : s)) }));
+    dbUpdate("students", id, "schoolId" in updates ? withSchoolFk(updates as any) : updates);
   },
 
   updateStudentRequirements: (studentId, reqName, status) => {
+    const req = get().requirements.find((r) => r.studentId === studentId && r.name === reqName);
+    const submittedDate = status === "Submitted" ? todayStamp() : req?.submittedDate;
     set((state) => ({
-      requirements: state.requirements.map((req) =>
-        req.studentId === studentId && req.name === reqName
-          ? { ...req, status, submittedDate: status === "Submitted" ? new Date().toISOString().split("T")[0] : req.submittedDate }
-          : req
+      requirements: state.requirements.map((r) =>
+        r.studentId === studentId && r.name === reqName ? { ...r, status, submittedDate } : r
       )
     }));
+    if (req) dbUpdate("requirements", req.id, { status, submittedDate });
   },
 
   submitNewEnrollment: (enrollData) => {
-    const newId = `enr-${Date.now()}`;
-    const newEnrollment: Enrollment = {
-      ...enrollData,
-      id: newId,
-      status: "Pending"
-    };
+    const newEnrollmentId = newId();
+    const newEnrollment: Enrollment = { ...enrollData, id: newEnrollmentId, status: "Pending" };
 
     set((state) => ({
       enrollments: [...state.enrollments, newEnrollment],
@@ -308,7 +368,6 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       )
     }));
 
-    // Create Initial assessment of registration fees
     const isCollege = get().students.find((s) => s.id === enrollData.studentId)?.department === "College";
     const tuitionRate = isCollege ? 950 * enrollData.subjectCodes.length * 3 : 18000;
     const totalAmount = tuitionRate + 4500 + 3500 + 1000;
@@ -320,8 +379,9 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       { feeName: "School ID / Facilities Fee", category: "ID/Other", amount: 1000 }
     ];
 
+    const newAssessmentId = newId();
     const newAssessment: StudentAssessment = {
-      id: `as-${enrollData.studentId}`,
+      id: newAssessmentId,
       studentId: enrollData.studentId,
       schoolYear: enrollData.schoolYear,
       semester: enrollData.semester,
@@ -333,9 +393,15 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       balance: totalAmount
     };
 
-    set((state) => ({
-      assessments: [...state.assessments, newAssessment]
-    }));
+    set((state) => ({ assessments: [...state.assessments, newAssessment] }));
+
+    dbInsert("enrollments", { id: newEnrollmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, enrollmentType: enrollData.enrollmentType, status: "Pending", submittedAt: enrollData.submittedAt });
+    for (const code of enrollData.subjectCodes) {
+      const subjectId = resolveSubjectId(code);
+      if (subjectId) dbInsert("enrollment_subjects", { enrollment_id: newEnrollmentId, subject_id: subjectId });
+    }
+    dbInsert("assessments", { id: newAssessmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, totalAmount, discountPercentage: 0, discountAmount: 0, paymentTerm: "Installment - 4 Payments", balance: totalAmount });
+    for (const fee of baseFees) dbInsert("assessment_fees", { assessment_id: newAssessmentId, fee_name: fee.feeName, category: fee.category, amount: fee.amount });
 
     return newEnrollment;
   },
@@ -343,61 +409,99 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   approveEnrollment: (enrollmentId, section) => {
     const enrollment = get().enrollments.find((e) => e.id === enrollmentId);
     if (!enrollment) return;
-
     set((state) => ({
       enrollments: state.enrollments.map((e) => (e.id === enrollmentId ? { ...e, status: "Enrolled" } : e)),
-      students: state.students.map((s) =>
-        s.id === enrollment.studentId ? { ...s, enrollmentStatus: "Enrolled", section } : s
-      )
+      students: state.students.map((s) => (s.id === enrollment.studentId ? { ...s, enrollmentStatus: "Enrolled", section } : s))
     }));
+    dbUpdate("enrollments", enrollmentId, { status: "Enrolled" });
+    dbUpdate("students", enrollment.studentId, { enrollmentStatus: "Enrolled", section });
   },
 
   rejectEnrollment: (enrollmentId) => {
     const enrollment = get().enrollments.find((e) => e.id === enrollmentId);
     if (!enrollment) return;
-
     set((state) => ({
       enrollments: state.enrollments.map((e) => (e.id === enrollmentId ? { ...e, status: "Rejected" } : e)),
-      students: state.students.map((s) =>
-        s.id === enrollment.studentId ? { ...s, enrollmentStatus: "Rejected" } : s
-      )
+      students: state.students.map((s) => (s.id === enrollment.studentId ? { ...s, enrollmentStatus: "Rejected" } : s))
     }));
+    dbUpdate("enrollments", enrollmentId, { status: "Rejected" });
+    dbUpdate("students", enrollment.studentId, { enrollmentStatus: "Rejected" });
   },
 
   addAssessment: (assessment) => {
-    set((state) => ({
-      assessments: [...state.assessments, assessment]
-    }));
+    set((state) => ({ assessments: [...state.assessments, assessment] }));
+    const { fees, auditTrail, ...rest } = assessment;
+    dbInsert("assessments", rest);
+    for (const fee of fees ?? []) dbInsert("assessment_fees", { assessment_id: assessment.id, fee_name: fee.feeName, category: fee.category, amount: fee.amount });
+    for (const entry of auditTrail ?? []) dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessment.id, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
   },
 
   updateAssessment: (id, updates) => {
+    set((state) => ({ assessments: state.assessments.map((a) => (a.id === id ? { ...a, ...updates } : a)) }));
+    const { fees, auditTrail, ...rest } = updates;
+    if (Object.keys(rest).length > 0) dbUpdate("assessments", id, rest);
+    if (fees) {
+      dbDeleteWhere("assessment_fees", "assessment_id", id);
+      for (const fee of fees) dbInsert("assessment_fees", { assessment_id: id, fee_name: fee.feeName, category: fee.category, amount: fee.amount });
+    }
+    if (auditTrail) {
+      dbDeleteWhere("assessment_audit_trail", "assessment_id", id);
+      for (const entry of auditTrail) dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: id, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+    }
+  },
+
+  approveAssessment: (assessmentId, approvedBy, remarks) => {
+    const now = nowStamp();
+    const entry: AuditEntry = { id: newId(), action: "APPROVED_FOR_PAYMENT", performedBy: approvedBy, performedAt: now, details: remarks || "Assessment approved for payment." };
     set((state) => ({
-      assessments: state.assessments.map((a) => (a.id === id ? { ...a, ...updates } : a))
+      assessments: state.assessments.map((a) => a.id !== assessmentId ? a : {
+        ...a, approvalStatus: "Approved for Payment", approvedBy, approvedDate: now,
+        accountingRemarks: remarks || a.accountingRemarks, auditTrail: [...(a.auditTrail || []), entry],
+      })
     }));
+    dbUpdate("assessments", assessmentId, { approvalStatus: "Approved for Payment", approvedBy, approvedDate: now, accountingRemarks: remarks });
+    dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+  },
+
+  returnAssessmentToRegistrar: (assessmentId, performedBy, remarks) => {
+    const now = nowStamp();
+    const entry: AuditEntry = { id: newId(), action: "RETURNED_TO_REGISTRAR", performedBy, performedAt: now, details: remarks };
+    set((state) => ({
+      assessments: state.assessments.map((a) => a.id !== assessmentId ? a : {
+        ...a, approvalStatus: "Returned to Registrar", accountingRemarks: remarks, auditTrail: [...(a.auditTrail || []), entry],
+      })
+    }));
+    dbUpdate("assessments", assessmentId, { approvalStatus: "Returned to Registrar", accountingRemarks: remarks });
+    dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+  },
+
+  rejectAssessment: (assessmentId, performedBy, remarks) => {
+    const now = nowStamp();
+    const entry: AuditEntry = { id: newId(), action: "REJECTED", performedBy, performedAt: now, details: remarks };
+    set((state) => ({
+      assessments: state.assessments.map((a) => a.id !== assessmentId ? a : {
+        ...a, approvalStatus: "Rejected", accountingRemarks: remarks, auditTrail: [...(a.auditTrail || []), entry],
+      })
+    }));
+    dbUpdate("assessments", assessmentId, { approvalStatus: "Rejected", accountingRemarks: remarks });
+    dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
   },
 
   addPayment: (paymentData) => {
     const serial = get().payments.length + 10451;
     const orNumber = `OR-2026-${serial}`;
-    const newId = `pay-${Date.now()}`;
-    const newPayment: Payment = {
-      ...paymentData,
-      id: newId,
-      orNumber,
-      paymentDate: new Date().toISOString().replace("T", " ").substring(0, 16)
-    };
+    const newPaymentId = newId();
+    const paymentDate = new Date().toISOString().replace("T", " ").substring(0, 16);
+    const newPayment: Payment = { ...paymentData, id: newPaymentId, orNumber, paymentDate };
 
+    const affectedAssessments = get().assessments.filter((a) => a.studentId === paymentData.studentId);
     set((state) => ({
       payments: [...state.payments, newPayment],
-      // Deduct from assessment balance
-      assessments: state.assessments.map((a) => {
-        if (a.studentId === paymentData.studentId) {
-          const newBal = Math.max(0, a.balance - paymentData.amount);
-          return { ...a, balance: newBal };
-        }
-        return a;
-      })
+      assessments: state.assessments.map((a) => a.studentId === paymentData.studentId ? { ...a, balance: Math.max(0, a.balance - paymentData.amount) } : a)
     }));
+
+    dbInsert("payments", { ...paymentData, id: newPaymentId, orNumber, paymentDate });
+    for (const a of affectedAssessments) dbUpdate("assessments", a.id, { balance: Math.max(0, a.balance - paymentData.amount) });
 
     return newPayment;
   },
@@ -405,454 +509,412 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   saveGrade: (studentId, subjectCode, midterm, final) => {
     const passed = final >= 75 ? "Passed" : "Failed";
     const existing = get().grades.find((g) => g.studentId === studentId && g.subjectCode === subjectCode);
+    const teacherId = get().currentUser?.id || get().teachers[0]?.id;
 
     if (existing) {
       set((state) => ({
-        grades: state.grades.map((g) =>
-          g.studentId === studentId && g.subjectCode === subjectCode
-            ? { ...g, midtermGrade: midterm, finalGrade: final, remarks: passed }
-            : g
-        )
+        grades: state.grades.map((g) => g.studentId === studentId && g.subjectCode === subjectCode ? { ...g, midtermGrade: midterm, finalGrade: final, remarks: passed } : g)
       }));
+      dbUpdate("grades", existing.id, { midtermGrade: midterm, finalGrade: final, remarks: passed });
     } else {
-      const newGrade: Grade = {
-        id: `gr-${Date.now()}`,
-        studentId,
-        subjectCode,
-        teacherId: get().currentUser?.id || "teach-arthur",
-        schoolYear: "2026-2027",
-        semester: "First Semester",
-        midtermGrade: midterm,
-        finalGrade: final,
-        remarks: passed
-      };
-      set((state) => ({
-        grades: [...state.grades, newGrade]
-      }));
+      const newGrade: Grade = { id: newId(), studentId, subjectCode, teacherId: teacherId || "", schoolYear: "2026-2027", semester: "First Semester", midtermGrade: midterm, finalGrade: final, remarks: passed };
+      set((state) => ({ grades: [...state.grades, newGrade] }));
+      dbInsert("grades", withSubjectFk({ id: newGrade.id, studentId, teacherId: newGrade.teacherId, schoolYear: newGrade.schoolYear, semester: newGrade.semester, midtermGrade: midterm, finalGrade: final, remarks: passed, subjectCode }));
     }
   },
 
-  addEmployee: (employee) => {
-    const newEmp: Employee = {
-      ...employee,
-      id: `emp-${Date.now()}`
-    };
+  saveGradeEntry: (studentId, gradeItemId, score) => {
+    const periods = get().gradePeriods;
+    const existing = get().studentGradeEntries.find((e) => e.studentId === studentId && e.gradeItemId === gradeItemId);
+    const periodId = periods.find((p) => p.items.some((i) => i.id === gradeItemId))?.id ?? "";
+
+    if (existing) {
+      set((state) => ({
+        studentGradeEntries: state.studentGradeEntries.map((e) => e.studentId === studentId && e.gradeItemId === gradeItemId ? { ...e, score } : e)
+      }));
+    } else {
+      const entry: StudentGradeEntry = { id: newId(), periodId, studentId, gradeItemId, score };
+      set((state) => ({ studentGradeEntries: [...state.studentGradeEntries, entry] }));
+    }
+    supabase.from("student_grade_entries").upsert(
+      { id: existing?.id ?? newId(), grade_period_id: periodId, student_id: studentId, grade_item_id: gradeItemId, score },
+      { onConflict: "grade_item_id,student_id" }
+    ).then(({ error }) => { if (error) console.error("[supabase] upsert student_grade_entries failed:", error); });
+  },
+
+  addGradeItem: (periodId, item, categoryWeight) => {
     set((state) => ({
-      employees: [...state.employees, newEmp]
+      gradePeriods: state.gradePeriods.map((p) => {
+        if (p.id !== periodId) return p;
+        let updatedCategories = [...p.categories];
+        const existingCat = updatedCategories.find((c) => c.name === item.category);
+        if (!existingCat && categoryWeight > 0) updatedCategories = [...updatedCategories, { name: item.category, weight: categoryWeight }];
+        return { ...p, categories: updatedCategories, items: [...p.items, item] };
+      })
     }));
+    dbInsert("grade_items", { id: item.id, gradePeriodId: periodId, label: item.label, category: item.category, maxScore: item.maxScore, sortOrder: item.order, dueDate: item.dueDate });
+    const period = get().gradePeriods.find((p) => p.id === periodId);
+    const existingCat = period?.categories.find((c) => c.name === item.category);
+    if (!existingCat && categoryWeight > 0) dbInsert("grade_categories", { gradePeriodId: periodId, name: item.category, weight: categoryWeight });
+
+    const targetLoad = get().classLoads.find((l) => l.subjectCode === period?.subjectCode);
+    const newEntries: StudentGradeEntry[] = (targetLoad?.studentIds ?? []).map((studentId) => ({ id: newId(), periodId, studentId, gradeItemId: item.id, score: null }));
+    set((state) => ({ studentGradeEntries: [...state.studentGradeEntries, ...newEntries] }));
+    for (const e of newEntries) dbInsert("student_grade_entries", { id: e.id, gradePeriodId: periodId, studentId: e.studentId, gradeItemId: item.id, score: null });
+  },
+
+  updateGradeCategories: (periodId, categories) => {
+    set((state) => ({ gradePeriods: state.gradePeriods.map((p) => (p.id === periodId ? { ...p, categories } : p)) }));
+    dbDeleteWhere("grade_categories", "grade_period_id", periodId);
+    for (const c of categories) dbInsert("grade_categories", { gradePeriodId: periodId, name: c.name, weight: c.weight });
+  },
+
+  finalizeGradePeriod: (periodId, finalizedBy) => {
+    const now = new Date().toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
+    set((state) => ({
+      gradePeriods: state.gradePeriods.map((p) => (p.id === periodId ? { ...p, isFinalized: true, finalizedAt: now, finalizedBy } : p))
+    }));
+    dbUpdate("grade_periods", periodId, { isFinalized: true, finalizedAt: now, finalizedBy });
+  },
+
+  addEmployee: (employee) => {
+    const newEmp: Employee = { ...employee, id: newId() };
+    set((state) => ({ employees: [...state.employees, newEmp] }));
+    dbInsert("employees", withSchoolFk(newEmp));
   },
 
   updateEmployee: (id, updates) => {
-    set((state) => ({
-      employees: state.employees.map((e) => (e.id === id ? { ...e, ...updates } : e))
-    }));
+    set((state) => ({ employees: state.employees.map((e) => (e.id === id ? { ...e, ...updates } : e)) }));
+    dbUpdate("employees", id, "schoolId" in updates ? withSchoolFk(updates as any) : updates);
   },
 
   addPayrollRow: (row) => {
-    set((state) => ({
-      payroll: [row, ...state.payroll]
-    }));
+    set((state) => ({ payroll: [row, ...state.payroll] }));
+    dbInsert("payroll", row);
   },
 
   markPaidPayroll: (id) => {
-    set((state) => ({
-      payroll: state.payroll.map((p) => (p.id === id ? { ...p, status: "Paid" } : p))
-    }));
+    set((state) => ({ payroll: state.payroll.map((p) => (p.id === id ? { ...p, status: "Paid" } : p)) }));
+    dbUpdate("payroll", id, { status: "Paid" });
   },
 
   processGlobalPayroll: () => {
-    // Generate new payroll rows for all active employees for current bi-weekly period
     const employees = get().employees;
     const period = "June 01 - 15, 2026";
     const newRows: PayrollRow[] = employees.map((emp) => {
-      const gross = emp.salary / 2; // Bi weekly
+      const gross = emp.salary / 2;
       const allowance = emp.status === "Full-Time" ? 1750 : 500;
       const sss = Math.round(gross * 0.04);
       const phil = Math.round(gross * 0.015);
       const pag = 100;
       const tax = Math.round((gross - sss - phil - pag) * 0.08);
       const net = gross + allowance - (sss + phil + pag + tax);
-
       return {
-        id: `payr-new-${emp.id}-${Date.now()}`,
-        employeeId: emp.id,
-        employeeName: `${emp.firstName} ${emp.lastName}`,
-        position: emp.position,
-        basicSalary: gross,
-        allowances: allowance,
-        sssDeduction: sss,
-        philhealthDeduction: phil,
-        pagibigDeduction: pag,
-        taxDeduction: tax,
-        netPay: net,
-        period,
-        status: "Pending"
+        id: newId(), employeeId: emp.id, employeeName: `${emp.firstName} ${emp.lastName}`, position: emp.position,
+        basicSalary: gross, allowances: allowance, sssDeduction: sss, philhealthDeduction: phil, pagibigDeduction: pag,
+        taxDeduction: tax, netPay: net, period, status: "Pending"
       };
     });
-
-    set((state) => ({
-      payroll: [...newRows, ...state.payroll]
-    }));
+    set((state) => ({ payroll: [...newRows, ...state.payroll] }));
+    for (const row of newRows) dbInsert("payroll", row);
   },
 
   toggleUserStatus: (id) => {
-    set((state) => ({
-      users: state.users.map((u) => (u.id === id ? { ...u, isActive: !u.isActive } : u))
-    }));
+    const user = get().users.find((u) => u.id === id);
+    set((state) => ({ users: state.users.map((u) => (u.id === id ? { ...u, isActive: !u.isActive } : u)) }));
+    if (user) dbUpdate("users", id, { isActive: !user.isActive });
   },
 
   addUser: (user) => {
-    set((state) => ({
-      users: [...state.users, user]
-    }));
+    set((state) => ({ users: [...state.users, user] }));
+    dbInsert("users", withSchoolFk(user));
   },
 
   addAnnouncement: (annData) => {
     const author = get().currentUser?.name || "System Bureau";
-    const newAnn: Announcement = {
-      ...annData,
-      id: `ann-${Date.now()}`,
-      date: new Date().toISOString().split("T")[0],
-      author
-    };
-    set((state) => ({
-      announcements: [newAnn, ...state.announcements]
-    }));
+    const newAnn: Announcement = { ...annData, id: newId(), date: todayStamp(), author };
+    set((state) => ({ announcements: [newAnn, ...state.announcements] }));
+    dbInsert("announcements", newAnn);
   },
 
   addCourse: (courseData) => {
-    const newId = `c-${courseData.code.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`;
-    const newCourse: Course = {
-      ...courseData,
-      id: newId
-    };
-    set((state) => ({
-      courses: [...state.courses, newCourse]
-    }));
+    const newCourse: Course = { ...courseData, id: newId() };
+    set((state) => ({ courses: [...state.courses, newCourse] }));
+    dbInsert("courses", newCourse);
   },
 
   updateCourse: (id, updates) => {
-    set((state) => ({
-      courses: state.courses.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    }));
+    set((state) => ({ courses: state.courses.map((c) => (c.id === id ? { ...c, ...updates } : c)) }));
+    dbUpdate("courses", id, updates);
   },
 
   deleteCourse: (id) => {
-    set((state) => ({
-      courses: state.courses.filter((c) => c.id !== id)
-    }));
+    set((state) => ({ courses: state.courses.filter((c) => c.id !== id) }));
+    dbDelete("courses", id);
   },
 
   addSubject: (subjectData) => {
-    const newId = `s-sub-${Date.now()}`;
-    const newSubject: Subject = {
-      ...subjectData,
-      id: newId
-    };
-    set((state) => ({
-      subjects: [...state.subjects, newSubject]
-    }));
+    const newSubject: Subject = { ...subjectData, id: newId() };
+    set((state) => ({ subjects: [...state.subjects, newSubject] }));
+    subjectCodeToId[newSubject.code] = newSubject.id;
+    dbInsert("subjects", newSubject);
   },
 
   updateSubject: (id, updates) => {
-    set((state) => ({
-      subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...updates } : s))
-    }));
+    set((state) => ({ subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...updates } : s)) }));
+    dbUpdate("subjects", id, updates);
   },
 
   deleteSubject: (id) => {
-    set((state) => ({
-      subjects: state.subjects.filter((s) => s.id !== id)
-    }));
+    set((state) => ({ subjects: state.subjects.filter((s) => s.id !== id) }));
+    dbDelete("subjects", id);
   },
 
   addCurriculum: (curriculumData) => {
-    const newId = `curr-${Date.now()}`;
-    const newCurriculum: Curriculum = {
-      ...curriculumData,
-      id: newId
-    };
-    set((state) => ({
-      curriculums: [...state.curriculums, newCurriculum]
-    }));
+    const newCurriculumId = newId();
+    const newCurriculum: Curriculum = { ...curriculumData, id: newCurriculumId };
+    set((state) => ({ curriculums: [...state.curriculums, newCurriculum] }));
+    dbInsert("curriculums", { id: newCurriculumId, courseCodeOrStrand: curriculumData.courseCodeOrStrand, name: curriculumData.name });
+    for (const block of curriculumData.subjects) {
+      for (const code of block.subjectCodes) {
+        const subjectId = resolveSubjectId(code);
+        if (subjectId) dbInsert("curriculum_subjects", { curriculum_id: newCurriculumId, subject_id: subjectId, yearLevel: block.yearLevel, semester: block.semester });
+      }
+    }
   },
 
   updateCurriculum: (id, updates) => {
-    set((state) => ({
-      curriculums: state.curriculums.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    }));
+    set((state) => ({ curriculums: state.curriculums.map((c) => (c.id === id ? { ...c, ...updates } : c)) }));
+    const { subjects, ...rest } = updates;
+    if (Object.keys(rest).length > 0) dbUpdate("curriculums", id, rest);
+    if (subjects) {
+      dbDeleteWhere("curriculum_subjects", "curriculum_id", id);
+      for (const block of subjects) {
+        for (const code of block.subjectCodes) {
+          const subjectId = resolveSubjectId(code);
+          if (subjectId) dbInsert("curriculum_subjects", { curriculum_id: id, subject_id: subjectId, yearLevel: block.yearLevel, semester: block.semester });
+        }
+      }
+    }
   },
 
   deleteCurriculum: (id) => {
-    set((state) => ({
-      curriculums: state.curriculums.filter((c) => c.id !== id)
-    }));
+    set((state) => ({ curriculums: state.curriculums.filter((c) => c.id !== id) }));
+    dbDelete("curriculums", id);
   },
 
   // ---- Core Setup Actions ----
   addSetupItem: (category, itemData) => {
-    const newItem = {
-      ...itemData,
-      id: `setup-${category}-${Date.now()}`,
-      createdAt: new Date().toISOString().split("T")[0],
-      createdBy: get().currentUser?.name || "System",
-      isActive: itemData.isActive ?? true
-    } as SetupItem;
-    set((state) => ({
-      setupData: {
-        ...state.setupData,
-        [category]: [...(state.setupData[category] || []), newItem]
-      }
-    }));
+    const { code, name, description, isActive, sortOrder, ...metadata } = itemData as any;
+    const newItem = { ...itemData, id: newId(), createdAt: todayStamp(), createdBy: get().currentUser?.name || "System", isActive: itemData.isActive ?? true } as SetupItem;
+    set((state) => ({ setupData: { ...state.setupData, [category]: [...(state.setupData[category] || []), newItem] } }));
+    dbInsert("setup_items", { id: newItem.id, category, code: code ?? newItem.id, name, description, isActive: newItem.isActive, sortOrder, metadata, createdBy: newItem.createdBy, createdAt: newItem.createdAt });
     return newItem;
   },
 
   updateSetupItem: (category, id, updates) => {
+    const updatedAt = todayStamp();
     set((state) => ({
-      setupData: {
-        ...state.setupData,
-        [category]: (state.setupData[category] || []).map((item) =>
-          item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString().split("T")[0] } : item
-        )
-      }
+      setupData: { ...state.setupData, [category]: (state.setupData[category] || []).map((item) => (item.id === id ? { ...item, ...updates, updatedAt } : item)) }
     }));
+    const { code, name, description, isActive, sortOrder, ...metadata } = updates as any;
+    const dbUpdates: any = { updatedAt };
+    if (code !== undefined) dbUpdates.code = code;
+    if (name !== undefined) dbUpdates.name = name;
+    if (description !== undefined) dbUpdates.description = description;
+    if (isActive !== undefined) dbUpdates.isActive = isActive;
+    if (sortOrder !== undefined) dbUpdates.sortOrder = sortOrder;
+    if (Object.keys(metadata).length > 0) dbUpdates.metadata = metadata;
+    dbUpdate("setup_items", id, dbUpdates);
   },
 
   deleteSetupItem: (category, id) => {
-    set((state) => ({
-      setupData: {
-        ...state.setupData,
-        [category]: (state.setupData[category] || []).filter((item) => item.id !== id)
-      }
-    }));
+    set((state) => ({ setupData: { ...state.setupData, [category]: (state.setupData[category] || []).filter((item) => item.id !== id) } }));
+    dbDelete("setup_items", id);
   },
 
   toggleSetupItemActive: (category, id) => {
+    const updatedAt = todayStamp();
+    const current = get().setupData[category]?.find((i) => i.id === id);
     set((state) => ({
-      setupData: {
-        ...state.setupData,
-        [category]: (state.setupData[category] || []).map((item) =>
-          item.id === id ? { ...item, isActive: !item.isActive, updatedAt: new Date().toISOString().split("T")[0] } : item
-        )
-      }
+      setupData: { ...state.setupData, [category]: (state.setupData[category] || []).map((item) => (item.id === id ? { ...item, isActive: !item.isActive, updatedAt } : item)) }
     }));
+    if (current) dbUpdate("setup_items", id, { isActive: !current.isActive, updatedAt });
   },
 
   // ---- Discount Management Actions ----
   addDiscountType: (dtData) => {
-    const newDT: DiscountType = {
-      ...dtData,
-      id: `dt-${Date.now()}`,
-      createdAt: new Date().toISOString().split("T")[0],
-      isActive: dtData.isActive ?? true
-    };
+    const newDT: DiscountType = { ...dtData, id: newId(), createdAt: todayStamp(), isActive: dtData.isActive ?? true };
     set((state) => ({ discountTypes: [...state.discountTypes, newDT] }));
+    dbInsert("discount_types", newDT);
   },
 
   updateDiscountType: (id, updates) => {
-    set((state) => ({
-      discountTypes: state.discountTypes.map((dt) => (dt.id === id ? { ...dt, ...updates } : dt))
-    }));
+    set((state) => ({ discountTypes: state.discountTypes.map((dt) => (dt.id === id ? { ...dt, ...updates } : dt)) }));
+    dbUpdate("discount_types", id, updates);
   },
 
   deleteDiscountType: (id) => {
     set((state) => ({ discountTypes: state.discountTypes.filter((dt) => dt.id !== id) }));
+    dbDelete("discount_types", id);
   },
 
   toggleDiscountTypeActive: (id) => {
-    set((state) => ({
-      discountTypes: state.discountTypes.map((dt) => (dt.id === id ? { ...dt, isActive: !dt.isActive } : dt))
-    }));
+    const dt = get().discountTypes.find((d) => d.id === id);
+    set((state) => ({ discountTypes: state.discountTypes.map((d) => (d.id === id ? { ...d, isActive: !d.isActive } : d)) }));
+    if (dt) dbUpdate("discount_types", id, { isActive: !dt.isActive });
   },
 
   addDiscountRequest: (reqData) => {
     const serial = get().discountRequests.length + 1001;
+    const newReqId = newId();
+    const auditEntry: AuditEntry = { id: newId(), action: "REQUEST_SUBMITTED", performedBy: reqData.requestedBy, performedAt: nowStamp(), details: `Discount request submitted for ${reqData.discountTypeName}` };
     const newReq: DiscountRequest = {
-      ...reqData,
-      id: `dreq-${Date.now()}`,
-      referenceNo: `DISC-${new Date().getFullYear()}-${String(serial).padStart(4, "0")}`,
-      requestedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
-      status: "Pending",
-      level1Status: "Pending",
-      level2Status: "Pending",
-      auditTrail: [{
-        id: `audit-${Date.now()}`,
-        action: "REQUEST_SUBMITTED",
-        performedBy: reqData.requestedBy,
-        performedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
-        details: `Discount request submitted for ${reqData.discountTypeName}`
-      }]
+      ...reqData, id: newReqId, referenceNo: `DISC-${new Date().getFullYear()}-${String(serial).padStart(4, "0")}`,
+      requestedAt: nowStamp(), status: "Pending", level1Status: "Pending", level2Status: "Pending", auditTrail: [auditEntry]
     };
     set((state) => ({ discountRequests: [newReq, ...state.discountRequests] }));
+    dbInsert("discount_requests", { id: newReqId, referenceNo: newReq.referenceNo, studentId: reqData.studentId, discountTypeId: reqData.discountTypeId, requestedBy: reqData.requestedBy, requestedAt: newReq.requestedAt, status: "Pending", siblingNames: reqData.siblingNames, level1Status: "Pending", level2Status: "Pending", remarks: reqData.remarks, attachmentNames: reqData.attachmentNames });
+    dbInsert("discount_request_audit_trail", { id: auditEntry.id, discountRequestId: newReqId, action: auditEntry.action, performedBy: auditEntry.performedBy, performedAt: auditEntry.performedAt, details: auditEntry.details });
     return newReq;
   },
 
   approveDiscountRequest: (id, level, approvedBy, remarks) => {
-    const now = new Date().toISOString().replace("T", " ").substring(0, 16);
-    const auditEntry: AuditEntry = {
-      id: `audit-${Date.now()}`,
-      action: `LEVEL_${level}_APPROVED`,
-      performedBy: approvedBy,
-      performedAt: now,
-      details: remarks || `Approved at Level ${level}`
-    };
+    const now = nowStamp();
+    const auditEntry: AuditEntry = { id: newId(), action: `LEVEL_${level}_APPROVED`, performedBy: approvedBy, performedAt: now, details: remarks || `Approved at Level ${level}` };
     set((state) => ({
       discountRequests: state.discountRequests.map((req) => {
         if (req.id !== id) return req;
         const levelKey = level === 1 ? "level1" : "level2";
-        const otherLevelApproved = level === 1 ? req.level2Status : req.level1Status;
-        const newStatus = level === 1
-          ? (req.level2Status === "Approved" ? "Approved" : "For Review")
-          : (req.level1Status === "Approved" ? "Approved" : "For Review");
         return {
           ...req,
-          [`${levelKey}Status`]: "Approved",
-          [`${levelKey}ApprovedBy`]: approvedBy,
-          [`${levelKey}ApprovedAt`]: now,
+          [`${levelKey}Status`]: "Approved", [`${levelKey}ApprovedBy`]: approvedBy, [`${levelKey}ApprovedAt`]: now,
           status: (level === 1 && req.level2Status === "Approved") || (level === 2 && req.level1Status === "Approved") ? "Approved" : "For Review",
           auditTrail: [...req.auditTrail, auditEntry]
         };
       })
     }));
-    // Apply discount to assessment if fully approved
     const req = get().discountRequests.find((r) => r.id === id);
+    if (req) {
+      const levelKey = level === 1 ? "level1" : "level2";
+      dbUpdate("discount_requests", id, { [`${levelKey}Status`]: "Approved", [`${levelKey}ApprovedBy`]: approvedBy, [`${levelKey}ApprovedAt`]: now, status: req.status });
+      dbInsert("discount_request_audit_trail", { id: auditEntry.id, discountRequestId: id, action: auditEntry.action, performedBy: auditEntry.performedBy, performedAt: auditEntry.performedAt, details: auditEntry.details });
+    }
     if (req && req.level1Status === "Approved" && req.level2Status === "Approved") {
       const assessment = get().assessments.find((a) => a.studentId === req.studentId);
       if (assessment) {
         const discountAmt = Math.round(assessment.totalAmount * (req.discountPercent / 100));
-        get().updateAssessment(assessment.id, {
-          discountPercentage: req.discountPercent,
-          discountAmount: discountAmt,
-          scholarshipName: req.discountTypeName,
-          balance: Math.max(0, assessment.totalAmount - discountAmt)
-        });
+        get().updateAssessment(assessment.id, { discountPercentage: req.discountPercent, discountAmount: discountAmt, scholarshipName: req.discountTypeName, balance: Math.max(0, assessment.totalAmount - discountAmt) });
       }
     }
   },
 
   rejectDiscountRequest: (id, level, approvedBy, remarks) => {
-    const now = new Date().toISOString().replace("T", " ").substring(0, 16);
-    const auditEntry: AuditEntry = {
-      id: `audit-${Date.now()}`,
-      action: `LEVEL_${level}_REJECTED`,
-      performedBy: approvedBy,
-      performedAt: now,
-      details: remarks || `Rejected at Level ${level}`
-    };
+    const now = nowStamp();
+    const auditEntry: AuditEntry = { id: newId(), action: `LEVEL_${level}_REJECTED`, performedBy: approvedBy, performedAt: now, details: remarks || `Rejected at Level ${level}` };
     set((state) => ({
       discountRequests: state.discountRequests.map((req) => {
         if (req.id !== id) return req;
         const levelKey = level === 1 ? "level1" : "level2";
-        return {
-          ...req,
-          [`${levelKey}Status`]: "Rejected",
-          [`${levelKey}ApprovedBy`]: approvedBy,
-          [`${levelKey}ApprovedAt`]: now,
-          status: "Rejected",
-          auditTrail: [...req.auditTrail, auditEntry]
-        };
+        return { ...req, [`${levelKey}Status`]: "Rejected", [`${levelKey}ApprovedBy`]: approvedBy, [`${levelKey}ApprovedAt`]: now, status: "Rejected", auditTrail: [...req.auditTrail, auditEntry] };
       })
     }));
+    const levelKey = level === 1 ? "level1" : "level2";
+    dbUpdate("discount_requests", id, { [`${levelKey}Status`]: "Rejected", [`${levelKey}ApprovedBy`]: approvedBy, [`${levelKey}ApprovedAt`]: now, status: "Rejected" });
+    dbInsert("discount_request_audit_trail", { id: auditEntry.id, discountRequestId: id, action: auditEntry.action, performedBy: auditEntry.performedBy, performedAt: auditEntry.performedAt, details: auditEntry.details });
   },
 
   // ---- Class Scheduling Actions ----
   addClassSchedule: (scheduleData) => {
-    const newSchedule: ClassSchedule = {
-      ...scheduleData,
-      id: `csched-${Date.now()}`
-    };
+    const newSchedule: ClassSchedule = { ...scheduleData, id: newId() };
     set((state) => ({ classSchedules: [...state.classSchedules, newSchedule] }));
+    dbInsert("class_schedules", withSubjectFk({ ...scheduleData, id: newSchedule.id, roomName: scheduleData.roomName, courseOrTrack: scheduleData.courseOrTrack }));
     return newSchedule;
   },
 
   updateClassSchedule: (id, updates) => {
-    set((state) => ({
-      classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, ...updates } : s))
-    }));
+    set((state) => ({ classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, ...updates } : s)) }));
+    dbUpdate("class_schedules", id, "subjectCode" in updates ? withSubjectFk(updates) : updates);
   },
 
   deleteClassSchedule: (id) => {
     set((state) => ({ classSchedules: state.classSchedules.filter((s) => s.id !== id) }));
+    dbDelete("class_schedules", id);
   },
 
   toggleClassScheduleActive: (id) => {
-    set((state) => ({
-      classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
-    }));
+    const sched = get().classSchedules.find((s) => s.id === id);
+    set((state) => ({ classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s)) }));
+    if (sched) dbUpdate("class_schedules", id, { isActive: !sched.isActive });
   },
 
   // ---- Multi-school ----
-  setActiveSchool: (school) => {
-    set({ activeSchool: school });
-  },
+  setActiveSchool: (school) => set({ activeSchool: school, academicUnit: getAcademicUnit(school) }),
 
   // ---- LMS Actions ----
   addLearningMaterial: (materialData) => {
-    const newMaterial: LearningMaterial = {
-      ...materialData,
-      id: `lm-${Date.now()}`
-    };
+    const newMaterial: LearningMaterial = { ...materialData, id: newId() };
     set((state) => ({ learningMaterials: [newMaterial, ...state.learningMaterials] }));
+    dbInsert("learning_materials", withSubjectFk(withSchoolFk({ ...materialData, id: newMaterial.id })));
     return newMaterial;
   },
 
   updateLearningMaterial: (id, updates) => {
-    set((state) => ({
-      learningMaterials: state.learningMaterials.map((m) => (m.id === id ? { ...m, ...updates } : m))
-    }));
+    set((state) => ({ learningMaterials: state.learningMaterials.map((m) => (m.id === id ? { ...m, ...updates } : m)) }));
+    let dbUpdates: any = updates;
+    if ("schoolId" in updates) dbUpdates = withSchoolFk(dbUpdates);
+    if ("subjectCode" in updates) dbUpdates = withSubjectFk(dbUpdates);
+    dbUpdate("learning_materials", id, dbUpdates);
   },
 
   deleteLearningMaterial: (id) => {
     set((state) => ({ learningMaterials: state.learningMaterials.filter((m) => m.id !== id) }));
+    dbDelete("learning_materials", id);
   },
 
   toggleLearningMaterialPublish: (id) => {
+    const material = get().learningMaterials.find((m) => m.id === id);
     set((state) => ({
-      learningMaterials: state.learningMaterials.map((m) =>
-        m.id === id ? { ...m, publishStatus: m.publishStatus === "Published" ? "Draft" : "Published" } : m
-      )
+      learningMaterials: state.learningMaterials.map((m) => (m.id === id ? { ...m, publishStatus: m.publishStatus === "Published" ? "Draft" : "Published" } : m))
     }));
+    if (material) dbUpdate("learning_materials", id, { publishStatus: material.publishStatus === "Published" ? "Draft" : "Published" });
   },
 
   // ---- HR Bulk Import ----
   bulkImportEmployees: (employeesData) => {
-    const newEmployees: Employee[] = employeesData.map((emp, i) => ({
-      ...emp,
-      id: `emp-import-${Date.now()}-${i}`
-    }));
+    const newEmployees: Employee[] = employeesData.map((emp) => ({ ...emp, id: newId() }));
     set((state) => ({ employees: [...state.employees, ...newEmployees] }));
+    for (const emp of newEmployees) dbInsert("employees", withSchoolFk(emp));
   },
 
   // ---- Section CRUD ----
   addSection: (sectionData) => {
-    const newSection: SchoolSection = {
-      ...sectionData,
-      id: `sec-${Date.now()}`,
-      createdAt: new Date().toISOString().split("T")[0],
-      currentCount: sectionData.currentCount ?? 0,
-      enrolledStudentIds: sectionData.enrolledStudentIds ?? []
-    };
+    const newSection: SchoolSection = { ...sectionData, id: newId(), createdAt: todayStamp(), currentCount: sectionData.currentCount ?? 0, enrolledStudentIds: sectionData.enrolledStudentIds ?? [] };
     set((state) => ({ sections: [...state.sections, newSection] }));
+    dbInsert("sections", withSchoolFk({ ...sectionData, id: newSection.id, createdAt: newSection.createdAt, currentCount: newSection.currentCount }));
+    for (const studentId of newSection.enrolledStudentIds) dbInsert("section_students", { section_id: newSection.id, student_id: studentId });
     return newSection;
   },
 
   updateSection: (id, updates) => {
-    set((state) => ({
-      sections: state.sections.map((s) => (s.id === id ? { ...s, ...updates } : s))
-    }));
+    set((state) => ({ sections: state.sections.map((s) => (s.id === id ? { ...s, ...updates } : s)) }));
+    const { enrolledStudentIds, ...rest } = updates;
+    if (Object.keys(rest).length > 0) dbUpdate("sections", id, "schoolId" in rest ? withSchoolFk(rest as any) : rest);
   },
 
   deleteSection: (id) => {
     set((state) => ({ sections: state.sections.filter((s) => s.id !== id) }));
+    dbDelete("sections", id);
   },
 
   toggleSectionActive: (id) => {
-    set((state) => ({
-      sections: state.sections.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
-    }));
+    const section = get().sections.find((s) => s.id === id);
+    set((state) => ({ sections: state.sections.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s)) }));
+    if (section) dbUpdate("sections", id, { isActive: !section.isActive });
   },
 
   assignStudentsToSection: (sectionId, studentIds) => {
+    const section = get().sections.find((s) => s.id === sectionId);
     set((state) => ({
       sections: state.sections.map((s) => {
         if (s.id !== sectionId) return s;
@@ -865,69 +927,100 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         return sec ? { ...stu, section: sec.name } : stu;
       })
     }));
+    const merged = Array.from(new Set([...(section?.enrolledStudentIds || []), ...studentIds]));
+    dbUpdate("sections", sectionId, { currentCount: merged.length });
+    for (const studentId of studentIds) {
+      dbInsert("section_students", { section_id: sectionId, student_id: studentId });
+      if (section) dbUpdate("students", studentId, { section: section.name });
+    }
+  },
+
+  // ---- Book Package CRUD ----
+  updateBookPackage: (id, updates) => {
+    set((state) => ({ bookPackages: state.bookPackages.map((p) => (p.id === id ? { ...p, ...updates } : p)) }));
+    const { books, ...rest } = updates;
+    if (Object.keys(rest).length > 0) dbUpdate("book_packages", id, "schoolId" in rest ? withSchoolFk(rest as any) : rest);
+    if (books) {
+      dbDeleteWhere("book_package_items", "book_package_id", id);
+      for (const book of books) dbInsert("book_package_items", withSubjectFk({ id: book.id ?? newId(), bookPackageId: id, title: book.title, quantity: book.quantity, unitPrice: book.unitPrice, subjectCode: book.subjectCode }));
+    }
   },
 
   // ---- Room CRUD ----
   addRoom: (roomData) => {
-    const newRoom: Room = { ...roomData, id: `room-${Date.now()}` };
+    const newRoom: Room = { ...roomData, id: newId() };
     set((state) => ({ rooms: [...state.rooms, newRoom] }));
+    dbInsert("rooms", withSchoolFk(newRoom));
     return newRoom;
   },
 
   updateRoom: (id, updates) => {
-    set((state) => ({
-      rooms: state.rooms.map((r) => (r.id === id ? { ...r, ...updates } : r))
-    }));
+    set((state) => ({ rooms: state.rooms.map((r) => (r.id === id ? { ...r, ...updates } : r)) }));
+    dbUpdate("rooms", id, "schoolId" in updates ? withSchoolFk(updates as any) : updates);
   },
 
   deleteRoom: (id) => {
     set((state) => ({ rooms: state.rooms.filter((r) => r.id !== id) }));
+    dbDelete("rooms", id);
   },
 
   toggleRoomActive: (id) => {
-    set((state) => ({
-      rooms: state.rooms.map((r) => (r.id === id ? { ...r, isActive: !r.isActive } : r))
-    }));
+    const room = get().rooms.find((r) => r.id === id);
+    set((state) => ({ rooms: state.rooms.map((r) => (r.id === id ? { ...r, isActive: !r.isActive } : r)) }));
+    if (room) dbUpdate("rooms", id, { isActive: !room.isActive });
   },
 
   // ---- Document Verification Workflow ----
   updateRequirementUpload: (studentId, reqName, fileName) => {
-    const now = new Date().toISOString().split("T")[0];
+    const now = todayStamp();
+    const req = get().requirements.find((r) => r.studentId === studentId && r.name === reqName);
     set((state) => ({
-      requirements: state.requirements.map((req) =>
-        req.studentId === studentId && req.name === reqName
-          ? { ...req, uploadStatus: "Uploaded", uploadFileName: fileName, uploadDate: now, verificationStatus: "Pending" }
-          : req
+      requirements: state.requirements.map((r) =>
+        r.studentId === studentId && r.name === reqName ? { ...r, uploadStatus: "Uploaded", uploadFileName: fileName, uploadDate: now, verificationStatus: "Pending" } : r
       )
     }));
+    if (req) dbUpdate("requirements", req.id, { uploadStatus: "Uploaded", uploadFileName: fileName, uploadDate: now, verificationStatus: "Pending" });
   },
 
   verifyRequirement: (studentId, reqName, status, verifiedBy, remarks) => {
-    const now = new Date().toISOString().replace("T", " ").substring(0, 16);
+    const now = nowStamp();
+    const req = get().requirements.find((r) => r.studentId === studentId && r.name === reqName);
+    const newStatus = status === "Verified" ? "Submitted" : "Rejected";
     set((state) => ({
-      requirements: state.requirements.map((req) =>
-        req.studentId === studentId && req.name === reqName
-          ? {
-              ...req,
-              verificationStatus: status,
-              verifiedBy,
-              verifiedAt: now,
-              remarks: remarks || req.remarks,
-              status: status === "Verified" ? "Submitted" : "Rejected"
-            }
-          : req
+      requirements: state.requirements.map((r) =>
+        r.studentId === studentId && r.name === reqName
+          ? { ...r, verificationStatus: status, verifiedBy, verifiedAt: now, remarks: remarks || r.remarks, status: newStatus }
+          : r
       )
     }));
+    if (req) dbUpdate("requirements", req.id, { verificationStatus: status, verifiedBy, verifiedAt: now, remarks: remarks || req.remarks, status: newStatus });
   },
 
   markHardcopySubmitted: (studentId, reqName) => {
-    const now = new Date().toISOString().split("T")[0];
+    const now = todayStamp();
+    const req = get().requirements.find((r) => r.studentId === studentId && r.name === reqName);
     set((state) => ({
-      requirements: state.requirements.map((req) =>
-        req.studentId === studentId && req.name === reqName
-          ? { ...req, hardcopySubmitted: true, hardcopySubmittedDate: now }
-          : req
+      requirements: state.requirements.map((r) =>
+        r.studentId === studentId && r.name === reqName ? { ...r, hardcopySubmitted: true, hardcopySubmittedDate: now } : r
       )
     }));
+    if (req) dbUpdate("requirements", req.id, { hardcopySubmitted: true, hardcopySubmittedDate: now });
+  },
+
+  // ---- Guardian Information ----
+  addStudentGuardian: (guardian) => {
+    const newGuardian = { ...guardian, id: newId() };
+    set((state) => ({ studentGuardians: [...state.studentGuardians, newGuardian] }));
+    dbInsert("student_guardians", newGuardian);
+  },
+
+  updateStudentGuardian: (id, updates) => {
+    set((state) => ({ studentGuardians: state.studentGuardians.map((g) => (g.id === id ? { ...g, ...updates } : g)) }));
+    dbUpdate("student_guardians", id, updates);
+  },
+
+  deleteStudentGuardian: (id) => {
+    set((state) => ({ studentGuardians: state.studentGuardians.filter((g) => g.id !== id) }));
+    dbDelete("student_guardians", id);
   }
 }));
