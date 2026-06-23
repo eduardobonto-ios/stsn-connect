@@ -68,12 +68,12 @@ insert into public.sales_invoices (
 ) values
   ('si-1001', 'SI-2026-1001', '2026-06-03', '2026-07-03',
     (select id from public.students where legacy_id = 'stud-enrico'),
-    'Santos, Enrico', 'STSN-2026-0001', '1130', 4500, 0, 4500, 'Draft',
-    'Book package invoice prepared for posting.'),
+    'Santos, Enrico', 'STSN-2026-0001', '1130', 4500, 0, 4500, 'Posted',
+    'Book package invoice posted for AR aging demo.'),
   ('si-1002', 'SI-2026-1002', '2026-06-05', '2026-07-05',
     (select id from public.students where legacy_id = 'stud-clara'),
-    'Reyes, Clara', 'STSN-2026-0002', '1130', 3500, 0, 3500, 'Draft',
-    'Laboratory fee receivable.')
+    'Reyes, Clara', 'STSN-2026-0002', '1130', 3500, 0, 3500, 'Posted',
+    'Laboratory fee receivable posted for AR aging demo.')
 on conflict do nothing;
 
 insert into public.sales_invoice_lines (

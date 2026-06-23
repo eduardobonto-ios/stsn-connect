@@ -31,16 +31,16 @@ Features are sequenced by dependency. Foundation features must come first.
 ### Phase 4 — Aging Reports
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 9 | **Accounts Receivable with Aging** | 🟡 Partial | Receivables Watchlist exists. Needs 30/60/90/120+ day aging buckets and invoice drill-down. |
-| 10 | **Accounts Payable with Aging** | 🔲 Todo | AP counterpart — aging by vendor and due date. Requires Purchase Invoice. |
+| 9 | **Accounts Receivable with Aging** | ✅ Done | Aging summary cards (Current/1-30/31-60/61-90/91-120/120+), filterable DataTable by bucket, invoice drill-down modal. Sourced from `sales_invoices`. |
+| 10 | **Accounts Payable with Aging** | ✅ Done | AP counterpart with By Invoice and By Vendor views. Vendor summary table shows per-bucket totals per supplier. Sourced from `purchase_invoices`. |
 
 ### Phase 5 — Financial Statements
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 11 | **Trial Balance Report** | 🔲 Todo | Debit/credit totals by GL account, proving books balance. Derived from Journal Entries. |
-| 12 | **Balance Sheet Report** | 🔲 Todo | Assets = Liabilities + Equity snapshot. Derived from Trial Balance. |
-| 13 | **Income Statement Report** | 🔲 Todo | Revenue − Expenses = Net Income for a period. Derived from Trial Balance. |
-| 14 | **Cash Flow Report** | 🔲 Todo | Operating/Investing/Financing cash flows. Derived from GL and statements. |
+| 11 | **Trial Balance Report** | ✅ Done | Debit/credit totals and ending debit/credit balances by GL account. Derived from posted Journal Entries. |
+| 12 | **Balance Sheet Report** | ✅ Done | Assets = Liabilities + Equity snapshot, including current year surplus/deficit. Derived from Trial Balance. |
+| 13 | **Income Statement Report** | ✅ Done | Revenue − Expenses = Net Income for a period. Derived from Trial Balance. |
+| 14 | **Cash Flow Report** | ✅ Done | Operating/Investing/Financing cash flows. Derived from posted GL cash and bank account movements. |
 
 ---
 

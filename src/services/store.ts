@@ -110,6 +110,7 @@ interface STSNState {
   addStudent: (student: Omit<Student, "id" | "studentNo">) => Student;
   updateStudent: (id: string, updates: Partial<Student>) => void;
   updateStudentRequirements: (studentId: string, reqName: string, status: "Submitted" | "Pending" | "Rejected") => void;
+  ensureStudentRequirements: (studentId: string) => void;
   approveEnrollment: (enrollmentId: string, section: string) => void;
   rejectEnrollment: (enrollmentId: string) => void;
   submitNewEnrollment: (enrollment: Omit<Enrollment, "id">) => Enrollment;
@@ -213,6 +214,8 @@ interface STSNState {
 
   // Document verification workflow
   updateRequirementUpload: (studentId: string, reqName: string, fileName: string) => void;
+  uploadRequirementFile: (studentId: string, reqName: string, file: File) => Promise<void>;
+  getRequirementFileUrl: (studentId: string, reqName: string) => Promise<string>;
   verifyRequirement: (studentId: string, reqName: string, status: "Verified" | "Rejected", verifiedBy: string, remarks?: string) => void;
   markHardcopySubmitted: (studentId: string, reqName: string) => void;
 
@@ -232,6 +235,55 @@ const withSubjectFk = (row: any, codeField = "subjectCode") => {
   const { [codeField]: code, ...rest } = row;
   return { ...rest, subject_id: resolveSubjectId(code) };
 };
+
+const studentPersistence = new Map<string, Promise<void>>();
+
+const getDefaultRequirementNames = (
+  department: Student["department"],
+): Requirement["name"][] => [
+  "PSA Birth Certificate",
+  "Good Moral Certificate",
+  "ID Picture (2x2)",
+  department === "College" ? "Transcript of Records (TOR)" : "Form 137 / SF9",
+];
+
+const createPendingRequirement = (
+  studentId: string,
+  name: Requirement["name"],
+): Requirement => ({
+  id: newId(),
+  studentId,
+  name,
+  status: "Pending",
+  uploadStatus: "Not Uploaded",
+  verificationStatus: "Pending",
+});
+
+const persistRequirementsWithRecheck = async (studentId: string, reqs: Requirement[]) => {
+  await Promise.all(reqs.map((r) => dbInsert("requirements", r)));
+
+  const { data, error } = await supabase
+    .from("requirements")
+    .select("name")
+    .eq("student_id", studentId);
+
+  if (error) {
+    console.error("[supabase] recheck requirements failed:", error);
+    return;
+  }
+
+  const persistedNames = new Set((data ?? []).map((r: any) => r.name));
+  const missingReqs = reqs.filter((r) => !persistedNames.has(r.name));
+  for (const req of missingReqs) await dbInsert("requirements", req);
+};
+
+const DOCUMENT_BUCKET = "student-documents";
+const sanitizeStorageName = (value: string) =>
+  value
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "document";
 
 export const useSTSNStore = create<STSNState>((set, get) => ({
   isLoading: true,
@@ -317,28 +369,20 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const newStudent: Student = { ...studentData, id: newStudentId, studentNo };
 
     set((state) => ({ students: [...state.students, newStudent] }));
-    dbInsert("students", withSchoolFk({ ...studentData, id: newStudentId, studentNo }));
 
-    const requiredChecklists: ("PSA Birth Certificate" | "Good Moral Certificate" | "Transcript of Records (TOR)" | "Form 137 / SF9" | "ID Picture (2x2)")[] = [
-      "PSA Birth Certificate",
-      "Good Moral Certificate",
-      "ID Picture (2x2)"
-    ];
-    if (studentData.department === "College") {
-      requiredChecklists.push("Transcript of Records (TOR)");
-    } else {
-      requiredChecklists.push("Form 137 / SF9");
-    }
-
-    const newReqs: Requirement[] = requiredChecklists.map((name) => ({
-      id: newId(),
-      studentId: newStudentId,
-      name,
-      status: "Pending"
-    }));
+    const newReqs = getDefaultRequirementNames(studentData.department).map((name) =>
+      createPendingRequirement(newStudentId, name)
+    );
 
     set((state) => ({ requirements: [...state.requirements, ...newReqs] }));
-    for (const r of newReqs) dbInsert("requirements", r);
+
+    const persisted = Promise.resolve(dbInsert("students", withSchoolFk({ ...studentData, id: newStudentId, studentNo })))
+      .then(() => persistRequirementsWithRecheck(newStudentId, newReqs))
+      .then(() => undefined);
+    studentPersistence.set(newStudentId, persisted);
+    persisted.finally(() => {
+      if (studentPersistence.get(newStudentId) === persisted) studentPersistence.delete(newStudentId);
+    });
 
     return newStudent;
   },
@@ -359,6 +403,29 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     if (req) dbUpdate("requirements", req.id, { status, submittedDate });
   },
 
+  ensureStudentRequirements: (studentId) => {
+    const student = get().students.find((s) => s.id === studentId);
+    if (!student) return;
+
+    const existingReqs = get().requirements.filter((r) => r.studentId === studentId);
+    const existingNames = new Set(existingReqs.map((r) => r.name));
+    const missingReqs = getDefaultRequirementNames(student.department)
+      .filter((name) => !existingNames.has(name))
+      .map((name) => createPendingRequirement(studentId, name));
+
+    if (missingReqs.length === 0) return;
+
+    set((state) => ({ requirements: [...state.requirements, ...missingReqs] }));
+
+    const persisted = (studentPersistence.get(studentId) ?? Promise.resolve())
+      .then(() => persistRequirementsWithRecheck(studentId, missingReqs))
+      .then(() => undefined);
+    studentPersistence.set(studentId, persisted);
+    persisted.finally(() => {
+      if (studentPersistence.get(studentId) === persisted) studentPersistence.delete(studentId);
+    });
+  },
+
   submitNewEnrollment: (enrollData) => {
     const newEnrollmentId = newId();
     const newEnrollment: Enrollment = { ...enrollData, id: newEnrollmentId, status: "Pending" };
@@ -375,20 +442,17 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
     const existingReqs = get().requirements.filter((r) => r.studentId === enrollData.studentId);
     if (existingReqs.length === 0) {
-      const reqNames: string[] = [
-        "PSA Birth Certificate",
-        "Good Moral Certificate",
-        "ID Picture (2x2)",
-        isCollege ? "Transcript of Records (TOR)" : "Form 137 / SF9",
-      ];
-      const newReqs: Requirement[] = reqNames.map((name) => ({
-        id: newId(),
-        studentId: enrollData.studentId,
-        name,
-        status: "Pending" as const,
-      }));
+      const newReqs = getDefaultRequirementNames(isCollege ? "College" : "Basic Education").map((name) =>
+        createPendingRequirement(enrollData.studentId, name)
+      );
       set((state) => ({ requirements: [...state.requirements, ...newReqs] }));
-      for (const r of newReqs) dbInsert("requirements", r);
+      const persisted = (studentPersistence.get(enrollData.studentId) ?? Promise.resolve())
+        .then(() => persistRequirementsWithRecheck(enrollData.studentId, newReqs))
+        .then(() => undefined);
+      studentPersistence.set(enrollData.studentId, persisted);
+      persisted.finally(() => {
+        if (studentPersistence.get(enrollData.studentId) === persisted) studentPersistence.delete(enrollData.studentId);
+      });
     }
     const tuitionRate = isCollege ? 950 * enrollData.subjectCodes.length * 3 : 18000;
     const totalAmount = tuitionRate + 4500 + 3500 + 1000;
@@ -416,13 +480,19 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
     set((state) => ({ assessments: [...state.assessments, newAssessment] }));
 
-    dbInsert("enrollments", { id: newEnrollmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, enrollmentType: enrollData.enrollmentType, status: "Pending", submittedAt: enrollData.submittedAt });
-    for (const code of enrollData.subjectCodes) {
-      const subjectId = resolveSubjectId(code);
-      if (subjectId) dbInsert("enrollment_subjects", { enrollment_id: newEnrollmentId, subject_id: subjectId });
-    }
-    dbInsert("assessments", { id: newAssessmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, totalAmount, discountPercentage: 0, discountAmount: 0, paymentTerm: "Installment - 4 Payments", balance: totalAmount });
-    for (const fee of baseFees) dbInsert("assessment_fees", { assessment_id: newAssessmentId, fee_name: fee.feeName, category: fee.category, amount: fee.amount });
+    const persisted = (studentPersistence.get(enrollData.studentId) ?? Promise.resolve()).then(async () => {
+      await dbInsert("enrollments", { id: newEnrollmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, enrollmentType: enrollData.enrollmentType, status: "Pending", submittedAt: enrollData.submittedAt });
+      await Promise.all(enrollData.subjectCodes.map((code) => {
+        const subjectId = resolveSubjectId(code);
+        return subjectId ? dbInsert("enrollment_subjects", { enrollment_id: newEnrollmentId, subject_id: subjectId }) : Promise.resolve();
+      }));
+      await dbInsert("assessments", { id: newAssessmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, totalAmount, discountPercentage: 0, discountAmount: 0, paymentTerm: "Installment - 4 Payments", balance: totalAmount });
+      await Promise.all(baseFees.map((fee) => dbInsert("assessment_fees", { assessment_id: newAssessmentId, fee_name: fee.feeName, category: fee.category, amount: fee.amount })));
+    });
+    studentPersistence.set(enrollData.studentId, persisted);
+    persisted.finally(() => {
+      if (studentPersistence.get(enrollData.studentId) === persisted) studentPersistence.delete(enrollData.studentId);
+    });
 
     return newEnrollment;
   },
@@ -1129,6 +1199,56 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       )
     }));
     if (req) dbUpdate("requirements", req.id, { uploadStatus: "Uploaded", uploadFileName: fileName, uploadDate: now, verificationStatus: "Pending" });
+  },
+
+  uploadRequirementFile: async (studentId, reqName, file) => {
+    const req = get().requirements.find((r) => r.studentId === studentId && r.name === reqName);
+    if (!req) throw new Error("Requirement record was not found.");
+
+    const reqSlug = sanitizeStorageName(reqName);
+    const fileName = sanitizeStorageName(file.name);
+    const storagePath = `${studentId}/${reqSlug}/${Date.now()}-${fileName}`;
+
+    const { error } = await supabase.storage
+      .from(DOCUMENT_BUCKET)
+      .upload(storagePath, file, {
+        cacheControl: "3600",
+        contentType: file.type || undefined,
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const now = todayStamp();
+    set((state) => ({
+      requirements: state.requirements.map((r) =>
+        r.studentId === studentId && r.name === reqName
+          ? { ...r, uploadStatus: "Uploaded", uploadFileName: file.name, uploadFilePath: storagePath, uploadDate: now, verificationStatus: "Pending", remarks: undefined }
+          : r
+      )
+    }));
+    dbUpdate("requirements", req.id, {
+      uploadStatus: "Uploaded",
+      uploadFileName: file.name,
+      uploadFilePath: storagePath,
+      uploadDate: now,
+      verificationStatus: "Pending",
+      remarks: null,
+    });
+  },
+
+  getRequirementFileUrl: async (studentId, reqName) => {
+    const req = get().requirements.find((r) => r.studentId === studentId && r.name === reqName);
+    if (!req?.uploadFilePath) {
+      throw new Error("This document does not have a stored file path yet.");
+    }
+
+    const { data, error } = await supabase.storage
+      .from(DOCUMENT_BUCKET)
+      .createSignedUrl(req.uploadFilePath, 60 * 5);
+
+    if (error) throw error;
+    return data.signedUrl;
   },
 
   verifyRequirement: (studentId, reqName, status, verifiedBy, remarks) => {

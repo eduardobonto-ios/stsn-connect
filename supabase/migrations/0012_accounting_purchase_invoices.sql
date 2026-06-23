@@ -68,12 +68,12 @@ insert into public.purchase_invoices (
 ) values
   ('pi-1001', 'PI-2026-1001', 'ABS-INV-7781', '2026-06-06', '2026-07-06',
     (select id from public.suppliers where legacy_id = 'sup-1000'),
-    'SUP-1000', 'ABC Educational Supplies', '2110', 3600, 3600, 'Draft',
-    'Classroom supplies and book package purchase.'),
+    'SUP-1000', 'ABC Educational Supplies', '2110', 3600, 3600, 'Posted',
+    'Classroom supplies and book package purchase posted for AP aging demo.'),
   ('pi-1002', 'PI-2026-1002', 'MER-062026', '2026-06-10', '2026-06-25',
     (select id from public.suppliers where legacy_id = 'sup-1020'),
-    'SUP-1020', 'Meralco', '2110', 12000, 12000, 'Draft',
-    'Monthly electricity billing for campus operations.')
+    'SUP-1020', 'Meralco', '2110', 12000, 12000, 'Posted',
+    'Monthly electricity billing for campus operations posted for AP aging demo.')
 on conflict do nothing;
 
 insert into public.purchase_invoice_lines (

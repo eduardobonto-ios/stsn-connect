@@ -180,7 +180,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: reqRows } = await supabase.from("requirements").select("*");
   const requirements: Requirement[] = (reqRows ?? []).map((r: any) => ({
     id: r.id, studentId: r.student_id, name: r.name, status: r.status, submittedDate: r.submitted_date,
-    remarks: r.remarks, uploadStatus: r.upload_status, uploadFileName: r.upload_file_name, uploadDate: r.upload_date,
+    remarks: r.remarks, uploadStatus: r.upload_status, uploadFileName: r.upload_file_name, uploadFilePath: r.upload_file_path, uploadDate: r.upload_date,
     verificationStatus: r.verification_status, verifiedBy: r.verified_by, verifiedAt: r.verified_at,
     hardcopySubmitted: r.hardcopy_submitted, hardcopySubmittedDate: r.hardcopy_submitted_date,
   }));

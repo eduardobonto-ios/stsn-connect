@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useSTSNStore } from "../../../services/store";
 import { Student, Enrollment, Subject, Requirement } from "../../../types";
 import {
@@ -44,6 +44,10 @@ import {
   Clock,
   X,
   Send,
+  ExternalLink,
+  ZoomIn,
+  ZoomOut,
+  Download,
 } from "lucide-react";
 import { PreviewModal, CORPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, {
@@ -129,6 +133,16 @@ type DetailTab =
   | "subjects"
   | "curriculum";
 
+type DocumentPreviewKind = "image" | "pdf" | "office" | "unsupported";
+
+function getDocumentPreviewKind(fileName: string): DocumentPreviewKind {
+  const extension = fileName.split(".").pop()?.toLowerCase();
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(extension || "")) return "image";
+  if (extension === "pdf") return "pdf";
+  if (["doc", "docx"].includes(extension || "")) return "office";
+  return "unsupported";
+}
+
 export default function RegistrarModule() {
   const {
     students,
@@ -143,14 +157,16 @@ export default function RegistrarModule() {
     academicUnit,
     addStudent,
     updateStudentRequirements,
+    ensureStudentRequirements,
     submitNewEnrollment,
     approveEnrollment,
     rejectEnrollment,
     assignStudentsToSection,
     updateAssessment,
-    updateRequirementUpload,
+    uploadRequirementFile,
     verifyRequirement,
     markHardcopySubmitted,
+    getRequirementFileUrl,
     bookPackages,
     discountOptions,
     paymentTermOptions,
@@ -262,6 +278,18 @@ export default function RegistrarModule() {
     studentId: string;
   } | null>(null);
   const [verifyRemarks, setVerifyRemarks] = useState("");
+  const documentUploadInputRef = useRef<HTMLInputElement>(null);
+  const [pendingDocumentUpload, setPendingDocumentUpload] = useState<{
+    studentId: string;
+    reqName: Requirement["name"];
+  } | null>(null);
+  const [uploadingRequirementKey, setUploadingRequirementKey] = useState<string | null>(null);
+  const [documentPreview, setDocumentPreview] = useState<{
+    fileName: string;
+    url: string;
+    kind: DocumentPreviewKind;
+  } | null>(null);
+  const [documentZoom, setDocumentZoom] = useState(1);
 
   const contextStudents = useMemo(() => {
     const deptFilter = academicUnitToDepartment(academicUnit);
@@ -285,6 +313,10 @@ export default function RegistrarModule() {
         : [],
     [selectedStudent, requirements],
   );
+
+  useEffect(() => {
+    if (selectedStudent) ensureStudentRequirements(selectedStudent.id);
+  }, [selectedStudent?.id, ensureStudentRequirements]);
 
   const studentAssessment = useMemo(
     () =>
@@ -563,6 +595,96 @@ export default function RegistrarModule() {
     setMiddleName("");
     setSelectedSubjectCodes([]);
     setSelectedStudent(baseNewStudent);
+  };
+
+  const triggerRequirementUpload = (
+    studentId: string,
+    reqName: Requirement["name"],
+  ) => {
+    setPendingDocumentUpload({ studentId, reqName });
+    documentUploadInputRef.current?.click();
+  };
+
+  const handleRequirementFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    const pending = pendingDocumentUpload;
+    event.target.value = "";
+    setPendingDocumentUpload(null);
+    if (!file || !pending) return;
+
+    const uploadKey = `${pending.studentId}:${pending.reqName}`;
+    setUploadingRequirementKey(uploadKey);
+    try {
+      await uploadRequirementFile(pending.studentId, pending.reqName, file);
+      toast(`${pending.reqName} uploaded successfully.`, {
+        title: "Document Uploaded",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("[documents] upload failed:", error);
+      toast(
+        error instanceof Error
+          ? error.message
+          : "The document could not be uploaded.",
+        { title: "Upload Failed", variant: "danger" },
+      );
+    } finally {
+      setUploadingRequirementKey(null);
+    }
+  };
+
+  const handleViewRequirementFile = async (
+    studentId: string,
+    reqName: Requirement["name"],
+  ) => {
+    try {
+      const url = await getRequirementFileUrl(studentId, reqName);
+      const req = requirements.find(
+        (r) => r.studentId === studentId && r.name === reqName,
+      );
+      const fileName = req?.uploadFileName || reqName;
+      setDocumentPreview({
+        fileName,
+        url,
+        kind: getDocumentPreviewKind(fileName),
+      });
+      setDocumentZoom(1);
+    } catch (error) {
+      console.error("[documents] view failed:", error);
+      toast(
+        error instanceof Error
+          ? error.message
+          : "The document could not be opened.",
+        { title: "Document Unavailable", variant: "danger" },
+      );
+    }
+  };
+
+  const handleDownloadRequirementFile = async () => {
+    if (!documentPreview) return;
+    try {
+      const response = await fetch(documentPreview.url);
+      if (!response.ok) throw new Error("The document could not be downloaded.");
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = documentPreview.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error("[documents] download failed:", error);
+      toast(
+        error instanceof Error
+          ? error.message
+          : "The document could not be downloaded.",
+        { title: "Download Failed", variant: "danger" },
+      );
+    }
   };
 
   const handleBeCategoryChange = (category: string) => {
@@ -1903,6 +2025,13 @@ export default function RegistrarModule() {
                   {/* Documents Tab */}
                   {detailTab === "documents" && (
                     <div className="space-y-3 text-xs">
+                      <input
+                        ref={documentUploadInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        className="hidden"
+                        onChange={handleRequirementFileSelect}
+                      />
                       <h4 className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" /> Document
                         Requirements
@@ -1961,9 +2090,22 @@ export default function RegistrarModule() {
                               {req.uploadFileName && (
                                 <div className="flex items-center gap-1.5 text-stone-600">
                                   <FileText className="w-3 h-3 text-stsn-gold flex-shrink-0" />
-                                  <span className="font-medium">
-                                    {req.uploadFileName}
-                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleViewRequirementFile(
+                                        selectedStudent.id,
+                                        req.name,
+                                      )
+                                    }
+                                    className="font-medium text-left text-stsn-brown hover:text-stsn-brown-dark hover:underline inline-flex items-center gap-1 min-w-0"
+                                    title="View uploaded document"
+                                  >
+                                    <span className="truncate">
+                                      {req.uploadFileName}
+                                    </span>
+                                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                  </button>
                                   {req.uploadDate && (
                                     <span className="text-stone-400 font-mono ml-auto">
                                       {req.uploadDate}
@@ -2042,19 +2184,33 @@ export default function RegistrarModule() {
                                   Submitted
                                 </button>
                               )}
-                              {/* Simulate upload for registrar testing */}
-                              {!req.uploadStatus && (
+                              {!req.hardcopySubmitted &&
+                                req.verificationStatus !== "Verified" && (
                                 <button
+                                  disabled={
+                                    uploadingRequirementKey ===
+                                    `${selectedStudent.id}:${req.name}`
+                                  }
                                   onClick={() =>
-                                    updateRequirementUpload(
+                                    triggerRequirementUpload(
                                       selectedStudent.id,
                                       req.name,
-                                      `${req.name.replace(/\s+/g, "_")}_scan.pdf`,
                                     )
                                   }
-                                  className="text-[9px] font-bold px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 cursor-pointer flex items-center gap-1 transition"
+                                  className={`text-[9px] font-bold px-2.5 py-1 border rounded-lg flex items-center gap-1 transition ${
+                                    uploadingRequirementKey ===
+                                    `${selectedStudent.id}:${req.name}`
+                                      ? "bg-stone-100 border-stone-200 text-stone-400 cursor-wait"
+                                      : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                                  }`}
                                 >
-                                  <Upload className="w-3 h-3" /> Simulate Upload
+                                  <Upload className="w-3 h-3" />
+                                  {uploadingRequirementKey ===
+                                  `${selectedStudent.id}:${req.name}`
+                                    ? "Uploading..."
+                                    : req.uploadStatus === "Uploaded"
+                                      ? "Replace File"
+                                      : "Upload Document"}
                                 </button>
                               )}
                             </div>
@@ -2997,6 +3153,112 @@ export default function RegistrarModule() {
             student={selectedStudent}
             subjects={getEnrolledSubjects(selectedStudent.id)}
           />
+        )}
+      </PreviewModal>
+
+      <PreviewModal
+        isOpen={!!documentPreview}
+        onClose={() => setDocumentPreview(null)}
+        title={documentPreview?.fileName || "Document Preview"}
+        hidePrint
+        maxWidthClass="max-w-6xl"
+      >
+        {documentPreview && (
+          <div className="space-y-3">
+            <div className="bg-white border border-stone-200 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[10px] font-mono text-stone-500 truncate">
+                {Math.round(documentZoom * 100)}%
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDocumentZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))
+                  }
+                  className="p-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
+                  title="Zoom out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocumentZoom(1)}
+                  className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDocumentZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)))
+                  }
+                  className="p-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
+                  title="Zoom in"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadRequirementFile}
+                  className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-stsn-brown text-white hover:bg-stsn-brown-dark"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white border border-stone-200 rounded-xl overflow-auto h-[68vh]">
+              <div
+                className="min-h-full flex items-start justify-center bg-stone-50"
+                style={{
+                  width: `${documentZoom * 100}%`,
+                  minWidth: "100%",
+                }}
+              >
+                {documentPreview.kind === "image" && (
+                  <img
+                    src={documentPreview.url}
+                    alt={documentPreview.fileName}
+                    className="w-full h-auto object-contain"
+                  />
+                )}
+                {documentPreview.kind === "pdf" && (
+                  <iframe
+                    title={documentPreview.fileName}
+                    src={documentPreview.url}
+                    className="w-full h-[68vh] bg-white"
+                  />
+                )}
+                {documentPreview.kind === "office" && (
+                  <iframe
+                    title={documentPreview.fileName}
+                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentPreview.url)}`}
+                    className="w-full h-[68vh] bg-white"
+                  />
+                )}
+                {documentPreview.kind === "unsupported" && (
+                  <div className="p-8 text-center space-y-3 m-auto">
+                    <FileText className="w-10 h-10 mx-auto text-stone-300" />
+                    <p className="text-sm font-bold text-stone-700">
+                      Preview is not available for this file type.
+                    </p>
+                    <button
+                      onClick={() =>
+                        window.open(
+                          documentPreview.url,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg bg-stsn-brown text-white hover:bg-stsn-brown-dark"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Open File
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </PreviewModal>
     </div>

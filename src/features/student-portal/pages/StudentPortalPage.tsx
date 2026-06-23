@@ -49,7 +49,7 @@ import {
   type MockPaymentTerm,
 } from "../../../services/mockAssessmentService";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
-import type { Student } from "../../../types";
+import type { Requirement, Student } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
 
@@ -66,7 +66,8 @@ export default function StudentPortal() {
     academicUnit,
     announcements,
     learningMaterials,
-    updateRequirementUpload,
+    ensureStudentRequirements,
+    uploadRequirementFile,
     discountOptions,
     paymentTermOptions,
     tuitionFeeSchedule,
@@ -142,7 +143,8 @@ export default function StudentPortal() {
   ]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const [pendingUploadReqName, setPendingUploadReqName] = useState<string | null>(null);
+  const [pendingUploadReqName, setPendingUploadReqName] = useState<Requirement["name"] | null>(null);
+  const [uploadingRequirementName, setUploadingRequirementName] = useState<Requirement["name"] | null>(null);
 
   // In Student Records view, switching the selected student should refresh
   // the editable profile fields to that student's data.
@@ -194,6 +196,10 @@ export default function StudentPortal() {
   const isBasicEd = student.department === "Basic Education";
   const studentSchool = schools.find((s) => s.academicUnit === (isBasicEd ? "basic-ed" : "college"));
   const gradesLocked = hasOutstandingBalance;
+
+  useEffect(() => {
+    if (student?.id) ensureStudentRequirements(student.id);
+  }, [student?.id, ensureStudentRequirements]);
 
   // Ledger fee breakdown — grouped from the assessment's real fee line items (Supabase)
   const ledgerFeesByCategory = useMemo(() => {
@@ -285,11 +291,30 @@ export default function StudentPortal() {
     }
   };
 
-  const handleDocumentFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!pendingUploadReqName) return;
+  const handleDocumentFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const reqName = pendingUploadReqName;
+    if (!reqName) return;
     const file = e.target.files?.[0];
-    if (!file) return;
-    updateRequirementUpload(student.id, pendingUploadReqName, file.name);
+    if (!file) {
+      setPendingUploadReqName(null);
+      return;
+    }
+    setUploadingRequirementName(reqName);
+    try {
+      await uploadRequirementFile(student.id, reqName, file);
+    } catch (error) {
+      const failedLog = {
+        date: new Date().toISOString().replace("T", " ").substring(0, 16),
+        action: error instanceof Error ? `Document upload failed: ${error.message}` : "Document upload failed.",
+        category: "Upload"
+      };
+      setAuditLogs((prev) => [failedLog, ...prev]);
+      return;
+    } finally {
+      setUploadingRequirementName(null);
+      setPendingUploadReqName(null);
+      if (uploadInputRef.current) uploadInputRef.current.value = "";
+    }
     const newLog = {
       date: new Date().toISOString().replace("T", " ").substring(0, 16),
       action: `Uploaded document: "${pendingUploadReqName}" — ${file.name}`,
@@ -300,7 +325,7 @@ export default function StudentPortal() {
     if (uploadInputRef.current) uploadInputRef.current.value = "";
   };
 
-  const triggerDocUpload = (reqName: string) => {
+  const triggerDocUpload = (reqName: Requirement["name"]) => {
     setPendingUploadReqName(reqName);
     uploadInputRef.current?.click();
   };
@@ -1159,6 +1184,7 @@ export default function StudentPortal() {
                     const isRejected = req.verificationStatus === "Rejected";
                     const isUploaded = req.uploadStatus === "Uploaded";
                     const canUpload = !isHardcopyDone;
+                    const isUploading = uploadingRequirementName === req.name;
 
                     return (
                       <div key={req.id} className={`p-3 border rounded-xl space-y-2 ${isHardcopyDone ? "bg-green-50 border-green-200" : isRejected ? "bg-red-50 border-red-200" : isUploaded ? "bg-blue-50 border-blue-200" : "bg-stone-50 border-stone-200"}`}>
@@ -1195,7 +1221,7 @@ export default function StudentPortal() {
                               <span className={`text-[8px] font-mono px-1 py-0.5 rounded border ${
                                 isVerified ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
                                 isRejected ? "bg-red-50 text-red-600 border-red-100" :
-                                "bg-stone-100 text-stone-500 border-stone-200"
+                                "bg-amber-50 text-amber-700 border-amber-200"
                               }`}>
                                 {req.verificationStatus}
                                 {req.verifiedBy ? ` by ${req.verifiedBy}` : ""}
@@ -1208,7 +1234,11 @@ export default function StudentPortal() {
                         {canUpload && (
                           <button
                             onClick={() => triggerDocUpload(req.name)}
+                            disabled={isUploading}
                             className={`w-full text-[10px] font-bold py-1.5 px-3 rounded-lg border cursor-pointer flex items-center justify-center gap-1.5 transition ${
+                              isUploading
+                                ? "bg-stone-200 text-stone-500 border-stone-200 cursor-wait"
+                                :
                               isRejected
                                 ? "bg-red-600 hover:bg-red-700 text-white border-red-600"
                                 : isUploaded
@@ -1217,7 +1247,7 @@ export default function StudentPortal() {
                             }`}
                           >
                             <UploadCloud className="w-3.5 h-3.5" />
-                            {isRejected ? "Re-Upload (Rejected)" : isUploaded ? "Replace File" : "Upload Document"}
+                            {isUploading ? "Uploading..." : isRejected ? "Re-Upload (Rejected)" : isUploaded ? "Replace File" : "Upload Document"}
                           </button>
                         )}
 

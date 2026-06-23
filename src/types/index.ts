@@ -133,6 +133,7 @@ export interface Requirement {
   // Document upload workflow
   uploadStatus?: "Uploaded" | "Not Uploaded";
   uploadFileName?: string;
+  uploadFilePath?: string;
   uploadDate?: string;
   verificationStatus?: "Pending" | "Verified" | "Rejected";
   verifiedBy?: string;

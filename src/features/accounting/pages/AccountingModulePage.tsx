@@ -27,6 +27,9 @@ import SupplierManagementPage from "./sub-pages/SupplierManagementPage";
 import ItemProductManagementPage from "./sub-pages/ItemProductManagementPage";
 import SalesInvoicesPage from "./sub-pages/SalesInvoicesPage";
 import PurchaseInvoicesPage from "./sub-pages/PurchaseInvoicesPage";
+import ARAgingPage from "./sub-pages/ARAgingPage";
+import APAgingPage from "./sub-pages/APAgingPage";
+import FinancialStatementsPage from "./sub-pages/FinancialStatementsPage";
 
 type AccountingTab = "dashboard" | "ledger" | "discounts" | "billing" | "holds";
 
@@ -305,9 +308,9 @@ function AccountingDashboard() {
             {recentPayments.map((pay) => {
               const stud = students.find((s) => s.id === pay.studentId);
               return (
-                <div key={pay.id} className="flex items-center justify-between p-2 bg-emerald-50 rounded border border-emerald-100">
-                  <div>
-                    <p className="text-[10px] font-mono font-bold text-stsn-gold">{pay.orNumber}</p>
+                <div key={pay.id} className="flex items-center justify-between gap-3 p-2.5 bg-emerald-50 rounded border border-emerald-100">
+                  <div className="min-w-0">
+                    <p className="inline-flex rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-mono font-black text-red-700 shadow-sm">{pay.orNumber}</p>
                     <p className="text-xs font-semibold text-stone-800">{stud ? `${stud.firstName} ${stud.lastName}` : "—"}</p>
                     <p className="text-[9px] text-stone-400">{pay.paymentDate}</p>
                   </div>
@@ -2347,12 +2350,12 @@ function AccountingSubPageRouter({ subPage }: { subPage: string }) {
     case "items":              return <ItemProductManagementPage />;
     case "sales-invoices":     return <SalesInvoicesPage />;
     case "purchase-invoices":  return <PurchaseInvoicesPage />;
-    case "ar-aging":           return <ComingSoon title="AR Summary with Aging" desc="Receivables aged by 30 / 60 / 90 / 120+ day buckets. Coming in Phase 4." />;
-    case "ap-aging":           return <ComingSoon title="AP Summary with Aging" desc="Payables aged by vendor and due date. Coming in Phase 4." />;
-    case "trial-balance":      return <ComingSoon title="Trial Balance Report" desc="Debit and credit totals by GL account. Coming in Phase 5." />;
-    case "balance-sheet":      return <ComingSoon title="Balance Sheet Report" desc="Assets = Liabilities + Equity snapshot for a period. Coming in Phase 5." />;
-    case "income-statement":   return <ComingSoon title="Income Statement" desc="Revenue − Expenses = Net Income for a period. Coming in Phase 5." />;
-    case "cash-flow":          return <ComingSoon title="Cash Flow Report" desc="Operating, investing, and financing cash flows. Coming in Phase 5." />;
+    case "ar-aging":           return <ARAgingPage />;
+    case "ap-aging":           return <APAgingPage />;
+    case "trial-balance":      return <FinancialStatementsPage report="trial-balance" />;
+    case "balance-sheet":      return <FinancialStatementsPage report="balance-sheet" />;
+    case "income-statement":   return <FinancialStatementsPage report="income-statement" />;
+    case "cash-flow":          return <FinancialStatementsPage report="cash-flow" />;
     default:                   return null;
   }
 }
