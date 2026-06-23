@@ -14,6 +14,11 @@ import type {
   StudentAssessment, Payment, Grade, Schedule, Announcement, SchoolEvent, PayrollRow, SetupItem,
   DiscountType, DiscountRequest, ClassSchedule, LearningMaterial, SchoolSection, Room, BookPackage,
   StudentLedgerSummary, LedgerTransaction, FinancialHold, AssessmentBillingSummary, PaymentCollectionSummary,
+  EmployeeLifecycleEvent, ShiftTemplate, EmployeeShiftAssignment, EmployeeTimeLog, EmployeeAttendance,
+  LeaveType, LeaveRequest, PayrollPeriod, PayrollRun, PayrollLine, SalaryPayoutBatch, SalaryPayoutLine,
+  BenefitPlan, TaxTable, TaxBracket,
+  JobRequisition, JobApplicant, ApplicantInterview,
+  OnboardingTemplate, OnboardingTask, EmployeeOnboardingTask,
 } from "../types";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent } from "../types/grading";
 
@@ -63,6 +68,28 @@ export interface LoadedData {
   discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
   paymentTermOptions: { term: string; description: string }[];
   studentGuardians: { id: string; studentId: string; guardianName: string; relationship?: string; contactNo?: string; email?: string; address?: string; isPrimary: boolean }[];
+  // HR Phase 2-4
+  employeeLifecycleEvents: EmployeeLifecycleEvent[];
+  shiftTemplates: ShiftTemplate[];
+  employeeShiftAssignments: EmployeeShiftAssignment[];
+  employeeTimeLogs: EmployeeTimeLog[];
+  employeeAttendance: EmployeeAttendance[];
+  leaveTypes: LeaveType[];
+  leaveRequests: LeaveRequest[];
+  payrollPeriods: PayrollPeriod[];
+  payrollRuns: PayrollRun[];
+  payrollLines: PayrollLine[];
+  salaryPayoutBatches: SalaryPayoutBatch[];
+  salaryPayoutLines: SalaryPayoutLine[];
+  benefitPlans: BenefitPlan[];
+  taxTables: TaxTable[];
+  taxBrackets: TaxBracket[];
+  jobRequisitions: JobRequisition[];
+  jobApplicants: JobApplicant[];
+  applicantInterviews: ApplicantInterview[];
+  onboardingTemplates: OnboardingTemplate[];
+  onboardingTasks: OnboardingTask[];
+  employeeOnboardingTasks: EmployeeOnboardingTask[];
 }
 
 export async function loadAllData(): Promise<LoadedData> {
@@ -120,6 +147,9 @@ export async function loadAllData(): Promise<LoadedData> {
     email: e.email, position: e.position, positionTitle: e.position_title, department: e.department,
     salary: e.salary, status: e.status, leaveBalance: e.leave_balance, contact: e.contact,
     address: e.address, emergencyContact: e.emergency_contact,
+    employeeNo: e.employee_no, userId: e.user_id, employmentStatus: e.employment_status ?? "Active",
+    hireDate: e.hire_date, regularizationDate: e.regularization_date, separationDate: e.separation_date,
+    separationReason: e.separation_reason, supervisorId: e.supervisor_id,
   }));
 
   // ---- Courses ----
@@ -422,6 +452,171 @@ export async function loadAllData(): Promise<LoadedData> {
     contactNo: g.contact_no, email: g.email, address: g.address, isPrimary: g.is_primary,
   }));
 
+  // ---- HR Phase 2: Employee Lifecycle Events ----
+  const { data: lifecycleRows } = await supabase.from("employee_lifecycle_events").select("*").order("effective_date", { ascending: false });
+  const employeeLifecycleEvents: EmployeeLifecycleEvent[] = (lifecycleRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, eventType: r.event_type, fromStatus: r.from_status,
+    toStatus: r.to_status, effectiveDate: r.effective_date, remarks: r.remarks,
+    createdBy: r.created_by, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Shift Templates ----
+  const { data: shiftTemplateRows } = await supabase.from("shift_templates").select("*, schools(code)").order("code");
+  const shiftTemplates: ShiftTemplate[] = (shiftTemplateRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, code: r.code, name: r.name, startTime: r.start_time,
+    endTime: r.end_time, breakMinutes: r.break_minutes, isOvernight: r.is_overnight,
+    isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Employee Shift Assignments ----
+  const { data: shiftAssignRows } = await supabase.from("employee_shift_assignments").select("*").order("effective_from", { ascending: false });
+  const employeeShiftAssignments: EmployeeShiftAssignment[] = (shiftAssignRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, shiftTemplateId: r.shift_template_id,
+    effectiveFrom: r.effective_from, effectiveTo: r.effective_to, restDays: r.rest_days ?? [],
+    createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Employee Time Logs ----
+  const { data: timeLogRows } = await supabase.from("employee_time_logs").select("*").order("log_date", { ascending: false });
+  const employeeTimeLogs: EmployeeTimeLog[] = (timeLogRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, logDate: r.log_date, timeIn: r.time_in, timeOut: r.time_out,
+    source: r.source, isApproved: r.is_approved, approvedBy: r.approved_by, approvedAt: r.approved_at,
+    remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Employee Attendance ----
+  const { data: attendanceRows } = await supabase.from("employee_attendance").select("*").order("attendance_date", { ascending: false });
+  const employeeAttendance: EmployeeAttendance[] = (attendanceRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, attendanceDate: r.attendance_date, timeIn: r.time_in,
+    timeOut: r.time_out, status: r.status, lateMinutes: r.late_minutes, undertimeMinutes: r.undertime_minutes,
+    overtimeMinutes: r.overtime_minutes, remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Leave Types ----
+  const { data: leaveTypeRows } = await supabase.from("leave_types").select("*").order("code");
+  const leaveTypes: LeaveType[] = (leaveTypeRows ?? []).map((r: any) => ({
+    id: r.id, code: r.code, name: r.name, isPaid: r.is_paid, defaultCredits: r.default_credits,
+    maxDaysPerRequest: r.max_days_per_request, requiresApproval: r.requires_approval,
+    isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Leave Requests ----
+  const { data: leaveRequestRows } = await supabase.from("leave_requests").select("*").order("created_at", { ascending: false });
+  const leaveRequests: LeaveRequest[] = (leaveRequestRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, leaveTypeId: r.leave_type_id, startDate: r.start_date,
+    endDate: r.end_date, totalDays: r.total_days, reason: r.reason, status: r.status,
+    approvedBy: r.approved_by, approvedAt: r.approved_at, remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Payroll Periods ----
+  const { data: payrollPeriodRows } = await supabase.from("payroll_periods").select("*, schools(code)").order("start_date", { ascending: false });
+  const payrollPeriods: PayrollPeriod[] = (payrollPeriodRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, periodCode: r.period_code, label: r.label,
+    startDate: r.start_date, endDate: r.end_date, payoutDate: r.payout_date,
+    status: r.status, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Payroll Runs ----
+  const { data: payrollRunRows } = await supabase.from("payroll_runs").select("*, schools(code)").order("created_at", { ascending: false });
+  const payrollRuns: PayrollRun[] = (payrollRunRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, payrollPeriodId: r.payroll_period_id, runNo: r.run_no,
+    status: r.status, computedBy: r.computed_by, approvedBy: r.approved_by, computedAt: r.computed_at,
+    approvedAt: r.approved_at, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Payroll Lines ----
+  const { data: payrollLineRows } = await supabase.from("payroll_lines").select("*");
+  const payrollLines: PayrollLine[] = (payrollLineRows ?? []).map((r: any) => ({
+    id: r.id, payrollRunId: r.payroll_run_id, employeeId: r.employee_id,
+    basicPay: r.basic_pay, allowances: r.allowances, overtimePay: r.overtime_pay,
+    lateDeduction: r.late_deduction, undertimeDeduction: r.undertime_deduction, absenceDeduction: r.absence_deduction,
+    sssDeduction: r.sss_deduction, philhealthDeduction: r.philhealth_deduction, pagibigDeduction: r.pagibig_deduction,
+    withholdingTax: r.withholding_tax, otherDeductions: r.other_deductions, otherAllowances: r.other_allowances,
+    grossPay: r.gross_pay, netPay: r.net_pay, status: r.status, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Salary Payout Batches ----
+  const { data: payoutBatchRows } = await supabase.from("salary_payout_batches").select("*").order("created_at", { ascending: false });
+  const salaryPayoutBatches: SalaryPayoutBatch[] = (payoutBatchRows ?? []).map((r: any) => ({
+    id: r.id, payrollRunId: r.payroll_run_id, payoutNo: r.payout_no, payoutMethod: r.payout_method,
+    status: r.status, releasedBy: r.released_by, releasedAt: r.released_at, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Salary Payout Lines ----
+  const { data: payoutLineRows } = await supabase.from("salary_payout_lines").select("*");
+  const salaryPayoutLines: SalaryPayoutLine[] = (payoutLineRows ?? []).map((r: any) => ({
+    id: r.id, payoutBatchId: r.payout_batch_id, payrollLineId: r.payroll_line_id, employeeId: r.employee_id,
+    amount: r.amount, referenceNo: r.reference_no, status: r.status, releasedAt: r.released_at, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Benefit Plans ----
+  const { data: benefitPlanRows } = await supabase.from("benefit_plans").select("*").order("category");
+  const benefitPlans: BenefitPlan[] = (benefitPlanRows ?? []).map((r: any) => ({
+    id: r.id, code: r.code, name: r.name, category: r.category,
+    employeeShareType: r.employee_share_type, employeeShareValue: r.employee_share_value,
+    employerShareType: r.employer_share_type, employerShareValue: r.employer_share_value,
+    isTaxable: r.is_taxable, isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Tax Tables + Brackets ----
+  const { data: taxTableRows } = await supabase.from("tax_tables").select("*").order("effective_year", { ascending: false });
+  const { data: taxBracketRows } = await supabase.from("tax_brackets").select("*").order("income_from");
+  const taxBrackets: TaxBracket[] = (taxBracketRows ?? []).map((r: any) => ({
+    id: r.id, taxTableId: r.tax_table_id, incomeFrom: r.income_from, incomeTo: r.income_to,
+    baseTax: r.base_tax, rateAbove: r.rate_above, createdAt: r.created_at,
+  }));
+  const taxTables: TaxTable[] = (taxTableRows ?? []).map((r: any) => ({
+    id: r.id, effectiveYear: r.effective_year, name: r.name, frequency: r.frequency,
+    isActive: r.is_active, createdAt: r.created_at,
+    brackets: taxBrackets.filter((b) => b.taxTableId === r.id),
+  }));
+
+  // ---- HR Phase 5: Job Requisitions ----
+  const { data: jobReqRows } = await supabase.from("job_requisitions").select("*, schools(code)").order("created_at", { ascending: false });
+  const jobRequisitions: JobRequisition[] = (jobReqRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, requisitionNo: r.requisition_no, positionTitle: r.position_title,
+    department: r.department, employmentType: r.employment_type, headCount: r.head_count,
+    reason: r.reason, targetStartDate: r.target_start_date, status: r.status,
+    requestedBy: r.requested_by, approvedBy: r.approved_by, approvedAt: r.approved_at, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Job Applicants ----
+  const { data: jobApplicantRows } = await supabase.from("job_applicants").select("*").order("created_at", { ascending: false });
+  const jobApplicants: JobApplicant[] = (jobApplicantRows ?? []).map((r: any) => ({
+    id: r.id, jobRequisitionId: r.job_requisition_id, firstName: r.first_name, lastName: r.last_name,
+    middleName: r.middle_name, email: r.email, contact: r.contact, address: r.address,
+    resumeUrl: r.resume_url, appliedAt: r.applied_at, status: r.status,
+    hiredEmployeeId: r.hired_employee_id, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Applicant Interviews ----
+  const { data: interviewRows } = await supabase.from("applicant_interviews").select("*").order("scheduled_at", { ascending: false });
+  const applicantInterviews: ApplicantInterview[] = (interviewRows ?? []).map((r: any) => ({
+    id: r.id, applicantId: r.applicant_id, scheduledAt: r.scheduled_at, interviewType: r.interview_type,
+    interviewer: r.interviewer, result: r.result, remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Onboarding Templates ----
+  const { data: onboardingTemplateRows } = await supabase.from("onboarding_templates").select("*").order("name");
+  const onboardingTemplates: OnboardingTemplate[] = (onboardingTemplateRows ?? []).map((r: any) => ({
+    id: r.id, name: r.name, description: r.description, isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Onboarding Tasks ----
+  const { data: onboardingTaskRows } = await supabase.from("onboarding_tasks").select("*").order("sort_order");
+  const onboardingTasks: OnboardingTask[] = (onboardingTaskRows ?? []).map((r: any) => ({
+    id: r.id, templateId: r.template_id, taskName: r.task_name, description: r.description,
+    responsibleParty: r.responsible_party, dueDayOffset: r.due_day_offset,
+    isRequired: r.is_required, sortOrder: r.sort_order, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Employee Onboarding Tasks ----
+  const { data: empOnboardingRows } = await supabase.from("employee_onboarding_tasks").select("*");
+  const employeeOnboardingTasks: EmployeeOnboardingTask[] = (empOnboardingRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, onboardingTaskId: r.onboarding_task_id, dueDate: r.due_date,
+    status: r.status, completedAt: r.completed_at, completedBy: r.completed_by, notes: r.notes, createdAt: r.created_at,
+  }));
+
   return {
     schools, users, students, teachers, employees, courses, subjects, curriculums, requirements, enrollments,
     assessments, payments, grades, schedules, announcements, events, payroll, setupData, discountTypes,
@@ -429,5 +624,9 @@ export async function loadAllData(): Promise<LoadedData> {
     financialHolds, assessmentBillingSummaries, paymentCollectionSummaries, promissoryNotes, bookPackages,
     classLoads, gradePeriods, studentGradeEntries, demoStudents, activityLogs,
     enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians,
+    employeeLifecycleEvents, shiftTemplates, employeeShiftAssignments, employeeTimeLogs, employeeAttendance,
+    leaveTypes, leaveRequests, payrollPeriods, payrollRuns, payrollLines,
+    salaryPayoutBatches, salaryPayoutLines, benefitPlans, taxTables, taxBrackets,
+    jobRequisitions, jobApplicants, applicantInterviews, onboardingTemplates, onboardingTasks, employeeOnboardingTasks,
   };
 }

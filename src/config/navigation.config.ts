@@ -3,7 +3,7 @@ import {
   Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet,
   List, FileText, Truck, Package, Receipt, TrendingUp, TrendingDown, Scale, PieChart, Activity,
   Percent, Lock, ClipboardList, BookMarked, Banknote, Stethoscope, NotebookPen, PhoneCall,
-  UsersRound
+  UsersRound, Clock, FileCheck, Award, Briefcase
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { UserRole } from "../types";
@@ -20,6 +20,8 @@ export interface NavSubItem {
   icon?: LucideIcon;
   desc?: string;
   isSection?: boolean;
+  /** Nested child items, used for module-local submenu categories. */
+  children?: NavSubItem[];
   /** If set, clicking this child navigates to this module (category group pattern). */
   targetModule?: STSNModule;
   /** If set, only show this child for users with one of these roles. */
@@ -48,6 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "students",          label: "Students",          icon: UsersRound,      desc: "All students & quick record access", targetModule: "STUDENT_DIRECTORY" },
       { id: "class-scheduling",  label: "Class Scheduling",  icon: CalendarDays,    desc: "Subject schedules & adviser rooms", targetModule: "SCHEDULING" },
       { id: "class-sectioning",  label: "Class Sectioning",  icon: Layers,          desc: "Sections, advisers & LRN rosters", targetModule: "CLASS_SECTIONING" },
+      { id: "registrar-reports", label: "Registrar Reports", icon: FileText,        desc: "Enrollment and student records reports", targetModule: "REGISTRAR_REPORTS" },
       { id: "syllabus-pathways", label: "Syllabus Pathways", icon: Building2,       desc: "Academic subjects flow",            targetModule: "CURRICULUM" },
       { id: "faculty-admin",     label: "Faculty",           icon: UsersRound,      desc: "Teacher & faculty management",      targetModule: "FACULTY_ADMIN" },
     ],
@@ -55,29 +58,54 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "ACCOUNTING", label: "Accounting", icon: Coins, desc: "Ledger, discounts & reports",
     children: [
-      { id: "accounting-core", label: "Core Workflows", isSection: true },
       { id: "dashboard",         label: "Dashboard",               icon: LayoutDashboard, desc: "KPIs & receivables watchlist" },
-      { id: "ledger",            label: "Student Ledger",          icon: BookOpen,        desc: "Per-student debit/credit ledger" },
-      { id: "discounts",         label: "Discounts",               icon: Percent,         desc: "Discount types & approval requests" },
-      { id: "billing",           label: "Billing & Assessment",    icon: ClipboardList,   desc: "Assessment approval & summary" },
-      { id: "holds",             label: "Financial Holds",         icon: Lock,            desc: "Student financial hold management" },
-      { id: "accounting-general-ledger", label: "General Ledger", isSection: true },
-      { id: "chart-of-accounts", label: "Chart of Accounts",      icon: List,            desc: "GL account codes & hierarchy" },
-      { id: "cost-centers",      label: "Cost Centers",            icon: Building2,       desc: "Departmental cost segmentation" },
-      { id: "journal-entries",   label: "Journal Entries",         icon: BookMarked,      desc: "Double-entry bookkeeping postings" },
-      { id: "accounting-procurement", label: "Procurement & Billing", isSection: true },
-      { id: "suppliers",         label: "Supplier Management",     icon: Truck,           desc: "Vendor & supplier master list" },
-      { id: "items",             label: "Item / Product Mgmt",     icon: Package,         desc: "Product & service catalog" },
-      { id: "sales-invoices",    label: "Sales Invoice",           icon: Receipt,         desc: "Customer sales invoices (AR)" },
-      { id: "purchase-invoices", label: "Purchase Invoice",        icon: FileText,        desc: "Vendor purchase invoices (AP)" },
-      { id: "accounting-aging", label: "Aging Reports", isSection: true },
-      { id: "ar-aging",          label: "AR with Aging",           icon: TrendingUp,      desc: "Receivables aged 30/60/90/120+ days" },
-      { id: "ap-aging",          label: "AP with Aging",           icon: TrendingDown,    desc: "Payables aged by vendor & due date" },
-      { id: "accounting-statements", label: "Financial Statements", isSection: true },
+      {
+        id: "accounting-student-accounts", label: "Student Accounts", icon: UsersRound, desc: "Ledgers, billing, discounts, and holds",
+        children: [
+          { id: "ledger",            label: "Student Ledger",          icon: BookOpen,      desc: "Per-student debit/credit ledger" },
+          { id: "discounts",         label: "Discounts",               icon: Percent,       desc: "Discount types & approval requests" },
+          { id: "billing",           label: "Billing & Assessment",    icon: ClipboardList, desc: "Assessment approval & summary" },
+          { id: "holds",             label: "Financial Holds",         icon: Lock,          desc: "Student financial hold management" },
+        ],
+      },
+      {
+        id: "accounting-setup", label: "Accounting Setup", icon: Settings, desc: "GL, cost center, vendor, and item setup",
+        children: [
+          { id: "chart-of-accounts", label: "Chart of Accounts",      icon: List,      desc: "GL account codes & hierarchy" },
+          { id: "cost-centers",      label: "Cost Centers",            icon: Building2, desc: "Departmental cost segmentation" },
+          { id: "suppliers",         label: "Supplier Management",     icon: Truck,     desc: "Vendor & supplier master list" },
+          { id: "items",             label: "Item / Product Mgmt",     icon: Package,   desc: "Product & service catalog" },
+        ],
+      },
+      {
+        id: "accounting-general-ledger", label: "General Ledger", icon: BookMarked, desc: "Double-entry bookkeeping operations",
+        children: [
+          { id: "journal-entries",   label: "Journal Entries",         icon: BookMarked, desc: "Double-entry bookkeeping postings" },
+        ],
+      },
+      {
+        id: "accounting-ar", label: "Accounts Receivable", icon: TrendingUp, desc: "Customer invoices and receivables aging",
+        children: [
+          { id: "sales-invoices",    label: "Sales Invoice",           icon: Receipt,    desc: "Customer sales invoices (AR)" },
+          { id: "ar-aging",          label: "AR with Aging",           icon: TrendingUp, desc: "Receivables aged 30/60/90/120+ days" },
+        ],
+      },
+      {
+        id: "accounting-ap", label: "Accounts Payable", icon: TrendingDown, desc: "Vendor invoices and payables aging",
+        children: [
+          { id: "purchase-invoices", label: "Purchase Invoice",        icon: FileText,     desc: "Vendor purchase invoices (AP)" },
+          { id: "ap-aging",          label: "AP with Aging",           icon: TrendingDown, desc: "Payables aged by vendor & due date" },
+        ],
+      },
+      {
+        id: "accounting-reports", label: "Financial Reports", icon: BarChart3, desc: "Accounting statements and financial reports",
+        children: [
       { id: "trial-balance",     label: "Trial Balance",           icon: Scale,           desc: "Debit/credit totals by GL account" },
       { id: "balance-sheet",     label: "Balance Sheet",           icon: PieChart,        desc: "Assets = Liabilities + Equity snapshot" },
       { id: "income-statement",  label: "Income Statement",        icon: Activity,        desc: "Revenue − Expenses = Net Income" },
       { id: "cash-flow",         label: "Cash Flow Report",        icon: Banknote,        desc: "Operating / investing / financing flows" },
+        ],
+      },
     ],
   },
   { id: "CASHIER",          label: "Cashiering",              icon: Wallet,      desc: "Payments, receipts & collections" },
@@ -98,7 +126,33 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "HR_MANAGEMENT", label: "HR", icon: Users, desc: "Human resources management",
     children: [
-      { id: "hr-staff-payroll", label: "HR Staff Payroll", icon: Users, desc: "Employee payslips database", targetModule: "HR_MANAGEMENT" },
+      { id: "hr-dashboard",         label: "Dashboard",            icon: LayoutDashboard, desc: "HR KPIs & workforce alerts" },
+      { id: "employee-life-cycles", label: "Employee Life Cycles", icon: Users,           desc: "Employee records & movements" },
+      {
+        id: "hr-time-attendance", label: "Time & Attendance", icon: Clock, desc: "Time logs, shifts & leave",
+        children: [
+          { id: "time-management",  label: "Time Management",  icon: Clock,         desc: "Time logs & daily work hours" },
+          { id: "shift-management", label: "Shift Management", icon: CalendarDays,  desc: "Shift templates & assignments" },
+          { id: "attendance",       label: "Attendance",       icon: ClipboardList, desc: "Employee attendance monitoring" },
+          { id: "leave-management", label: "Leave Management", icon: FileCheck,     desc: "Leave filing & approvals" },
+        ],
+      },
+      {
+        id: "hr-compensation", label: "Compensation", icon: Banknote, desc: "Payroll, payouts, taxes & benefits",
+        children: [
+          { id: "payroll-management", label: "Payroll Management", icon: Banknote, desc: "Payroll runs & payslips" },
+          { id: "salary-payouts",     label: "Salary Payouts",     icon: Wallet,   desc: "Payment batches & release status" },
+          { id: "taxes",              label: "Taxes",              icon: Percent,  desc: "Withholding tax setup & reports" },
+          { id: "benefits",           label: "Benefits",           icon: Award,    desc: "Employee benefits & contributions" },
+        ],
+      },
+      {
+        id: "hr-talent", label: "Talent Acquisition", icon: Briefcase, desc: "Recruitment & onboarding",
+        children: [
+          { id: "recruitment", label: "Recruitment", icon: Briefcase, desc: "Job openings & applicants" },
+          { id: "onboarding",  label: "Onboarding",  icon: UserCheck, desc: "New hire checklist" },
+        ],
+      },
     ],
   },
   {

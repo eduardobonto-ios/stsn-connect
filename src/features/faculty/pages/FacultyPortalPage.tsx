@@ -27,37 +27,223 @@ import {
   ChevronRight,
   Users,
   X,
+  BarChart3,
+  Download,
+  Printer,
 } from "lucide-react";
 import GradingModule from "../../grading/pages/GradingModulePage";
 import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
+import type { ClassSchedule } from "../../../types";
+import { reportExportService } from "../../../services/reportExportService";
+import type { ReportColumn, ReportRow } from "../../reports/types";
+
+type FacultyTab = "dashboard" | "schedule" | "attendance" | "grading" | "reports";
+type FacultyReportId = "class-list" | "advisory-class-list" | "grade-sheet" | "attendance-summary" | "failed-incomplete" | "subject-load";
+
+const FACULTY_REPORT_OPTIONS: { id: FacultyReportId; title: string; desc: string }[] = [
+  { id: "class-list", title: "Class List", desc: "Students grouped by the teacher's assigned class sections." },
+  { id: "advisory-class-list", title: "Advisory Class List", desc: "Official advisory roster for the teacher's assigned section." },
+  { id: "grade-sheet", title: "Grade Sheet", desc: "Encoded grades for the teacher's handled subjects." },
+  { id: "attendance-summary", title: "Attendance Summary", desc: "Current advisory attendance snapshot for the selected date." },
+  { id: "failed-incomplete", title: "Failed / Incomplete Grades", desc: "Students with failed or incomplete grade remarks." },
+  { id: "subject-load", title: "Subject Load Report", desc: "Assigned subjects, sections, rooms, and schedule load." },
+];
+
+const FACULTY_REPORT_COLUMNS: Record<FacultyReportId, ReportColumn[]> = {
+  "class-list": [
+    { key: "section", label: "Section" },
+    { key: "subjectCode", label: "Subject Code" },
+    { key: "subjectName", label: "Subject" },
+    { key: "studentNo", label: "Student No." },
+    { key: "studentName", label: "Student" },
+    { key: "yearLevel", label: "Year Level" },
+    { key: "status", label: "Status" },
+  ],
+  "advisory-class-list": [
+    { key: "studentNo", label: "Student No." },
+    { key: "studentName", label: "Student" },
+    { key: "yearLevel", label: "Year Level" },
+    { key: "trackOrCourse", label: "Track / Course" },
+    { key: "contactNo", label: "Contact No." },
+    { key: "status", label: "Status" },
+  ],
+  "grade-sheet": [
+    { key: "studentNo", label: "Student No." },
+    { key: "studentName", label: "Student" },
+    { key: "subjectCode", label: "Subject Code" },
+    { key: "midtermGrade", label: "Midterm", align: "right" },
+    { key: "finalGrade", label: "Final", align: "right" },
+    { key: "remarks", label: "Remarks" },
+  ],
+  "attendance-summary": [
+    { key: "date", label: "Date" },
+    { key: "section", label: "Section" },
+    { key: "studentNo", label: "Student No." },
+    { key: "studentName", label: "Student" },
+    { key: "attendanceStatus", label: "Status" },
+  ],
+  "failed-incomplete": [
+    { key: "studentNo", label: "Student No." },
+    { key: "studentName", label: "Student" },
+    { key: "subjectCode", label: "Subject Code" },
+    { key: "finalGrade", label: "Final", align: "right" },
+    { key: "remarks", label: "Remarks" },
+  ],
+  "subject-load": [
+    { key: "subjectCode", label: "Subject Code" },
+    { key: "subjectName", label: "Subject" },
+    { key: "section", label: "Section" },
+    { key: "day", label: "Day" },
+    { key: "time", label: "Time" },
+    { key: "roomName", label: "Room" },
+    { key: "semester", label: "Semester" },
+  ],
+};
 
 export default function FacultyPortal() {
-  const { teachers, currentUser, students, announcements, grades, subjects, classSchedules, academicUnit, activityLogs, employees } = useSTSNStore();
-  const currentTeacher = resolveCurrentTeacher(teachers, currentUser, academicUnit);
+  const { teachers, currentUser, students, announcements, grades, subjects, classSchedules, activeSchool, academicUnit, activityLogs, employees } = useSTSNStore();
+  const scopedData = React.useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        teachers,
+        subjects,
+        classSchedules,
+        employees,
+      }),
+    [currentUser, activeSchool, academicUnit, students, teachers, subjects, classSchedules, employees],
+  );
+  const scopedTeachers = scopedData.teachers ?? [];
+  const scopedStudents = scopedData.students;
+  const scopedSubjects = scopedData.subjects ?? [];
+  const scopedClassSchedules = scopedData.classSchedules ?? [];
+  const scopedEmployees = scopedData.employees ?? [];
+  const currentTeacher = resolveCurrentTeacher(scopedTeachers, currentUser, academicUnit);
 
   // Advisory Class Details — empty when no section is assigned to prevent data leaks.
   const advisorySectionName = currentTeacher.advisorySection || "";
   const advisoryStudents = advisorySectionName
-    ? students.filter((s) => s.section === advisorySectionName)
+    ? scopedStudents.filter((s) => s.section === advisorySectionName)
     : [];
 
   // Teaching load — total units across this teacher's class schedules (sourced from Supabase)
-  const teachingLoadUnits = classSchedules
+  const teachingLoadUnits = scopedClassSchedules
     .filter((cs) => cs.teacherId === currentTeacher.id)
     .reduce((sum, cs) => {
-      const subject = subjects.find((s) => s.code === cs.subjectCode);
+      const subject = scopedSubjects.find((s) => s.code === cs.subjectCode);
       return sum + (subject?.units ?? 0);
     }, 0);
 
   // Accrued leave — resolved from the matching employee record (sourced from Supabase)
-  const accruedLeaveDays = employees.find((e) => e.email === currentTeacher.email)?.leaveBalance;
+  const accruedLeaveDays = scopedEmployees.find((e) => e.email === currentTeacher.email)?.leaveBalance;
 
   // States
-  const [activeTab, setActiveTab] = useState<"dashboard" | "schedule" | "attendance" | "grading">("dashboard");
+  const [activeTab, setActiveTab] = useState<FacultyTab>("dashboard");
+  const [selectedReportId, setSelectedReportId] = useState<FacultyReportId>("class-list");
   const [viewSectionStudents, setViewSectionStudents] = useState<string | null>(null);
   const [attendanceData, setAttendanceData] = useState<Record<string, "Present" | "Late" | "Absent">>({});
   const [attendanceDate, setAttendanceDate] = useState("2026-05-30");
   const [attendanceMessage, setAttendanceMessage] = useState("");
+
+  const teacherSchedules = React.useMemo(
+    () => scopedClassSchedules.filter((s) => s.teacherId === currentTeacher.id && s.isActive),
+    [currentTeacher.id, scopedClassSchedules],
+  );
+  const selectedReport = FACULTY_REPORT_OPTIONS.find((report) => report.id === selectedReportId) ?? FACULTY_REPORT_OPTIONS[0];
+  const reportColumns = FACULTY_REPORT_COLUMNS[selectedReportId];
+
+  const reportRows = React.useMemo<ReportRow[]>(() => {
+    if (selectedReportId === "class-list") {
+      return teacherSchedules.flatMap((schedule) =>
+        scopedStudents
+          .filter((student) => student.section === schedule.section)
+          .map((student) => ({
+            section: schedule.section,
+            subjectCode: schedule.subjectCode,
+            subjectName: schedule.subjectName,
+            studentNo: student.studentNo,
+            studentName: `${student.lastName}, ${student.firstName}`,
+            yearLevel: student.yearLevel,
+            status: student.enrollmentStatus,
+          })),
+      );
+    }
+
+    if (selectedReportId === "advisory-class-list") {
+      return advisoryStudents.map((student) => ({
+        studentNo: student.studentNo,
+        studentName: `${student.lastName}, ${student.firstName}`,
+        yearLevel: student.yearLevel,
+        trackOrCourse: student.trackOrCourse || "",
+        contactNo: student.contactNo || "",
+        status: student.enrollmentStatus,
+      }));
+    }
+
+    if (selectedReportId === "grade-sheet") {
+      return grades
+        .filter((grade) => grade.teacherId === currentTeacher.id)
+        .map((grade) => {
+          const student = scopedStudents.find((s) => s.id === grade.studentId);
+          return {
+            studentNo: student?.studentNo ?? "",
+            studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+            subjectCode: grade.subjectCode,
+            midtermGrade: grade.midtermGrade,
+            finalGrade: grade.finalGrade,
+            remarks: grade.remarks ?? (grade.finalGrade >= 75 ? "Passed" : "Failed"),
+          };
+        });
+    }
+
+    if (selectedReportId === "attendance-summary") {
+      return advisoryStudents.map((student) => ({
+        date: attendanceDate,
+        section: advisorySectionName || "Not Assigned",
+        studentNo: student.studentNo,
+        studentName: `${student.lastName}, ${student.firstName}`,
+        attendanceStatus: attendanceData[student.id] || "Present",
+      }));
+    }
+
+    if (selectedReportId === "failed-incomplete") {
+      return grades
+        .filter((grade) => grade.teacherId === currentTeacher.id)
+        .filter((grade) => grade.remarks === "Failed" || grade.remarks === "Incomplete" || grade.finalGrade < 75)
+        .map((grade) => {
+          const student = scopedStudents.find((s) => s.id === grade.studentId);
+          return {
+            studentNo: student?.studentNo ?? "",
+            studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+            subjectCode: grade.subjectCode,
+            finalGrade: grade.finalGrade,
+            remarks: grade.remarks ?? (grade.finalGrade >= 75 ? "Passed" : "Failed"),
+          };
+        });
+    }
+
+    return teacherSchedules.map((schedule) => ({
+      subjectCode: schedule.subjectCode,
+      subjectName: schedule.subjectName,
+      section: schedule.section,
+      day: schedule.day,
+      time: `${schedule.startTime} - ${schedule.endTime}`,
+      roomName: schedule.roomName,
+      semester: schedule.semester,
+    }));
+  }, [advisorySectionName, advisoryStudents, attendanceDate, currentTeacher.id, grades, scopedStudents, selectedReportId, teacherSchedules]);
+
+  const exportCurrentReport = (format: "print" | "csv" | "excel" | "pdf") => {
+    const payload = { title: selectedReport.title, columns: reportColumns, rows: reportRows };
+    if (format === "print") reportExportService.print(payload);
+    if (format === "csv") reportExportService.exportCsv(payload);
+    if (format === "excel") reportExportService.exportExcel(payload);
+    if (format === "pdf") reportExportService.exportPdf(payload);
+  };
 
   // Handler for Attendance Changes
   const handleAttendanceChange = (studentId: string, status: "Present" | "Late" | "Absent") => {
@@ -169,6 +355,17 @@ export default function FacultyPortal() {
           }`}
         >
           Student Grades Encoding
+        </button>
+
+        <button
+          onClick={() => setActiveTab("reports")}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg transition whitespace-nowrap cursor-pointer ${
+            activeTab === "reports"
+              ? "bg-stsn-brown text-white border-t-2 border-stsn-gold"
+              : "text-stone-500 hover:text-stsn-brown-dark"
+          }`}
+        >
+          Reports
         </button>
       </div>
 
@@ -406,10 +603,12 @@ export default function FacultyPortal() {
 
       {/* TAB B: CLASS SCHEDULE & ASSIGNED SUBJECTS (DYNAMIC) */}
       {activeTab === "schedule" && (() => {
-        const teacherSchedules = classSchedules.filter((s) => s.teacherId === currentTeacher.id && s.isActive);
+        const teacherSchedules = scopedClassSchedules.filter((s) => s.teacherId === currentTeacher.id && s.isActive);
         const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
         const today = new Date().toLocaleDateString("en-US", { weekday: "long" }) as typeof days[number];
-        const uniqueSubjects = Array.from(new Map(teacherSchedules.map((s) => [s.subjectCode, s])).values());
+        const uniqueSubjects = Array.from(
+          new Map<string, ClassSchedule>(teacherSchedules.map((s) => [s.subjectCode, s])).values(),
+        );
 
         const DAY_COLORS: Record<string, string> = {
           Monday: "border-blue-400 bg-blue-50",
@@ -600,7 +799,7 @@ export default function FacultyPortal() {
                   </div>
                   <div className="flex-1 overflow-y-auto">
                     {(() => {
-                      const sectionStudents = students.filter((s) => s.section === viewSectionStudents);
+                      const sectionStudents = scopedStudents.filter((s) => s.section === viewSectionStudents);
                       return sectionStudents.length === 0 ? (
                         <p className="text-center text-stone-400 text-xs py-10 italic">No students found in this section.</p>
                       ) : (
@@ -634,7 +833,7 @@ export default function FacultyPortal() {
                     })()}
                   </div>
                   <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-between items-center">
-                    <span className="text-xs text-stone-400 font-mono">{students.filter((s) => s.section === viewSectionStudents).length} student(s) in section</span>
+                    <span className="text-xs text-stone-400 font-mono">{scopedStudents.filter((s) => s.section === viewSectionStudents).length} student(s) in section</span>
                     <button onClick={() => setViewSectionStudents(null)} className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer">Close</button>
                   </div>
                 </div>
@@ -670,7 +869,7 @@ export default function FacultyPortal() {
                       uniqueSubjects.map((sched) => {
                         const allClasses = teacherSchedules.filter((s) => s.subjectCode === sched.subjectCode);
                         const sections = Array.from(new Set(allClasses.map((s) => s.section)));
-                        const subjectInfo = subjects.find((sub) => sub.code === sched.subjectCode);
+                        const subjectInfo = scopedSubjects.find((sub) => sub.code === sched.subjectCode);
                         return (
                           <tr key={sched.id} className="hover:bg-stone-50">
                             <td className="px-4 py-3 font-mono font-bold text-stsn-brown">{sched.subjectCode}</td>
@@ -829,6 +1028,97 @@ export default function FacultyPortal() {
           </div>
 
           <GradingModule />
+        </div>
+      )}
+
+      {/* TAB E: FACULTY REPORTS */}
+      {activeTab === "reports" && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-5">
+            <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2 mb-1">
+              <BarChart3 className="w-4 h-4 text-stsn-gold" /> Faculty / Teacher Reports
+            </h3>
+            <p className="text-xs text-stone-500 mb-4">
+              Generate class lists, advisory rosters, grade sheets, attendance summaries, failed/incomplete grade reports, and subject load reports.
+            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <div className="lg:col-span-2">
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Report Type</label>
+                <select
+                  value={selectedReportId}
+                  onChange={(e) => setSelectedReportId(e.target.value as FacultyReportId)}
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                >
+                  {FACULTY_REPORT_OPTIONS.map((report) => <option key={report.id} value={report.id}>{report.title}</option>)}
+                </select>
+              </div>
+              <div className="flex items-end gap-2 flex-wrap">
+                <button onClick={() => exportCurrentReport("print")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Printer className="w-3.5 h-3.5" /> Print
+                </button>
+                <button onClick={() => exportCurrentReport("csv")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </button>
+                <button onClick={() => exportCurrentReport("excel")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Download className="w-3.5 h-3.5" /> Excel
+                </button>
+                <button onClick={() => exportCurrentReport("pdf")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-stone-100">
+              <h4 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                <FileCheck className="w-4 h-4 text-stsn-gold" /> {selectedReport.title}
+              </h4>
+              <p className="text-xs text-stone-500 mt-1">{selectedReport.desc}</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-100">
+                    {reportColumns.map((column) => (
+                      <th
+                        key={column.key}
+                        className={`px-4 py-3 font-bold text-stone-500 text-[10px] uppercase tracking-wide ${
+                          column.align === "right" ? "text-right" : column.align === "center" ? "text-center" : "text-left"
+                        }`}
+                      >
+                        {column.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {reportRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={reportColumns.length} className="px-4 py-8 text-center text-stone-400 text-xs italic">
+                        No report rows for this selection.
+                      </td>
+                    </tr>
+                  ) : (
+                    reportRows.map((row, index) => (
+                      <tr key={index} className="hover:bg-stone-50">
+                        {reportColumns.map((column) => (
+                          <td
+                            key={column.key}
+                            className={`px-4 py-3 text-stone-700 ${
+                              column.align === "right" ? "text-right font-mono" : column.align === "center" ? "text-center" : ""
+                            }`}
+                          >
+                            {String(row[column.key] ?? "")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

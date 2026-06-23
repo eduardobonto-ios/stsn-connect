@@ -5,7 +5,8 @@
 
 import React, { useState, useMemo } from "react";
 import { useSTSNStore } from "../../../services/store";
-import { academicUnitToDepartment, getAcademicTerms } from "../../../config/schools.config";
+import { getAcademicTerms } from "../../../config/schools.config";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { Student } from "../../../types";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import { UsersRound, LayoutDashboard, BookOpen, Receipt, FileText, Search, X } from "lucide-react";
@@ -28,7 +29,7 @@ const ACTION_BUTTONS: {
 ];
 
 export default function StudentDirectoryPage({ onNavigate: _onNavigate }: StudentDirectoryPageProps) {
-  const { students, academicUnit } = useSTSNStore();
+  const { students, currentUser, activeSchool, academicUnit } = useSTSNStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [modal, setModal] = useState<{ studentId: string; subPage: "overview" | "grades" | "ledger" | "profile" } | null>(null);
 
@@ -37,9 +38,8 @@ export default function StudentDirectoryPage({ onNavigate: _onNavigate }: Studen
   const schoolBadgeClass = isBasicEd ? "badge-basic-ed" : "badge-college";
 
   const contextStudents = useMemo(() => {
-    const dept = academicUnitToDepartment(academicUnit);
-    return students.filter((s) => s.department === dept);
-  }, [students, academicUnit]);
+    return getAcademicScopedData({ currentUser, activeSchool, academicUnit, students }).students;
+  }, [students, currentUser, activeSchool, academicUnit]);
 
   const filteredStudents = useMemo(() => {
     const q = searchQuery.toLowerCase();

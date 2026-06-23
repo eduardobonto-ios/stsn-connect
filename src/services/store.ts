@@ -35,7 +35,28 @@ import {
   LedgerTransaction,
   FinancialHold,
   AssessmentBillingSummary,
-  PaymentCollectionSummary
+  PaymentCollectionSummary,
+  EmployeeLifecycleEvent,
+  ShiftTemplate,
+  EmployeeShiftAssignment,
+  EmployeeTimeLog,
+  EmployeeAttendance,
+  LeaveType,
+  LeaveRequest,
+  PayrollPeriod,
+  PayrollRun,
+  PayrollLine,
+  SalaryPayoutBatch,
+  SalaryPayoutLine,
+  BenefitPlan,
+  TaxTable,
+  TaxBracket,
+  JobRequisition,
+  JobApplicant,
+  ApplicantInterview,
+  OnboardingTemplate,
+  OnboardingTask,
+  EmployeeOnboardingTask,
 } from "../types";
 import type { AcademicUnit } from "../types/school.types";
 import { getAcademicUnit } from "../config/schools.config";
@@ -97,6 +118,30 @@ interface STSNState {
   discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
   paymentTermOptions: { term: string; description: string }[];
   studentGuardians: { id: string; studentId: string; guardianName: string; relationship?: string; contactNo?: string; email?: string; address?: string; isPrimary: boolean }[];
+
+  // HR Phase 2-4
+  employeeLifecycleEvents: EmployeeLifecycleEvent[];
+  shiftTemplates: ShiftTemplate[];
+  employeeShiftAssignments: EmployeeShiftAssignment[];
+  employeeTimeLogs: EmployeeTimeLog[];
+  employeeAttendance: EmployeeAttendance[];
+  leaveTypes: LeaveType[];
+  leaveRequests: LeaveRequest[];
+  payrollPeriods: PayrollPeriod[];
+  payrollRuns: PayrollRun[];
+  payrollLines: PayrollLine[];
+  salaryPayoutBatches: SalaryPayoutBatch[];
+  salaryPayoutLines: SalaryPayoutLine[];
+  benefitPlans: BenefitPlan[];
+  taxTables: TaxTable[];
+  taxBrackets: TaxBracket[];
+  // HR Phase 5
+  jobRequisitions: JobRequisition[];
+  jobApplicants: JobApplicant[];
+  applicantInterviews: ApplicantInterview[];
+  onboardingTemplates: OnboardingTemplate[];
+  onboardingTasks: OnboardingTask[];
+  employeeOnboardingTasks: EmployeeOnboardingTask[];
 
   // Bootstrap
   initialize: () => Promise<void>;
@@ -194,6 +239,58 @@ interface STSNState {
 
   // HR Excel import
   bulkImportEmployees: (employees: Omit<Employee, "id">[]) => void;
+
+  // HR Phase 2 — Employee Lifecycle
+  addEmployeeLifecycleEvent: (event: Omit<EmployeeLifecycleEvent, "id" | "createdAt">) => void;
+  updateEmployeeLifecycleStatus: (employeeId: string, toStatus: string, fromStatus: string, remarks: string, createdBy: string) => void;
+
+  // HR Phase 3 — Shifts
+  addShiftTemplate: (template: Omit<ShiftTemplate, "id" | "createdAt">) => void;
+  updateShiftTemplate: (id: string, updates: Partial<ShiftTemplate>) => void;
+  toggleShiftTemplateActive: (id: string) => void;
+  assignEmployeeShift: (assignment: Omit<EmployeeShiftAssignment, "id" | "createdAt">) => void;
+
+  // HR Phase 3 — Time Logs
+  addEmployeeTimeLog: (log: Omit<EmployeeTimeLog, "id" | "createdAt">) => void;
+  approveEmployeeTimeLog: (id: string, approvedBy: string) => void;
+
+  // HR Phase 3 — Attendance
+  addEmployeeAttendance: (record: Omit<EmployeeAttendance, "id" | "createdAt">) => void;
+  updateEmployeeAttendance: (id: string, updates: Partial<EmployeeAttendance>) => void;
+
+  // HR Phase 3 — Leave
+  addLeaveRequest: (request: Omit<LeaveRequest, "id" | "createdAt">) => void;
+  approveLeaveRequest: (id: string, approvedBy: string, remarks?: string) => void;
+  rejectLeaveRequest: (id: string, approvedBy: string, remarks: string) => void;
+  cancelLeaveRequest: (id: string) => void;
+
+  // HR Phase 4 — Payroll Periods & Runs
+  addPayrollPeriod: (period: Omit<PayrollPeriod, "id" | "createdAt">) => PayrollPeriod;
+  addPayrollRun: (run: Omit<PayrollRun, "id" | "createdAt">) => PayrollRun;
+  updatePayrollRunStatus: (id: string, status: PayrollRun["status"], by: string) => void;
+  addPayrollLine: (line: Omit<PayrollLine, "id" | "createdAt">) => void;
+  addPayrollLines: (lines: Omit<PayrollLine, "id" | "createdAt">[]) => void;
+
+  // HR Phase 4 — Salary Payouts
+  addSalaryPayoutBatch: (batch: Omit<SalaryPayoutBatch, "id" | "createdAt">) => SalaryPayoutBatch;
+  releaseSalaryPayoutBatch: (id: string, releasedBy: string) => void;
+
+  // HR Phase 4 — Benefits
+  updateBenefitPlan: (id: string, updates: Partial<BenefitPlan>) => void;
+  toggleBenefitPlanActive: (id: string) => void;
+
+  // HR Phase 5 — Recruitment
+  addJobRequisition: (data: Omit<JobRequisition, "id" | "createdAt">) => void;
+  updateJobRequisitionStatus: (id: string, status: JobRequisition["status"], approvedBy?: string) => void;
+  addJobApplicant: (data: Omit<JobApplicant, "id" | "createdAt">) => void;
+  updateJobApplicantStatus: (id: string, status: JobApplicant["status"], notes?: string) => void;
+  addApplicantInterview: (data: Omit<ApplicantInterview, "id" | "createdAt">) => void;
+  updateInterviewResult: (id: string, result: ApplicantInterview["result"], remarks?: string) => void;
+
+  // HR Phase 5 — Onboarding
+  addEmployeeOnboardingTask: (data: Omit<EmployeeOnboardingTask, "id" | "createdAt">) => void;
+  completeOnboardingTask: (taskId: string, completedBy: string) => void;
+  skipOnboardingTask: (taskId: string) => void;
 
   // Section CRUD
   addSection: (section: Omit<SchoolSection, "id" | "createdAt">) => SchoolSection;
@@ -333,6 +430,27 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   discountOptions: [],
   paymentTermOptions: [],
   studentGuardians: [],
+  employeeLifecycleEvents: [],
+  shiftTemplates: [],
+  employeeShiftAssignments: [],
+  employeeTimeLogs: [],
+  employeeAttendance: [],
+  leaveTypes: [],
+  leaveRequests: [],
+  payrollPeriods: [],
+  payrollRuns: [],
+  payrollLines: [],
+  salaryPayoutBatches: [],
+  salaryPayoutLines: [],
+  benefitPlans: [],
+  taxTables: [],
+  taxBrackets: [],
+  jobRequisitions: [],
+  jobApplicants: [],
+  applicantInterviews: [],
+  onboardingTemplates: [],
+  onboardingTasks: [],
+  employeeOnboardingTasks: [],
 
   initialize: async () => {
     const data = await loadAllData();
@@ -1055,6 +1173,314 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const newEmployees: Employee[] = employeesData.map((emp) => ({ ...emp, id: newId() }));
     set((state) => ({ employees: [...state.employees, ...newEmployees] }));
     for (const emp of newEmployees) dbInsert("employees", withSchoolFk(emp));
+  },
+
+  // ---- HR Phase 2: Employee Lifecycle ----
+  addEmployeeLifecycleEvent: (eventData) => {
+    const newEvent: EmployeeLifecycleEvent = { ...eventData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ employeeLifecycleEvents: [newEvent, ...state.employeeLifecycleEvents] }));
+    dbInsert("employee_lifecycle_events", {
+      id: newEvent.id, employee_id: newEvent.employeeId, event_type: newEvent.eventType,
+      from_status: newEvent.fromStatus, to_status: newEvent.toStatus, effective_date: newEvent.effectiveDate,
+      remarks: newEvent.remarks, created_by: newEvent.createdBy,
+    });
+  },
+
+  updateEmployeeLifecycleStatus: (employeeId, toStatus, fromStatus, remarks, createdBy) => {
+    const eventData: Omit<EmployeeLifecycleEvent, "id" | "createdAt"> = {
+      employeeId, eventType: "Status Change", fromStatus, toStatus,
+      effectiveDate: new Date().toISOString().split("T")[0], remarks, createdBy,
+    };
+    get().addEmployeeLifecycleEvent(eventData);
+    get().updateEmployee(employeeId, { employmentStatus: toStatus });
+  },
+
+  // ---- HR Phase 3: Shift Templates ----
+  addShiftTemplate: (templateData) => {
+    const newTemplate: ShiftTemplate = { ...templateData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ shiftTemplates: [...state.shiftTemplates, newTemplate] }));
+    dbInsert("shift_templates", {
+      id: newTemplate.id, school_id: resolveSchoolId(newTemplate.schoolId), code: newTemplate.code,
+      name: newTemplate.name, start_time: newTemplate.startTime, end_time: newTemplate.endTime,
+      break_minutes: newTemplate.breakMinutes, is_overnight: newTemplate.isOvernight, is_active: newTemplate.isActive,
+    });
+  },
+
+  updateShiftTemplate: (id, updates) => {
+    set((state) => ({ shiftTemplates: state.shiftTemplates.map((t) => (t.id === id ? { ...t, ...updates } : t)) }));
+    dbUpdate("shift_templates", id, updates);
+  },
+
+  toggleShiftTemplateActive: (id) => {
+    const template = get().shiftTemplates.find((t) => t.id === id);
+    set((state) => ({ shiftTemplates: state.shiftTemplates.map((t) => (t.id === id ? { ...t, isActive: !t.isActive } : t)) }));
+    if (template) dbUpdate("shift_templates", id, { is_active: !template.isActive });
+  },
+
+  assignEmployeeShift: (assignmentData) => {
+    const newAssignment: EmployeeShiftAssignment = { ...assignmentData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ employeeShiftAssignments: [newAssignment, ...state.employeeShiftAssignments] }));
+    dbInsert("employee_shift_assignments", {
+      id: newAssignment.id, employee_id: newAssignment.employeeId, shift_template_id: newAssignment.shiftTemplateId,
+      effective_from: newAssignment.effectiveFrom, effective_to: newAssignment.effectiveTo, rest_days: newAssignment.restDays,
+    });
+  },
+
+  // ---- HR Phase 3: Time Logs ----
+  addEmployeeTimeLog: (logData) => {
+    const newLog: EmployeeTimeLog = { ...logData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ employeeTimeLogs: [newLog, ...state.employeeTimeLogs] }));
+    dbInsert("employee_time_logs", {
+      id: newLog.id, employee_id: newLog.employeeId, log_date: newLog.logDate, time_in: newLog.timeIn,
+      time_out: newLog.timeOut, source: newLog.source, is_approved: newLog.isApproved, remarks: newLog.remarks,
+    });
+  },
+
+  approveEmployeeTimeLog: (id, approvedBy) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      employeeTimeLogs: state.employeeTimeLogs.map((l) => l.id === id ? { ...l, isApproved: true, approvedBy, approvedAt: now } : l)
+    }));
+    dbUpdate("employee_time_logs", id, { is_approved: true, approved_by: approvedBy, approved_at: now });
+  },
+
+  // ---- HR Phase 3: Attendance ----
+  addEmployeeAttendance: (recordData) => {
+    const newRecord: EmployeeAttendance = { ...recordData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ employeeAttendance: [newRecord, ...state.employeeAttendance] }));
+    dbInsert("employee_attendance", {
+      id: newRecord.id, employee_id: newRecord.employeeId, attendance_date: newRecord.attendanceDate,
+      time_in: newRecord.timeIn, time_out: newRecord.timeOut, status: newRecord.status,
+      late_minutes: newRecord.lateMinutes, undertime_minutes: newRecord.undertimeMinutes,
+      overtime_minutes: newRecord.overtimeMinutes, remarks: newRecord.remarks,
+    });
+  },
+
+  updateEmployeeAttendance: (id, updates) => {
+    set((state) => ({ employeeAttendance: state.employeeAttendance.map((a) => (a.id === id ? { ...a, ...updates } : a)) }));
+    dbUpdate("employee_attendance", id, updates);
+  },
+
+  // ---- HR Phase 3: Leave Requests ----
+  addLeaveRequest: (requestData) => {
+    const newRequest: LeaveRequest = { ...requestData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ leaveRequests: [newRequest, ...state.leaveRequests] }));
+    dbInsert("leave_requests", {
+      id: newRequest.id, employee_id: newRequest.employeeId, leave_type_id: newRequest.leaveTypeId,
+      start_date: newRequest.startDate, end_date: newRequest.endDate, total_days: newRequest.totalDays,
+      reason: newRequest.reason, status: newRequest.status,
+    });
+  },
+
+  approveLeaveRequest: (id, approvedBy, remarks) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      leaveRequests: state.leaveRequests.map((r) => r.id === id ? { ...r, status: "Approved", approvedBy, approvedAt: now, remarks: remarks ?? r.remarks } : r)
+    }));
+    dbUpdate("leave_requests", id, { status: "Approved", approved_by: approvedBy, approved_at: now, remarks });
+  },
+
+  rejectLeaveRequest: (id, approvedBy, remarks) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      leaveRequests: state.leaveRequests.map((r) => r.id === id ? { ...r, status: "Rejected", approvedBy, approvedAt: now, remarks } : r)
+    }));
+    dbUpdate("leave_requests", id, { status: "Rejected", approved_by: approvedBy, approved_at: now, remarks });
+  },
+
+  cancelLeaveRequest: (id) => {
+    set((state) => ({
+      leaveRequests: state.leaveRequests.map((r) => r.id === id ? { ...r, status: "Cancelled" } : r)
+    }));
+    dbUpdate("leave_requests", id, { status: "Cancelled" });
+  },
+
+  // ---- HR Phase 4: Payroll Periods ----
+  addPayrollPeriod: (periodData) => {
+    const newPeriod: PayrollPeriod = { ...periodData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ payrollPeriods: [newPeriod, ...state.payrollPeriods] }));
+    dbInsert("payroll_periods", {
+      id: newPeriod.id, school_id: resolveSchoolId(newPeriod.schoolId), period_code: newPeriod.periodCode,
+      label: newPeriod.label, start_date: newPeriod.startDate, end_date: newPeriod.endDate,
+      payout_date: newPeriod.payoutDate, status: newPeriod.status,
+    });
+    return newPeriod;
+  },
+
+  addPayrollRun: (runData) => {
+    const newRun: PayrollRun = { ...runData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ payrollRuns: [newRun, ...state.payrollRuns] }));
+    dbInsert("payroll_runs", {
+      id: newRun.id, school_id: resolveSchoolId(newRun.schoolId), payroll_period_id: newRun.payrollPeriodId,
+      run_no: newRun.runNo, status: newRun.status, notes: newRun.notes,
+    });
+    return newRun;
+  },
+
+  updatePayrollRunStatus: (id, status, by) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      payrollRuns: state.payrollRuns.map((r) => {
+        if (r.id !== id) return r;
+        const updates: Partial<PayrollRun> = { status };
+        if (status === "Computed") { updates.computedBy = by; updates.computedAt = now; }
+        if (status === "Approved") { updates.approvedBy = by; updates.approvedAt = now; }
+        return { ...r, ...updates };
+      })
+    }));
+    const dbUpdates: any = { status };
+    if (status === "Computed") { dbUpdates.computed_by = by; dbUpdates.computed_at = now; }
+    if (status === "Approved") { dbUpdates.approved_by = by; dbUpdates.approved_at = now; }
+    dbUpdate("payroll_runs", id, dbUpdates);
+  },
+
+  addPayrollLine: (lineData) => {
+    const newLine: PayrollLine = { ...lineData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ payrollLines: [...state.payrollLines, newLine] }));
+    dbInsert("payroll_lines", {
+      id: newLine.id, payroll_run_id: newLine.payrollRunId, employee_id: newLine.employeeId,
+      basic_pay: newLine.basicPay, allowances: newLine.allowances, overtime_pay: newLine.overtimePay,
+      late_deduction: newLine.lateDeduction, undertime_deduction: newLine.undertimeDeduction, absence_deduction: newLine.absenceDeduction,
+      sss_deduction: newLine.sssDeduction, philhealth_deduction: newLine.philhealthDeduction, pagibig_deduction: newLine.pagibigDeduction,
+      withholding_tax: newLine.withholdingTax, other_deductions: newLine.otherDeductions, other_allowances: newLine.otherAllowances,
+      gross_pay: newLine.grossPay, net_pay: newLine.netPay, status: newLine.status,
+    });
+  },
+
+  addPayrollLines: (linesData) => {
+    const newLines: PayrollLine[] = linesData.map((l) => ({ ...l, id: newId(), createdAt: new Date().toISOString() }));
+    set((state) => ({ payrollLines: [...state.payrollLines, ...newLines] }));
+    for (const newLine of newLines) {
+      dbInsert("payroll_lines", {
+        id: newLine.id, payroll_run_id: newLine.payrollRunId, employee_id: newLine.employeeId,
+        basic_pay: newLine.basicPay, allowances: newLine.allowances, overtime_pay: newLine.overtimePay,
+        late_deduction: newLine.lateDeduction, undertime_deduction: newLine.undertimeDeduction, absence_deduction: newLine.absenceDeduction,
+        sss_deduction: newLine.sssDeduction, philhealth_deduction: newLine.philhealthDeduction, pagibig_deduction: newLine.pagibigDeduction,
+        withholding_tax: newLine.withholdingTax, other_deductions: newLine.otherDeductions, other_allowances: newLine.otherAllowances,
+        gross_pay: newLine.grossPay, net_pay: newLine.netPay, status: newLine.status,
+      });
+    }
+  },
+
+  // ---- HR Phase 4: Salary Payout Batches ----
+  addSalaryPayoutBatch: (batchData) => {
+    const newBatch: SalaryPayoutBatch = { ...batchData, id: newId(), createdAt: new Date().toISOString() };
+    set((state) => ({ salaryPayoutBatches: [newBatch, ...state.salaryPayoutBatches] }));
+    dbInsert("salary_payout_batches", {
+      id: newBatch.id, payroll_run_id: newBatch.payrollRunId, payout_no: newBatch.payoutNo,
+      payout_method: newBatch.payoutMethod, status: newBatch.status, notes: newBatch.notes,
+    });
+    return newBatch;
+  },
+
+  releaseSalaryPayoutBatch: (id, releasedBy) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      salaryPayoutBatches: state.salaryPayoutBatches.map((b) => b.id === id ? { ...b, status: "Released", releasedBy, releasedAt: now } : b),
+      salaryPayoutLines: state.salaryPayoutLines.map((l) => l.payoutBatchId === id ? { ...l, status: "Released", releasedAt: now } : l),
+    }));
+    dbUpdate("salary_payout_batches", id, { status: "Released", released_by: releasedBy, released_at: now });
+  },
+
+  // ---- HR Phase 4: Benefit Plans ----
+  updateBenefitPlan: (id, updates) => {
+    set((state) => ({ benefitPlans: state.benefitPlans.map((b) => (b.id === id ? { ...b, ...updates } : b)) }));
+    dbUpdate("benefit_plans", id, updates);
+  },
+
+  toggleBenefitPlanActive: (id) => {
+    const plan = get().benefitPlans.find((b) => b.id === id);
+    set((state) => ({ benefitPlans: state.benefitPlans.map((b) => (b.id === id ? { ...b, isActive: !b.isActive } : b)) }));
+    if (plan) dbUpdate("benefit_plans", id, { is_active: !plan.isActive });
+  },
+
+  // ---- HR Phase 5: Recruitment ----
+  addJobRequisition: (data) => {
+    const newReq: JobRequisition = { ...data, id: newId(), createdAt: todayStamp() };
+    set((state) => ({ jobRequisitions: [newReq, ...state.jobRequisitions] }));
+    dbInsert("job_requisitions", {
+      id: newReq.id, requisition_no: newReq.requisitionNo, position_title: newReq.positionTitle,
+      department: newReq.department, employment_type: newReq.employmentType, head_count: newReq.headCount,
+      reason: newReq.reason, target_start_date: newReq.targetStartDate, status: newReq.status,
+      requested_by: newReq.requestedBy, created_at: newReq.createdAt,
+    });
+  },
+
+  updateJobRequisitionStatus: (id, status, approvedBy) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      jobRequisitions: state.jobRequisitions.map((r) =>
+        r.id === id ? { ...r, status, ...(approvedBy ? { approvedBy, approvedAt: now } : {}) } : r
+      ),
+    }));
+    dbUpdate("job_requisitions", id, { status, ...(approvedBy ? { approved_by: approvedBy, approved_at: now } : {}) });
+  },
+
+  addJobApplicant: (data) => {
+    const newApplicant: JobApplicant = { ...data, id: newId(), createdAt: todayStamp() };
+    set((state) => ({ jobApplicants: [newApplicant, ...state.jobApplicants] }));
+    dbInsert("job_applicants", {
+      id: newApplicant.id, job_requisition_id: newApplicant.jobRequisitionId,
+      first_name: newApplicant.firstName, last_name: newApplicant.lastName, middle_name: newApplicant.middleName,
+      email: newApplicant.email, contact: newApplicant.contact, address: newApplicant.address,
+      applied_at: newApplicant.appliedAt, status: newApplicant.status, notes: newApplicant.notes,
+      created_at: newApplicant.createdAt,
+    });
+  },
+
+  updateJobApplicantStatus: (id, status, notes) => {
+    set((state) => ({
+      jobApplicants: state.jobApplicants.map((a) => a.id === id ? { ...a, status, ...(notes !== undefined ? { notes } : {}) } : a),
+    }));
+    dbUpdate("job_applicants", id, { status, ...(notes !== undefined ? { notes } : {}) });
+  },
+
+  addApplicantInterview: (data) => {
+    const newInterview: ApplicantInterview = { ...data, id: newId(), createdAt: todayStamp() };
+    set((state) => ({ applicantInterviews: [newInterview, ...state.applicantInterviews] }));
+    dbInsert("applicant_interviews", {
+      id: newInterview.id, applicant_id: newInterview.applicantId, scheduled_at: newInterview.scheduledAt,
+      interview_type: newInterview.interviewType, interviewer: newInterview.interviewer,
+      result: newInterview.result, remarks: newInterview.remarks, created_at: newInterview.createdAt,
+    });
+  },
+
+  updateInterviewResult: (id, result, remarks) => {
+    set((state) => ({
+      applicantInterviews: state.applicantInterviews.map((i) =>
+        i.id === id ? { ...i, result, ...(remarks !== undefined ? { remarks } : {}) } : i
+      ),
+    }));
+    dbUpdate("applicant_interviews", id, { result, ...(remarks !== undefined ? { remarks } : {}) });
+  },
+
+  // ---- HR Phase 5: Onboarding ----
+  addEmployeeOnboardingTask: (data) => {
+    const newTask: EmployeeOnboardingTask = { ...data, id: newId(), createdAt: todayStamp() };
+    set((state) => ({ employeeOnboardingTasks: [newTask, ...state.employeeOnboardingTasks] }));
+    dbInsert("employee_onboarding_tasks", {
+      id: newTask.id, employee_id: newTask.employeeId, onboarding_task_id: newTask.onboardingTaskId,
+      due_date: newTask.dueDate, status: newTask.status, created_at: newTask.createdAt,
+    });
+  },
+
+  completeOnboardingTask: (taskId, completedBy) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      employeeOnboardingTasks: state.employeeOnboardingTasks.map((t) =>
+        t.id === taskId ? { ...t, status: "Completed", completedAt: now, completedBy } : t
+      ),
+    }));
+    dbUpdate("employee_onboarding_tasks", taskId, { status: "Completed", completed_at: now, completed_by: completedBy });
+  },
+
+  skipOnboardingTask: (taskId) => {
+    set((state) => ({
+      employeeOnboardingTasks: state.employeeOnboardingTasks.map((t) =>
+        t.id === taskId ? { ...t, status: "Skipped" } : t
+      ),
+    }));
+    dbUpdate("employee_onboarding_tasks", taskId, { status: "Skipped" });
   },
 
   // ---- Section CRUD ----

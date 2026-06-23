@@ -9,6 +9,7 @@ import {
   MessageSquare, CheckCircle, Clock, AlertCircle, Filter, Lock,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
+import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
@@ -98,7 +99,7 @@ const DEFAULT_SESSION_FORM = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function GuidanceModule() {
-  const { students, currentUser } = useSTSNStore();
+  const { students, currentUser, activeSchool, academicUnit } = useSTSNStore();
   const { toast } = useAppDialog();
 
   const [activeTab, setActiveTab] = useState<"anecdotal" | "sessions">("anecdotal");
@@ -141,37 +142,50 @@ export default function GuidanceModule() {
     });
   }, []);
 
+  const scopedStudents = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students }).students,
+    [currentUser, activeSchool, academicUnit, students],
+  );
+  const scopedRecords = useMemo(
+    () => filterStudentLinkedRecords(records, scopedStudents),
+    [records, scopedStudents],
+  );
+  const scopedSessions = useMemo(
+    () => filterStudentLinkedRecords(sessions, scopedStudents),
+    [sessions, scopedStudents],
+  );
+
   const kpis = [
-    { label: "Total Records", value: records.length, icon: NotebookPen, bg: "bg-amber-50 border-amber-200", color: "text-stsn-brown" },
-    { label: "Pending Follow-ups", value: records.filter((r) => !r.followUpDone && r.followUpDate).length, icon: AlertCircle, bg: "bg-red-50 border-red-200", color: "text-red-700" },
-    { label: "Sessions Conducted", value: sessions.filter((s) => s.status === "Completed").length, icon: CheckCircle, bg: "bg-emerald-50 border-emerald-200", color: "text-emerald-700" },
-    { label: "Upcoming Sessions", value: sessions.filter((s) => s.status === "Scheduled").length, icon: Calendar, bg: "bg-blue-50 border-blue-200", color: "text-blue-700" },
+    { label: "Total Records", value: scopedRecords.length, icon: NotebookPen, bg: "bg-amber-50 border-amber-200", color: "text-stsn-brown" },
+    { label: "Pending Follow-ups", value: scopedRecords.filter((r) => !r.followUpDone && r.followUpDate).length, icon: AlertCircle, bg: "bg-red-50 border-red-200", color: "text-red-700" },
+    { label: "Sessions Conducted", value: scopedSessions.filter((s) => s.status === "Completed").length, icon: CheckCircle, bg: "bg-emerald-50 border-emerald-200", color: "text-emerald-700" },
+    { label: "Upcoming Sessions", value: scopedSessions.filter((s) => s.status === "Scheduled").length, icon: Calendar, bg: "bg-blue-50 border-blue-200", color: "text-blue-700" },
   ];
 
   const filteredRecords = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return records.filter((r) => {
-      const stu = students.find((s) => s.id === r.studentId);
+    return scopedRecords.filter((r) => {
+      const stu = scopedStudents.find((s) => s.id === r.studentId);
       const name = stu ? `${stu.firstName} ${stu.lastName}`.toLowerCase() : "";
       const matchSearch = !q || name.includes(q) || r.description.toLowerCase().includes(q);
       const matchType = filterType === "All" || r.incidentType === filterType;
       return matchSearch && matchType;
     });
-  }, [records, students, searchQuery, filterType]);
+  }, [scopedRecords, scopedStudents, searchQuery, filterType]);
 
   const filteredSessions = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return sessions.filter((s) => {
-      const stu = students.find((st) => st.id === s.studentId);
+    return scopedSessions.filter((s) => {
+      const stu = scopedStudents.find((st) => st.id === s.studentId);
       const name = stu ? `${stu.firstName} ${stu.lastName}`.toLowerCase() : "";
       const matchSearch = !q || name.includes(q) || s.concernArea.toLowerCase().includes(q);
       const matchStatus = filterStatus === "All" || s.status === filterStatus;
       return matchSearch && matchStatus;
     });
-  }, [sessions, students, searchQuery, filterStatus]);
+  }, [scopedSessions, scopedStudents, searchQuery, filterStatus]);
 
   const getStudentLabel = (id: string) => {
-    const stu = students.find((s) => s.id === id);
+    const stu = scopedStudents.find((s) => s.id === id);
     return stu ? `${stu.lastName}, ${stu.firstName}` : "Unknown";
   };
 
@@ -356,7 +370,7 @@ export default function GuidanceModule() {
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Student <span className="text-red-500">*</span></label>
                   <select value={anecForm.studentId} onChange={(e) => setAnecForm((p) => ({ ...p, studentId: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none">
                     <option value="">— Select student —</option>
-                    {students.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
+                    {scopedStudents.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
                   </select>
                 </div>
                 <div>
@@ -414,7 +428,7 @@ export default function GuidanceModule() {
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Student <span className="text-red-500">*</span></label>
                   <select value={sessionForm.studentId} onChange={(e) => setSessionForm((p) => ({ ...p, studentId: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none">
                     <option value="">— Select student —</option>
-                    {students.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
+                    {scopedStudents.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
                   </select>
                 </div>
                 <div>
@@ -472,7 +486,7 @@ export default function GuidanceModule() {
 
       {/* DETAIL MODALS */}
       {detailRecord && (() => {
-        const stu = students.find((s) => s.id === detailRecord.studentId);
+        const stu = scopedStudents.find((s) => s.id === detailRecord.studentId);
         const cfg = INCIDENT_TYPE_CONFIG[detailRecord.incidentType];
         return (
           <div className="app-modal-backdrop z-50">
@@ -519,7 +533,7 @@ export default function GuidanceModule() {
       })()}
 
       {detailSession && (() => {
-        const stu = students.find((s) => s.id === detailSession.studentId);
+        const stu = scopedStudents.find((s) => s.id === detailSession.studentId);
         const cfg = SESSION_STATUS_CONFIG[detailSession.status];
         return (
           <div className="app-modal-backdrop z-50">

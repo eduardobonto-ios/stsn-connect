@@ -9,6 +9,7 @@ import {
   CheckCircle, Clock, AlertCircle, ChevronDown, Filter,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbUpdate, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
@@ -61,7 +62,7 @@ const DEFAULT_FORM = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ConsultationModule() {
-  const { students, teachers, currentUser } = useSTSNStore();
+  const { students, teachers, currentUser, activeSchool, academicUnit } = useSTSNStore();
   const { toast } = useAppDialog();
 
   const [activeTab, setActiveTab] = useState<"appointments" | "requests">("appointments");
@@ -101,47 +102,65 @@ export default function ConsultationModule() {
     });
   }, []);
 
+  const scopedData = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students, teachers }),
+    [currentUser, activeSchool, academicUnit, students, teachers],
+  );
+  const scopedStudents = scopedData.students;
+  const scopedTeachers = scopedData.teachers ?? [];
+  const scopedStudentIds = useMemo(() => new Set(scopedStudents.map((student) => student.id)), [scopedStudents]);
+  const scopedTeacherIds = useMemo(() => new Set(scopedTeachers.map((teacher) => teacher.id)), [scopedTeachers]);
+  const scopedAppointments = useMemo(
+    () =>
+      appointments.filter((appointment) => {
+        if (appointment.studentId) return scopedStudentIds.has(appointment.studentId);
+        if (appointment.teacherId) return scopedTeacherIds.has(appointment.teacherId);
+        return false;
+      }),
+    [appointments, scopedStudentIds, scopedTeacherIds],
+  );
+
   const kpis = [
-    { label: "Total Requests", value: appointments.length, bg: "bg-amber-50 border-amber-200", color: "text-stsn-brown", icon: PhoneCall },
-    { label: "Pending", value: appointments.filter((a) => a.status === "Pending").length, bg: "bg-amber-50 border-amber-200", color: "text-amber-700", icon: Clock },
-    { label: "Confirmed / Upcoming", value: appointments.filter((a) => a.status === "Confirmed").length, bg: "bg-blue-50 border-blue-200", color: "text-blue-700", icon: Calendar },
-    { label: "Completed", value: appointments.filter((a) => a.status === "Completed").length, bg: "bg-emerald-50 border-emerald-200", color: "text-emerald-700", icon: CheckCircle },
+    { label: "Total Requests", value: scopedAppointments.length, bg: "bg-amber-50 border-amber-200", color: "text-stsn-brown", icon: PhoneCall },
+    { label: "Pending", value: scopedAppointments.filter((a) => a.status === "Pending").length, bg: "bg-amber-50 border-amber-200", color: "text-amber-700", icon: Clock },
+    { label: "Confirmed / Upcoming", value: scopedAppointments.filter((a) => a.status === "Confirmed").length, bg: "bg-blue-50 border-blue-200", color: "text-blue-700", icon: Calendar },
+    { label: "Completed", value: scopedAppointments.filter((a) => a.status === "Completed").length, bg: "bg-emerald-50 border-emerald-200", color: "text-emerald-700", icon: CheckCircle },
   ];
 
   const confirmedItems = useMemo(() =>
-    appointments.filter((a) => a.status === "Confirmed" || a.status === "Completed")
+    scopedAppointments.filter((a) => a.status === "Confirmed" || a.status === "Completed")
       .sort((a, b) => (a.appointmentDate || "").localeCompare(b.appointmentDate || "")),
-    [appointments]
+    [scopedAppointments]
   );
 
   const pendingItems = useMemo(() =>
-    appointments.filter((a) => a.status === "Pending" || a.status === "Rescheduled"),
-    [appointments]
+    scopedAppointments.filter((a) => a.status === "Pending" || a.status === "Rescheduled"),
+    [scopedAppointments]
   );
 
   const filteredItems = useMemo(() => {
     const source = activeTab === "appointments" ? confirmedItems : pendingItems;
     const q = searchQuery.toLowerCase();
     return source.filter((a) => {
-      const stu = students.find((s) => s.id === a.studentId);
-      const tea = teachers.find((t) => t.id === a.teacherId);
+      const stu = scopedStudents.find((s) => s.id === a.studentId);
+      const tea = scopedTeachers.find((t) => t.id === a.teacherId);
       const name = stu ? `${stu.firstName} ${stu.lastName}`.toLowerCase() : a.requestedBy.toLowerCase();
       const teacherName = tea ? `${tea.firstName} ${tea.lastName}`.toLowerCase() : "";
       const matchSearch = !q || name.includes(q) || a.purpose.toLowerCase().includes(q) || teacherName.includes(q);
       const matchStatus = filterStatus === "All" || a.status === filterStatus;
       return matchSearch && matchStatus;
     });
-  }, [appointments, activeTab, confirmedItems, pendingItems, searchQuery, filterStatus, students, teachers]);
+  }, [activeTab, confirmedItems, pendingItems, searchQuery, filterStatus, scopedStudents, scopedTeachers]);
 
   const getStudentLabel = (id?: string) => {
     if (!id) return "—";
-    const stu = students.find((s) => s.id === id);
+    const stu = scopedStudents.find((s) => s.id === id);
     return stu ? `${stu.lastName}, ${stu.firstName}` : "Unknown";
   };
 
   const getTeacherLabel = (id?: string) => {
     if (!id) return "—";
-    const tea = teachers.find((t) => t.id === id);
+    const tea = scopedTeachers.find((t) => t.id === id);
     return tea ? `${tea.lastName}, ${tea.firstName}` : "Unknown";
   };
 
@@ -299,8 +318,8 @@ export default function ConsultationModule() {
                 ) : (
                   <>
                     {pageItems.map((a) => {
-                      const stu = students.find((s) => s.id === a.studentId);
-                      const tea = teachers.find((t) => t.id === a.teacherId);
+                      const stu = scopedStudents.find((s) => s.id === a.studentId);
+                      const tea = scopedTeachers.find((t) => t.id === a.teacherId);
                       const cfg = STATUS_CONFIG[a.status];
                       return (
                         <div key={a.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4">
@@ -426,14 +445,14 @@ export default function ConsultationModule() {
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Student</label>
                   <select value={form.studentId} onChange={(e) => setForm((p) => ({ ...p, studentId: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none">
                     <option value="">— Select student (optional) —</option>
-                    {students.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
+                    {scopedStudents.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Teacher / Adviser</label>
                   <select value={form.teacherId} onChange={(e) => setForm((p) => ({ ...p, teacherId: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none">
                     <option value="">— Select teacher (optional) —</option>
-                    {teachers.map((t) => <option key={t.id} value={t.id}>{t.lastName}, {t.firstName}</option>)}
+                    {scopedTeachers.map((t) => <option key={t.id} value={t.id}>{t.lastName}, {t.firstName}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
@@ -467,8 +486,8 @@ export default function ConsultationModule() {
 
       {/* DETAIL MODAL */}
       {detailItem && (() => {
-        const stu = students.find((s) => s.id === detailItem.studentId);
-        const tea = teachers.find((t) => t.id === detailItem.teacherId);
+        const stu = scopedStudents.find((s) => s.id === detailItem.studentId);
+        const tea = scopedTeachers.find((t) => t.id === detailItem.teacherId);
         const cfg = STATUS_CONFIG[detailItem.status];
         const StatusIcon = cfg.icon;
         return (
