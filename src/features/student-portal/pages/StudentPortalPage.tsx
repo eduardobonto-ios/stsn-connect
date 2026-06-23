@@ -49,6 +49,7 @@ import {
   type MockPaymentTerm,
 } from "../../../services/mockAssessmentService";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { Requirement, Student } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
@@ -63,6 +64,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     enrollments,
     requirements,
     currentUser,
+    activeSchool,
     academicUnit,
     announcements,
     learningMaterials,
@@ -85,6 +87,43 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   // entry point browse records read/edit; students see their own self-service portal.
   const isRecordsView = currentUser?.role !== "STUDENT";
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        assessments,
+        payments,
+        subjects,
+        enrollments,
+        requirements,
+        learningMaterials,
+        classSchedules,
+      }),
+    [
+      currentUser,
+      activeSchool,
+      academicUnit,
+      students,
+      assessments,
+      payments,
+      subjects,
+      enrollments,
+      requirements,
+      learningMaterials,
+      classSchedules,
+    ],
+  );
+  const scopedStudents = scopedData.students;
+  const scopedAssessments = scopedData.assessments ?? [];
+  const scopedPayments = scopedData.payments ?? [];
+  const scopedSubjects = scopedData.subjects ?? [];
+  const scopedEnrollments = scopedData.enrollments ?? [];
+  const scopedRequirements = scopedData.requirements ?? [];
+  const scopedLearningMaterials = scopedData.learningMaterials ?? [];
+  const scopedClassSchedules = scopedData.classSchedules ?? [];
 
   const activeTab = subPage as PortalTab;
   const [isCorModalOpen, setIsCorModalOpen] = useState(false);
@@ -93,7 +132,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   // Online Learning state (must be at top level — hooks rule)
   const [lmsSearch, setLmsSearch] = useState("");
   const [lmsType, setLmsType] = useState<"All" | "Video" | "Module" | "Document">("All");
-  const [viewingLms, setViewingLms] = useState<typeof learningMaterials[0] | null>(null);
+  const [viewingLms, setViewingLms] = useState<typeof scopedLearningMaterials[0] | null>(null);
 
   // Enrollment module state
   const [enrollmentOpen] = useState(true); // toggle to false to show closed state
@@ -103,8 +142,8 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   // Records view: Registrar/staff browse any student in the active school's
   // academic unit. Self-service view: student sees their own record only.
   const recordsViewStudents = useMemo(
-    () => students.filter((s) => s.department === academicUnitToDepartment(academicUnit)),
-    [students, academicUnit]
+    () => scopedStudents.filter((s) => s.department === academicUnitToDepartment(academicUnit)),
+    [scopedStudents, academicUnit]
   );
   const [recordsViewStudentId, setRecordsViewStudentId] = useState<string>(initialStudentId ?? "");
   const [studentSearchInput, setStudentSearchInput] = useState("");
@@ -113,7 +152,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   React.useEffect(() => {
     if (!initialStudentId) return;
     setRecordsViewStudentId(initialStudentId);
-    const s = students.find((st) => st.id === initialStudentId);
+    const s = scopedStudents.find((st) => st.id === initialStudentId);
     if (s) setStudentSearchInput(`${s.lastName}, ${s.firstName} — ${s.studentNo}`);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialStudentId]);
@@ -127,8 +166,8 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   };
 
   const student = isRecordsView
-    ? students.find((s) => s.id === recordsViewStudentId) || recordsViewStudents[0] || students[0]
-    : students.find((s) => s.email === currentUser?.email) || students[0];
+    ? scopedStudents.find((s) => s.id === recordsViewStudentId) || recordsViewStudents[0] || scopedStudents[0]
+    : scopedStudents.find((s) => s.email === currentUser?.email) || scopedStudents[0];
 
   const [firstName, setFirstName] = useState(student?.firstName || "");
   const [lastName, setLastName] = useState(student?.lastName || "");
@@ -198,8 +237,8 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     [student.department, student.yearLevel, student.trackOrCourse, selectedDiscount.percentage, selectedPaymentTerm, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments]
   );
 
-  const assessment = assessments.find((a) => a.studentId === student.id);
-  const studentReqs = requirements.filter((r) => r.studentId === student.id);
+  const assessment = scopedAssessments.find((a) => a.studentId === student.id);
+  const studentReqs = scopedRequirements.filter((r) => r.studentId === student.id);
   const studentGrades = grades.filter((g) => g.studentId === student.id);
   const hasOutstandingBalance = assessment ? (assessment.balance > 0 && !overrideSettleBalance) : false;
   const isBasicEd = student.department === "Basic Education";
@@ -236,16 +275,16 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
       schedule = generatePaymentSchedule(assessment.totalAmount, assessment.paymentTerm as MockPaymentTerm, schoolYear)
         .map((s) => ({ label: s.dueLabel, amount: s.amount, due: s.dueDate }));
     }
-    const paidToDate = payments.filter((p) => p.studentId === student.id).reduce((sum, p) => sum + p.amount, 0);
+    const paidToDate = scopedPayments.filter((p) => p.studentId === student.id).reduce((sum, p) => sum + p.amount, 0);
     let cumulative = 0;
     return schedule.map((s) => {
       cumulative += s.amount;
       return { ...s, paid: overrideSettleBalance || cumulative <= paidToDate };
     });
-  }, [assessment, payments, student.id, overrideSettleBalance]);
+  }, [assessment, scopedPayments, student.id, overrideSettleBalance]);
 
-  const currentEnrollment = enrollments.find((e) => e.studentId === student.id && e.status === "Enrolled");
-  const loadedSubjects = subjects.filter((sub) => {
+  const currentEnrollment = scopedEnrollments.find((e) => e.studentId === student.id && e.status === "Enrolled");
+  const loadedSubjects = scopedSubjects.filter((sub) => {
     if (currentEnrollment) return currentEnrollment.subjectCodes.includes(sub.code);
     return sub.department === student.department && sub.trackOrCourse === student.trackOrCourse;
   });
@@ -489,7 +528,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {loadedSubjects.map((sub) => {
-                  const sched = classSchedules.find((cs) => cs.subjectCode === sub.code && cs.isActive);
+                  const sched = scopedClassSchedules.find((cs) => cs.subjectCode === sub.code && cs.isActive);
                   return (
                     <div key={sub.id} className="p-4 bg-stone-50 border border-stone-200/60 rounded-xl flex justify-between items-center hover:bg-stone-100/50 transition smooth-hover">
                       <div>
@@ -766,7 +805,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
             </div>
             <div className="text-right">
               <p className="text-2xl font-display font-black text-stsn-gold">
-                {learningMaterials.filter((m) => m.publishStatus === "Published").length}
+                {scopedLearningMaterials.filter((m) => m.publishStatus === "Published").length}
               </p>
               <p className="text-[10px] font-mono text-stone-300">Available Lessons</p>
             </div>
@@ -803,7 +842,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
 
           {/* Materials Grid — show ALL published for demo */}
           {(() => {
-            const allPublished = learningMaterials.filter((m) => {
+            const allPublished = scopedLearningMaterials.filter((m) => {
               if (m.publishStatus !== "Published") return false;
               const q = lmsSearch.toLowerCase();
               const matchSearch = !q || m.title.toLowerCase().includes(q) || m.subjectName.toLowerCase().includes(q) || m.teacherName.toLowerCase().includes(q);
@@ -973,7 +1012,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 font-medium text-stone-600">
-                  {payments.filter((p) => p.studentId === student.id).map((pay) => (
+                  {scopedPayments.filter((p) => p.studentId === student.id).map((pay) => (
                     <tr key={pay.id} className="hover:bg-stone-50/50">
                       <td className="p-3 font-mono font-bold text-[#6D4C41]">{pay.orNumber}</td>
                       <td className="p-3">{pay.paymentDate}</td>

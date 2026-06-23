@@ -9,6 +9,7 @@ import {
   Heart, AlertCircle, CheckCircle, Clock, Download, Filter,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
+import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
@@ -102,7 +103,7 @@ const DEFAULT_VISIT_FORM = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ClinicModule() {
-  const { students, currentUser } = useSTSNStore();
+  const { students, currentUser, activeSchool, academicUnit } = useSTSNStore();
   const { toast, confirm } = useAppDialog();
 
   const [activeTab, setActiveTab] = useState<"visits" | "history" | "profiles">("visits");
@@ -129,26 +130,39 @@ export default function ClinicModule() {
     });
   }, []);
 
+  const scopedStudents = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students }).students,
+    [currentUser, activeSchool, academicUnit, students],
+  );
+  const scopedVisits = useMemo(
+    () => filterStudentLinkedRecords(visits, scopedStudents),
+    [visits, scopedStudents],
+  );
+  const scopedProfiles = useMemo(
+    () => filterStudentLinkedRecords(profiles, scopedStudents),
+    [profiles, scopedStudents],
+  );
+
   const today = new Date().toISOString().split("T")[0];
 
-  const todaysVisits = useMemo(() => visits.filter((v) => v.visitDate === today), [visits, today]);
+  const todaysVisits = useMemo(() => scopedVisits.filter((v) => v.visitDate === today), [scopedVisits, today]);
 
   const filteredVisits = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return visits.filter((v) => {
-      const stu = students.find((s) => s.id === v.studentId);
+    return scopedVisits.filter((v) => {
+      const stu = scopedStudents.find((s) => s.id === v.studentId);
       const name = stu ? `${stu.firstName} ${stu.lastName}`.toLowerCase() : "";
       const matchSearch = !q || name.includes(q) || v.chiefComplaint.toLowerCase().includes(q);
       const matchDisp = filterDisposition === "All" || v.disposition === filterDisposition;
       return matchSearch && matchDisp;
     });
-  }, [visits, students, searchQuery, filterDisposition]);
+  }, [scopedVisits, scopedStudents, searchQuery, filterDisposition]);
 
   const kpis = [
-    { label: "Total Visits (All Time)", value: visits.length, icon: Stethoscope, color: "text-stsn-brown", bg: "bg-amber-50 border-amber-200" },
+    { label: "Total Visits (All Time)", value: scopedVisits.length, icon: Stethoscope, color: "text-stsn-brown", bg: "bg-amber-50 border-amber-200" },
     { label: "Today's Visits", value: todaysVisits.length, icon: Calendar, color: "text-teal-700", bg: "bg-teal-50 border-teal-200" },
-    { label: "Sent Home / Referred", value: visits.filter((v) => v.disposition === "Sent Home" || v.disposition === "Referred to Hospital").length, icon: AlertCircle, color: "text-red-700", bg: "bg-red-50 border-red-200" },
-    { label: "Health Profiles", value: profiles.length, icon: Heart, color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
+    { label: "Sent Home / Referred", value: scopedVisits.filter((v) => v.disposition === "Sent Home" || v.disposition === "Referred to Hospital").length, icon: AlertCircle, color: "text-red-700", bg: "bg-red-50 border-red-200" },
+    { label: "Health Profiles", value: scopedProfiles.length, icon: Heart, color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
   ];
 
   const visitColumns: STSNColumn<ClinicVisit & { studentName: string }>[] = [
@@ -172,7 +186,7 @@ export default function ClinicModule() {
   ];
 
   const visitRows = filteredVisits.map((v) => {
-    const stu = students.find((s) => s.id === v.studentId);
+    const stu = scopedStudents.find((s) => s.id === v.studentId);
     return { ...v, studentName: stu ? `${stu.lastName}, ${stu.firstName}` : "Unknown" };
   });
 
@@ -293,7 +307,7 @@ export default function ClinicModule() {
               ) : (
                 <div className="space-y-3">
                   {todaysVisits.map((v) => {
-                    const stu = students.find((s) => s.id === v.studentId);
+                    const stu = scopedStudents.find((s) => s.id === v.studentId);
                     const cfg = DISPOSITION_CONFIG[v.disposition];
                     return (
                       <div key={v.id} className="flex items-start justify-between p-3 bg-stone-50 border border-stone-200 rounded-xl gap-3">
@@ -357,15 +371,15 @@ export default function ClinicModule() {
           {activeTab === "profiles" && (
             <div className="space-y-4">
               <p className="text-xs text-stone-500">Student health profiles with blood type, allergies, chronic conditions, and emergency contacts.</p>
-              {profiles.length === 0 ? (
+              {scopedProfiles.length === 0 ? (
                 <div className="text-center py-12">
                   <Heart className="w-10 h-10 text-stone-200 mx-auto mb-3" />
                   <p className="text-sm font-bold text-stone-600">No health profiles on record.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {profiles.map((p) => {
-                    const stu = students.find((s) => s.id === p.studentId);
+                  {scopedProfiles.map((p) => {
+                    const stu = scopedStudents.find((s) => s.id === p.studentId);
                     return (
                       <div key={p.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-2">
                         <div className="flex items-center gap-2">
@@ -420,7 +434,7 @@ export default function ClinicModule() {
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Student <span className="text-red-500">*</span></label>
                   <select value={form.studentId} onChange={(e) => setForm((p) => ({ ...p, studentId: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none">
                     <option value="">— Select student —</option>
-                    {students.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
+                    {scopedStudents.map((s) => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName} ({s.studentNo})</option>)}
                   </select>
                 </div>
                 <div>
@@ -472,7 +486,7 @@ export default function ClinicModule() {
 
       {/* DETAIL MODAL */}
       {detailVisit && (() => {
-        const stu = students.find((s) => s.id === detailVisit.studentId);
+        const stu = scopedStudents.find((s) => s.id === detailVisit.studentId);
         const cfg = DISPOSITION_CONFIG[detailVisit.disposition];
         return (
           <div className="app-modal-backdrop z-50">

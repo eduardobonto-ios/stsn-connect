@@ -9,6 +9,7 @@ import { useSTSNStore } from "../../../services/store";
 import { SchoolSection, Student, Teacher } from "../../../types";
 import type { AcademicUnit } from "../../../types/school.types";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import {
   Layers, Plus, Edit2, Trash2, Search, X, CheckCircle, Users,
@@ -412,8 +413,15 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
 // MAIN CLASS SECTIONING MODULE
 // ============================================================
 export default function ClassSectioningModule() {
-  const { sections, teachers, students, activeSchool, academicUnit, addSection, updateSection, deleteSection, toggleSectionActive } = useSTSNStore();
+  const { sections, teachers, students, currentUser, activeSchool, academicUnit, addSection, updateSection, deleteSection, toggleSectionActive } = useSTSNStore();
   const { confirm } = useAppDialog();
+  const scopedData = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students, teachers, sections }),
+    [currentUser, activeSchool, academicUnit, students, teachers, sections],
+  );
+  const scopedStudents = scopedData.students;
+  const scopedTeachers = scopedData.teachers ?? [];
+  const scopedSections = scopedData.sections ?? [];
 
   // Single source of truth for Basic-Ed vs College terminology.
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
@@ -431,19 +439,19 @@ export default function ClassSectioningModule() {
   const [viewStudentsSection, setViewStudentsSection] = useState<SchoolSection | null>(null);
 
   const yearLevelOptions = useMemo(() => {
-    const all = [...new Set(sections.map((s) => s.yearLevel))].sort();
+    const all = [...new Set(scopedSections.map((s) => s.yearLevel))].sort();
     return ["All", ...all];
-  }, [sections]);
+  }, [scopedSections]);
 
   const filtered = useMemo(() => {
-    return sections.filter((s) => {
+    return scopedSections.filter((s) => {
       const q = searchQ.toLowerCase();
       const matchSearch = s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || (s.adviserName || "").toLowerCase().includes(q);
-      const matchDept = s.department === "Basic Education";
+      const matchDept = filterDept === "All" || s.department === filterDept;
       const matchYear = filterYear === "All" || s.yearLevel === filterYear;
       return matchSearch && matchDept && matchYear;
     });
-  }, [sections, searchQ, filterDept, filterYear]);
+  }, [scopedSections, searchQ, filterDept, filterYear]);
 
   const handleSave = (data: Omit<SchoolSection, "id" | "createdAt">) => {
     if (editingSection) {
@@ -492,7 +500,7 @@ export default function ClassSectioningModule() {
       title: "Enrolled / Cap",
       data: "currentCount",
       render: (_value, sec) => {
-        const rosterCount = getSectionRoster(sec, students).length;
+        const rosterCount = getSectionRoster(sec, scopedStudents).length;
         const fillPct = Math.round((rosterCount / sec.capacity) * 100);
         return (
           <div className="flex items-center gap-2">
@@ -544,10 +552,10 @@ export default function ClassSectioningModule() {
   ];
 
   // Stats
-  const totalActive = sections.filter((s) => s.isActive).length;
-  const totalCapacity = sections.reduce((sum, s) => sum + s.capacity, 0);
-  const totalEnrolled = sections.reduce((sum, s) => sum + getSectionRoster(s, students).length, 0);
-  const beCount = sections.filter((s) => s.department === "Basic Education").length;
+  const totalActive = scopedSections.filter((s) => s.isActive).length;
+  const totalCapacity = scopedSections.reduce((sum, s) => sum + s.capacity, 0);
+  const totalEnrolled = scopedSections.reduce((sum, s) => sum + getSectionRoster(s, scopedStudents).length, 0);
+  const beCount = scopedSections.filter((s) => s.department === "Basic Education").length;
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
@@ -626,7 +634,7 @@ export default function ClassSectioningModule() {
           initial={editingSection}
           onSave={handleSave}
           onClose={() => { setIsFormOpen(false); setEditingSection(null); }}
-          teachers={teachers}
+          teachers={scopedTeachers}
           lockedDept={editingSection ? undefined : lockedDept}
         />
       )}
@@ -638,7 +646,7 @@ export default function ClassSectioningModule() {
           sectionName={addStudentsModal.name}
           sectionYearLevel={addStudentsModal.yearLevel}
           sectionDept={addStudentsModal.department}
-          alreadyEnrolled={getSectionRoster(addStudentsModal, students).map((student) => student.id)}
+          alreadyEnrolled={getSectionRoster(addStudentsModal, scopedStudents).map((student) => student.id)}
           onClose={() => setAddStudentsModal(null)}
         />
       )}
@@ -646,7 +654,7 @@ export default function ClassSectioningModule() {
       {/* View Students Modal */}
       {viewStudentsSection && createPortal(
         (() => {
-          const enrolledStudents = getSectionRoster(viewStudentsSection, students);
+          const enrolledStudents = getSectionRoster(viewStudentsSection, scopedStudents);
 
           const handlePrint = () => {
             const sec = viewStudentsSection;

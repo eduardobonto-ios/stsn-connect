@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../services/store";
 import { supabase } from "../../../lib/supabase";
 import type { Teacher } from "../../../types";
 import GradingModule from "../../grading/pages/GradingModulePage";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import {
   Users,
   Eye,
@@ -32,20 +33,37 @@ function OverviewAdvisoryModal({
   teacher: Teacher;
   onClose: () => void;
 }) {
-  const { students, classSchedules, subjects, employees } = useSTSNStore();
+  const { students, classSchedules, subjects, employees, currentUser, activeSchool, academicUnit } = useSTSNStore();
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        classSchedules,
+        subjects,
+        employees,
+      }),
+    [currentUser, activeSchool, academicUnit, students, classSchedules, subjects, employees],
+  );
+  const scopedStudents = scopedData.students;
+  const scopedClassSchedules = scopedData.classSchedules ?? [];
+  const scopedSubjects = scopedData.subjects ?? [];
+  const scopedEmployees = scopedData.employees ?? [];
 
   const advisoryStudents = teacher.advisorySection
-    ? students.filter((s) => s.section === teacher.advisorySection)
+    ? scopedStudents.filter((s) => s.section === teacher.advisorySection)
     : [];
 
-  const teachingLoadUnits = classSchedules
+  const teachingLoadUnits = scopedClassSchedules
     .filter((cs) => cs.teacherId === teacher.id)
     .reduce((sum, cs) => {
-      const subject = subjects.find((s) => s.code === cs.subjectCode);
+      const subject = scopedSubjects.find((s) => s.code === cs.subjectCode);
       return sum + (subject?.units ?? 0);
     }, 0);
 
-  const accruedLeaveDays = employees.find(
+  const accruedLeaveDays = scopedEmployees.find(
     (e) => e.email === teacher.email
   )?.leaveBalance;
 
@@ -205,9 +223,22 @@ function SectionStudentsModal({
   teacher: Teacher;
   onClose: () => void;
 }) {
-  const { students, classSchedules } = useSTSNStore();
+  const { students, classSchedules, currentUser, activeSchool, academicUnit } = useSTSNStore();
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        classSchedules,
+      }),
+    [currentUser, activeSchool, academicUnit, students, classSchedules],
+  );
+  const scopedStudents = scopedData.students;
+  const scopedClassSchedules = scopedData.classSchedules ?? [];
 
-  const teacherSchedules = classSchedules.filter(
+  const teacherSchedules = scopedClassSchedules.filter(
     (cs) => cs.teacherId === teacher.id && cs.isActive
   );
   const uniqueSections = Array.from(
@@ -223,7 +254,7 @@ function SectionStudentsModal({
 
   const sectionStudents = uniqueSections.map((section) => ({
     section,
-    students: students.filter((s) => s.section === section),
+    students: scopedStudents.filter((s) => s.section === section),
   }));
 
   return (
@@ -341,10 +372,14 @@ function AttendanceModal({
   teacher: Teacher;
   onClose: () => void;
 }) {
-  const { students } = useSTSNStore();
+  const { students, currentUser, activeSchool, academicUnit } = useSTSNStore();
+  const scopedStudents = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students }).students,
+    [currentUser, activeSchool, academicUnit, students],
+  );
 
   const advisoryStudents = teacher.advisorySection
-    ? students.filter((s) => s.section === teacher.advisorySection)
+    ? scopedStudents.filter((s) => s.section === teacher.advisorySection)
     : [];
 
   const [attendanceData, setAttendanceData] = useState<
@@ -572,18 +607,18 @@ function GradesModal({
 type ModalType = "dashboard" | "schedule" | "attendance" | "grading";
 
 export default function FacultyAdminPage() {
-  const { teachers } = useSTSNStore();
+  const { teachers, students, currentUser, activeSchool, academicUnit } = useSTSNStore();
+  const scopedTeachers = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students, teachers }).teachers ?? [],
+    [currentUser, activeSchool, academicUnit, students, teachers],
+  );
   const [activeModal, setActiveModal] = useState<{
     teacher: Teacher;
     type: ModalType;
   } | null>(null);
   const [searchQ, setSearchQ] = useState("");
 
-  const basicEdTeachers = teachers.filter(
-    (t) => t.department === "Basic Education"
-  );
-
-  const filtered = basicEdTeachers.filter((t) => {
+  const filtered = scopedTeachers.filter((t) => {
     if (!searchQ) return true;
     const q = searchQ.toLowerCase();
     return (
@@ -670,7 +705,7 @@ export default function FacultyAdminPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-[9px] font-bold px-2 py-0.5 rounded border bg-stsn-cream text-stsn-brown border-stsn-beige">
-                        Basic Ed
+                        {teacher.department === "Basic Education" ? "Basic Ed" : "College"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-stone-600">

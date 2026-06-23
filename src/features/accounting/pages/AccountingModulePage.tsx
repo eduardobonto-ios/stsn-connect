@@ -119,7 +119,16 @@ const REQUEST_STATUS_FILTERS = ["All", "Pending L1 Review", "Pending L2 Review",
 // ACCOUNTING DASHBOARD TAB
 // ============================================================
 function AccountingDashboard() {
-  const { assessments, payments, students, discountTypes, discountRequests, financialHolds, paymentCollectionSummaries, promissoryNotes } = useSTSNStore();
+  const {
+    assessments,
+    payments,
+    students,
+    discountTypes,
+    discountRequests,
+    financialHolds,
+    paymentCollectionSummaries,
+    promissoryNotes,
+  } = useSTSNStore();
 
   const totalAssessed = useMemo(() => assessments.reduce((s, a) => s + a.totalAmount, 0), [assessments]);
   const totalCollected = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
@@ -386,7 +395,17 @@ const LEDGER_STATUS_STYLES: Record<LedgerRow["status"], string> = {
 type LedgerActionModal = "adjustment" | "discount" | "soa" | "print" | "no-receipt" | null;
 
 function StudentLedger() {
-  const { students, assessments, payments, discountTypes, currentUser, assessmentBillingSummaries, studentLedgerSummaries, paymentCollectionSummaries, setupData } = useSTSNStore();
+  const {
+    students,
+    assessments,
+    payments,
+    discountTypes,
+    currentUser,
+    assessmentBillingSummaries,
+    studentLedgerSummaries,
+    paymentCollectionSummaries,
+    setupData,
+  } = useSTSNStore();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
   const semesterOptions = setupData.semesters ?? [];
   const txTypeOptions = ["All", ...(setupData.transaction_types ?? []).map((t) => t.name)];
@@ -1782,7 +1801,15 @@ function buildPaymentSchedulePreview(assessment: StudentAssessment): { label: st
 }
 
 function AssessmentApproval() {
-  const { students, assessments, currentUser, approveAssessment, returnAssessmentToRegistrar, rejectAssessment, bookPackages } = useSTSNStore();
+  const {
+    students,
+    assessments,
+    currentUser,
+    approveAssessment,
+    returnAssessmentToRegistrar,
+    rejectAssessment,
+    bookPackages,
+  } = useSTSNStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -2182,7 +2209,11 @@ type AssessmentBillingRow = AssessmentBillingSummary & {
 };
 
 function AssessmentBilling() {
-  const { students, assessments, assessmentBillingSummaries } = useSTSNStore();
+  const {
+    students,
+    assessments,
+    assessmentBillingSummaries,
+  } = useSTSNStore();
 
   const rows = useMemo(() => assessmentBillingSummaries.map((b) => {
     const stud = students.find((s) => s.id === b.studentId);
@@ -2199,7 +2230,7 @@ function AssessmentBilling() {
       miscFees, labFees,
       units: unitsMatch ? `${unitsMatch[1]} Units` : "—",
     };
-  }), [students, assessments]);
+  }), [assessmentBillingSummaries, students, assessments]);
 
   const basicEdRows = rows.filter((r) => r.academicUnit === "basic-ed");
   const collegeRows = rows.filter((r) => r.academicUnit === "college");
