@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FileText, ShieldCheck } from "lucide-react";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { useSTSNStore } from "../../../services/store";
 import ReportExportButtons from "../components/ReportExportButtons";
 import ReportFilterPanel from "../components/ReportFilterPanel";
@@ -9,15 +10,33 @@ import { buildRegistrarFilterRows, REGISTRAR_REPORTS } from "../data/registrarRe
 import { DEFAULT_REPORT_FILTERS } from "../types";
 
 export default function RegistrarReportsPage() {
-  const { students, enrollments, requirements, sections } = useSTSNStore();
+  const { students, enrollments, requirements, sections, currentUser, activeSchool, academicUnit } = useSTSNStore();
   const [activeReportId, setActiveReportId] = useState(REGISTRAR_REPORTS[0].id);
   const [filters, setFilters] = useState(DEFAULT_REPORT_FILTERS);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const activeReport = REGISTRAR_REPORTS.find((report) => report.id === activeReportId) ?? REGISTRAR_REPORTS[0];
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        enrollments,
+        requirements,
+        sections,
+      }),
+    [currentUser, activeSchool, academicUnit, students, enrollments, requirements, sections],
+  );
   const context = useMemo(
-    () => ({ students, enrollments, requirements, sections }),
-    [students, enrollments, requirements, sections],
+    () => ({
+      students: scopedData.students,
+      enrollments: scopedData.enrollments ?? [],
+      requirements: scopedData.requirements ?? [],
+      sections: scopedData.sections ?? [],
+    }),
+    [scopedData],
   );
   const filterRows = useMemo(() => buildRegistrarFilterRows(context), [context]);
   const rows = useMemo(() => activeReport.buildRows(context, filters), [activeReport, context, filters]);

@@ -39,43 +39,64 @@ Best reports to add:
 
 ### Accounting Reports
 
-Recommended reports:
+Status: Completed
 
-- Statement of Account
-- Student Ledger
-- Outstanding Balance Report
-- Assessment Summary
-- Discount / Scholarship Report
-- AR Aging
-- AP Aging
-- Trial Balance
-- Balance Sheet
-- Income Statement
-- Cash Flow Report
+Existing Accounting reporting coverage:
+
+- [x] Statement of Account
+- [x] Student Ledger
+- [x] Outstanding Balance Report
+- [x] Assessment Summary
+- [x] Discount / Scholarship Report
+- [x] AR Aging
+- [x] AP Aging
+- [x] Trial Balance
+- [x] Balance Sheet
+- [x] Income Statement
+- [x] Cash Flow Report
+
+Completion note:
+
+- Accounting report coverage is already in place through the Accounting module's existing dashboard, student ledger, billing and assessment, discounts, AR/AP aging, and financial statement pages.
+- Accounting sidebar categorization has been updated to group the existing pages under Overview, Student Accounts, Accounting Setup, General Ledger, Accounts Receivable, Accounts Payable, and Financial Reports.
 
 ### Cashier Reports
 
-Recommended reports:
+Status: Completed
 
-- Daily Collection Report
-- OR Register / Receipt List
-- Payment History Report
-- Collection by Payment Method
-- Collection by Cashier
-- Cancelled / Voided Receipt Report
-- Student Payment Summary
-- End-of-Day Cashier Summary
+Implemented reports:
+
+- [x] Daily Collection Report
+- [x] OR Register / Receipt List
+- [x] Payment History Report
+- [x] Collection by Payment Method
+- [x] Collection by Cashier
+- [x] Cancelled / Voided Receipt Report
+- [x] Student Payment Summary
+- [x] End-of-Day Cashier Summary
+
+Completion note:
+
+- Cashier Reports are now available inside the existing Cashiering module as a Reports tab with report type selection, date filters, table preview, print, CSV, Excel, and PDF export actions.
+- The Cancelled / Voided Receipt Report is available, but it will show no rows until payment records store cancelled or voided receipt status.
 
 ### Faculty / Teacher Reports
 
-Recommended reports:
+Status: Completed
 
-- Class List
-- Advisory Class List
-- Grade Sheet
-- Attendance Summary
-- Failed / Incomplete Grades
-- Subject Load Report
+Implemented reports:
+
+- [x] Class List
+- [x] Advisory Class List
+- [x] Grade Sheet
+- [x] Attendance Summary
+- [x] Failed / Incomplete Grades
+- [x] Subject Load Report
+
+Completion note:
+
+- Faculty / Teacher Reports are now available inside the existing Teacher Board as a Reports tab with report type selection, table preview, print, CSV, Excel, and PDF export actions.
+- Reports use the current teacher's scoped class schedules, advisory section, student roster, attendance snapshot, and encoded grades.
 
 ### Guidance Reports
 

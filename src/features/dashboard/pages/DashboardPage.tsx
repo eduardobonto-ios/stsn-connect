@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 
 // ============================================================
 // ENROLLMENT ANALYTICS SUB-PAGE
@@ -43,7 +44,7 @@ function EnrollmentAnalyticsPage({
   initialSchool: AnalyticsSchool;
   onBack: () => void;
 }) {
-  const { students, setupData, courses } = useSTSNStore();
+  const { students, setupData, courses, currentUser, activeSchool, academicUnit } = useSTSNStore();
   const [school, setSchool] = useState<AnalyticsSchool>(initialSchool);
   const [filterYearLevel, setFilterYearLevel] = useState("All");
   const [filterCourse, setFilterCourse] = useState("All");
@@ -51,14 +52,18 @@ function EnrollmentAnalyticsPage({
   const [searchQuery, setSearchQuery] = useState("");
 
   const dept = school === "BASIC_ED" ? "Basic Education" : "College";
+  const scopedStudents = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students }).students,
+    [currentUser, activeSchool, academicUnit, students],
+  );
 
   const BE_YEAR_LEVELS = ["All", ...(setupData.year_levels ?? []).filter((yl) => yl.academicLevel !== "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name)];
   const COLLEGE_COURSES = ["All", ...courses.filter((c) => c.department === "College").map((c) => c.code)];
   const COLLEGE_YEAR_LEVELS = ["All", ...(setupData.year_levels ?? []).filter((yl) => yl.academicLevel === "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name)];
 
   const deptStudents = useMemo(
-    () => students.filter((s) => s.department === dept),
-    [students, dept]
+    () => scopedStudents.filter((s) => s.department === dept),
+    [scopedStudents, dept]
   );
 
   const availableSections = useMemo(() => {
@@ -433,6 +438,7 @@ export default function Dashboard({
     announcements,
     events,
     currentUser,
+    activeSchool,
     academicUnit,
     sections,
     requirements,
@@ -456,10 +462,29 @@ export default function Dashboard({
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
   const isBasicEdUnit = academicUnit === "basic-ed";
   const contextDept = useMemo(() => academicUnitToDepartment(academicUnit), [academicUnit]);
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        enrollments,
+        requirements,
+        assessments,
+        sections,
+      }),
+    [currentUser, activeSchool, academicUnit, students, enrollments, requirements, assessments, sections],
+  );
+  const scopedStudents = scopedData.students;
+  const scopedEnrollments = scopedData.enrollments ?? [];
+  const scopedRequirements = scopedData.requirements ?? [];
+  const scopedAssessments = scopedData.assessments ?? [];
+  const scopedSections = scopedData.sections ?? [];
 
   const contextStudents = useMemo(
-    () => students.filter((s) => s.department === contextDept),
-    [students, contextDept]
+    () => scopedStudents.filter((s) => s.department === contextDept),
+    [scopedStudents, contextDept]
   );
 
   // Enterprise Registrar KPIs — context-aware per Basic Ed vs College.
@@ -467,17 +492,17 @@ export default function Dashboard({
     const contextStudentIds = new Set(contextStudents.map((s) => s.id));
 
     const docRequirementName = isBasicEdUnit ? "Form 137 / SF9" : "Transcript of Records (TOR)";
-    const pendingDocs = requirements.filter(
+    const pendingDocs = scopedRequirements.filter(
       (r) =>
         contextStudentIds.has(r.studentId) &&
         r.name === docRequirementName &&
         r.verificationStatus !== "Verified"
     ).length;
 
-    const contextSections = sections.filter((s) => s.department === contextDept && s.isActive);
+    const contextSections = scopedSections.filter((s) => s.department === contextDept && s.isActive);
     const sectionsWithoutLeader = contextSections.filter((s) => !s.adviserId).length;
 
-    const outstandingBalances = assessments.filter(
+    const outstandingBalances = scopedAssessments.filter(
       (a) => contextStudentIds.has(a.studentId) && a.balance > 0
     ).length;
 
@@ -487,11 +512,11 @@ export default function Dashboard({
       sectionsWithoutLeader,
       outstandingBalances
     };
-  }, [contextStudents, requirements, sections, assessments, contextDept, isBasicEdUnit]);
+  }, [contextStudents, scopedRequirements, scopedSections, scopedAssessments, contextDept, isBasicEdUnit]);
 
   const totalEnrolled = useMemo(
-    () => students.filter((s) => s.enrollmentStatus === "Enrolled").length,
-    [students]
+    () => scopedStudents.filter((s) => s.enrollmentStatus === "Enrolled").length,
+    [scopedStudents]
   );
   const totalFaculty = teachers.length;
   const totalPayments = useMemo(
@@ -499,17 +524,17 @@ export default function Dashboard({
     [payments]
   );
   const pendingEnrollments = useMemo(
-    () => enrollments.filter((e) => e.status === "Pending").length,
-    [enrollments]
+    () => scopedEnrollments.filter((e) => e.status === "Pending").length,
+    [scopedEnrollments]
   );
 
   // Enrollment status breakdown — must be BEFORE any conditional return
   const statusBreakdown = useMemo(() => {
-    const enrolled = students.filter((s) => s.enrollmentStatus === "Enrolled").length;
-    const pending = students.filter((s) => s.enrollmentStatus === "Pending").length;
-    const approved = students.filter((s) => s.enrollmentStatus === "Approved").length;
-    const rejected = students.filter((s) => s.enrollmentStatus === "Rejected").length;
-    const total = students.length || 1;
+    const enrolled = scopedStudents.filter((s) => s.enrollmentStatus === "Enrolled").length;
+    const pending = scopedStudents.filter((s) => s.enrollmentStatus === "Pending").length;
+    const approved = scopedStudents.filter((s) => s.enrollmentStatus === "Approved").length;
+    const rejected = scopedStudents.filter((s) => s.enrollmentStatus === "Rejected").length;
+    const total = scopedStudents.length || 1;
     return [
       {
         label: "Enrolled",
@@ -552,13 +577,13 @@ export default function Dashboard({
         icon: XCircle
       }
     ];
-  }, [students]);
+  }, [scopedStudents]);
 
   // Students matching the status card currently open in the modal
   const modalStudents = useMemo(() => {
     if (!statusModal) return [];
-    return students.filter((s) => s.enrollmentStatus === statusModal);
-  }, [statusModal, students]);
+    return scopedStudents.filter((s) => s.enrollmentStatus === statusModal);
+  }, [statusModal, scopedStudents]);
 
   type ModalRow = {
     id: string;
@@ -573,8 +598,8 @@ export default function Dashboard({
 
   const modalTableRows = useMemo<ModalRow[]>(() => {
     return modalStudents.map((s) => {
-      const assessment = assessments.find((a) => a.studentId === s.id);
-      const enrollment = enrollments.find((e) => e.studentId === s.id);
+      const assessment = scopedAssessments.find((a) => a.studentId === s.id);
+      const enrollment = scopedEnrollments.find((e) => e.studentId === s.id);
       return {
         id: s.id,
         studentNo: s.studentNo,
@@ -586,7 +611,7 @@ export default function Dashboard({
         schoolYear: enrollment?.schoolYear || "2026-2027",
       };
     });
-  }, [modalStudents, assessments, enrollments]);
+  }, [modalStudents, scopedAssessments, scopedEnrollments]);
 
   const modalColumns: STSNColumn<ModalRow>[] = [
     {

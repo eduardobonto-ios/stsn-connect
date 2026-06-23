@@ -92,6 +92,15 @@ export interface Employee {
   contact?: string;
   address?: string;
   emergencyContact?: string;
+  // Phase 2 — lifecycle fields (migration 0020)
+  employeeNo?: string;
+  userId?: string;
+  employmentStatus?: string;
+  hireDate?: string;
+  regularizationDate?: string;
+  separationDate?: string;
+  separationReason?: string;
+  supervisorId?: string;
 }
 
 export interface Course {
@@ -542,4 +551,288 @@ export interface LearningMaterial {
   yearLevel?: string;
   trackOrCourse?: string;
   tags?: string[];
+}
+
+// ============================================================
+// HR MODULE — Phase 2: Employee Life Cycle
+// ============================================================
+export interface EmployeeLifecycleEvent {
+  id: string;
+  employeeId: string;
+  eventType: string;
+  fromStatus?: string;
+  toStatus?: string;
+  effectiveDate: string;
+  remarks?: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+// ============================================================
+// HR MODULE — Phase 3: Shift, Time, Attendance, Leave
+// ============================================================
+export interface ShiftTemplate {
+  id: string;
+  schoolId?: SchoolId;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  isOvernight: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface EmployeeShiftAssignment {
+  id: string;
+  employeeId: string;
+  shiftTemplateId: string;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  restDays: string[];
+  createdAt: string;
+}
+
+export interface EmployeeTimeLog {
+  id: string;
+  employeeId: string;
+  logDate: string;
+  timeIn?: string;
+  timeOut?: string;
+  source: "Biometric" | "Manual" | "System";
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface EmployeeAttendance {
+  id: string;
+  employeeId: string;
+  attendanceDate: string;
+  timeIn?: string;
+  timeOut?: string;
+  status: "Present" | "Late" | "Undertime" | "Absent" | "On Leave" | "Official Business" | "Holiday" | "Rest Day" | "Half Day";
+  lateMinutes: number;
+  undertimeMinutes: number;
+  overtimeMinutes: number;
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface LeaveType {
+  id: string;
+  code: string;
+  name: string;
+  isPaid: boolean;
+  defaultCredits: number;
+  maxDaysPerRequest?: number;
+  requiresApproval: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason?: string;
+  status: "Draft" | "Submitted" | "For Approval" | "Approved" | "Rejected" | "Cancelled";
+  approvedBy?: string;
+  approvedAt?: string;
+  remarks?: string;
+  createdAt: string;
+}
+
+// ============================================================
+// HR MODULE — Phase 4: Payroll, Payouts, Taxes, Benefits
+// ============================================================
+export interface PayrollPeriod {
+  id: string;
+  schoolId?: SchoolId;
+  periodCode: string;
+  label?: string;
+  startDate: string;
+  endDate: string;
+  payoutDate?: string;
+  status: "Open" | "Locked" | "Closed";
+  createdAt: string;
+}
+
+export interface PayrollRun {
+  id: string;
+  schoolId?: SchoolId;
+  payrollPeriodId: string;
+  runNo: string;
+  status: "Draft" | "Computed" | "For Review" | "Approved" | "Released" | "Cancelled";
+  computedBy?: string;
+  approvedBy?: string;
+  computedAt?: string;
+  approvedAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface PayrollLine {
+  id: string;
+  payrollRunId: string;
+  employeeId: string;
+  basicPay: number;
+  allowances: number;
+  overtimePay: number;
+  lateDeduction: number;
+  undertimeDeduction: number;
+  absenceDeduction: number;
+  sssDeduction: number;
+  philhealthDeduction: number;
+  pagibigDeduction: number;
+  withholdingTax: number;
+  otherDeductions: number;
+  otherAllowances: number;
+  grossPay: number;
+  netPay: number;
+  status: "Computed" | "For Review" | "Approved" | "Released" | "Cancelled";
+  createdAt: string;
+}
+
+export interface SalaryPayoutBatch {
+  id: string;
+  payrollRunId: string;
+  payoutNo: string;
+  payoutMethod: "Bank Transfer" | "Cash" | "Check";
+  status: "Pending" | "Queued" | "Released" | "Failed" | "Cancelled";
+  releasedBy?: string;
+  releasedAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface SalaryPayoutLine {
+  id: string;
+  payoutBatchId: string;
+  payrollLineId: string;
+  employeeId: string;
+  amount: number;
+  referenceNo?: string;
+  status: "Pending" | "Released" | "Failed" | "Cancelled";
+  releasedAt?: string;
+  createdAt: string;
+}
+
+export interface BenefitPlan {
+  id: string;
+  code: string;
+  name: string;
+  category: "Statutory" | "Company Benefit" | "Allowance" | "Deduction";
+  employeeShareType: "Fixed" | "Percentage" | "Configured";
+  employeeShareValue: number;
+  employerShareType: "Fixed" | "Percentage" | "Configured";
+  employerShareValue: number;
+  isTaxable: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface TaxTable {
+  id: string;
+  effectiveYear: number;
+  name: string;
+  frequency: "Monthly" | "Semi-Monthly" | "Annual";
+  isActive: boolean;
+  createdAt: string;
+  brackets?: TaxBracket[];
+}
+
+export interface TaxBracket {
+  id: string;
+  taxTableId: string;
+  incomeFrom: number;
+  incomeTo?: number;
+  baseTax: number;
+  rateAbove: number;
+  createdAt: string;
+}
+
+// ---- HR Phase 5: Recruitment & Onboarding ----
+
+export interface JobRequisition {
+  id: string;
+  schoolId?: string;
+  requisitionNo: string;
+  positionTitle: string;
+  department: string;
+  employmentType: "Full-Time" | "Part-Time" | "Contractual";
+  headCount: number;
+  reason?: string;
+  targetStartDate?: string;
+  status: "Draft" | "Approved" | "Posted" | "Screening" | "Interview" | "Offered" | "Closed" | "Cancelled";
+  requestedBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  createdAt: string;
+}
+
+export interface JobApplicant {
+  id: string;
+  jobRequisitionId?: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  email?: string;
+  contact?: string;
+  address?: string;
+  resumeUrl?: string;
+  appliedAt: string;
+  status: "For Screening" | "For Interview" | "For Assessment" | "Offered" | "Hired" | "Rejected" | "Withdrew";
+  hiredEmployeeId?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface ApplicantInterview {
+  id: string;
+  applicantId: string;
+  scheduledAt: string;
+  interviewType: "Initial" | "Technical" | "Final" | "HR" | "Panel";
+  interviewer?: string;
+  result?: "Passed" | "Failed" | "No Show" | "Pending";
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface OnboardingTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface OnboardingTask {
+  id: string;
+  templateId: string;
+  taskName: string;
+  description?: string;
+  responsibleParty?: string;
+  dueDayOffset: number;
+  isRequired: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface EmployeeOnboardingTask {
+  id: string;
+  employeeId: string;
+  onboardingTaskId: string;
+  dueDate?: string;
+  status: "Pending" | "In Progress" | "Completed" | "Skipped" | "Overdue";
+  completedAt?: string;
+  completedBy?: string;
+  notes?: string;
+  createdAt: string;
 }
