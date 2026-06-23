@@ -54,6 +54,7 @@ import STSNDataTable, {
   type STSNColumn,
 } from "../../../components/common/STSNDataTable";
 import { useAppDialog } from "../../../components/common/useAppDialog";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import {
   computeMockAssessment,
   generatePaymentSchedule,
@@ -292,9 +293,8 @@ export default function RegistrarModule() {
   const [documentZoom, setDocumentZoom] = useState(1);
 
   const contextStudents = useMemo(() => {
-    const deptFilter = academicUnitToDepartment(academicUnit);
-    return students.filter((s) => s.department === deptFilter);
-  }, [students, academicUnit]);
+    return getAcademicScopedData({ currentUser, activeSchool, academicUnit, students }).students;
+  }, [students, currentUser, activeSchool, academicUnit]);
 
   const filteredStudents = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -400,11 +400,12 @@ export default function RegistrarModule() {
   // Assigned Grade/Year Level book package — Basic Education only, full package only (no per-title selection)
   const bookPackageResolution = useMemo(() => {
     if (schoolContext !== "BASIC_ED" || !selectedStudent) return {};
+    const packageSchool = activeSchool === "ALL" ? selectedStudent.schoolId ?? "STSN" : activeSchool;
     return getBookPackageByGradeLevel(
       bookPackages,
       selectedStudent.yearLevel,
       "2026-2027",
-      activeSchool,
+      packageSchool,
     );
   }, [schoolContext, selectedStudent, activeSchool]);
   const bookPackage = bookPackageResolution.package;

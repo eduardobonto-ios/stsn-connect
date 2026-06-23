@@ -8,6 +8,7 @@ import { useSTSNStore } from "../../../services/store";
 import { ClassSchedule } from "../../../types";
 import type { AcademicUnit } from "../../../types/school.types";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import {
   CalendarDays, Plus, Edit2, Trash2, Search, Filter, X, AlertTriangle,
@@ -70,8 +71,28 @@ interface ScheduleFormProps {
 }
 
 function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
-  const { subjects, teachers, sections, rooms, classSchedules, setupData, assignSectionAdviser } = useSTSNStore();
+  const { subjects, teachers, sections, rooms, classSchedules, students, currentUser, activeSchool, academicUnit, setupData, assignSectionAdviser } = useSTSNStore();
   const { toast, confirm } = useAppDialog();
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        teachers,
+        subjects,
+        sections,
+        rooms,
+        classSchedules,
+      }),
+    [currentUser, activeSchool, academicUnit, students, teachers, subjects, sections, rooms, classSchedules],
+  );
+  const scopedSubjects = scopedData.subjects ?? [];
+  const scopedTeachers = scopedData.teachers ?? [];
+  const scopedSections = scopedData.sections ?? [];
+  const scopedRooms = scopedData.rooms ?? [];
+  const scopedClassSchedules = scopedData.classSchedules ?? [];
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
   const beYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel !== "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
   const collegeYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel === "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
@@ -88,13 +109,13 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
   const [semester, setSemester] = useState(initial?.semester || "First Semester");
   const courseOrTrack = initial?.courseOrTrack || "";
   const [notes, setNotes] = useState(initial?.notes || "");
-  const initialSection = initial ? sections.find(
+  const initialSection = initial ? scopedSections.find(
     (section) => section.name === initial.section && section.department === initial.department && (!initial.yearLevel || section.yearLevel === initial.yearLevel)
   ) : undefined;
   const initiallyAssignedAsAdviser = Boolean(
     initial && (
       initialSection?.adviserId === initial.teacherId ||
-      teachers.find((teacher) => teacher.id === initial.teacherId)?.advisorySection === initial.section
+      scopedTeachers.find((teacher) => teacher.id === initial.teacherId)?.advisorySection === initial.section
     )
   );
   const [assignAsAdviser, setAssignAsAdviser] = useState(initiallyAssignedAsAdviser);
@@ -102,7 +123,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
   const [roomConflictWarning, setRoomConflictWarning] = useState("");
   const [sectionConflictWarning, setSectionConflictWarning] = useState("");
 
-  const selectedTeacher = teachers.find((t) => t.id === teacherId);
+  const selectedTeacher = scopedTeachers.find((t) => t.id === teacherId);
   const teacherDept: ClassSchedule["department"] = selectedTeacher?.department === "College" ? "College" : "Basic Education";
 
   const terms = useMemo(() => getAcademicTerms(departmentToAcademicUnit(teacherDept)), [teacherDept]);
@@ -111,23 +132,23 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
 
   // Subjects filtered by teacher's department + selected year level
   const availableSubjects = useMemo(() => {
-    return subjects.filter((s) => {
+    return scopedSubjects.filter((s) => {
       if (teacherDept === "College") return s.department === "College";
       return s.department === "Basic Education" && (!yearLevel || s.yearLevel === yearLevel || !s.yearLevel);
     });
-  }, [subjects, teacherDept, yearLevel]);
+  }, [scopedSubjects, teacherDept, yearLevel]);
 
   // Sections filtered by teacher's department + year level
   const availableSections = useMemo(() => {
-    return sections.filter((sec) => {
+    return scopedSections.filter((sec) => {
       if (sec.department !== teacherDept) return false;
       if (yearLevel && sec.yearLevel !== yearLevel) return false;
       return sec.isActive;
     });
-  }, [sections, teacherDept, yearLevel]);
+  }, [scopedSections, teacherDept, yearLevel]);
 
   // Rooms filtered to active & not Under Maintenance
-  const availableRooms = useMemo(() => rooms.filter((r) => r.isActive && r.status !== "Under Maintenance"), [rooms]);
+  const availableRooms = useMemo(() => scopedRooms.filter((r) => r.isActive && r.status !== "Under Maintenance"), [scopedRooms]);
 
   const handleTeacherChange = (newTeacherId: string) => {
     setTeacherId(newTeacherId);
@@ -138,7 +159,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
     setSectionConflictWarning("");
     // For new schedules, default the semester based on the teacher's department
     if (!initial) {
-      const newTeacher = teachers.find((t) => t.id === newTeacherId);
+      const newTeacher = scopedTeachers.find((t) => t.id === newTeacherId);
       const newDept: ClassSchedule["department"] = newTeacher?.department === "College" ? "College" : "Basic Education";
       setSemester(newDept === "Basic Education" ? "Full Year" : "First Semester");
     }
@@ -154,7 +175,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
     ));
     if (!newSection || !teacherId) { setSectionConflictWarning(""); return; }
     // Check if this teacher already has this section in any existing schedule
-    const conflict = classSchedules.find(
+    const conflict = scopedClassSchedules.find(
       (cs) => cs.teacherId === teacherId && cs.section === newSection && cs.id !== initial?.id
     );
     if (conflict) {
@@ -171,7 +192,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
   };
 
   const checkRoomConflict = (room: string, d: string, st: string, et: string) => {
-    const conflict = classSchedules.find((cs) => {
+    const conflict = scopedClassSchedules.find((cs) => {
       if (cs.id === initial?.id) return false;
       if (cs.roomName !== room) return false;
       if (cs.day !== d) return false;
@@ -209,7 +230,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
     if (sectionConflictWarning) {
       if (!(await confirm("Section already assigned to this teacher. Proceed anyway?", { variant: "warning" }))) return;
     }
-    const selectedSub = subjects.find((s) => s.code === subjectCode);
+    const selectedSub = scopedSubjects.find((s) => s.code === subjectCode);
     const selectedSection = availableSections.find((section) => section.name === sectionName);
     const advisoryAssignmentChanged = initial && (
       initial.teacherId !== teacherId || initial.section !== sectionName || !assignAsAdviser
@@ -263,7 +284,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
               className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
             >
               <option value="">— Assign Faculty —</option>
-              {teachers.filter((t) => t.department === "Basic Education").map((t) => (
+              {scopedTeachers.map((t) => (
                 <option key={t.id} value={t.id}>{t.firstName} {t.lastName} — {t.specialization} ({t.department})</option>
               ))}
             </select>
@@ -295,7 +316,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
               required
               value={subjectCode}
               onChange={(e) => {
-                const sub = subjects.find((s) => s.code === e.target.value);
+                const sub = scopedSubjects.find((s) => s.code === e.target.value);
                 setSubjectCode(sub?.code || e.target.value);
               }}
               className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
@@ -462,13 +483,20 @@ function CalendarGridView({ schedules, conflictIds }: { schedules: ClassSchedule
 // MAIN SCHEDULING MODULE
 // ============================================================
 export default function SchedulingModule() {
-  const { classSchedules, addClassSchedule, updateClassSchedule, deleteClassSchedule, toggleClassScheduleActive, teachers, sections, activeSchool, academicUnit, setupData } = useSTSNStore();
+  const { classSchedules, addClassSchedule, updateClassSchedule, deleteClassSchedule, toggleClassScheduleActive, teachers, sections, students, currentUser, activeSchool, academicUnit, setupData } = useSTSNStore();
   const { confirm } = useAppDialog();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
   const semesterOptions = setupData.semesters ?? [];
 
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
   const lockedDept = activeSchool === "ALL" ? undefined : academicUnitToDepartment(academicUnit);
+  const scopedData = useMemo(
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students, teachers, sections, classSchedules }),
+    [currentUser, activeSchool, academicUnit, students, teachers, sections, classSchedules],
+  );
+  const scopedTeachers = scopedData.teachers ?? [];
+  const scopedClassSchedules = scopedData.classSchedules ?? [];
+  const scopedSections = scopedData.sections ?? [];
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [filterYear, setFilterYear] = useState("2026-2027");
@@ -487,17 +515,17 @@ export default function SchedulingModule() {
   }, [lockedDept]);
 
   const filteredSchedules = useMemo(() => {
-    return classSchedules.filter((s) => {
+    return scopedClassSchedules.filter((s) => {
       const q = searchQ.toLowerCase();
       const matchSearch = s.subjectCode.toLowerCase().includes(q) || s.subjectName.toLowerCase().includes(q) || s.section.toLowerCase().includes(q) || s.teacherName.toLowerCase().includes(q) || s.roomName.toLowerCase().includes(q);
       const matchYear = s.schoolYear === filterYear;
       const matchSem = s.semester === filterSemester;
-      const matchDept = s.department === "Basic Education";
+      const matchDept = filterDept === "All" || s.department === filterDept;
       const matchTeacher = filterTeacher === "All" || s.teacherId === filterTeacher;
       const matchDay = filterDay === "All" || s.day === filterDay;
       return matchSearch && matchYear && matchSem && matchDept && matchTeacher && matchDay;
     });
-  }, [classSchedules, searchQ, filterYear, filterSemester, filterDept, filterTeacher, filterDay]);
+  }, [scopedClassSchedules, searchQ, filterYear, filterSemester, filterDept, filterTeacher, filterDay]);
 
   const conflictIds = useMemo(() => detectConflicts(filteredSchedules), [filteredSchedules]);
 
@@ -676,7 +704,7 @@ export default function SchedulingModule() {
           )}
           <select value={filterTeacher} onChange={(e) => setFilterTeacher(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
             <option value="All">All Faculty</option>
-            {teachers.map((t) => <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>)}
+            {scopedTeachers.map((t) => <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>)}
           </select>
           <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
             <option value="All">All Days</option>
@@ -776,7 +804,7 @@ export default function SchedulingModule() {
             </h3>
             <div className="space-y-2">
               {Array.from(new Set(filteredSchedules.map((s) => s.section))).map((secName) => {
-                const sec = sections.find((x) => x.name === secName);
+                const sec = scopedSections.find((x) => x.name === secName);
                 if (!sec) return null;
                 const fillPct = sec.capacity > 0 ? Math.round((sec.currentCount / sec.capacity) * 100) : 0;
                 return (

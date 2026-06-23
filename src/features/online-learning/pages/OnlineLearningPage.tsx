@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { useSTSNStore } from "../../../services/store";
 import { LearningMaterial } from "../../../types";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import {
   BookOpen,
   Video,
@@ -247,7 +248,9 @@ export default function OnlineLearning() {
     learningMaterials,
     teachers,
     subjects,
+    students,
     activeSchool,
+    academicUnit,
     addLearningMaterial,
     updateLearningMaterial,
     deleteLearningMaterial,
@@ -256,7 +259,22 @@ export default function OnlineLearning() {
 
   const isTeacher = currentUser?.role === "TEACHER" || currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN";
   const isStudent = currentUser?.role === "STUDENT";
-  const userSchool = currentUser?.schoolId || "STSN";
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        teachers,
+        subjects,
+        learningMaterials,
+      }),
+    [currentUser, activeSchool, academicUnit, students, teachers, subjects, learningMaterials],
+  );
+  const scopedMaterials = scopedData.learningMaterials ?? [];
+  const scopedTeachers = scopedData.teachers ?? [];
+  const userSchool = scopedData.scope.schoolId || "STSN";
 
   const [activeTab, setActiveTab] = useState<LMSTab>(isTeacher ? "browse" : "browse");
   const [searchQuery, setSearchQuery] = useState("");
@@ -274,12 +292,6 @@ export default function OnlineLearning() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
-
-  // School-scoped materials
-  const scopedMaterials = learningMaterials.filter((m) => {
-    if (currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN") return true;
-    return m.schoolId === userSchool;
-  });
 
   // For students only show published
   const visibleMaterials = isStudent
@@ -302,7 +314,7 @@ export default function OnlineLearning() {
 
   const uniqueSubjects = Array.from(new Set(visibleMaterials.map((m) => m.subjectName)));
 
-  const currentTeacher = teachers.find((t) => t.email === currentUser?.email) || teachers[0];
+  const currentTeacher = scopedTeachers.find((t) => t.email === currentUser?.email) || scopedTeachers[0];
 
   // Stats
   const totalPublished = visibleMaterials.filter((m) => m.publishStatus === "Published").length;
@@ -349,7 +361,7 @@ export default function OnlineLearning() {
   };
 
   const manageMaterials = isTeacher
-    ? learningMaterials.filter((m) => m.teacherId === currentTeacher?.id || currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN")
+    ? scopedMaterials.filter((m) => m.teacherId === currentTeacher?.id || currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN")
     : [];
 
   return (

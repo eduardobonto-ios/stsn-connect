@@ -9,18 +9,117 @@ import { Payment, Student, StudentAssessment } from "../../../types";
 import {
   Wallet, Search, Receipt, History, CheckCircle, AlertCircle,
   Banknote, Printer, Package, Info, X, Clock, ListChecks,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, BarChart3, Download, FileText,
 } from "lucide-react";
 import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import { getAccountingLabels, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
-import { academicUnitToDepartment } from "../../../config/schools.config";
 import { BookPackage } from "../../../types";
+import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
+import { reportExportService } from "../../../services/reportExportService";
+import type { ReportColumn, ReportRow } from "../../reports/types";
 
-type CashierTab = "queue" | "history";
+type CashierTab = "queue" | "history" | "reports";
+type CashierReportId =
+  | "daily-collection"
+  | "or-register"
+  | "payment-history"
+  | "collection-by-method"
+  | "collection-by-cashier"
+  | "voided-receipts"
+  | "student-payment-summary"
+  | "end-of-day-summary";
 
 const PAYMENT_METHODS: Payment["paymentMethod"][] = ["Cash", "GCash", "Bank Transfer", "Credit Card"];
 const PAYMENT_REMITTANCE_TERMS: Payment["term"][] = ["Downpayment", "Midterm", "Finals", "Full Payment", "Installment"];
+
+const CASHIER_REPORT_OPTIONS: { id: CashierReportId; title: string; desc: string }[] = [
+  { id: "daily-collection", title: "Daily Collection Report", desc: "Collection totals grouped by transaction date." },
+  { id: "or-register", title: "OR Register / Receipt List", desc: "Official receipt register with student and payment details." },
+  { id: "payment-history", title: "Payment History Report", desc: "Detailed payment posting history." },
+  { id: "collection-by-method", title: "Collection by Payment Method", desc: "Collection totals grouped by tender type." },
+  { id: "collection-by-cashier", title: "Collection by Cashier", desc: "Collection totals grouped by cashier name." },
+  { id: "voided-receipts", title: "Cancelled / Voided Receipt Report", desc: "Voided receipt register when void data is available." },
+  { id: "student-payment-summary", title: "Student Payment Summary", desc: "Total payments and remaining balance by student." },
+  { id: "end-of-day-summary", title: "End-of-Day Cashier Summary", desc: "Daily cashier collection totals for closing." },
+];
+
+const CASHIER_REPORT_COLUMNS: Record<CashierReportId, ReportColumn[]> = {
+  "daily-collection": [
+    { key: "paymentDate", label: "Date" },
+    { key: "transactionCount", label: "Transactions", align: "right" },
+    { key: "totalAmount", label: "Total Amount", align: "right" },
+  ],
+  "or-register": [
+    { key: "orNumber", label: "OR Number" },
+    { key: "paymentDate", label: "Date" },
+    { key: "studentNo", label: "Student No." },
+    { key: "studentName", label: "Student" },
+    { key: "paymentMethod", label: "Method" },
+    { key: "term", label: "Term" },
+    { key: "amount", label: "Amount", align: "right" },
+  ],
+  "payment-history": [
+    { key: "paymentDate", label: "Date" },
+    { key: "orNumber", label: "OR Number" },
+    { key: "studentName", label: "Student" },
+    { key: "paymentMethod", label: "Method" },
+    { key: "term", label: "Term" },
+    { key: "amount", label: "Amount", align: "right" },
+    { key: "remarks", label: "Remarks" },
+  ],
+  "collection-by-method": [
+    { key: "paymentMethod", label: "Payment Method" },
+    { key: "transactionCount", label: "Transactions", align: "right" },
+    { key: "totalAmount", label: "Total Amount", align: "right" },
+  ],
+  "collection-by-cashier": [
+    { key: "cashier", label: "Cashier" },
+    { key: "transactionCount", label: "Transactions", align: "right" },
+    { key: "totalAmount", label: "Total Amount", align: "right" },
+  ],
+  "voided-receipts": [
+    { key: "orNumber", label: "OR Number" },
+    { key: "paymentDate", label: "Date" },
+    { key: "studentName", label: "Student" },
+    { key: "amount", label: "Amount", align: "right" },
+    { key: "status", label: "Status" },
+  ],
+  "student-payment-summary": [
+    { key: "studentNo", label: "Student No." },
+    { key: "studentName", label: "Student" },
+    { key: "transactionCount", label: "Payments", align: "right" },
+    { key: "totalPaid", label: "Total Paid", align: "right" },
+    { key: "remainingBalance", label: "Remaining Balance", align: "right" },
+    { key: "lastPaymentDate", label: "Last Payment" },
+  ],
+  "end-of-day-summary": [
+    { key: "paymentDate", label: "Date" },
+    { key: "cashier", label: "Cashier" },
+    { key: "transactionCount", label: "Transactions", align: "right" },
+    { key: "totalAmount", label: "Total Amount", align: "right" },
+  ],
+};
+
+type CashierPaymentRow = { payment: Payment; student?: Student; assessment?: StudentAssessment };
+
+function formatMoney(value: number): string {
+  return `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function getCashierName(payment: Payment): string {
+  const match = payment.remarks?.match(/Collected by (.+?) via Cashiering module/);
+  return match?.[1] ?? "Cashier";
+}
+
+function groupBy<T>(items: T[], getKey: (item: T) => string): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  items.forEach((item) => {
+    const key = getKey(item);
+    grouped.set(key, [...(grouped.get(key) ?? []), item]);
+  });
+  return grouped;
+}
 
 function getActiveSetupNames(items: { name: string; isActive?: boolean; sortOrder?: number }[] | undefined, fallback: string[]): string[] {
   const configured = [...(items ?? [])]
@@ -98,9 +197,12 @@ function CardPagination({
 }
 
 export default function CashierModule() {
-  const { students, assessments, payments, currentUser, academicUnit, addPayment, bookPackages, setupData } = useSTSNStore();
+  const { students, assessments, payments, currentUser, activeSchool, academicUnit, addPayment, bookPackages, setupData } = useSTSNStore();
   const [activeTab, setActiveTab] = useState<CashierTab>("queue");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedReportId, setSelectedReportId] = useState<CashierReportId>("daily-collection");
+  const [reportDateFrom, setReportDateFrom] = useState("");
+  const [reportDateTo, setReportDateTo] = useState("");
 
   const [collectModalId, setCollectModalId] = useState<string | null>(null);
   const [paymentForm, setPaymentForm] = useState<{ orNumber: string; amount: string; paymentMethod: Payment["paymentMethod"]; term: Payment["term"]; reference: string }>({
@@ -114,7 +216,23 @@ export default function CashierModule() {
   const [approvedPage, setApprovedPage] = useState(1);
   const [pendingPage, setPendingPage] = useState(1);
 
-  const departmentFilter = academicUnitToDepartment(academicUnit);
+  const scopedData = useMemo(
+    () =>
+      getAcademicScopedData({
+        currentUser,
+        activeSchool,
+        academicUnit,
+        students,
+        assessments,
+        payments,
+        bookPackages,
+      }),
+    [currentUser, activeSchool, academicUnit, students, assessments, payments, bookPackages],
+  );
+  const scopedStudents = scopedData.students;
+  const scopedAssessments = scopedData.assessments ?? [];
+  const scopedPayments = scopedData.payments ?? [];
+  const scopedBookPackages = scopedData.bookPackages ?? [];
   const paymentMethodOptions = useMemo(
     () => getActiveSetupNames(setupData.payment_methods, PAYMENT_METHODS),
     [setupData.payment_methods],
@@ -127,7 +245,7 @@ export default function CashierModule() {
   useEffect(() => {
     setApprovedPage(1);
     setPendingPage(1);
-  }, [searchQuery, academicUnit]);
+  }, [searchQuery, academicUnit, activeSchool]);
 
   const matchesSearch = (student: Student | undefined) => {
     const q = searchQuery.trim().toLowerCase();
@@ -137,34 +255,149 @@ export default function CashierModule() {
 
   // Payment Queue — Approved for Payment assessments with an outstanding balance, scoped to this school's academic unit.
   const queueRows = useMemo(() => {
-    return assessments
+    return scopedAssessments
       .filter((a) => a.approvalStatus === "Approved for Payment" && a.balance > 0)
-      .map((a) => ({ assessment: a, student: students.find((s) => s.id === a.studentId) }))
-      .filter(({ student }) => student?.department === departmentFilter && matchesSearch(student));
-  }, [assessments, students, departmentFilter, searchQuery]);
+      .map((a) => ({ assessment: a, student: scopedStudents.find((s) => s.id === a.studentId) }))
+      .filter(({ student }) => matchesSearch(student));
+  }, [scopedAssessments, scopedStudents, searchQuery]);
 
   // Awaiting Accounting — visible for context only, never actionable by Cashier.
   const awaitingRows = useMemo(() => {
-    return assessments
+    return scopedAssessments
       .filter((a) => !!a.approvalStatus && (a.approvalStatus !== "Approved for Payment" || a.balance <= 0))
-      .map((a) => ({ assessment: a, student: students.find((s) => s.id === a.studentId) }))
-      .filter(({ student, assessment }) => student?.department === departmentFilter && matchesSearch(student) && assessment.balance > 0);
-  }, [assessments, students, departmentFilter, searchQuery]);
+      .map((a) => ({ assessment: a, student: scopedStudents.find((s) => s.id === a.studentId) }))
+      .filter(({ student, assessment }) => matchesSearch(student) && assessment.balance > 0);
+  }, [scopedAssessments, scopedStudents, searchQuery]);
 
   // Collection History — all payments posted against students in this academic unit.
   const historyRows = useMemo(() => {
-    return payments
+    return scopedPayments
       .map((p) => ({
         payment: p,
-        student: students.find((s) => s.id === p.studentId),
+        student: scopedStudents.find((s) => s.id === p.studentId),
         // Prefer the specific assessment the payment was collected against; fall back to first match.
         assessment: p.assessmentId
-          ? assessments.find((a) => a.id === p.assessmentId)
-          : assessments.find((a) => a.studentId === p.studentId),
+          ? scopedAssessments.find((a) => a.id === p.assessmentId)
+          : scopedAssessments.find((a) => a.studentId === p.studentId),
       }))
-      .filter(({ student }) => student?.department === departmentFilter && matchesSearch(student))
+      .filter(({ student }) => matchesSearch(student))
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
-  }, [payments, students, assessments, departmentFilter, searchQuery]);
+  }, [scopedPayments, scopedStudents, scopedAssessments, searchQuery]);
+
+  const reportPaymentRows = useMemo<CashierPaymentRow[]>(() => {
+    return historyRows
+      .filter(({ payment }) => (!reportDateFrom || payment.paymentDate >= reportDateFrom) && (!reportDateTo || payment.paymentDate <= reportDateTo))
+      .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
+  }, [historyRows, reportDateFrom, reportDateTo]);
+
+  const selectedReport = CASHIER_REPORT_OPTIONS.find((report) => report.id === selectedReportId) ?? CASHIER_REPORT_OPTIONS[0];
+  const reportColumns = CASHIER_REPORT_COLUMNS[selectedReportId];
+
+  const reportRows = useMemo<ReportRow[]>(() => {
+    if (selectedReportId === "daily-collection") {
+      return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => row.payment.paymentDate).entries())
+        .map(([paymentDate, rows]) => ({
+          paymentDate,
+          transactionCount: rows.length,
+          totalAmount: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
+        }))
+        .sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate)));
+    }
+
+    if (selectedReportId === "or-register") {
+      return reportPaymentRows.map(({ payment, student }) => ({
+        orNumber: payment.orNumber,
+        paymentDate: payment.paymentDate,
+        studentNo: student?.studentNo ?? "",
+        studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+        paymentMethod: payment.paymentMethod,
+        term: payment.term,
+        amount: formatMoney(payment.amount),
+      }));
+    }
+
+    if (selectedReportId === "payment-history") {
+      return reportPaymentRows.map(({ payment, student }) => ({
+        paymentDate: payment.paymentDate,
+        orNumber: payment.orNumber,
+        studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+        paymentMethod: payment.paymentMethod,
+        term: payment.term,
+        amount: formatMoney(payment.amount),
+        remarks: payment.remarks ?? "",
+      }));
+    }
+
+    if (selectedReportId === "collection-by-method") {
+      return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => row.payment.paymentMethod || "Unspecified").entries())
+        .map(([paymentMethod, rows]) => ({
+          paymentMethod,
+          transactionCount: rows.length,
+          totalAmount: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
+        }))
+        .sort((a, b) => String(a.paymentMethod).localeCompare(String(b.paymentMethod)));
+    }
+
+    if (selectedReportId === "collection-by-cashier") {
+      return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => getCashierName(row.payment)).entries())
+        .map(([cashier, rows]) => ({
+          cashier,
+          transactionCount: rows.length,
+          totalAmount: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
+        }))
+        .sort((a, b) => String(a.cashier).localeCompare(String(b.cashier)));
+    }
+
+    if (selectedReportId === "voided-receipts") {
+      return [];
+    }
+
+    if (selectedReportId === "student-payment-summary") {
+      return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => row.payment.studentId).entries())
+        .map(([studentId, rows]) => {
+          const student = rows[0]?.student;
+          const remainingBalance = scopedAssessments
+            .filter((assessment) => assessment.studentId === studentId)
+            .reduce((sum, assessment) => sum + assessment.balance, 0);
+          return {
+            studentNo: student?.studentNo ?? "",
+            studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+            transactionCount: rows.length,
+            totalPaid: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
+            remainingBalance: formatMoney(remainingBalance),
+            lastPaymentDate: rows.map((row) => row.payment.paymentDate).sort().slice(-1)[0] ?? "",
+          };
+        })
+        .sort((a, b) => String(a.studentName).localeCompare(String(b.studentName)));
+    }
+
+    return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => `${row.payment.paymentDate}|${getCashierName(row.payment)}`).entries())
+      .map(([key, rows]) => {
+        const [paymentDate, cashier] = key.split("|");
+        return {
+          paymentDate,
+          cashier,
+          transactionCount: rows.length,
+          totalAmount: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
+        };
+      })
+      .sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate)) || String(a.cashier).localeCompare(String(b.cashier)));
+  }, [reportPaymentRows, scopedAssessments, selectedReportId]);
+
+  const cashierReportTableColumns = useMemo<STSNColumn<ReportRow>[]>(() => reportColumns.map((column) => ({
+    title: column.label,
+    data: column.key,
+    className: column.align === "right" ? "text-right" : column.align === "center" ? "text-center" : undefined,
+    render: (value) => <span className="text-xs text-stone-700">{String(value ?? "")}</span>,
+  })), [reportColumns]);
+
+  const exportCurrentReport = (format: "print" | "csv" | "excel" | "pdf") => {
+    const payload = { title: selectedReport.title, columns: reportColumns, rows: reportRows };
+    if (format === "print") reportExportService.print(payload);
+    if (format === "csv") reportExportService.exportCsv(payload);
+    if (format === "excel") reportExportService.exportExcel(payload);
+    if (format === "pdf") reportExportService.exportPdf(payload);
+  };
 
   const paginatedQueueRows = useMemo(() => paginateRecords(queueRows, approvedPage, rowsPerPage), [queueRows, approvedPage]);
   const paginatedAwaitingRows = useMemo(() => paginateRecords(awaitingRows, pendingPage, rowsPerPage), [awaitingRows, pendingPage]);
@@ -294,6 +527,13 @@ export default function CashierModule() {
             <History className="w-4 h-4" />
             Collection History
           </button>
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === "reports" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            Reports
+          </button>
         </div>
       </div>
 
@@ -326,7 +566,7 @@ export default function CashierModule() {
             ) : (
               <div className="space-y-3">
                 {paginatedQueueRows.map(({ assessment, student }) => {
-                  const books = getBookPackageInfo(assessment, bookPackages);
+                  const books = getBookPackageInfo(assessment, scopedBookPackages);
                   const netPayable = Math.max(0, assessment.totalAmount - assessment.discountAmount);
                   return (
                     <div key={assessment.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between gap-3">
@@ -416,6 +656,86 @@ export default function CashierModule() {
         </div>
       )}
 
+      {/* ===================== CASHIER REPORTS ===================== */}
+      {activeTab === "reports" && (
+        <div className="space-y-4 animate-fade-in">
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+            <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2 mb-1">
+              <BarChart3 className="w-4 h-4 text-stsn-gold" /> Cashier Reports
+            </h3>
+            <p className="text-xs text-stone-500 mb-3">
+              Generate collection, receipt, payment method, cashier, student payment, and end-of-day reports from posted payments.
+            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+              <div className="lg:col-span-2">
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Report Type</label>
+                <select
+                  value={selectedReportId}
+                  onChange={(e) => setSelectedReportId(e.target.value as CashierReportId)}
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                >
+                  {CASHIER_REPORT_OPTIONS.map((report) => <option key={report.id} value={report.id}>{report.title}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Date From</label>
+                <input
+                  type="date"
+                  value={reportDateFrom}
+                  onChange={(e) => setReportDateFrom(e.target.value)}
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Date To</label>
+                <input
+                  type="date"
+                  value={reportDateTo}
+                  onChange={(e) => setReportDateTo(e.target.value)}
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 mb-3">
+              <div>
+                <h4 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-stsn-gold" /> {selectedReport.title}
+                </h4>
+                <p className="text-xs text-stone-500 mt-1">{selectedReport.desc}</p>
+                {selectedReportId === "voided-receipts" && (
+                  <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2">
+                    Payment records do not currently store cancelled or voided receipt status, so this report is available but will remain empty until void tracking is added.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => exportCurrentReport("print")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Printer className="w-3.5 h-3.5" /> Print
+                </button>
+                <button onClick={() => exportCurrentReport("csv")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </button>
+                <button onClick={() => exportCurrentReport("excel")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Download className="w-3.5 h-3.5" /> Excel
+                </button>
+                <button onClick={() => exportCurrentReport("pdf")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
+              </div>
+            </div>
+            <STSNDataTable
+              columns={cashierReportTableColumns}
+              rows={reportRows}
+              searchable={false}
+              emptyMessage="No report rows for the selected filters."
+            />
+          </div>
+        </div>
+      )}
+
       {/* ===================== COLLECT PAYMENT MODAL ===================== */}
       {collectRow && (
         <PreviewModal isOpen={true} onClose={() => setCollectModalId(null)} title="Collect Payment" hidePrint>
@@ -457,11 +777,11 @@ export default function CashierModule() {
               })()}
 
               {/* Books */}
-              {getBookPackageInfo(collectRow.assessment, bookPackages) && (
+              {getBookPackageInfo(collectRow.assessment, scopedBookPackages) && (
                 <div className="pt-2 border-t border-stone-200">
                   <p className="text-[9px] uppercase font-mono text-stone-400 mb-1.5">Books</p>
                   {(() => {
-                    const pkg = getBookPackageInfo(collectRow.assessment, bookPackages)!;
+                    const pkg = getBookPackageInfo(collectRow.assessment, scopedBookPackages)!;
                     return (
                       <div className="space-y-0.5">
                         <div className="flex justify-between items-center">
@@ -582,7 +902,7 @@ export default function CashierModule() {
             student={receipt.student}
             assessment={receipt.assessment}
             payment={receipt.payment}
-            bookPackage={receipt.assessment ? getBookPackageInfo(receipt.assessment, bookPackages) : undefined}
+            bookPackage={receipt.assessment ? getBookPackageInfo(receipt.assessment, scopedBookPackages) : undefined}
           />
           <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-[11px] flex items-start gap-2">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
