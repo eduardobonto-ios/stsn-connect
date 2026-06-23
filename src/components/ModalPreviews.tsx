@@ -20,7 +20,7 @@ interface PreviewModalProps {
 export function PreviewModal({ isOpen, onClose, title, children, hidePrint = false, maxWidthClass = "max-w-3xl" }: PreviewModalProps) {
   if (!isOpen) return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-fade-in flex items-center justify-center p-4 md:p-8 text-stone-800">
+    <div className="app-modal-backdrop z-50 animate-fade-in text-stone-800">
       <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} overflow-hidden flex flex-col max-h-[90vh] border border-stone-200`}>
         <div className="modal-header-gradient text-white p-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">

@@ -799,25 +799,25 @@ export default function Dashboard({
             </div>
 
             {/* Clickable Legends */}
-            <div className="flex items-center gap-3 mb-5 p-3 bg-stone-50 rounded-lg border border-stone-100 flex-wrap">
+            <div className="flex items-center gap-3 mb-5 p-3 bg-stsn-cream/60 rounded-lg border border-stsn-beige/70 flex-wrap">
               <span className="text-[9px] font-mono text-stone-400 uppercase tracking-wider">
                 Click to view details →
               </span>
               <button
                 onClick={() => setAnalyticsView({ school: "BASIC_ED" })}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stsn-cream border border-stsn-beige hover:bg-stsn-beige hover:border-stsn-brown transition cursor-pointer group"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-stsn-beige hover:bg-stsn-cream hover:border-stsn-brown transition cursor-pointer group shadow-sm"
                 title="View STSN Enrollment Analytics"
               >
-                <span className="w-2.5 h-2.5 rounded-sm bg-stsn-brown flex-shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-stsn-brown-dark to-stsn-brown flex-shrink-0" />
                 <span className="text-[11px] font-bold text-stsn-brown group-hover:underline">STSN</span>
                 <span className="text-[9px] text-stone-400">St. Theresa's</span>
               </button>
               <button
                 onClick={() => setAnalyticsView({ school: "COLLEGE" })}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stsn-gold-light/40 border border-stsn-gold/40 hover:bg-stsn-gold-light/70 hover:border-stsn-gold transition cursor-pointer group"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-stsn-gold/40 hover:bg-stsn-gold-light/50 hover:border-stsn-gold transition cursor-pointer group shadow-sm"
                 title="View CSTA Enrollment Analytics"
               >
-                <span className="w-2.5 h-2.5 rounded-sm bg-stsn-gold flex-shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-stsn-gold to-amber-300 flex-shrink-0" />
                 <span className="text-[11px] font-bold text-stsn-gold group-hover:underline">CSTA</span>
                 <span className="text-[9px] text-stone-400">Colegio</span>
               </button>
@@ -834,9 +834,9 @@ export default function Dashboard({
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <span className="text-[9px] font-mono text-stsn-brown w-10 flex-shrink-0">STSN</span>
-                        <div className="flex-1 bg-stone-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="flex-1 bg-stone-100 rounded-full h-2.5 overflow-hidden shadow-inner">
                           <div
-                            className="h-full rounded-full bg-stsn-brown transition-all duration-700"
+                            className="h-full rounded-full bg-gradient-to-r from-stsn-brown-dark via-stsn-brown to-stsn-gold transition-all duration-700 shadow-sm"
                             style={{ width: `${stsnW}%` }}
                           />
                         </div>
@@ -846,9 +846,9 @@ export default function Dashboard({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[9px] font-mono text-stsn-gold w-10 flex-shrink-0">CSTA</span>
-                        <div className="flex-1 bg-stone-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="flex-1 bg-stone-100 rounded-full h-2.5 overflow-hidden shadow-inner">
                           <div
-                            className="h-full rounded-full bg-stsn-gold transition-all duration-700"
+                            className="h-full rounded-full bg-gradient-to-r from-stsn-gold via-amber-300 to-stsn-gold-light transition-all duration-700 shadow-sm"
                             style={{ width: `${cdstaW}%` }}
                           />
                         </div>
@@ -1057,7 +1057,7 @@ export default function Dashboard({
       {/* Enrollment Status Drill-down Modal */}
       {statusModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="app-modal-backdrop z-50"
           onClick={() => setStatusModal(null)}
         >
           <div

@@ -4,21 +4,72 @@
  */
 
 import React, { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../services/store";
-import { SchoolSection, Teacher } from "../../../types";
+import { SchoolSection, Student, Teacher } from "../../../types";
 import type { AcademicUnit } from "../../../types/school.types";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import {
   Layers, Plus, Edit2, Trash2, Search, X, CheckCircle, Users,
   GraduationCap, BookOpen, ChevronDown, UserCheck, Save, AlertCircle,
-  School, ToggleLeft, ToggleRight, Grid3x3
+  School, ToggleLeft, ToggleRight, Grid3x3, Printer, Eye
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 
 /** Inverse of academicUnitToDepartment — used by the section form's department toggle. */
 function departmentToAcademicUnit(dept: "Basic Education" | "College"): AcademicUnit {
   return dept === "Basic Education" ? "basic-ed" : "college";
+}
+
+function normalizeRosterKey(value?: string) {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function compactRosterKey(value?: string) {
+  return normalizeRosterKey(value).replace(/[^a-z0-9]/g, "");
+}
+
+function isRosterEligible(student: Student) {
+  return student.enrollmentStatus === "Enrolled" || student.enrollmentStatus === "Approved";
+}
+
+function uniqueRoster(students: Student[]) {
+  const seen = new Set<string>();
+  return students.filter((student) => {
+    if (seen.has(student.id)) return false;
+    seen.add(student.id);
+    return true;
+  });
+}
+
+function getSectionRoster(section: SchoolSection, students: Student[]) {
+  const assignedIds = new Set(section.enrolledStudentIds || []);
+  const sectionKeys = [section.name, section.code].filter(Boolean);
+  const normalizedSectionKeys = new Set(sectionKeys.map(normalizeRosterKey));
+  const compactSectionKeys = new Set(sectionKeys.map(compactRosterKey));
+
+  const directlyAssigned = students.filter((student) => assignedIds.has(student.id));
+  const directlyMatched = students.filter((student) => {
+    if (assignedIds.has(student.id)) return false;
+    if (student.department !== section.department) return false;
+    if (!isRosterEligible(student)) return false;
+
+    const studentSection = normalizeRosterKey(student.section);
+    const compactStudentSection = compactRosterKey(student.section);
+    return normalizedSectionKeys.has(studentSection) || compactSectionKeys.has(compactStudentSection);
+  });
+
+  const directRoster = uniqueRoster([...directlyAssigned, ...directlyMatched]);
+  if (directRoster.length > 0) return directRoster;
+
+  return uniqueRoster(students.filter((student) => {
+    if (student.department !== section.department) return false;
+    if (!isRosterEligible(student)) return false;
+    if (student.yearLevel !== section.yearLevel) return false;
+    if (section.strandOrTrack && normalizeRosterKey(student.trackOrCourse) !== normalizeRosterKey(section.strandOrTrack)) return false;
+    return true;
+  }));
 }
 
 // ============================================================
@@ -36,45 +87,49 @@ interface SectionFormProps {
 
 function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: SectionFormProps) {
   const { toast } = useAppDialog();
-  const { setupData, courses, sections } = useSTSNStore();
-  const [dept, setDept] = useState<"Basic Education" | "College">(initial?.department || lockedDept || "Basic Education");
-  const [code, setCode] = useState(initial?.code || "");
+  const { setupData, courses } = useSTSNStore();
+  const [dept] = useState<"Basic Education" | "College">(initial?.department || lockedDept || "Basic Education");
   const [name, setName] = useState(initial?.name || "");
-  const [yearLevel, setYearLevel] = useState(initial?.yearLevel || "Grade 11");
+  const [yearLevel, setYearLevel] = useState(initial?.yearLevel || "");
   const [strand, setStrand] = useState(initial?.strandOrTrack || "");
-  const [adviserId, setAdviserId] = useState(initial?.adviserId || "");
+  const adviserId = initial?.adviserId || "";
   const [capacity, setCapacity] = useState(initial?.capacity || 40);
-  const [academicYear, setAcademicYear] = useState(initial?.academicYear || "2026-2027");
   const [semester, setSemester] = useState(initial?.semester || "First Semester");
+  const activeSchoolYear =
+    (setupData.school_years ?? []).find((sy) => sy.isCurrent)?.name ||
+    (setupData.school_years ?? [])[0]?.name ||
+    "";
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
 
-  const beYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel !== "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
-  const collegeYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel === "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
-  const shsStrands = courses.filter((c) => c.department === "Basic Education" && c.durationYears === 2).map((c) => c.code);
-  const collegeTracks = courses.filter((c) => c.department === "College").map((c) => c.code);
+  const beYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel !== "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => String(yl.name ?? ""));
   const semesterOptions = (setupData.semesters ?? []).map((s) => s.name);
 
   const terms = useMemo(() => getAcademicTerms(departmentToAcademicUnit(dept)), [dept]);
-  const availableStrands = (yearLevel === "Grade 11" || yearLevel === "Grade 12") ? shsStrands : [];
-  // Teachers already advising a DIFFERENT section cannot be selected.
-  const busyAdviserIds = new Set(
-    sections.filter((s) => s.adviserId && s.id !== initial?.id).map((s) => s.adviserId as string)
-  );
-  const filteredTeachers = teachers.filter(
-    (t) =>
-      (dept === "Basic Education" ? t.department === "Basic Education" : t.department === "College") &&
-      !busyAdviserIds.has(t.id)
+
+  const selectedYearLevelData = (setupData.year_levels ?? []).find((yl) => yl.name === yearLevel);
+  const academicLevelStr = (selectedYearLevelData?.academicLevel || "").toLowerCase().trim();
+  const levelNum = Number(selectedYearLevelData?.level) || 0;
+  const isSeniorHigh = academicLevelStr.includes("senior") || academicLevelStr === "shs" || levelNum === 11 || levelNum === 12;
+  const availableStrands = courses.filter(
+    (c) => isSeniorHigh && c.department === "Basic Education" && c.durationYears === 2
   );
   const adviserObj = teachers.find((t) => t.id === adviserId);
 
+  const generatedCode = useMemo((): string => {
+    const digits = yearLevel.replace(/\D/g, "");
+    const gradePrefix = digits ? `G${digits.padStart(2, "0")}` : yearLevel.replace(/\s+/g, "").toUpperCase().substring(0, 4);
+    const cleanName = name.toUpperCase().replace(/[^A-Z0-9\s]/g, "").trim().replace(/\s+/g, "-");
+    return cleanName ? `${gradePrefix}-${cleanName}` : gradePrefix;
+  }, [yearLevel, name]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code.trim() || !name.trim()) {
-      toast("Section code and name are required.", { variant: "warning" });
+    if (!name.trim()) {
+      toast("Section name is required.", { variant: "warning" });
       return;
     }
     onSave({
-      code: code.trim().toUpperCase(),
+      code: generatedCode,
       name: name.trim(),
       department: dept,
       yearLevel,
@@ -83,7 +138,7 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
       adviserName: adviserObj ? `${adviserObj.firstName} ${adviserObj.lastName}` : undefined,
       capacity: Number(capacity),
       currentCount: initial?.currentCount || 0,
-      academicYear,
+      academicYear: activeSchoolYear,
       semester: dept === "College" ? semester : undefined,
       isActive,
       enrolledStudentIds: initial?.enrolledStudentIds || [],
@@ -91,7 +146,7 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div className="app-modal-backdrop z-50 animate-fade-in">
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="modal-header-gradient text-stsn-cream p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -104,34 +159,13 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
         </div>
 
         <div className="p-5 bg-stsn-cream space-y-4 max-h-[80vh] overflow-y-auto">
-          {/* Department */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Department *</label>
-            {lockedDept ? (
-              <div className="flex items-center justify-between p-2.5 bg-white border border-stone-200 rounded-lg">
-                <span className="text-xs font-bold text-stone-700">{lockedDept}</span>
-                <span className="text-[9px] font-mono uppercase text-stone-400">Locked to active school context</span>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                {(["Basic Education", "College"] as const).map((d) => (
-                  <button
-                    key={d} type="button"
-                    onClick={() => { setDept(d); setYearLevel(d === "Basic Education" ? "Grade 11" : "1st Year"); setStrand(""); }}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition cursor-pointer ${dept === d ? "btn-primary-gradient text-white border-stsn-brown" : "bg-white text-stone-600 border-stone-200 hover:border-stone-300"}`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Code & Name */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Section Code *</label>
-              <input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. G11-STEM-A" className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" />
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Section Code</label>
+              <div className="w-full bg-stone-100 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold font-mono text-stone-500">
+                {generatedCode || "—"}
+              </div>
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Section Name *</label>
@@ -143,39 +177,22 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level *</label>
-              <select value={yearLevel} onChange={(e) => { setYearLevel(e.target.value); setStrand(""); }} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
-                {(dept === "Basic Education" ? beYearLevels : collegeYearLevels).map((y) => <option key={y}>{y}</option>)}
+              <select required value={yearLevel} onChange={(e) => { setYearLevel(e.target.value); setStrand(""); }} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
+                <option value="">— Select Year Level —</option>
+                {beYearLevels.map((y) => <option key={y}>{y}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">{terms.trackNoun}</label>
-              {dept === "Basic Education" ? (
-                availableStrands.length > 0 ? (
-                  <select value={strand} onChange={(e) => setStrand(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
-                    <option value="">— General —</option>
-                    {availableStrands.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                ) : (
-                  <input value={strand} onChange={(e) => setStrand(e.target.value)} placeholder="e.g. Junior High" className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none" />
-                )
-              ) : (
+              {availableStrands.length > 0 ? (
                 <select value={strand} onChange={(e) => setStrand(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
-                  <option value="">— Select Course —</option>
-                  {collegeTracks.map((c) => <option key={c}>{c}</option>)}
+                  <option value="">— Select Strand —</option>
+                  {availableStrands.map((c) => <option key={c.id} value={c.code}>{c.code} — {c.name}</option>)}
                 </select>
+              ) : (
+                <div className="w-full bg-stone-100 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-400">None</div>
               )}
             </div>
-          </div>
-
-          {/* Adviser */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">{terms.groupLeaderNoun}</label>
-            <select value={adviserId} onChange={(e) => setAdviserId(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
-              <option value="">— No {terms.groupLeaderNoun} Assigned —</option>
-              {filteredTeachers.map((t) => (
-                <option key={t.id} value={t.id}>{t.firstName} {t.lastName} — {t.specialization}</option>
-              ))}
-            </select>
           </div>
 
           {/* Capacity & Academic Year */}
@@ -185,10 +202,10 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
               <input type="number" min={1} max={100} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" />
             </div>
             <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Academic Year *</label>
-              <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
-                {["2026-2027", "2025-2026", "2024-2025"].map((y) => <option key={y}>{y}</option>)}
-              </select>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Academic Year</label>
+              <div className="w-full bg-stone-100 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold font-mono text-stone-500">
+                {activeSchoolYear || "—"}
+              </div>
             </div>
           </div>
 
@@ -287,7 +304,7 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div className="app-modal-backdrop z-50 animate-fade-in">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="modal-header-gradient text-stsn-cream p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -411,7 +428,7 @@ export default function ClassSectioningModule() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<SchoolSection | null>(null);
   const [addStudentsModal, setAddStudentsModal] = useState<SchoolSection | null>(null);
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [viewStudentsSection, setViewStudentsSection] = useState<SchoolSection | null>(null);
 
   const yearLevelOptions = useMemo(() => {
     const all = [...new Set(sections.map((s) => s.yearLevel))].sort();
@@ -422,7 +439,7 @@ export default function ClassSectioningModule() {
     return sections.filter((s) => {
       const q = searchQ.toLowerCase();
       const matchSearch = s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || (s.adviserName || "").toLowerCase().includes(q);
-      const matchDept = filterDept === "All" || s.department === filterDept;
+      const matchDept = s.department === "Basic Education";
       const matchYear = filterYear === "All" || s.yearLevel === filterYear;
       return matchSearch && matchDept && matchYear;
     });
@@ -475,11 +492,12 @@ export default function ClassSectioningModule() {
       title: "Enrolled / Cap",
       data: "currentCount",
       render: (_value, sec) => {
-        const fillPct = Math.round((sec.currentCount / sec.capacity) * 100);
+        const rosterCount = getSectionRoster(sec, students).length;
+        const fillPct = Math.round((rosterCount / sec.capacity) * 100);
         return (
           <div className="flex items-center gap-2">
             <span className={`font-mono font-bold text-[11px] ${fillPct >= 100 ? "text-red-600" : fillPct >= 80 ? "text-amber-600" : "text-emerald-600"}`}>
-              {sec.currentCount}/{sec.capacity}
+              {rosterCount}/{sec.capacity}
             </span>
             <div className="w-14 bg-stone-100 rounded-full h-1.5 overflow-hidden">
               <div className={`h-full rounded-full ${fillPct >= 100 ? "bg-red-500" : fillPct >= 80 ? "bg-amber-400" : "bg-emerald-500"}`} style={{ width: `${Math.min(fillPct, 100)}%` }} />
@@ -503,54 +521,17 @@ export default function ClassSectioningModule() {
       ),
     },
     {
-      title: "Students",
-      orderable: false,
-      searchable: false,
-      render: (_value, sec) => {
-        const isExpanded = expandedSection === sec.id;
-        const enrolledStudents = (sec.enrolledStudentIds || []).map((id) => students.find((s) => s.id === id)).filter(Boolean) as typeof students;
-        return (
-          <div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setAddStudentsModal(sec)}
-                className="flex items-center gap-1 text-[9px] font-bold px-2 py-1 bg-stsn-cream border border-stsn-beige text-stsn-brown rounded-lg hover:bg-stsn-beige cursor-pointer transition"
-              >
-                <Plus className="w-3 h-3" /> Add
-              </button>
-              {enrolledStudents.length > 0 && (
-                <button
-                  onClick={() => setExpandedSection(isExpanded ? null : sec.id)}
-                  className="text-[9px] font-bold text-blue-600 hover:underline cursor-pointer"
-                >
-                  {isExpanded ? "Hide" : `View (${enrolledStudents.length})`}
-                </button>
-              )}
-            </div>
-            {isExpanded && enrolledStudents.length > 0 && (
-              <div className="mt-2 space-y-1 max-h-40 overflow-y-auto pr-1">
-                <p className="text-[9px] font-bold text-stone-400 uppercase">Students in {sec.name}</p>
-                {enrolledStudents.map((s) => s && (
-                  <div key={s.id} className="flex items-center gap-1.5 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1">
-                    <UserCheck className="w-3 h-3 text-stsn-gold flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-stone-800 truncate">{s.lastName}, {s.firstName}</p>
-                      <p className="text-[9px] font-mono text-stone-400 truncate">{s.studentNo}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      },
-    },
-    {
       title: "Actions",
       orderable: false,
       searchable: false,
       render: (_value, sec) => (
         <div className="flex items-center gap-1">
+          <button onClick={() => setAddStudentsModal(sec)} className="p-1.5 hover:bg-emerald-50 rounded text-stone-400 hover:text-emerald-600 cursor-pointer" title="Add Students">
+            <UserCheck className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => setViewStudentsSection(sec)} className="p-1.5 hover:bg-purple-50 rounded text-stone-400 hover:text-purple-600 cursor-pointer" title="View Students">
+            <Eye className="w-3.5 h-3.5" />
+          </button>
           <button onClick={() => openEdit(sec)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer" title="Edit">
             <Edit2 className="w-3.5 h-3.5" />
           </button>
@@ -565,9 +546,8 @@ export default function ClassSectioningModule() {
   // Stats
   const totalActive = sections.filter((s) => s.isActive).length;
   const totalCapacity = sections.reduce((sum, s) => sum + s.capacity, 0);
-  const totalEnrolled = sections.reduce((sum, s) => sum + s.currentCount, 0);
+  const totalEnrolled = sections.reduce((sum, s) => sum + getSectionRoster(s, students).length, 0);
   const beCount = sections.filter((s) => s.department === "Basic Education").length;
-  const collegeCount = sections.filter((s) => s.department === "College").length;
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
@@ -592,17 +572,22 @@ export default function ClassSectioningModule() {
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Active Sections", value: totalActive, color: "text-stsn-brown" },
-          { label: "Basic Ed Sections", value: beCount, color: "text-emerald-600" },
-          { label: "College Sections", value: collegeCount, color: "text-blue-600" },
-          { label: "Total Capacity", value: totalCapacity, color: "text-purple-600" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 text-center">
-            <p className={`text-2xl font-display font-black ${stat.color}`}>{stat.value}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-mono mt-1">{stat.label}</p>
-          </div>
-        ))}
+        <div className="bg-amber-50 border border-amber-100 rounded-xl shadow-sm p-4 text-center">
+          <p className="text-2xl font-display font-black text-amber-700">{totalActive}</p>
+          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Active Sections</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm p-4 text-center">
+          <p className="text-2xl font-display font-black text-emerald-700">{beCount}</p>
+          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Basic Ed Sections</p>
+        </div>
+        <div className="bg-sky-50 border border-sky-100 rounded-xl shadow-sm p-4 text-center">
+          <p className="text-2xl font-display font-black text-sky-700">{totalEnrolled}</p>
+          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Total Enrolled</p>
+        </div>
+        <div className="bg-violet-50 border border-violet-100 rounded-xl shadow-sm p-4 text-center">
+          <p className="text-2xl font-display font-black text-violet-700">{totalCapacity}</p>
+          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Total Capacity</p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -627,6 +612,7 @@ export default function ClassSectioningModule() {
         <STSNDataTable<SchoolSection>
           columns={sectionColumns}
           rows={filtered}
+          searchable={false}
           emptyMessage="No sections found. Create a new section to get started."
         />
         <div className="px-4 py-3 border-t border-stone-100 text-xs text-stone-400 font-mono">
@@ -652,9 +638,169 @@ export default function ClassSectioningModule() {
           sectionName={addStudentsModal.name}
           sectionYearLevel={addStudentsModal.yearLevel}
           sectionDept={addStudentsModal.department}
-          alreadyEnrolled={addStudentsModal.enrolledStudentIds || []}
+          alreadyEnrolled={getSectionRoster(addStudentsModal, students).map((student) => student.id)}
           onClose={() => setAddStudentsModal(null)}
         />
+      )}
+
+      {/* View Students Modal */}
+      {viewStudentsSection && createPortal(
+        (() => {
+          const enrolledStudents = getSectionRoster(viewStudentsSection, students);
+
+          const handlePrint = () => {
+            const sec = viewStudentsSection;
+            const printWindow = window.open("", "_blank", "width=900,height=700");
+            if (!printWindow) return;
+            const crestUrl = `${window.location.origin}/stsn-crest.png`;
+            const rows = enrolledStudents.map((s, i) => `
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid #e7e5e4;text-align:center;">${i + 1}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e7e5e4;font-family:monospace;font-weight:700;">${s.studentNo}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e7e5e4;font-weight:600;">${s.lastName}, ${s.firstName}${s.middleName ? " " + s.middleName.charAt(0) + "." : ""}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e7e5e4;">${s.yearLevel}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e7e5e4;">${s.trackOrCourse || "—"}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e7e5e4;text-align:center;">${s.enrollmentStatus}</td>
+              </tr>`).join("");
+            printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Section: ${sec.name}</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; margin: 32px; color: #1c1917; }
+    .school-header { display: flex; align-items: center; justify-content: center; gap: 14px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 2px solid #5b3a26; text-align: center; }
+    .school-header img { width: 58px; height: 58px; object-fit: contain; }
+    .school-name { font-size: 18px; font-weight: 800; margin: 0 0 4px; text-transform: uppercase; letter-spacing: .03em; }
+    .school-address { font-size: 11px; color: #57534e; margin: 0; line-height: 1.35; }
+    h1 { font-size: 16px; margin: 0 0 2px; }
+    .subtitle { font-size: 11px; color: #78716c; margin-bottom: 16px; }
+    .meta { display: flex; gap: 32px; margin-bottom: 20px; font-size: 11px; }
+    .meta span { display: flex; flex-direction: column; }
+    .meta strong { font-size: 10px; text-transform: uppercase; color: #a8a29e; margin-bottom: 2px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #292524; color: #fff; }
+    th { padding: 8px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    th:first-child, td:first-child { text-align: center; width: 36px; }
+    tbody tr:nth-child(even) { background: #fafaf9; }
+    .footer { margin-top: 24px; font-size: 10px; color: #a8a29e; display: flex; justify-content: space-between; }
+    @media print { body { margin: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="school-header">
+    <img src="${crestUrl}" alt="St. Theresa's School of Novaliches crest" />
+    <div>
+      <p class="school-name">St. Theresa's School of Novaliches</p>
+      <p class="school-address">#7 Kingfisher Street Zabarte Subdivision, Novaliches,<br />Quezon City 1124, Philippines</p>
+    </div>
+  </div>
+  <h1>Section: ${sec.name}</h1>
+  <div class="subtitle">${sec.code} &bull; ${sec.yearLevel} &bull; ${sec.department === "Basic Education" ? "Basic Education" : "College"}${sec.strandOrTrack ? " &bull; " + sec.strandOrTrack : ""}</div>
+  <div class="meta">
+    <span><strong>Adviser</strong>${sec.adviserName || "—"}</span>
+    <span><strong>Academic Year</strong>${sec.academicYear}</span>
+    ${sec.semester ? `<span><strong>Semester</strong>${sec.semester}</span>` : ""}
+    <span><strong>Enrolled / Capacity</strong>${enrolledStudents.length} / ${sec.capacity}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Student No.</th>
+        <th>Full Name</th>
+        <th>Year Level</th>
+        <th>Strand / Course</th>
+        <th style="text-align:center;">Status</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">
+    <span>STSN Connect &mdash; Class Sectioning</span>
+    <span>Printed: ${new Date().toLocaleString()}</span>
+  </div>
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`);
+            printWindow.document.close();
+          };
+
+          return (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] mx-4">
+                <div className="modal-header-gradient text-stsn-cream p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-stsn-gold" />
+                    <div>
+                      <h3 className="font-display font-bold text-sm">Students — {viewStudentsSection.name}</h3>
+                      <p className="text-[10px] text-stsn-gold-light/70">{viewStudentsSection.yearLevel} • {viewStudentsSection.department === "Basic Education" ? "Basic Ed" : "College"}</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setViewStudentsSection(null)} className="cursor-pointer hover:bg-white/10 p-1 rounded transition">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {enrolledStudents.length === 0 ? (
+                    <p className="text-center text-stone-400 text-xs py-10 italic">No students assigned to this section.</p>
+                  ) : (
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-stsn-brown text-white">
+                        <tr>
+                          <th className="px-4 py-2.5 text-center text-[10px] uppercase font-bold w-10">#</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Student No.</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Full Name</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Year Level</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Track / Course</th>
+                          <th className="px-4 py-2.5 text-center text-[10px] uppercase font-bold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100">
+                        {enrolledStudents.map((s, i) => (
+                          <tr key={s.id} className="hover:bg-stone-50">
+                            <td className="px-4 py-2.5 text-center text-stone-400 font-mono">{i + 1}</td>
+                            <td className="px-4 py-2.5 font-mono font-bold text-stsn-brown">{s.studentNo}</td>
+                            <td className="px-4 py-2.5 font-semibold text-stone-800">{s.lastName}, {s.firstName}</td>
+                            <td className="px-4 py-2.5 text-stone-500">{s.yearLevel}</td>
+                            <td className="px-4 py-2.5 text-stone-500">{s.trackOrCourse || "—"}</td>
+                            <td className="px-4 py-2.5 text-center">
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                s.enrollmentStatus === "Enrolled" ? "bg-green-50 text-green-700 border-green-200" :
+                                s.enrollmentStatus === "Approved" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}>
+                                {s.enrollmentStatus}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-between items-center">
+                  <span className="text-xs text-stone-400 font-mono">
+                    {enrolledStudents.length} student(s) in section
+                  </span>
+                  <div className="flex gap-2">
+                    {enrolledStudents.length > 0 && (
+                      <button
+                        onClick={handlePrint}
+                        className="px-4 py-2 text-xs font-bold text-white btn-primary-gradient rounded-lg shadow cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        Print Class List
+                      </button>
+                    )}
+                    <button onClick={() => setViewStudentsSection(null)} className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer">Close</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })(),
+        document.body
       )}
     </div>
   );

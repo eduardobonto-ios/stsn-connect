@@ -382,7 +382,7 @@ export default function ConsultationModule() {
 
       {/* CONFIRM MODAL */}
       {confirmingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
             <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-4 text-white flex justify-between items-center">
               <h3 className="font-bold text-sm flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Confirm Appointment</h3>
@@ -404,7 +404,7 @@ export default function ConsultationModule() {
 
       {/* REQUEST FORM MODAL */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
             <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-4 text-white flex justify-between items-center">
               <h3 className="font-bold text-sm flex items-center gap-2"><PhoneCall className="w-4 h-4" /> New Consultation Request</h3>
@@ -472,7 +472,7 @@ export default function ConsultationModule() {
         const cfg = STATUS_CONFIG[detailItem.status];
         const StatusIcon = cfg.icon;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="app-modal-backdrop z-50">
             <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md overflow-hidden">
               <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-4 text-white flex justify-between items-center">
                 <h3 className="font-bold text-sm">Consultation — Detail</h3>

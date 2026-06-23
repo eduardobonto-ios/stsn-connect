@@ -47,7 +47,7 @@ export default function AppPromptDialog({
   const Icon = style.icon;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+    <div className="app-modal-backdrop z-[110] animate-fade-in">
       <form
         onSubmit={(e) => {
           e.preventDefault();

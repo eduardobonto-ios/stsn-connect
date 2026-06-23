@@ -346,7 +346,7 @@ export default function BooksSetupPage() {
 
       {/* Detail / Edit Modal */}
       {displayPackage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[85vh] flex flex-col">
             <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark text-white p-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2">

@@ -241,7 +241,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div className="app-modal-backdrop z-50 animate-fade-in">
       <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-2xl overflow-hidden">
         <div className="modal-header-gradient text-white p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -263,7 +263,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
               className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
             >
               <option value="">— Assign Faculty —</option>
-              {teachers.map((t) => (
+              {teachers.filter((t) => t.department === "Basic Education").map((t) => (
                 <option key={t.id} value={t.id}>{t.firstName} {t.lastName} — {t.specialization} ({t.department})</option>
               ))}
             </select>
@@ -492,7 +492,7 @@ export default function SchedulingModule() {
       const matchSearch = s.subjectCode.toLowerCase().includes(q) || s.subjectName.toLowerCase().includes(q) || s.section.toLowerCase().includes(q) || s.teacherName.toLowerCase().includes(q) || s.roomName.toLowerCase().includes(q);
       const matchYear = s.schoolYear === filterYear;
       const matchSem = s.semester === filterSemester;
-      const matchDept = filterDept === "All" || s.department === filterDept;
+      const matchDept = s.department === "Basic Education";
       const matchTeacher = filterTeacher === "All" || s.teacherId === filterTeacher;
       const matchDay = filterDay === "All" || s.day === filterDay;
       return matchSearch && matchYear && matchSem && matchDept && matchTeacher && matchDay;
@@ -561,8 +561,8 @@ export default function SchedulingModule() {
       data: "department",
       render: (value: ClassSchedule["department"], sched) => (
         <>
-          <p className="text-stone-600">{value === "College" ? "College" : "Basic Ed"}</p>
-          {sched.yearLevel && <p className="text-[10px] text-stone-400">{sched.yearLevel}{sched.courseOrTrack ? ` • ${sched.courseOrTrack}` : ""}</p>}
+          <p className="text-stone-600 whitespace-normal break-words">{value === "College" ? "College" : "Basic Ed"}</p>
+          {sched.yearLevel && <p className="text-[10px] text-stone-400 whitespace-normal break-words">{sched.yearLevel}{sched.courseOrTrack ? ` • ${sched.courseOrTrack}` : ""}</p>}
         </>
       ),
     },
@@ -705,6 +705,7 @@ export default function SchedulingModule() {
                 <STSNDataTable<ClassSchedule>
                   columns={scheduleColumns}
                   rows={displaySchedules}
+                  searchable={false}
                   emptyMessage={showConflictsOnly ? "No conflicts detected in the current view." : "No schedules found. Adjust filters or create a new schedule."}
                 />
               </div>

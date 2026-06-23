@@ -46,7 +46,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 
 function VideoPlayerModal({ material, onClose }: { material: LearningMaterial; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-fade-in" onClick={onClose}>
+    <div className="app-modal-backdrop z-50 animate-fade-in" onClick={onClose}>
       <div
         className="bg-stone-900 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -371,7 +371,7 @@ export default function OnlineLearning() {
 
       {/* Delete Confirm Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm mx-4 text-center">
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
               <Trash2 className="w-6 h-6 text-red-500" />
@@ -621,7 +621,7 @@ export default function OnlineLearning() {
 
       {/* Upload / Edit Form Modal */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in p-4">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {/* Form Header */}
             <div className="sticky top-0 bg-white px-6 py-4 border-b border-stone-100 flex items-center justify-between z-10">
@@ -825,7 +825,7 @@ export default function OnlineLearning() {
 
       {/* Document viewer notice for non-video */}
       {viewingMaterial && viewingMaterial.learningType !== "Video" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in" onClick={() => setViewingMaterial(null)}>
+        <div className="app-modal-backdrop z-50 animate-fade-in" onClick={() => setViewingMaterial(null)}>
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="w-14 h-14 rounded-2xl bg-stsn-cream flex items-center justify-center mx-auto mb-4">
               <FileText className="w-7 h-7 text-stsn-brown" />

@@ -408,7 +408,7 @@ export default function ClinicModule() {
 
       {/* LOG VISIT MODAL */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
             <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-4 text-white flex justify-between items-center">
               <h3 className="font-bold text-sm flex items-center gap-2"><Stethoscope className="w-4 h-4" /> Log Clinic Visit</h3>
@@ -475,7 +475,7 @@ export default function ClinicModule() {
         const stu = students.find((s) => s.id === detailVisit.studentId);
         const cfg = DISPOSITION_CONFIG[detailVisit.disposition];
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="app-modal-backdrop z-50">
             <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md overflow-hidden">
               <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-4 text-white flex justify-between items-center">
                 <h3 className="font-bold text-sm flex items-center gap-2"><Stethoscope className="w-4 h-4" /> Clinic Visit Detail</h3>
