@@ -47,6 +47,7 @@ import CashierModule from "./features/cashier/pages/CashierModulePage";
 import ClinicModule from "./features/clinic/pages/ClinicModulePage";
 import GuidanceModule from "./features/guidance/pages/GuidanceModulePage";
 import ConsultationModule from "./features/consultation/pages/ConsultationModulePage";
+import RegistrarReportsPage from "./features/reports/pages/RegistrarReportsPage";
 
 export default function App() {
   const { currentUser, login, logout, users, activeSchool, academicUnit, isLoading, initialize } =
@@ -417,6 +418,8 @@ export default function App() {
             )}
           {activeModule === "REGISTRAR" &&
             allowedModules.includes("REGISTRAR") && <RegistrarModule />}
+          {activeModule === "REGISTRAR_REPORTS" &&
+            allowedModules.includes("REGISTRAR_REPORTS") && <RegistrarReportsPage />}
           {activeModule === "ACCOUNTING" &&
             allowedModules.includes("ACCOUNTING") && (
               <AccountingModule subPage={accountingSubPage} onSubPageChange={setAccountingSubPage} />

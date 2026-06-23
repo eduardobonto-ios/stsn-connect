@@ -45,6 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "enrollment",        label: "Enrollment",        icon: Compass,         desc: "Student registrations",             targetModule: "REGISTRAR" },
       { id: "class-scheduling",  label: "Class Scheduling",  icon: CalendarDays,    desc: "Subject schedules & adviser rooms", targetModule: "SCHEDULING" },
       { id: "class-sectioning",  label: "Class Sectioning",  icon: Layers,          desc: "Sections, advisers & LRN rosters", targetModule: "CLASS_SECTIONING" },
+      { id: "registrar-reports", label: "Registrar Reports", icon: FileText,        desc: "Enrollment and student records reports", targetModule: "REGISTRAR_REPORTS" },
       { id: "syllabus-pathways", label: "Syllabus Pathways", icon: Building2,       desc: "Academic subjects flow",            targetModule: "CURRICULUM" },
       { id: "teacher-board",     label: "Teacher Board",     icon: BookOpen,        desc: "Schedules & class scores",          targetModule: "FACULTY_PORTAL" },
     ],
