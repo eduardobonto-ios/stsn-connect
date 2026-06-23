@@ -37,7 +37,7 @@ export default function AppConfirmDialog({
   const Icon = style.icon;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+    <div className="app-modal-backdrop z-[110] animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-stone-200">
         <div className="modal-header-gradient text-white p-4 flex items-center gap-2.5">
           <Icon className="w-5 h-5 text-stsn-gold flex-shrink-0" />

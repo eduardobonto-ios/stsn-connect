@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
+import { useSTSNStore } from "../../../../services/store";
 import { dbDelete, dbInsert, dbSelectAll, dbUpdate, newId } from "../../../../services/supabaseCrud";
 
 type SupplierStatus = "Active" | "Inactive" | "Blocked";
@@ -51,6 +52,7 @@ function rowToSupplier(r: any): Supplier {
 }
 
 const SUPPLIER_STATUSES: SupplierStatus[] = ["Active", "Inactive", "Blocked"];
+const DEFAULT_SUPPLIER_PAYMENT_TERMS = ["Due on Receipt", "Net 15", "Net 30", "Net 45", "Net 60"];
 
 const STATUS_CONFIG: Record<SupplierStatus, { label: string; badgeClass: string }> = {
   Active: { label: "Active", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -74,6 +76,7 @@ const DEFAULT_FORM: Omit<Supplier, "id"> = {
 
 export default function SupplierManagementPage() {
   const { confirm } = useAppDialog();
+  const { setupData } = useSTSNStore();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<ChartAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,6 +103,15 @@ export default function SupplierManagementPage() {
       .sort((a, b) => a.code.localeCompare(b.code)),
     [accounts],
   );
+
+  const paymentTermOptions = useMemo(() => {
+    const setupTerms = [...(setupData.payment_terms ?? [])]
+      .filter((term) => term.isActive !== false)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+      .map((term) => term.name)
+      .filter(Boolean);
+    return Array.from(new Set([...setupTerms, ...DEFAULT_SUPPLIER_PAYMENT_TERMS, ...suppliers.map((supplier) => supplier.paymentTerms).filter(Boolean)]));
+  }, [setupData.payment_terms, suppliers]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -363,7 +375,7 @@ export default function SupplierManagementPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl border border-stone-200 flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between flex-shrink-0">
               <h3 className="text-sm font-bold text-stone-800">
@@ -415,7 +427,9 @@ export default function SupplierManagementPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block mb-1">Payment Terms</label>
-                  <input value={form.paymentTerms} onChange={(e) => setForm((prev) => ({ ...prev, paymentTerms: e.target.value }))} placeholder="e.g. Net 30" className="w-full px-3 py-2 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
+                  <select value={form.paymentTerms} onChange={(e) => setForm((prev) => ({ ...prev, paymentTerms: e.target.value }))} className="w-full px-3 py-2 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stsn-gold/50">
+                    {paymentTermOptions.map((term) => <option key={term} value={term}>{term}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block mb-1">Default GL Account</label>

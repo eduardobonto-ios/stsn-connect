@@ -449,7 +449,7 @@ export default function HRManagement() {
 
       {/* NEW EMPLOYEE REGISTER MODAL */}
       {isNewEmpOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <form onSubmit={handleRegisterEmployee} className="bg-white rounded-2xl shadow-2xl border border-stone-200 text-stone-800 w-full max-w-lg overflow-hidden animate-fade-in font-sans max-h-[90vh] flex flex-col">
             <div className="modal-header-gradient text-white p-4 flex items-center justify-between flex-shrink-0">
               <h3 className="font-display font-semibold text-base flex items-center gap-2">
@@ -541,7 +541,7 @@ export default function HRManagement() {
 
       {/* EXCEL/CSV IMPORT MODAL */}
       {isImportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col animate-fade-in">
             {/* Header */}
             <div className="modal-header-gradient text-white p-4 flex items-center justify-between flex-shrink-0">

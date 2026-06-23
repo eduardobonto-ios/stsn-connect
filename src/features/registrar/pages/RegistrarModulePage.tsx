@@ -2769,7 +2769,7 @@ export default function RegistrarModule() {
 
       {/* ===================== ENROLLMENT FORM MODAL ===================== */}
       {isNewStudentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
             <div
               className={`text-white p-4 flex items-center justify-between ${schoolContext === "BASIC_ED" ? "modal-header-gradient" : "bg-gradient-to-r from-blue-800 to-blue-600"}`}

@@ -344,7 +344,7 @@ export default function GuidanceModule() {
 
       {/* ANECDOTAL FORM MODAL */}
       {showAnecForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
             <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-4 text-white flex justify-between items-center">
               <h3 className="font-bold text-sm flex items-center gap-2"><NotebookPen className="w-4 h-4" /> New Anecdotal Record</h3>
@@ -402,7 +402,7 @@ export default function GuidanceModule() {
 
       {/* SESSION FORM MODAL */}
       {showSessionForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
             <div className="bg-gradient-to-r from-stone-700 to-stone-800 p-4 text-white flex justify-between items-center">
               <h3 className="font-bold text-sm flex items-center gap-2"><MessageSquare className="w-4 h-4" /> New Guidance Session</h3>
@@ -475,7 +475,7 @@ export default function GuidanceModule() {
         const stu = students.find((s) => s.id === detailRecord.studentId);
         const cfg = INCIDENT_TYPE_CONFIG[detailRecord.incidentType];
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="app-modal-backdrop z-50">
             <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md overflow-hidden">
               <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-4 text-white flex justify-between items-center">
                 <h3 className="font-bold text-sm">Anecdotal Record — Detail</h3>
@@ -522,7 +522,7 @@ export default function GuidanceModule() {
         const stu = students.find((s) => s.id === detailSession.studentId);
         const cfg = SESSION_STATUS_CONFIG[detailSession.status];
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="app-modal-backdrop z-50">
             <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md overflow-hidden">
               <div className="bg-gradient-to-r from-stone-700 to-stone-800 p-4 text-white flex justify-between items-center">
                 <h3 className="font-bold text-sm">Guidance Session — Detail</h3>

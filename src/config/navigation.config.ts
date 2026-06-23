@@ -1,8 +1,9 @@
 import {
   LayoutDashboard, Compass, Coins, GraduationCap, Users, BookOpen,
-  Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet, Library,
+  Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet,
   List, FileText, Truck, Package, Receipt, TrendingUp, TrendingDown, Scale, PieChart, Activity,
-  Percent, Lock, ClipboardList, BookMarked, Banknote, Stethoscope, NotebookPen, PhoneCall
+  Percent, Lock, ClipboardList, BookMarked, Banknote, Stethoscope, NotebookPen, PhoneCall,
+  UsersRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { UserRole } from "../types";
@@ -16,8 +17,9 @@ export { ROLE_PERMISSIONS, getPermissionsForRole };
 export interface NavSubItem {
   id: string;
   label: string;
-  icon: LucideIcon;
-  desc: string;
+  icon?: LucideIcon;
+  desc?: string;
+  isSection?: boolean;
   /** If set, clicking this child navigates to this module (category group pattern). */
   targetModule?: STSNModule;
   /** If set, only show this child for users with one of these roles. */
@@ -43,29 +45,35 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { id: "dashboard",         label: "Dashboard",         icon: LayoutDashboard, desc: "Live admissions & fees",             targetModule: "DASHBOARD" },
       { id: "enrollment",        label: "Enrollment",        icon: Compass,         desc: "Student registrations",             targetModule: "REGISTRAR" },
+      { id: "students",          label: "Students",          icon: UsersRound,      desc: "All students & quick record access", targetModule: "STUDENT_DIRECTORY" },
       { id: "class-scheduling",  label: "Class Scheduling",  icon: CalendarDays,    desc: "Subject schedules & adviser rooms", targetModule: "SCHEDULING" },
       { id: "class-sectioning",  label: "Class Sectioning",  icon: Layers,          desc: "Sections, advisers & LRN rosters", targetModule: "CLASS_SECTIONING" },
       { id: "syllabus-pathways", label: "Syllabus Pathways", icon: Building2,       desc: "Academic subjects flow",            targetModule: "CURRICULUM" },
-      { id: "teacher-board",     label: "Teacher Board",     icon: BookOpen,        desc: "Schedules & class scores",          targetModule: "FACULTY_PORTAL" },
+      { id: "faculty-admin",     label: "Faculty",           icon: UsersRound,      desc: "Teacher & faculty management",      targetModule: "FACULTY_ADMIN" },
     ],
   },
   {
     id: "ACCOUNTING", label: "Accounting", icon: Coins, desc: "Ledger, discounts & reports",
     children: [
+      { id: "accounting-core", label: "Core Workflows", isSection: true },
       { id: "dashboard",         label: "Dashboard",               icon: LayoutDashboard, desc: "KPIs & receivables watchlist" },
       { id: "ledger",            label: "Student Ledger",          icon: BookOpen,        desc: "Per-student debit/credit ledger" },
       { id: "discounts",         label: "Discounts",               icon: Percent,         desc: "Discount types & approval requests" },
       { id: "billing",           label: "Billing & Assessment",    icon: ClipboardList,   desc: "Assessment approval & summary" },
       { id: "holds",             label: "Financial Holds",         icon: Lock,            desc: "Student financial hold management" },
+      { id: "accounting-general-ledger", label: "General Ledger", isSection: true },
       { id: "chart-of-accounts", label: "Chart of Accounts",      icon: List,            desc: "GL account codes & hierarchy" },
       { id: "cost-centers",      label: "Cost Centers",            icon: Building2,       desc: "Departmental cost segmentation" },
       { id: "journal-entries",   label: "Journal Entries",         icon: BookMarked,      desc: "Double-entry bookkeeping postings" },
+      { id: "accounting-procurement", label: "Procurement & Billing", isSection: true },
       { id: "suppliers",         label: "Supplier Management",     icon: Truck,           desc: "Vendor & supplier master list" },
       { id: "items",             label: "Item / Product Mgmt",     icon: Package,         desc: "Product & service catalog" },
       { id: "sales-invoices",    label: "Sales Invoice",           icon: Receipt,         desc: "Customer sales invoices (AR)" },
       { id: "purchase-invoices", label: "Purchase Invoice",        icon: FileText,        desc: "Vendor purchase invoices (AP)" },
+      { id: "accounting-aging", label: "Aging Reports", isSection: true },
       { id: "ar-aging",          label: "AR with Aging",           icon: TrendingUp,      desc: "Receivables aged 30/60/90/120+ days" },
       { id: "ap-aging",          label: "AP with Aging",           icon: TrendingDown,    desc: "Payables aged by vendor & due date" },
+      { id: "accounting-statements", label: "Financial Statements", isSection: true },
       { id: "trial-balance",     label: "Trial Balance",           icon: Scale,           desc: "Debit/credit totals by GL account" },
       { id: "balance-sheet",     label: "Balance Sheet",           icon: PieChart,        desc: "Assets = Liabilities + Equity snapshot" },
       { id: "income-statement",  label: "Income Statement",        icon: Activity,        desc: "Revenue − Expenses = Net Income" },
@@ -74,6 +82,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { id: "CASHIER",          label: "Cashiering",              icon: Wallet,      desc: "Payments, receipts & collections" },
   { id: "GRADING",          label: "Grades Directory",        icon: GraduationCap, desc: "Midterm/Final score encodes" },
+  { id: "FACULTY_PORTAL",   label: "Teacher Board",           icon: BookOpen,    desc: "Schedules & class scores" },
   {
     id: "STUDENT_PORTAL", label: "Student Portal", icon: UserCheck, desc: "View grades, COR & ID",
     children: [
@@ -101,50 +110,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { id: "GUIDANCE",          label: "Guidance Office",         icon: NotebookPen, desc: "Anecdotal records & counseling sessions" },
   { id: "ACCOUNTS_SECURITY", label: "User Access & Authority", icon: Shield,   desc: "Credential security status" },
-  {
-    id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance",
-    children: [
-      { id: "academic_categories",       label: "Academic Categories",        icon: Layers,        desc: "Program categories",              targetModule: "CORE_SETUP" },
-      { id: "academic_levels",           label: "Academic Levels",            icon: GraduationCap, desc: "Education levels",                targetModule: "CORE_SETUP" },
-      { id: "year_levels",               label: "Year Levels",                icon: Layers,        desc: "Grade and year levels",           targetModule: "CORE_SETUP" },
-      { id: "school_years",              label: "School Years",               icon: CalendarDays,  desc: "Academic year periods",           targetModule: "CORE_SETUP" },
-      { id: "semesters",                 label: "Semesters / Terms",          icon: CalendarDays,  desc: "Semester and term definitions",    targetModule: "CORE_SETUP" },
-      { id: "departments",               label: "Departments",                icon: Building2,     desc: "Academic and admin departments",  targetModule: "CORE_SETUP" },
-      { id: "holidays",                  label: "Holiday Maintenance",        icon: CalendarDays,  desc: "Official holiday setup",          targetModule: "CORE_SETUP" },
-      { id: "admission_types",           label: "Admission Types",            icon: Users,         desc: "New, transferee and returnee",    targetModule: "CORE_SETUP" },
-      { id: "enrollment_requirements",   label: "Enrollment Requirements",    icon: FileText,      desc: "Required enrollment documents",   targetModule: "CORE_SETUP" },
-      { id: "student_statuses",          label: "Student Status",             icon: Users,         desc: "Enrollment status options",       targetModule: "CORE_SETUP" },
-      { id: "student_types",             label: "Student Types",              icon: Users,         desc: "Regular and special types",       targetModule: "CORE_SETUP" },
-      { id: "campuses",                  label: "Campuses",                   icon: Building2,     desc: "School campus locations",         targetModule: "CORE_SETUP" },
-      { id: "buildings",                 label: "Buildings",                  icon: Building2,     desc: "Campus building setup",           targetModule: "CORE_SETUP" },
-      { id: "room_types",                label: "Room Types",                 icon: Layers,        desc: "Classroom and facility types",     targetModule: "CORE_SETUP" },
-      { id: "rooms",                     label: "Rooms / Classrooms",         icon: Building2,     desc: "Room maintenance",                targetModule: "CORE_SETUP" },
-      { id: "time_slots",                label: "Time Slots",                 icon: CalendarDays,  desc: "Class period definitions",        targetModule: "CORE_SETUP" },
-      { id: "faculty_ranks",             label: "Faculty Ranks",              icon: GraduationCap, desc: "Faculty rank levels",             targetModule: "CORE_SETUP" },
-      { id: "employment_types",          label: "Employment Types",           icon: Users,         desc: "Employee type setup",             targetModule: "CORE_SETUP" },
-      { id: "fee_categories",            label: "Fee Categories",             icon: Coins,         desc: "Tuition and fee groups",          targetModule: "CORE_SETUP" },
-      { id: "fee_items",                 label: "Fee Items",                  icon: Coins,         desc: "Fee line items and amounts",      targetModule: "CORE_SETUP" },
-      { id: "payment_terms",             label: "Payment Terms",              icon: Wallet,        desc: "Cash and installment terms",      targetModule: "CORE_SETUP" },
-      { id: "payment_methods",           label: "Payment Methods",            icon: Wallet,        desc: "Collection payment channels",     targetModule: "CORE_SETUP" },
-      { id: "chart_of_accounts",         label: "Chart of Accounts",          icon: BarChart3,     desc: "Financial account codes",         targetModule: "CORE_SETUP" },
-      { id: "accounting_periods",        label: "Accounting Periods",         icon: CalendarDays,  desc: "Fiscal period definitions",       targetModule: "CORE_SETUP" },
-      { id: "or_series",                 label: "Official Receipt Series",    icon: Receipt,       desc: "OR numbering configuration",      targetModule: "CORE_SETUP" },
-      { id: "collection_types",          label: "Collection Types",           icon: Coins,         desc: "Collection classifications",      targetModule: "CORE_SETUP" },
-      { id: "refund_reasons",            label: "Refund Reasons",             icon: FileText,      desc: "Student refund reasons",          targetModule: "CORE_SETUP" },
-      { id: "void_reasons",              label: "Void Reasons",               icon: FileText,      desc: "Receipt void reasons",            targetModule: "CORE_SETUP" },
-      { id: "nationalities",             label: "Nationalities",              icon: Users,         desc: "Student nationality references",  targetModule: "CORE_SETUP" },
-      { id: "civil_statuses",            label: "Civil Statuses",             icon: Users,         desc: "Civil status references",         targetModule: "CORE_SETUP" },
-      { id: "religions",                 label: "Religions",                  icon: BookOpen,      desc: "Religion references",             targetModule: "CORE_SETUP" },
-      { id: "grade_scales",              label: "Grade Scale",                icon: Scale,         desc: "Grade equivalents and remarks",   targetModule: "CORE_SETUP" },
-      { id: "document_types",            label: "Document Types",             icon: FileText,      desc: "Document maintenance",            targetModule: "CORE_SETUP" },
-      { id: "roles_setup",               label: "Roles",                      icon: Shield,        desc: "System role definitions",         targetModule: "CORE_SETUP" },
-      { id: "permissions_setup",         label: "Permissions",                icon: Shield,        desc: "Module permission definitions",   targetModule: "CORE_SETUP" },
-      { id: "id_card_templates",         label: "ID Card Templates",          icon: UserCheck,     desc: "ID card design templates",        targetModule: "CORE_SETUP" },
-      { id: "enrollment_workflows",      label: "Enrollment Workflow",        icon: ClipboardList, desc: "Enrollment approval steps",        targetModule: "CORE_SETUP" },
-      { id: "clearance_workflows",       label: "Clearance Workflow",         icon: ClipboardList, desc: "Clearance step configuration",     targetModule: "CORE_SETUP" },
-      { id: "library", label: "Library", icon: Library, desc: "Configure book packages by grade level", targetModule: "BOOKS_SETUP" },
-    ],
-  },
+  { id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance" },
 ];
 
 /**

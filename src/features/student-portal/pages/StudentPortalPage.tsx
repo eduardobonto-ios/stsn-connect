@@ -53,7 +53,7 @@ import type { Requirement, Student } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
 
-export default function StudentPortal({ subPage }: { subPage: string }) {
+export default function StudentPortal({ subPage, initialStudentId, compact }: { subPage: string; initialStudentId?: string; compact?: boolean }) {
   const {
     students,
     assessments,
@@ -106,8 +106,17 @@ export default function StudentPortal({ subPage }: { subPage: string }) {
     () => students.filter((s) => s.department === academicUnitToDepartment(academicUnit)),
     [students, academicUnit]
   );
-  const [recordsViewStudentId, setRecordsViewStudentId] = useState<string>("");
+  const [recordsViewStudentId, setRecordsViewStudentId] = useState<string>(initialStudentId ?? "");
   const [studentSearchInput, setStudentSearchInput] = useState("");
+
+  // When a student is pre-selected from the directory, sync the search input label
+  React.useEffect(() => {
+    if (!initialStudentId) return;
+    setRecordsViewStudentId(initialStudentId);
+    const s = students.find((st) => st.id === initialStudentId);
+    if (s) setStudentSearchInput(`${s.lastName}, ${s.firstName} — ${s.studentNo}`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialStudentId]);
 
   const getStudentOptionLabel = (s: Student) => `${s.lastName}, ${s.firstName} — ${s.studentNo}`;
 
@@ -334,91 +343,95 @@ export default function StudentPortal({ subPage }: { subPage: string }) {
   return (
     <div className="space-y-6 animate-fade-in font-sans text-stone-850">
 
-      {/* HERO HEADER */}
-      <div className="bg-white p-6 rounded-2xl border border-stsn-beige shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <span className="bg-stsn-gold/20 border border-stsn-gold/30 text-stsn-brown text-[10px] font-mono uppercase px-2.5 py-1 rounded-full font-bold">
-            {isRecordsView ? "Registrar Access — Student Records" : "Academic Registrar Verified Access"}
-          </span>
-          <h2 className="text-2xl font-display font-medium mt-2 text-stone-900">
-            {isRecordsView ? `Student Record: ${student.lastName}, ${student.firstName}` : `Mabuhay, ${firstName}!`}
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            {terms.studentIdLabel}: <strong className="text-stsn-brown">{student.studentNo}</strong>
-            {" "}• {terms.trackNoun}: <strong className="text-stsn-brown">{student.trackOrCourse || "—"}</strong>
-            {" "}• {terms.unitNounSingular}: <strong className="text-stsn-brown">{student.yearLevel}</strong>
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-          {isRecordsView && (
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-              <input
-                type="text"
-                list="student-portal-records-list"
-                value={studentSearchInput}
-                onChange={(e) => handleStudentSearchChange(e.target.value)}
-                placeholder="Search student by name or student number…"
-                className="w-full bg-stone-50 border border-stone-200 text-stone-900 placeholder-stone-400 text-xs font-semibold rounded-xl pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold"
-              />
-              <datalist id="student-portal-records-list">
-                {recordsViewStudents.map((s) => (
-                  <option key={s.id} value={getStudentOptionLabel(s)} />
-                ))}
-              </datalist>
+      {!compact && (
+        <>
+          {/* HERO HEADER */}
+          <div className="bg-white p-6 rounded-2xl border border-stsn-beige shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <span className="bg-stsn-gold/20 border border-stsn-gold/30 text-stsn-brown text-[10px] font-mono uppercase px-2.5 py-1 rounded-full font-bold">
+                {isRecordsView ? "Registrar Access — Student Records" : "Academic Registrar Verified Access"}
+              </span>
+              <h2 className="text-2xl font-display font-medium mt-2 text-stone-900">
+                {isRecordsView ? `Student Record: ${student.lastName}, ${student.firstName}` : `Mabuhay, ${firstName}!`}
+              </h2>
+              <p className="text-stone-500 text-xs mt-1">
+                {terms.studentIdLabel}: <strong className="text-stsn-brown">{student.studentNo}</strong>
+                {" "}• {terms.trackNoun}: <strong className="text-stsn-brown">{student.trackOrCourse || "—"}</strong>
+                {" "}• {terms.unitNounSingular}: <strong className="text-stsn-brown">{student.yearLevel}</strong>
+              </p>
             </div>
-          )}
-          <button
-            onClick={() => setIsCorModalOpen(true)}
-            className="btn-gold-gradient border border-stsn-gold/50 text-white text-xs font-semibold px-4 py-2 rounded-xl cursor-pointer shadow-md flex items-center gap-1.5 transition whitespace-nowrap"
-          >
-            <Award className="w-4 h-4" />
-            Official COR PDF
-          </button>
-        </div>
-      </div>
-
-      {/* ENROLLMENT STEPPER BAR */}
-      <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm">
-        <div className="flex justify-between items-center pb-2.5 mb-4 border-b border-stone-100">
-          <div>
-            <span className="text-[9.5px] font-mono text-stone-400 font-bold uppercase block">Enrollment Progress Tracker</span>
-            <span className="text-xs font-bold text-stone-900 uppercase">Interactive Enrollment Milestone</span>
-          </div>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stsn-gold/20 text-[#603513] border border-stsn-gold/30">
-            Active Status: {currentStatusString}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          {statuses.map((item, idx) => {
-            const isCompleted = idx <= currentStepIdx;
-            const isActive = idx === currentStepIdx;
-            return (
-              <div
-                key={item}
-                className={`p-2.5 rounded-lg border text-center transition ${
-                  isActive
-                    ? "stepper-active scale-102 font-bold shadow-md"
-                    : isCompleted
-                    ? "bg-stone-50 border-green-200 text-green-700 font-medium"
-                    : "bg-stone-50/50 border-stone-200 text-stone-400"
-                }`}
-              >
-                <div className="flex justify-center mb-1">
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <span className="text-[10px] font-mono bg-stone-200 text-stone-500 font-bold px-1.5 rounded">
-                      Step {idx + 1}
-                    </span>
-                  )}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+              {isRecordsView && (
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+                  <input
+                    type="text"
+                    list="student-portal-records-list"
+                    value={studentSearchInput}
+                    onChange={(e) => handleStudentSearchChange(e.target.value)}
+                    placeholder="Search student by name or student number…"
+                    className="w-full bg-stone-50 border border-stone-200 text-stone-900 placeholder-stone-400 text-xs font-semibold rounded-xl pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold"
+                  />
+                  <datalist id="student-portal-records-list">
+                    {recordsViewStudents.map((s) => (
+                      <option key={s.id} value={getStudentOptionLabel(s)} />
+                    ))}
+                  </datalist>
                 </div>
-                <span className="text-[10px] block truncate">{item}</span>
+              )}
+              <button
+                onClick={() => setIsCorModalOpen(true)}
+                className="btn-gold-gradient border border-stsn-gold/50 text-white text-xs font-semibold px-4 py-2 rounded-xl cursor-pointer shadow-md flex items-center gap-1.5 transition whitespace-nowrap"
+              >
+                <Award className="w-4 h-4" />
+                Official COR PDF
+              </button>
+            </div>
+          </div>
+
+          {/* ENROLLMENT STEPPER BAR */}
+          <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm">
+            <div className="flex justify-between items-center pb-2.5 mb-4 border-b border-stone-100">
+              <div>
+                <span className="text-[9.5px] font-mono text-stone-400 font-bold uppercase block">Enrollment Progress Tracker</span>
+                <span className="text-xs font-bold text-stone-900 uppercase">Interactive Enrollment Milestone</span>
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stsn-gold/20 text-[#603513] border border-stsn-gold/30">
+                Active Status: {currentStatusString}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {statuses.map((item, idx) => {
+                const isCompleted = idx <= currentStepIdx;
+                const isActive = idx === currentStepIdx;
+                return (
+                  <div
+                    key={item}
+                    className={`p-2.5 rounded-lg border text-center transition ${
+                      isActive
+                        ? "stepper-active scale-102 font-bold shadow-md"
+                        : isCompleted
+                        ? "bg-stone-50 border-green-200 text-green-700 font-medium"
+                        : "bg-stone-50/50 border-stone-200 text-stone-400"
+                    }`}
+                  >
+                    <div className="flex justify-center mb-1">
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <span className="text-[10px] font-mono bg-stone-200 text-stone-500 font-bold px-1.5 rounded">
+                          Step {idx + 1}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] block truncate">{item}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ========================== TAB A: OVERVIEW ========================== */}
       {activeTab === "overview" && (
@@ -698,7 +711,7 @@ export default function StudentPortal({ subPage }: { subPage: string }) {
         <div className="space-y-5">
           {/* Video Player Modal */}
           {viewingLms && viewingLms.learningType === "Video" && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-fade-in" onClick={() => setViewingLms(null)}>
+            <div className="app-modal-backdrop z-50 animate-fade-in" onClick={() => setViewingLms(null)}>
               <div className="bg-stone-900 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
                   <h3 className="text-sm font-bold text-white leading-tight truncate pr-4">{viewingLms.title}</h3>
@@ -723,7 +736,7 @@ export default function StudentPortal({ subPage }: { subPage: string }) {
 
           {/* Document Viewer Modal */}
           {viewingLms && viewingLms.learningType !== "Video" && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in" onClick={() => setViewingLms(null)}>
+            <div className="app-modal-backdrop z-50 animate-fade-in" onClick={() => setViewingLms(null)}>
               <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md mx-4 text-center" onClick={(e) => e.stopPropagation()}>
                 <div className="w-12 h-12 rounded-2xl bg-stsn-cream mx-auto mb-3 flex items-center justify-center">
                   <FileText className="w-6 h-6 text-stsn-brown" />

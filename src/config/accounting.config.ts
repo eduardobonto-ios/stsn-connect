@@ -40,11 +40,10 @@ export const ACCOUNTING_DASHBOARD_KPI_TEMPLATES: { id: string; label: string }[]
 
 /** Labels for Student Ledger action buttons (Phase 3+). */
 export const LEDGER_ACTION_LABELS = {
-  addPayment: "Add Payment",
   addAdjustment: "Add Adjustment",
   generateSOA: "Generate Statement of Account",
   printLedger: "Print Ledger",
-  issueReceipt: "Issue / View Receipt",
+  viewReceipt: "View Receipt",
   applyDiscount: "Apply Discount",
   setHold: "Set Financial Hold",
   clearHold: "Clear Financial Hold",
