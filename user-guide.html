@@ -603,8 +603,9 @@
         <div class="cover-divider"></div>
         <div class="cover-description">
           This comprehensive guide covers all modules of the STSN Connect ERP system — from student enrollment
-          and financial management to class scheduling, grading, and system administration. Designed for all
-          staff roles: Registrar, Accounting, Faculty, HR, and Administrators.
+          and financial management to class scheduling, grading, cashier operations, online learning, clinic
+          health services, guidance counseling, and system administration. Designed for all staff roles:
+          Registrar, Accounting, Cashier, Faculty, HR, Guidance, Nurse, and Administrators.
         </div>
       </div>
 
@@ -646,6 +647,12 @@
       <a class="toc-item" href="#ch10"><div class="toc-num">10</div><div class="toc-text"><span class="toc-chapter">Class Scheduling</span><span class="toc-desc">Schedules, room assignment & conflict detection</span></div></a>
       <a class="toc-item" href="#ch11"><div class="toc-num">11</div><div class="toc-text"><span class="toc-chapter">Core Setup</span><span class="toc-desc">System-wide configuration & maintenance pages</span></div></a>
       <a class="toc-item" href="#ch12"><div class="toc-num">12</div><div class="toc-text"><span class="toc-chapter">Authority Clearances</span><span class="toc-desc">User accounts, roles & access control</span></div></a>
+      <a class="toc-item" href="#ch13"><div class="toc-num">13</div><div class="toc-text"><span class="toc-chapter">Cashier Module</span><span class="toc-desc">Payment collection, OR generation & payment desk</span></div></a>
+      <a class="toc-item" href="#ch14"><div class="toc-num">14</div><div class="toc-text"><span class="toc-chapter">Class Sectioning</span><span class="toc-desc">Sections, adviser assignments & enrollment capacity</span></div></a>
+      <a class="toc-item" href="#ch15"><div class="toc-num">15</div><div class="toc-text"><span class="toc-chapter">Online Learning</span><span class="toc-desc">LMS — materials, video modules & student access</span></div></a>
+      <a class="toc-item" href="#ch16"><div class="toc-num">16</div><div class="toc-text"><span class="toc-chapter">Clinic &amp; Health Services</span><span class="toc-desc">Clinic visits, health profiles & dispositions</span></div></a>
+      <a class="toc-item" href="#ch17"><div class="toc-num">17</div><div class="toc-text"><span class="toc-chapter">Guidance Office</span><span class="toc-desc">Anecdotal records & counseling sessions</span></div></a>
+      <a class="toc-item" href="#ch18"><div class="toc-num">18</div><div class="toc-text"><span class="toc-chapter">Consultation</span><span class="toc-desc">Appointment booking & adviser consultations</span></div></a>
       <a class="toc-item" href="#app"><div class="toc-num">⊕</div><div class="toc-text"><span class="toc-chapter">Appendix</span><span class="toc-desc">Roles matrix, glossary & FAQs</span></div></a>
     </div>
   </div>
@@ -764,6 +771,9 @@
           <tr><td>Student</td><td>Enrolled Students</td><td>Student Portal</td><td>Student Portal only</td></tr>
           <tr><td>HR</td><td>HR Manager</td><td>System Dashboard</td><td>HR Payroll, Authority Clearances</td></tr>
           <tr><td>Employee</td><td>Non-teaching Staff</td><td>Teacher Board</td><td>Teacher Board, Grades</td></tr>
+          <tr><td>Cashier</td><td>Cashier Staff</td><td>Cashier Module</td><td>Cashier module only</td></tr>
+          <tr><td>Guidance</td><td>Guidance Counselor</td><td>Guidance Office</td><td>Guidance, Consultation</td></tr>
+          <tr><td>Nurse</td><td>School Nurse</td><td>Clinic Module</td><td>Clinic &amp; Health Services</td></tr>
         </tbody>
       </table>
     </div>
@@ -1006,6 +1016,60 @@
       <div class="callout-body">
         <h4>Audit Trail</h4>
         <p>Every action on a discount request is recorded in the audit trail. Click the <strong>"Audit Trail"</strong> button on any request to view a chronological log of all approvals, rejections, and status changes with timestamps and user names.</p>
+      </div>
+    </div>
+
+    <div class="section-title">4.5 &nbsp; Assessment &amp; Billing Workflow</div>
+    <p>Student fee assessments follow a structured approval workflow before payment can be collected. Assessments are created by the Registrar and reviewed by Accounting before the Cashier can process payment.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Registrar Creates the Assessment</h4><p>After enrolling a student, the Registrar generates a fee assessment based on the student's enrolled subjects, tuition package, and applicable fees. Status is <span class="tag amber">Pending</span>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Accounting Reviews the Assessment</h4><p>The Accounting officer opens the Assessment &amp; Billing tab and reviews each pending assessment. They can verify fee line items, applied discounts, and the total balance due.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Approve or Reject</h4><p>Click <strong>"Approve for Payment"</strong> to move the assessment to <span class="tag green">Approved for Payment</span> status. If there are discrepancies, click <strong>"Reject"</strong> and add remarks — the assessment is returned to the Registrar for correction.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Cashier Queues the Assessment</h4><p>Approved assessments become visible in the Cashier Module's payment queue. The student can then proceed to the payment desk to settle their fees.</p></div>
+      </div>
+    </div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Assessment Status</th><th>Meaning</th><th>Who Can Act</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag amber">Pending</span></td><td>Created by Registrar, awaiting Accounting review</td><td>Accounting (Approve / Reject)</td></tr>
+          <tr><td><span class="tag green">Approved for Payment</span></td><td>Cleared by Accounting; ready for payment at Cashier desk</td><td>Cashier (Collect Payment)</td></tr>
+          <tr><td><span class="tag red">Rejected</span></td><td>Returned to Registrar for correction or revision</td><td>Registrar (Edit &amp; Resubmit)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">4.6 &nbsp; Financial Holds</div>
+    <p>A <strong>Financial Hold</strong> is placed on a student's account when they have an outstanding balance or unresolved financial obligation. Holds block access to key school processes until the balance is cleared.</p>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Blocked Process</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Enrollment</td><td>Student cannot enroll for a new semester while a hold is active</td></tr>
+          <tr><td>COR Issuance</td><td>Certificate of Registration cannot be released</td></tr>
+          <tr><td>Exam Permit</td><td>Exam permit generation is blocked</td></tr>
+          <tr><td>Transcript Request</td><td>Official Transcript of Records cannot be released</td></tr>
+          <tr><td>Graduation Clearance</td><td>Clearance for graduation ceremonies and diploma release is withheld</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Open the <strong>Financial Holds</strong> tab in the Accounting Module to view all active holds. Once a student's balance is fully paid, click <strong>"Clear Hold"</strong> to lift the restriction. The system automatically re-enables the blocked processes after the hold is removed.</p>
+    <div class="callout warning">
+      <div class="callout-icon">📌</div>
+      <div class="callout-body">
+        <h4>Hold Notifications</h4>
+        <p>Students with an active hold will see a red hold banner in their Student Portal. They are advised to contact the Accounting Office to settle their balance. The hold clears automatically once payment is posted and verified.</p>
       </div>
     </div>
   </div>
@@ -1443,6 +1507,373 @@
   </div>
 
   <!-- ====================================================
+       CHAPTER 13 — CASHIER MODULE
+       ==================================================== -->
+  <div class="chapter page-break" id="ch13">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 13</div>
+      <div class="chapter-title">Cashier Module</div>
+      <div class="chapter-lead">The Cashier Module is the payment desk for the school. Cashier staff process student payments against approved assessments, issue Official Receipts, and track the full payment history with collection summaries.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge gold">Cashier</span>
+      <span class="role-badge all">Super Admin</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Cashier</span> in the sidebar. The module has two tabs: <strong>Payment Queue</strong> and <strong>Payment History</strong>.</p>
+
+    <div class="section-title">13.1 &nbsp; Payment Queue</div>
+    <p>The Payment Queue lists all student assessments that have been <span class="tag green">Approved for Payment</span> by the Accounting officer. Only approved assessments appear here — students with pending or rejected assessments cannot be processed until Accounting clears them.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Locate the student in the queue</h4><p>Use the search bar to find the student by name or student number. Each card shows the student's name, year level, total assessment amount, amount paid, and outstanding balance.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Collect Payment"</h4><p>A payment dialog opens showing the full breakdown: assessed fees, applied discounts, amount paid to date, and current balance due.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Enter payment details</h4><p>Input the <strong>Amount Paid</strong> and select the <strong>Payment Method</strong>: Cash, GCash, Bank Transfer, or Credit Card. The system auto-computes any change due for cash payments.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Confirm and issue Official Receipt</h4><p>Click <strong>"Post Payment"</strong>. The system generates an <strong>Official Receipt (OR)</strong> in the format <kbd class="kbd">OR-YYYY-XXXXX</kbd>. Click <strong>"Preview Receipt"</strong> to open the printable receipt.</p></div>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <h4>Partial Payments</h4>
+        <p>STSN Connect supports partial payments. A student may pay less than the full balance — the system records the payment, updates the running balance, and keeps the assessment in the queue until fully settled. Each partial payment generates its own OR number.</p>
+      </div>
+    </div>
+
+    <div class="section-title">13.2 &nbsp; Payment History</div>
+    <p>The <strong>Payment History</strong> tab shows all completed payment transactions, newest first. Each row displays: OR Number, Student Name, Amount, Payment Method, Date/Time, and the Cashier who processed it.</p>
+    <ul>
+      <li>Use the search bar to look up payments by student name or OR number.</li>
+      <li>Click <strong>"Preview Receipt"</strong> on any row to reprint the official receipt for a past transaction.</li>
+      <li>A collection summary card at the top of the tab shows the total cash collected for the current day, broken down by payment method.</li>
+    </ul>
+
+    <div class="section-title">13.3 &nbsp; Payment Methods Reference</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Details Required</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Cash</td><td>Amount received; system computes change</td><td>Most common; instant posting</td></tr>
+          <tr><td>GCash</td><td>Reference number from GCash confirmation</td><td>Enter the 13-digit reference</td></tr>
+          <tr><td>Bank Transfer</td><td>Bank name and transfer reference number</td><td>Verify the bank slip before posting</td></tr>
+          <tr><td>Credit Card</td><td>Card type and last 4 digits of card number</td><td>Approval code recommended for records</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 14 — CLASS SECTIONING
+       ==================================================== -->
+  <div class="chapter page-break" id="ch14">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 14</div>
+      <div class="chapter-title">Class Sectioning</div>
+      <div class="chapter-lead">Class Sectioning is used to create and manage school sections, assign advisory teachers, enroll students into sections, and track section capacity and enrollment numbers.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge brown">Registrar</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Class Sectioning</span> in the sidebar.</p>
+
+    <div class="section-title">14.1 &nbsp; Creating a Section</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "New Section"</h4><p>A form opens to define the section name (e.g., <kbd class="kbd">BSIT-1A</kbd> or <kbd class="kbd">SHS-STEM-11A</kbd>), department, year level, strand or course, school year, and semester.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Set the maximum capacity</h4><p>Enter the <strong>Max Capacity</strong> for the section. The system will track how many students are enrolled and flag when the section is full.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Assign an Adviser</h4><p>Select the advisory teacher from the faculty dropdown. This assignment links to the Teacher Board — the adviser will see this section's roster in their Teacher Board dashboard.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Create Section"</h4><p>The section is created and ready to receive students. It also becomes available as a selection in the Admissions enrollment approval workflow.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">14.2 &nbsp; Managing Section Rosters</div>
+    <p>Click any section card to open its full roster. The roster panel shows all enrolled students with their enrollment status and allows the Registrar to:</p>
+    <ul>
+      <li>View the full student list with enrollment date and status</li>
+      <li>Move a student to a different section (use the transfer option)</li>
+      <li>Monitor capacity utilization (enrolled vs. max)</li>
+      <li>Access individual student profiles directly from the roster</li>
+    </ul>
+
+    <div class="section-title">14.3 &nbsp; Capacity Monitoring</div>
+    <p>Each section card displays a capacity indicator showing <strong>enrolled / max</strong> (e.g., <kbd class="kbd">28/40</kbd>). Sections at or near capacity are highlighted in amber as a warning. Sections that exceed capacity display a red overflow indicator.</p>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 15 — ONLINE LEARNING
+       ==================================================== -->
+  <div class="chapter page-break" id="ch15">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 15</div>
+      <div class="chapter-title">Online Learning</div>
+      <div class="chapter-lead">The Online Learning module is a built-in Learning Management System (LMS) that allows teachers to publish learning materials — videos, modules, and documents — which students access through the Student Portal.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge purple">Teacher</span>
+      <span class="role-badge all">Super Admin</span>
+      <span class="role-badge red">Student</span>
+    </div>
+    <p>Teachers access material management via <span class="ui-path">Online Learning</span> in the sidebar. Students access published content via the <strong>Online Learning</strong> tab in their Student Portal.</p>
+
+    <div class="section-title">15.1 &nbsp; Publishing a Learning Material (Teacher)</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Add Material"</h4><p>A form opens to create a new learning resource.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Fill in the material details</h4><p>Enter the <strong>Title</strong>, select the <strong>Material Type</strong> (Video, Module, Document), and choose the linked <strong>Subject</strong>. For videos, enter the video URL or embed link. For documents, provide the file reference or description.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Set the publish status</h4><p>Toggle between <span class="tag gray">Draft</span> (not visible to students) and <span class="tag green">Published</span> (visible in Student Portal). Save a draft first if the material is still being finalized.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Save Material"</h4><p>Published materials immediately appear in the Online Learning tab for students enrolled in that subject.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">15.2 &nbsp; Material Types Reference</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Icon</th><th>Use Case</th></tr></thead>
+        <tbody>
+          <tr><td>Video</td><td>🎬</td><td>Recorded lectures, tutorial walkthroughs, instructional videos</td></tr>
+          <tr><td>Module</td><td>📚</td><td>Self-paced reading modules, interactive learning units</td></tr>
+          <tr><td>Document</td><td>📄</td><td>Reference sheets, worksheets, supplementary reading, slide decks</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">15.3 &nbsp; Accessing Materials (Student)</div>
+    <p>Students open the <strong>Online Learning</strong> tab in their Student Portal. Materials are grouped by subject. Published materials display a thumbnail, title, type badge, and subject. Click any material card to view the content. Draft materials are not visible to students.</p>
+
+    <div class="callout info">
+      <div class="callout-icon">ℹ️</div>
+      <div class="callout-body">
+        <h4>Subject-Based Visibility</h4>
+        <p>Students only see learning materials linked to subjects they are currently enrolled in. Materials from other subjects or sections are not displayed. Teachers see all materials they have uploaded across all their teaching assignments.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 16 — CLINIC & HEALTH SERVICES
+       ==================================================== -->
+  <div class="chapter page-break" id="ch16">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 16</div>
+      <div class="chapter-title">Clinic &amp; Health Services</div>
+      <div class="chapter-lead">The Clinic module allows the school nurse to log student clinic visits, maintain health profiles, record vital signs, and track dispositions — creating a comprehensive digital health record for each student.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge blue">Nurse</span>
+      <span class="role-badge teal">HR</span>
+      <span class="role-badge all">Super Admin</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Clinic</span> in the sidebar. The module has two views: <strong>Clinic Visits</strong> and <strong>Health Profiles</strong>.</p>
+
+    <div class="section-title">16.1 &nbsp; Logging a Clinic Visit</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "New Visit"</h4><p>A visit entry form opens. Search for and select the student from the directory.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Record vital signs</h4><p>Enter the student's <strong>Temperature</strong>, <strong>Blood Pressure</strong>, <strong>Pulse Rate</strong>, and <strong>Weight</strong> if measured during the visit.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Enter the chief complaint</h4><p>Describe the student's presenting complaint or reason for the clinic visit in the <strong>Chief Complaint</strong> field (e.g., headache, stomach pain, injury).</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Set the disposition</h4><p>Select the outcome of the visit from the <strong>Disposition</strong> dropdown — see the reference table below.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">5</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Save Visit"</h4><p>The visit is logged with a timestamp and stored in the student's health record. It is also linked to the student's Health Profile.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">16.2 &nbsp; Disposition Types</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Disposition</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>Released</td><td>Student returned to class after treatment or rest</td></tr>
+          <tr><td>Sent Home</td><td>Student was sent home due to illness; parent/guardian notified</td></tr>
+          <tr><td>Referred to Hospital</td><td>Condition required referral to an external medical facility</td></tr>
+          <tr><td>Under Observation</td><td>Student is being monitored in the clinic and not yet released</td></tr>
+          <tr><td>Follow-up</td><td>Student was treated and scheduled to return for a follow-up check</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">16.3 &nbsp; Student Health Profiles</div>
+    <p>Each student has a <strong>Health Profile</strong> containing their permanent health information. The nurse can view and update the following fields:</p>
+    <ul>
+      <li><strong>Blood Type</strong> — Critical for emergency response</li>
+      <li><strong>Known Allergies</strong> — Medication, food, or environmental allergens</li>
+      <li><strong>Chronic Conditions</strong> — Asthma, diabetes, epilepsy, and similar ongoing conditions</li>
+      <li><strong>Emergency Contact</strong> — Parent or guardian name and mobile number</li>
+      <li><strong>Visit History</strong> — All past clinic visits linked to this student</li>
+    </ul>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 17 — GUIDANCE OFFICE
+       ==================================================== -->
+  <div class="chapter page-break" id="ch17">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 17</div>
+      <div class="chapter-title">Guidance Office</div>
+      <div class="chapter-lead">The Guidance module provides a confidential digital workspace for counselors — for logging behavioral anecdotal records, scheduling and tracking counseling sessions, and maintaining student welfare notes.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge purple">Guidance</span>
+      <span class="role-badge all">Super Admin</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Guidance</span> in the sidebar. The module has two tabs: <strong>Anecdotal Records</strong> and <strong>Counseling Sessions</strong>.</p>
+
+    <div class="section-title">17.1 &nbsp; Anecdotal Records</div>
+    <p>Anecdotal records capture specific incidents or observations about a student's behavior, academic performance, or social interactions. They form a cumulative picture of a student's development.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "New Record"</h4><p>A form opens. Search for the student and enter the date of the incident.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Select the incident category</h4><p>Choose from: <strong>Behavior</strong>, <strong>Academic</strong>, <strong>Attendance</strong>, <strong>Social</strong>, <strong>Commendation</strong>, or <strong>Disciplinary</strong>. Categories help filter and analyze trends over time.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Write the observation notes</h4><p>Describe the incident factually and objectively. Include context, actions taken, and any follow-up recommended.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Toggle confidentiality flag if needed</h4><p>Enable the <strong>Confidential</strong> toggle to restrict the record to Guidance personnel only. Confidential records do not appear in general student views or reports.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">5</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Save Record"</h4><p>The anecdotal record is stored in the Supabase database and linked to the student's guidance file.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">17.2 &nbsp; Counseling Sessions</div>
+    <p>Log and track all formal counseling engagements with students.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "New Session"</h4><p>Select the student, enter the session date, and choose the <strong>Session Type</strong>: Individual, Group, Family, or Crisis Intervention.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Select the concern area</h4><p>Choose the primary concern: Academic, Behavioral, Family, Career/Vocational, Personal/Emotional, or Peer Relations.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Enter session notes and update status</h4><p>Write the session summary. Set the <strong>Status</strong> to <span class="tag green">Completed</span>, <span class="tag amber">Ongoing</span>, or <span class="tag gray">Follow-up Needed</span>.</p></div>
+      </div>
+    </div>
+
+    <div class="callout important">
+      <div class="callout-icon">🔒</div>
+      <div class="callout-body">
+        <h4>Confidentiality Notice</h4>
+        <p>All Guidance records are subject to professional confidentiality standards. Only Guidance counselors and Super Administrators can access this module. Records marked as Confidential are stored encrypted and do not appear in general student profile views.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CHAPTER 18 — CONSULTATION & APPOINTMENTS
+       ==================================================== -->
+  <div class="chapter page-break" id="ch18">
+    <div class="chapter-header">
+      <div class="chapter-eyebrow">Chapter 18</div>
+      <div class="chapter-title">Consultation &amp; Appointments</div>
+      <div class="chapter-lead">The Consultation module allows students and staff to schedule meetings with advisers, guidance counselors, or faculty — creating a centralized appointment tracking system with status management.</div>
+    </div>
+    <div class="role-badges">
+      <span class="role-badge red">Student</span>
+      <span class="role-badge purple">Teacher</span>
+      <span class="role-badge purple">Guidance</span>
+      <span class="role-badge all">Super Admin</span>
+    </div>
+    <p>Navigate to <span class="ui-path">Consultation</span> in the sidebar.</p>
+
+    <div class="section-title">18.1 &nbsp; Booking an Appointment</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "New Appointment"</h4><p>A booking form opens.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Select the consultant and purpose</h4><p>Choose the faculty member or guidance counselor to meet with. Enter the <strong>Purpose</strong> of the consultation (e.g., grade inquiry, academic planning, personal matter).</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Set the preferred date and time</h4><p>Select the desired appointment date and time slot. The system displays the consultant's availability based on their schedule.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-connector"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body"><h4>Click "Book Appointment"</h4><p>The appointment is created with a <span class="tag blue">Scheduled</span> status and appears in both the student's and consultant's appointment lists.</p></div>
+      </div>
+    </div>
+
+    <div class="section-title">18.2 &nbsp; Appointment Status Reference</div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>Status</th><th>Meaning</th><th>Next Action</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag blue">Scheduled</span></td><td>Appointment confirmed and upcoming</td><td>Attend the meeting</td></tr>
+          <tr><td><span class="tag green">Completed</span></td><td>Meeting took place as planned</td><td>No further action needed</td></tr>
+          <tr><td><span class="tag gray">Cancelled</span></td><td>Appointment was cancelled by either party</td><td>Re-book if needed</td></tr>
+          <tr><td><span class="tag red">No-show</span></td><td>Student or consultant did not attend</td><td>Follow up and reschedule</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">18.3 &nbsp; Managing Appointments (Faculty / Guidance)</div>
+    <p>Faculty members and Guidance counselors see incoming appointment requests on their <strong>Teacher Board</strong> or <strong>Guidance</strong> dashboard. They can update the status of each appointment — marking it as Completed after a successful meeting, or No-show if the student did not attend. They may also cancel and add a cancellation reason for the student's reference.</p>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <h4>Student Self-Booking</h4>
+        <p>Students can book consultations independently from their Student Portal under the Consultation section. This reduces the need for in-person coordination — students select an available slot, submit the request, and wait for confirmation from the faculty or counselor.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
        APPENDIX
        ==================================================== -->
   <div class="chapter page-break" id="app">
@@ -1461,23 +1892,32 @@
             <th>Super Admin</th>
             <th>Registrar</th>
             <th>Accounting</th>
+            <th>Cashier</th>
             <th>Teacher</th>
             <th>Student</th>
             <th>HR</th>
+            <th>Guidance</th>
+            <th>Nurse</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>System Dashboard</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td></tr>
-          <tr><td>Admissions &amp; COR</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
-          <tr><td>Accounting Module</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
-          <tr><td>Grades Directory</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
-          <tr><td>Student Portal</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td></tr>
-          <tr><td>Teacher Board</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
-          <tr><td>HR Staff Payroll</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td></tr>
-          <tr><td>Syllabus Pathways</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
-          <tr><td>Class Scheduling</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
-          <tr><td>Core Setup</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
-          <tr><td>Authority Clearances</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td></tr>
+          <tr><td>System Dashboard</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Admissions &amp; COR</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Accounting Module</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Cashier Module</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Grades Directory</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Student Portal</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Teacher Board</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>HR Staff Payroll</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Syllabus Pathways</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Class Scheduling</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Class Sectioning</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Online Learning</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Clinic &amp; Health Services</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-check">✔</td></tr>
+          <tr><td>Guidance Office</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td></tr>
+          <tr><td>Consultation</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td></tr>
+          <tr><td>Core Setup</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
+          <tr><td>Authority Clearances</td><td class="perm-check">✔</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-cross">—</td><td class="perm-check">✔</td><td class="perm-cross">—</td><td class="perm-cross">—</td></tr>
         </tbody>
       </table>
     </div>
@@ -1493,6 +1933,9 @@
           <tr><td>teacher@stsn.edu.ph</td><td>Prof. Arthur Reyes</td><td><span class="tag gray">Teacher</span></td></tr>
           <tr><td>student@stsn.edu.ph</td><td>Enrico Veloso</td><td><span class="tag gray">Student</span></td></tr>
           <tr><td>hr@stsn.edu.ph</td><td>Gemma Santos</td><td><span class="tag gray">HR</span></td></tr>
+          <tr><td>cashier@stsn.edu.ph</td><td>Cashier Staff</td><td><span class="tag gray">Cashier</span></td></tr>
+          <tr><td>guidance@stsn.edu.ph</td><td>Guidance Counselor</td><td><span class="tag gray">Guidance</span></td></tr>
+          <tr><td>nurse@stsn.edu.ph</td><td>School Nurse</td><td><span class="tag gray">Nurse</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -1511,6 +1954,14 @@
       <div class="glossary-item"><div class="glossary-term">Section</div><div class="glossary-def">A named group of students sharing the same schedule (e.g., BSIT-1A, SHS-STEM-11A).</div></div>
       <div class="glossary-item"><div class="glossary-term">Conflict (Scheduling)</div><div class="glossary-def">Two schedule entries with the same teacher or room, on the same day, with overlapping times.</div></div>
       <div class="glossary-item"><div class="glossary-term">RBAC</div><div class="glossary-def">Role-Based Access Control. The security model that limits each user's access to only the modules and functions relevant to their role.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Financial Hold</div><div class="glossary-def">A restriction placed on a student's account due to an outstanding balance. Blocks key processes: enrollment, COR, exam permit, transcript, and graduation clearance until cleared.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Assessment</div><div class="glossary-def">The complete billing statement for a student per semester, showing all fee line items, discounts, payments, and remaining balance. Follows a Pending → Approved for Payment workflow.</div></div>
+      <div class="glossary-item"><div class="glossary-term">OR (Official Receipt)</div><div class="glossary-def">Numbered payment receipt issued by the Cashier upon collection. Format: OR-YYYY-XXXXX. Each payment transaction generates a unique OR.</div></div>
+      <div class="glossary-item"><div class="glossary-term">LMS</div><div class="glossary-def">Learning Management System. The Online Learning module within STSN Connect used by teachers to publish video, module, and document materials for student access.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Disposition (Clinic)</div><div class="glossary-def">The outcome or resolution of a student's clinic visit: Released, Sent Home, Referred to Hospital, Under Observation, or Follow-up.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Anecdotal Record</div><div class="glossary-def">A factual written observation of a student's incident or behavior logged by the Guidance counselor. Categories include Behavioral, Academic, Attendance, Social, Commendation, and Disciplinary.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Class Sectioning</div><div class="glossary-def">The process of creating named student groups (sections), assigning advisory teachers, and managing enrollment capacity per section for a given academic year and semester.</div></div>
+      <div class="glossary-item"><div class="glossary-term">Capacity (Section)</div><div class="glossary-def">The maximum number of students that can be enrolled in a section. Displayed as enrolled/max (e.g., 28/40). Sections at capacity are flagged in amber; overflow is shown in red.</div></div>
     </div>
 
     <div class="section-title">A.4 &nbsp; Frequently Asked Questions</div>
@@ -1541,6 +1992,30 @@
     <div class="faq-item">
       <div class="faq-q">What is the Presenter Sandbox mode?</div>
       <div class="faq-a">The Presenter Sandbox is a role-switching feature in the top header (visible to all users). It lets authorized users switch instantly between different user roles for demonstration purposes, without needing separate login credentials. This is intended for presentations and training sessions only.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">A student's assessment is approved but the Cashier cannot see it in the payment queue. Why?</div>
+      <div class="faq-a">Confirm the assessment status in Accounting → Assessment &amp; Billing. Only assessments with <strong>Approved for Payment</strong> status appear in the Cashier queue. If the status is still "Pending," the Accounting officer must approve it first. If rejected, the Registrar needs to correct and resubmit the assessment.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I place or remove a financial hold on a student?</div>
+      <div class="faq-a">Go to Accounting → Financial Holds tab. Active holds are listed per student. A hold is placed automatically when an outstanding balance exists. Once payment is posted by the Cashier and the balance reaches zero, click <strong>"Clear Hold"</strong> to lift the restriction and restore access to enrollment, COR, and other processes.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I publish a learning video for my class?</div>
+      <div class="faq-a">Log in as a Teacher, navigate to Online Learning, and click "Add Material." Set the type to Video, enter the video URL or embed link, select the subject, and set the status to Published. The material will immediately appear in your students' Student Portal under the Online Learning tab, filtered to their enrolled subject.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I create a section and assign an adviser?</div>
+      <div class="faq-a">Go to Class Sectioning and click "New Section." Enter the section name (e.g., BSIT-1A), select the department, year level, school year, and semester. Set the max capacity and assign the advisory teacher from the faculty dropdown. Once created, the section becomes available for student enrollment in the Admissions module and appears in the adviser's Teacher Board.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can a clinic visit record be marked confidential?</div>
+      <div class="faq-a">Clinic visit records are accessible to the Nurse and HR roles, and to Super Administrators. Individual visit records are not marked as confidential at the item level, but the Clinic module itself is role-restricted — only Nurses, HR, and Admins can view it. For sensitive guidance-related records, use the Guidance module's Confidential toggle instead.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How does a student book a consultation with their adviser?</div>
+      <div class="faq-a">Students open the Consultation section from their Student Portal, click "New Appointment," select the faculty member or guidance counselor, enter the purpose, and choose a date and time. The appointment is created with a Scheduled status. The faculty or counselor can then mark it as Completed, No-show, or Cancelled from their Teacher Board or Guidance dashboard.</div>
     </div>
 
     <!-- FOOTER -->
