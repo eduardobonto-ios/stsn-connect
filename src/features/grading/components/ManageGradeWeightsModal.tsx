@@ -49,7 +49,7 @@ export default function ManageGradeWeightsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="app-modal-backdrop z-50">
       <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md mx-4 overflow-hidden animate-fade-in">
         {/* Header */}
         <div className="modal-header-gradient text-white px-5 py-4 flex items-center justify-between">

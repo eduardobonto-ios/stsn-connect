@@ -38,6 +38,7 @@ import CurriculumManagement from "./features/curriculum/pages/CurriculumManageme
 import AccountsManagement from "./features/accounts/pages/AccountsManagementPage";
 import StudentPortal from "./features/student-portal/pages/StudentPortalPage";
 import FacultyPortal from "./features/faculty/pages/FacultyPortalPage";
+import FacultyAdminPage from "./features/faculty/pages/FacultyAdminPage";
 import CoreSetupModule from "./features/core-setup/pages/CoreSetupModulePage";
 import SchedulingModule from "./features/scheduling/pages/SchedulingModulePage";
 import OnlineLearning from "./features/online-learning/pages/OnlineLearningPage";
@@ -48,6 +49,7 @@ import ClinicModule from "./features/clinic/pages/ClinicModulePage";
 import GuidanceModule from "./features/guidance/pages/GuidanceModulePage";
 import ConsultationModule from "./features/consultation/pages/ConsultationModulePage";
 import RegistrarReportsPage from "./features/reports/pages/RegistrarReportsPage";
+import StudentDirectoryPage from "./features/student-directory/pages/StudentDirectoryPage";
 
 export default function App() {
   const { currentUser, login, logout, users, activeSchool, academicUnit, isLoading, initialize } =
@@ -57,7 +59,11 @@ export default function App() {
   const [accountingSubPage, setAccountingSubPage] = useState("dashboard");
   const [coreSetupSubPage, setCoreSetupSubPage] = useState("academic_categories");
   const [portalSubPage, setPortalSubPage] = useState("overview");
+  const [hrSubPage, setHrSubPage] = useState("hr-dashboard");
+  const [portalStudentId, setPortalStudentId] = useState<string | undefined>(undefined);
   const [expandedModule, setExpandedModule] = useState<STSNModule | null>("DASHBOARD");
+  const [expandedAccountingGroups, setExpandedAccountingGroups] = useState<string[]>([]);
+  const [expandedHRGroups, setExpandedHRGroups] = useState<string[]>([]);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
 
@@ -244,9 +250,98 @@ export default function App() {
                   {isExpandedGroup && (
                     <div className="mt-0.5 ml-2 pl-3 border-l border-white/10 space-y-0.5">
                       {item.children.map((child) => {
+                        if (child.isSection) {
+                          return (
+                            <div
+                              key={child.id}
+                              className="px-2.5 pt-3 pb-1 text-[8px] font-mono uppercase tracking-widest text-stsn-gold/60"
+                            >
+                              {child.label}
+                            </div>
+                          );
+                        }
+                        if (child.children?.length) {
+                          const isHRModule = item.id === "HR_MANAGEMENT";
+                          const activeSubPage = isHRModule ? hrSubPage : accountingSubPage;
+                          const expandedGroups = isHRModule ? expandedHRGroups : expandedAccountingGroups;
+                          const isGroupActive = child.children.some((subChild) => subChild.id === activeSubPage);
+                          const isGroupExpanded = expandedGroups.includes(child.id) || isGroupActive;
+                          const GroupIcon = child.icon;
+                          return (
+                            <div key={child.id}>
+                              <button
+                                onClick={() => {
+                                  if (isHRModule) {
+                                    setExpandedHRGroups((groups: string[]) =>
+                                      groups.includes(child.id)
+                                        ? groups.filter((id: string) => id !== child.id)
+                                        : [...groups, child.id],
+                                    );
+                                  } else {
+                                    setExpandedAccountingGroups((groups: string[]) =>
+                                      groups.includes(child.id)
+                                        ? groups.filter((id: string) => id !== child.id)
+                                        : [...groups, child.id],
+                                    );
+                                  }
+                                }}
+                                className={`w-full text-left py-2 px-2.5 rounded-lg flex items-start gap-2.5 transition-all duration-150 cursor-pointer group ${
+                                  isGroupActive
+                                    ? "bg-stsn-gold/15 text-stsn-cream font-semibold"
+                                    : "hover:bg-white/6 text-stone-400 font-medium opacity-80 hover:opacity-100"
+                                }`}
+                              >
+                                {GroupIcon && <GroupIcon className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isGroupActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`} />}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[11px] leading-none">{child.label}</p>
+                                  <p className={`text-[9px] font-normal truncate mt-0.5 leading-none ${isGroupActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}>
+                                    {child.desc ?? ""}
+                                  </p>
+                                </div>
+                                {isGroupExpanded
+                                  ? <ChevronDown className="w-3 h-3 flex-shrink-0 mt-0.5 text-stsn-gold/70" />
+                                  : <ChevronRight className="w-3 h-3 flex-shrink-0 mt-0.5 text-stone-500 group-hover:text-stone-300" />}
+                              </button>
+
+                              {isGroupExpanded && (
+                                <div className="ml-4 mt-0.5 pl-2 border-l border-white/10 space-y-0.5">
+                                  {child.children.map((subChild) => {
+                                    const isSubChildActive = activeSubPage === subChild.id;
+                                    const SubChildIcon = subChild.icon;
+                                    return (
+                                      <button
+                                        key={subChild.id}
+                                        onClick={() => {
+                                          setActiveModule(item.id);
+                                          if (isHRModule) setHrSubPage(subChild.id);
+                                          else setAccountingSubPage(subChild.id);
+                                          setIsMobileOpen(false);
+                                        }}
+                                        className={`w-full text-left py-1.5 px-2 rounded-lg flex items-start gap-2 transition-all duration-150 cursor-pointer group ${
+                                          isSubChildActive
+                                            ? "bg-stsn-gold/20 text-stsn-cream font-semibold"
+                                            : "hover:bg-white/6 text-stone-400 font-medium opacity-80 hover:opacity-100"
+                                        }`}
+                                      >
+                                        {SubChildIcon && <SubChildIcon className={`w-3 h-3 mt-0.5 flex-shrink-0 ${isSubChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`} />}
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[10.5px] leading-none">{subChild.label}</p>
+                                          <p className={`text-[8.5px] font-normal truncate mt-0.5 leading-none ${isSubChildActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}>
+                                            {subChild.desc ?? ""}
+                                          </p>
+                                        </div>
+                                        {isSubChildActive && <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
                         const isChildActive = child.targetModule
                           ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
-                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : accountingSubPage === child.id);
+                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : accountingSubPage === child.id);
                         const ChildIcon = child.icon;
                         return (
                           <button
@@ -261,6 +356,8 @@ export default function App() {
                                 setActiveModule(item.id);
                                 if (item.id === "STUDENT_PORTAL") {
                                   setPortalSubPage(child.id);
+                                } else if (item.id === "HR_MANAGEMENT") {
+                                  setHrSubPage(child.id);
                                 } else {
                                   setAccountingSubPage(child.id);
                                 }
@@ -273,11 +370,11 @@ export default function App() {
                                 : "hover:bg-white/6 text-stone-400 font-medium opacity-80 hover:opacity-100"
                             }`}
                           >
-                            <ChildIcon className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`} />
+                            {ChildIcon && <ChildIcon className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`} />}
                             <div className="min-w-0 flex-1">
                               <p className="text-[11px] leading-none">{child.label}</p>
                               <p className={`text-[9px] font-normal truncate mt-0.5 leading-none ${isChildActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}>
-                                {child.desc}
+                                {child.desc ?? ""}
                               </p>
                             </div>
                             {isChildActive && <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />}
@@ -429,12 +526,30 @@ export default function App() {
           )}
           {activeModule === "CURRICULUM" &&
             allowedModules.includes("CURRICULUM") && <CurriculumManagement />}
+          {activeModule === "STUDENT_DIRECTORY" &&
+            allowedModules.includes("STUDENT_DIRECTORY") && (
+              <StudentDirectoryPage
+                onNavigate={(subPage, studentId) => {
+                  setPortalSubPage(subPage);
+                  setPortalStudentId(studentId);
+                  setActiveModule("STUDENT_PORTAL");
+                }}
+              />
+            )}
           {activeModule === "STUDENT_PORTAL" &&
-            allowedModules.includes("STUDENT_PORTAL") && <StudentPortal subPage={portalSubPage} />}
+            allowedModules.includes("STUDENT_PORTAL") && <StudentPortal subPage={portalSubPage} initialStudentId={portalStudentId} />}
+          {activeModule === "FACULTY_ADMIN" &&
+            allowedModules.includes("FACULTY_ADMIN") && (
+              <FacultyAdminPage />
+            )}
           {activeModule === "FACULTY_PORTAL" &&
-            allowedModules.includes("FACULTY_PORTAL") && <FacultyPortal />}
+            allowedModules.includes("FACULTY_PORTAL") && (
+              <FacultyPortal />
+            )}
           {activeModule === "HR_MANAGEMENT" &&
-            allowedModules.includes("HR_MANAGEMENT") && <HRManagement />}
+            allowedModules.includes("HR_MANAGEMENT") && (
+              <HRManagement subPage={hrSubPage} onSubPageChange={setHrSubPage} />
+            )}
           {activeModule === "ACCOUNTS_SECURITY" &&
             allowedModules.includes("ACCOUNTS_SECURITY") && (
               <AccountsManagement />
@@ -507,9 +622,68 @@ export default function App() {
                       {isExpanded && (
                         <div className="ml-3 pl-2 border-l border-white/10 mt-0.5 space-y-0.5">
                           {item.children.map((child) => {
+                            if (child.isSection) {
+                              return (
+                                <div
+                                  key={child.id}
+                                  className="px-2.5 pt-3 pb-1 text-[8px] font-mono uppercase tracking-widest text-stsn-gold/60"
+                                >
+                                  {child.label}
+                                </div>
+                              );
+                            }
+                            if (child.children?.length) {
+                              const isAccountingGroupActive = item.id === "ACCOUNTING" && child.children.some((subChild) => subChild.id === accountingSubPage);
+                              const isAccountingGroupExpanded = expandedAccountingGroups.includes(child.id) || isAccountingGroupActive;
+                              return (
+                                <div key={child.id}>
+                                  <button
+                                    onClick={() => {
+                                      setExpandedAccountingGroups((groups) =>
+                                        groups.includes(child.id)
+                                          ? groups.filter((id) => id !== child.id)
+                                          : [...groups, child.id],
+                                      );
+                                    }}
+                                    className={`w-full text-left px-2.5 py-2 text-[11px] rounded-lg transition-all flex items-center justify-between ${
+                                      isAccountingGroupActive
+                                        ? "bg-stsn-gold/15 text-stsn-cream font-semibold"
+                                        : "text-stone-400 hover:bg-white/6"
+                                    }`}
+                                  >
+                                    <span>{child.label}</span>
+                                    {isAccountingGroupExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                                  </button>
+                                  {isAccountingGroupExpanded && (
+                                    <div className="ml-3 pl-2 border-l border-white/10 mt-0.5 space-y-0.5">
+                                      {child.children.map((subChild) => {
+                                        const isSubChildActive = item.id === "ACCOUNTING" && accountingSubPage === subChild.id;
+                                        return (
+                                          <button
+                                            key={subChild.id}
+                                            onClick={() => {
+                                              setActiveModule(item.id);
+                                              setAccountingSubPage(subChild.id);
+                                              setIsMobileOpen(false);
+                                            }}
+                                            className={`w-full text-left px-2.5 py-1.5 text-[10.5px] rounded-lg transition-all ${
+                                              isSubChildActive
+                                                ? "bg-stsn-gold/20 text-stsn-cream font-semibold"
+                                                : "text-stone-400 hover:bg-white/6"
+                                            }`}
+                                          >
+                                            {subChild.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
                             const isChildActive = child.targetModule
                               ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
-                              : isSelected && accountingSubPage === child.id;
+                              : isSelected && (item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : accountingSubPage === child.id);
                             return (
                               <button
                                 key={child.id}
@@ -521,7 +695,11 @@ export default function App() {
                                     }
                                   } else {
                                     setActiveModule(item.id);
-                                    setAccountingSubPage(child.id);
+                                    if (item.id === "HR_MANAGEMENT") {
+                                      setHrSubPage(child.id);
+                                    } else {
+                                      setAccountingSubPage(child.id);
+                                    }
                                   }
                                   setIsMobileOpen(false);
                                 }}

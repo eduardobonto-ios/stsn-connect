@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -383,10 +383,10 @@ const LEDGER_STATUS_STYLES: Record<LedgerRow["status"], string> = {
   Pending: "text-amber-700 bg-amber-50 border-amber-200",
 };
 
-type LedgerActionModal = "payment" | "adjustment" | "discount" | "soa" | "print" | "no-receipt" | null;
+type LedgerActionModal = "adjustment" | "discount" | "soa" | "print" | "no-receipt" | null;
 
 function StudentLedger() {
-  const { students, assessments, payments, discountTypes, currentUser, addPayment, assessmentBillingSummaries, studentLedgerSummaries, paymentCollectionSummaries, setupData } = useSTSNStore();
+  const { students, assessments, payments, discountTypes, currentUser, assessmentBillingSummaries, studentLedgerSummaries, paymentCollectionSummaries, setupData } = useSTSNStore();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
   const semesterOptions = setupData.semesters ?? [];
   const txTypeOptions = ["All", ...(setupData.transaction_types ?? []).map((t) => t.name)];
@@ -402,7 +402,6 @@ function StudentLedger() {
   const [holdOverrides, setHoldOverrides] = useState<Record<string, "None" | "Hold" | "Cleared">>({});
   const [manualEntries, setManualEntries] = useState<Record<string, Omit<LedgerRow, "balance">[]>>({});
   const [activeAction, setActiveAction] = useState<LedgerActionModal>(null);
-  const [paymentForm, setPaymentForm] = useState<{ orNumber: string; amount: string; paymentMethod: Payment["paymentMethod"]; term: Payment["term"] }>({ orNumber: "", amount: "", paymentMethod: "Cash", term: "Installment" });
   const [adjustmentForm, setAdjustmentForm] = useState<{ description: string; amount: string; direction: "debit" | "credit" }>({ description: "", amount: "", direction: "credit" });
   const [discountTypeId, setDiscountTypeId] = useState("");
 
@@ -434,6 +433,10 @@ function StudentLedger() {
     ? (currentAssessment.balance <= 0 && holdStatus !== "Hold" ? "Cleared" : "Not Cleared")
     : (ledgerSummary?.clearanceStatus ?? "Not Cleared");
   const lastPaymentDate = studentPayments.length > 0 ? studentPayments[studentPayments.length - 1].paymentDate : ledgerSummary?.lastPaymentDate;
+  const adjustmentAmount = Number(adjustmentForm.amount) || 0;
+  const projectedAdjustmentBalance = currentAssessment
+    ? Math.max(0, currentAssessment.balance + (adjustmentForm.direction === "debit" ? adjustmentAmount : -adjustmentAmount))
+    : 0;
 
   // Build ledger rows with running balance
   const ledgerRows = useMemo(() => {
@@ -481,29 +484,13 @@ function StudentLedger() {
   };
 
   // ---- Action handlers (mock-only, session state) ----
-  const handleAddPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentStudent || !paymentForm.amount) return;
-    addPayment({
-      studentId: currentStudent.id,
-      schoolId: currentStudent.schoolId,
-      orNumber: paymentForm.orNumber.trim(),
-      amount: Number(paymentForm.amount),
-      paymentMethod: paymentForm.paymentMethod,
-      term: paymentForm.term,
-      remarks: "Recorded via Student Ledger — Add Payment",
-    });
-    setPaymentForm({ orNumber: "", amount: "", paymentMethod: "Cash", term: "Installment" });
-    setActiveAction(null);
-  };
-
   const handleAddAdjustment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentStudent || !adjustmentForm.amount) return;
+    if (!currentStudent || !adjustmentForm.amount || !adjustmentForm.description.trim()) return;
     const amt = Number(adjustmentForm.amount);
     const entry: Omit<LedgerRow, "balance"> = {
       date: new Date().toISOString().slice(0, 10),
-      description: adjustmentForm.description || "Manual Ledger Adjustment",
+      description: adjustmentForm.description.trim(),
       debit: adjustmentForm.direction === "debit" ? amt : 0,
       credit: adjustmentForm.direction === "credit" ? amt : 0,
       type: "Adjustment",
@@ -733,9 +720,6 @@ function StudentLedger() {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-100">
-            <button onClick={() => setActiveAction("payment")} className={`${actionBtnClass} bg-emerald-700 text-white hover:bg-emerald-800`}>
-              <Wallet className="w-3.5 h-3.5" /> Add Payment
-            </button>
             <button onClick={() => setActiveAction("adjustment")} className={`${actionBtnClass} bg-stone-600 text-white hover:bg-stone-700`}>
               <Edit2 className="w-3.5 h-3.5" /> Add Adjustment
             </button>
@@ -746,7 +730,7 @@ function StudentLedger() {
               <Printer className="w-3.5 h-3.5" /> Print Ledger
             </button>
             <button onClick={handleIssueReceipt} className={`${actionBtnClass} bg-blue-700 text-white hover:bg-blue-800`}>
-              <Receipt className="w-3.5 h-3.5" /> Issue Receipt
+              <Receipt className="w-3.5 h-3.5" /> View Receipt
             </button>
             <button onClick={() => setActiveAction("discount")} className={`${actionBtnClass} bg-amber-600 text-white hover:bg-amber-700`}>
               <Percent className="w-3.5 h-3.5" /> Apply Discount
@@ -795,11 +779,13 @@ function StudentLedger() {
             <Scale className="w-4 h-4 text-stsn-gold" />
             <h4 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700">Transaction Ledger</h4>
           </div>
-          <STSNDataTable<LedgerRow>
-            columns={ledgerColumns}
-            rows={ledgerRows}
-            emptyMessage="No transactions found for the selected filters."
-          />
+          <div className="p-4">
+            <STSNDataTable<LedgerRow>
+              columns={ledgerColumns}
+              rows={ledgerRows}
+              emptyMessage="No transactions found for the selected filters."
+            />
+          </div>
         </div>
 
         {/* Payment History */}
@@ -838,70 +824,55 @@ function StudentLedger() {
         </PreviewModal>
       )}
 
-      {/* ADD PAYMENT MODAL */}
-      {activeAction === "payment" && currentStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleAddPayment} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
-            <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
-              <h3 className="font-display font-bold text-sm">Add Payment — {currentStudent.lastName}, {currentStudent.firstName}</h3>
-              <button type="button" onClick={() => setActiveAction(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-5 space-y-4 bg-stsn-cream">
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">BIR Official Receipt No. *</label>
-                <input required type="text" value={paymentForm.orNumber} onChange={(e) => setPaymentForm({ ...paymentForm, orNumber: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. 0001234" />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Amount (₱) *</label>
-                <input required type="number" min={1} value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. 5000" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Payment Method</label>
-                  <select value={paymentForm.paymentMethod} onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as Payment["paymentMethod"] })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold focus:outline-none">
-                    {["Cash", "Bank Transfer", "GCash", "Credit Card"].map((m) => <option key={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Term</label>
-                  <select value={paymentForm.term} onChange={(e) => setPaymentForm({ ...paymentForm, term: e.target.value as Payment["term"] })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold focus:outline-none">
-                    {["Downpayment", "Installment", "Midterm", "Finals", "Full Payment"].map((t) => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream font-bold text-xs py-2.5 rounded-lg shadow cursor-pointer transition">
-                Record Payment
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* ADD ADJUSTMENT MODAL */}
       {activeAction === "adjustment" && currentStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleAddAdjustment} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
+        <div className="app-modal-backdrop z-50">
+          <form onSubmit={handleAddAdjustment} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-xl overflow-hidden">
             <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
-              <h3 className="font-display font-bold text-sm">Add Adjustment — {currentStudent.lastName}, {currentStudent.firstName}</h3>
+              <div>
+                <h3 className="font-display font-bold text-sm">Post Ledger Adjustment</h3>
+                <p className="text-[10px] text-stsn-cream/80 mt-0.5">{currentStudent.lastName}, {currentStudent.firstName} • {currentStudent.studentNo}</p>
+              </div>
               <button type="button" onClick={() => setActiveAction(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4 bg-stsn-cream">
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Description</label>
-                <input value={adjustmentForm.description} onChange={(e) => setAdjustmentForm({ ...adjustmentForm, description: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. Penalty for late enrollment" />
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-800 leading-relaxed">
+                Use adjustments for accounting-approved corrections only. Cash, GCash, bank, and card collections should be posted from the Cashiering module.
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white border border-stone-200 rounded-lg p-3">
+                  <p className="text-[9px] uppercase font-mono text-stone-400">Current Balance</p>
+                  <p className="text-sm font-display font-bold text-stone-900">₱{(currentAssessment?.balance || 0).toLocaleString()}</p>
+                </div>
                 <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Amount (₱) *</label>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Adjustment Amount (₱) *</label>
                   <input required type="number" min={1} value={adjustmentForm.amount} onChange={(e) => setAdjustmentForm({ ...adjustmentForm, amount: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. 500" />
                 </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Direction</label>
-                  <select value={adjustmentForm.direction} onChange={(e) => setAdjustmentForm({ ...adjustmentForm, direction: e.target.value as "debit" | "credit" })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold focus:outline-none">
-                    <option value="debit">Debit (Increase Balance)</option>
-                    <option value="credit">Credit (Decrease Balance)</option>
-                  </select>
+                <div className="bg-white border border-stone-200 rounded-lg p-3">
+                  <p className="text-[9px] uppercase font-mono text-stone-400">Projected Balance</p>
+                  <p className={`text-sm font-display font-bold ${projectedAdjustmentBalance > 0 ? "text-red-700" : "text-emerald-700"}`}>₱{projectedAdjustmentBalance.toLocaleString()}</p>
                 </div>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Adjustment Type</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setAdjustmentForm({ ...adjustmentForm, direction: "debit" })} className={`text-left rounded-lg border p-3 transition cursor-pointer ${adjustmentForm.direction === "debit" ? "border-red-300 bg-red-50 text-red-800" : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"}`}>
+                    <p className="text-xs font-bold">Debit Adjustment</p>
+                    <p className="text-[10px] mt-0.5">Increases the student's balance for an approved charge or penalty.</p>
+                  </button>
+                  <button type="button" onClick={() => setAdjustmentForm({ ...adjustmentForm, direction: "credit" })} className={`text-left rounded-lg border p-3 transition cursor-pointer ${adjustmentForm.direction === "credit" ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"}`}>
+                    <p className="text-xs font-bold">Credit Adjustment</p>
+                    <p className="text-[10px] mt-0.5">Decreases the student's balance for a waiver, correction, or approved credit memo.</p>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Reason / Accounting Memo *</label>
+                <textarea required rows={3} value={adjustmentForm.description} onChange={(e) => setAdjustmentForm({ ...adjustmentForm, description: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-brown resize-none" placeholder="Example: Approved credit memo for duplicate laboratory fee assessment." />
+              </div>
+              <div className="bg-white border border-stone-200 rounded-lg p-3 text-[10px] text-stone-500">
+                Posted adjustments appear in the transaction ledger as manual accounting entries and should match the supporting approval or memo on file.
               </div>
               <button type="submit" className="w-full bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream font-bold text-xs py-2.5 rounded-lg shadow cursor-pointer transition">
                 Post Adjustment
@@ -913,7 +884,7 @@ function StudentLedger() {
 
       {/* APPLY DISCOUNT MODAL */}
       {activeAction === "discount" && currentStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <form onSubmit={handleApplyDiscount} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
             <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-display font-bold text-sm">Apply Discount — {currentStudent.lastName}, {currentStudent.firstName}</h3>
@@ -943,11 +914,23 @@ function StudentLedger() {
       {/* GENERATE SOA / PRINT LEDGER MODAL */}
       {(activeAction === "soa" || activeAction === "print") && currentStudent && (
         <PreviewModal isOpen={true} onClose={() => setActiveAction(null)} title={activeAction === "soa" ? "Statement of Account" : "Print Ledger Preview"}>
-          <div className="space-y-4 print-card">
-            <div className="text-center pb-3 border-b border-stsn-beige">
-              <h2 className="font-display font-extrabold text-stsn-brown-dark text-lg">St. Theresa School</h2>
-              <p className="text-[10px] text-stone-400 font-mono uppercase tracking-widest">Treasury & Accounting Office</p>
-              <p className="text-xs font-bold text-stsn-gold mt-1">{activeAction === "soa" ? "STATEMENT OF ACCOUNT" : "STUDENT LEDGER"}</p>
+          <div className="space-y-4 print-card bg-white p-6 text-stone-800">
+            <div className="pb-4 border-b-2 border-stsn-brown">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  <img src="/stsn-crest.png" alt="STSN Crest" className="w-16 h-16 object-contain flex-shrink-0" />
+                  <div className="min-w-0">
+                    <h2 className="font-display font-extrabold text-stsn-brown-dark text-lg leading-tight">St. Theresa's School of Novaliches</h2>
+                    <p className="text-[10px] text-stone-500 leading-snug">#7 Kingfisher Street Zabarte Subdivision, Novaliches Quezon City, 1124 Philippines</p>
+                    <p className="text-[10px] text-stsn-brown font-mono uppercase tracking-widest mt-1">Treasury & Accounting Office</p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[9px] uppercase font-mono text-stone-400">Document</p>
+                  <p className="text-sm font-display font-black text-stsn-brown-dark">{activeAction === "soa" ? "Statement of Account" : "Student Ledger"}</p>
+                  <p className="text-[9px] font-mono text-stone-400 mt-1">{new Date().toLocaleDateString()}</p>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs bg-stsn-cream/60 border border-stsn-beige rounded-lg p-3">
               <div><span className="text-stone-400 font-mono text-[10px] block uppercase">Student</span><strong>{currentStudent.lastName}, {currentStudent.firstName}</strong></div>
@@ -984,7 +967,7 @@ function StudentLedger() {
 
       {/* NO RECEIPT AVAILABLE MODAL */}
       {activeAction === "no-receipt" && currentStudent && (
-        <PreviewModal isOpen={true} onClose={() => setActiveAction(null)} title="Issue Receipt">
+        <PreviewModal isOpen={true} onClose={() => setActiveAction(null)} title="View Receipt">
           <div className="text-center py-10">
             <Receipt className="w-8 h-8 text-stone-300 mx-auto mb-2" />
             <p className="text-sm font-bold text-stone-700">No Payment Receipts Yet</p>
@@ -1362,7 +1345,7 @@ function DiscountManagement() {
 
       {/* DISCOUNT TYPE FORM MODAL */}
       {isTypeFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <form onSubmit={handleSaveType} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
             <div className="modal-header-gradient text-white p-4 flex justify-between items-center flex-shrink-0">
               <h3 className="font-display font-bold text-sm">{editingType ? "Edit Discount Type" : "New Discount Type"}</h3>
@@ -1482,7 +1465,7 @@ function DiscountManagement() {
 
       {/* NEW REQUEST FORM MODAL */}
       {isRequestFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <form onSubmit={handleSubmitRequest} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md overflow-hidden">
             <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-display font-bold text-sm">Submit Discount Request</h3>
@@ -1525,7 +1508,7 @@ function DiscountManagement() {
 
       {/* APPROVAL MODAL */}
       {approvalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
             <div className={`p-4 text-white flex justify-between items-center ${approvalModal.action === "approve" ? "bg-gradient-to-r from-emerald-700 to-emerald-600" : "bg-gradient-to-r from-red-700 to-red-600"}`}>
               <h3 className="font-bold text-sm">{approvalModal.action === "approve" ? "Approve" : "Reject"} — Level {approvalModal.level}</h3>
@@ -1549,7 +1532,7 @@ function DiscountManagement() {
 
       {/* AUDIT TRAIL MODAL */}
       {viewAudit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="app-modal-backdrop z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
             <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-bold text-sm">Audit Trail — {viewAudit.referenceNo}</h3>
@@ -1947,7 +1930,7 @@ function AssessmentApproval() {
         const cfg = APPROVAL_ACTION_CONFIG[actionModal];
         const Icon = cfg.icon;
         return (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="app-modal-backdrop z-[60]">
             <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
               <div className={`p-4 text-white flex justify-between items-center ${cfg.confirmClass}`}>
                 <h3 className="font-bold text-sm flex items-center gap-2"><Icon className="w-4 h-4" /> {cfg.title}</h3>

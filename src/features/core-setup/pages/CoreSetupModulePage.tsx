@@ -12,8 +12,9 @@ import {
   Flag, FileText, Shield, CreditCard, Workflow, Search, Plus, Edit2,
   Trash2, ChevronDown, ChevronRight, X, Check, ToggleLeft, ToggleRight,
   Calendar, MapPin, Layers, Award, Percent, BarChart3, Key, QrCode,
-  AlertCircle, Globe, Heart, BookMarked, Scale, Archive, RefreshCw
+  AlertCircle, Globe, Heart, BookMarked, Scale, Archive, RefreshCw, Library
 } from "lucide-react";
+import BooksSetupPage from "../../books/pages/BooksSetupPage";
 
 // ============================================================
 // SETUP CATEGORY CONFIGURATION
@@ -35,6 +36,7 @@ interface SetupCategoryConfig {
   description: string;
   icon: React.ElementType;
   color: string;
+  customPage?: "books_setup";
   extraFields?: FieldConfig[];
 }
 
@@ -48,6 +50,16 @@ interface SetupGroupConfig {
 
 const SETUP_GROUPS: SetupGroupConfig[] = [
   {
+    groupKey: "access_control",
+    groupLabel: "Access Control & Security",
+    icon: Shield,
+    groupColor: "text-slate-600",
+    categories: [
+      { key: "permissions_setup", label: "Permissions", description: "Module-level permission definitions", icon: Key, color: "slate", extraFields: [{ key: "module", label: "Module", type: "text" }] },
+      { key: "roles_setup", label: "Roles", description: "System roles and access levels", icon: Shield, color: "slate", extraFields: [{ key: "level", label: "Access Level (1-10)", type: "number" }] },
+    ]
+  },
+  {
     groupKey: "academic",
     groupLabel: "Academic Setup",
     icon: BookOpen,
@@ -55,11 +67,30 @@ const SETUP_GROUPS: SetupGroupConfig[] = [
     categories: [
       { key: "academic_categories", label: "Academic Categories", description: "Program categories (Preschool, Elementary, HS, College)", icon: Layers, color: "amber", extraFields: [] },
       { key: "academic_levels", label: "Academic Levels", description: "Levels of academic education", icon: GraduationCap, color: "amber", extraFields: [{ key: "category", label: "Category", type: "text", placeholder: "e.g. Senior High School" }] },
-      { key: "year_levels", label: "Year Levels", description: "Specific year/grade levels per academic level", icon: Layers, color: "amber", extraFields: [{ key: "level", label: "Sort Level (num)", type: "number" }, { key: "academicLevel", label: "Academic Level", type: "text" }] },
-      { key: "school_years", label: "School Years", description: "Manage academic year periods", icon: Calendar, color: "amber", extraFields: [{ key: "startDate", label: "Start Date", type: "date" }, { key: "endDate", label: "End Date", type: "date" }, { key: "isCurrent", label: "Current Year?", type: "toggle" }] },
-      { key: "semesters", label: "Semesters / Terms", description: "Semester and term definitions", icon: Calendar, color: "amber", extraFields: [{ key: "semesterNumber", label: "Semester Number", type: "number" }] },
       { key: "departments", label: "Departments", description: "Academic and administrative departments", icon: Building2, color: "amber", extraFields: [] },
       { key: "holidays", label: "Holiday Maintenance", description: "Declare official holidays", icon: Calendar, color: "amber", extraFields: [{ key: "date", label: "Holiday Date", type: "date", required: true }, { key: "holidayType", label: "Holiday Type", type: "select", options: ["Regular", "Special Non-Working", "Special Working"] }] },
+      { key: "school_years", label: "School Years", description: "Manage academic year periods", icon: Calendar, color: "amber", extraFields: [{ key: "startDate", label: "Start Date", type: "date" }, { key: "endDate", label: "End Date", type: "date" }, { key: "isCurrent", label: "Current Year?", type: "toggle" }] },
+      { key: "semesters", label: "Semesters / Terms", description: "Semester and term definitions", icon: Calendar, color: "amber", extraFields: [{ key: "semesterNumber", label: "Semester Number", type: "number" }] },
+      { key: "year_levels", label: "Year Levels", description: "Specific year/grade levels per academic level", icon: Layers, color: "amber", extraFields: [{ key: "level", label: "Sort Level (num)", type: "number" }, { key: "academicLevel", label: "Academic Level", type: "text" }] },
+    ]
+  },
+  {
+    groupKey: "accounting",
+    groupLabel: "Accounting Setup",
+    icon: Coins,
+    groupColor: "text-emerald-600",
+    categories: [
+      { key: "accounting_periods", label: "Accounting Periods", description: "Fiscal and academic period definitions", icon: Calendar, color: "emerald", extraFields: [{ key: "startDate", label: "Period Start", type: "date" }, { key: "endDate", label: "Period End", type: "date" }, { key: "isClosed", label: "Closed?", type: "toggle" }] },
+      { key: "chart_of_accounts", label: "Chart of Accounts", description: "Account codes for financial reporting", icon: BarChart3, color: "emerald", extraFields: [{ key: "accountNo", label: "Account No.", type: "text", required: true }, { key: "accountType", label: "Account Type", type: "select", options: ["Asset", "Liability", "Equity", "Revenue", "Expense"] }] },
+      { key: "collection_types", label: "Collection Types", description: "Tuition, Misc, Penalty, Refund", icon: Coins, color: "emerald", extraFields: [] },
+      { key: "fee_categories", label: "Fee Categories", description: "Tuition, Miscellaneous, Lab, etc.", icon: Coins, color: "emerald", extraFields: [] },
+      { key: "fee_items", label: "Fee Items", description: "Specific fee line items with amounts", icon: Coins, color: "emerald", extraFields: [{ key: "categoryId", label: "Category", type: "select", dataSourceKey: "fee_categories" }, { key: "amount", label: "Amount (PHP)", type: "number" }, { key: "yearLevel", label: "Year Level", type: "select", dataSourceKey: "year_levels" }] },
+      { key: "or_series", label: "Official Receipt Series", description: "OR numbering configuration", icon: FileText, color: "emerald", extraFields: [{ key: "prefix", label: "OR Prefix", type: "text" }, { key: "currentSerial", label: "Current Serial", type: "number" }, { key: "year", label: "Year", type: "number" }] },
+      { key: "payment_methods", label: "Payment Methods", description: "Cash, GCash, Bank Transfer, etc.", icon: CreditCard, color: "emerald", extraFields: [{ key: "type", label: "Method Type", type: "select", options: ["Cash", "Digital", "Bank", "Card"] }] },
+      { key: "payment_remittance_terms", label: "Payment Remittance Terms", description: "Cashier collection term or purpose labels", icon: CreditCard, color: "emerald", extraFields: [] },
+      { key: "payment_terms", label: "Payment Terms", description: "Cash, Installment options", icon: CreditCard, color: "emerald", extraFields: [{ key: "numberOfInstallments", label: "No. of Installments", type: "number" }, { key: "downpaymentPercent", label: "Down Payment %", type: "number" }] },
+      { key: "refund_reasons", label: "Refund Reasons", description: "Valid reasons for student refunds", icon: RefreshCw, color: "emerald", extraFields: [] },
+      { key: "void_reasons", label: "Void Reasons", description: "Reasons for voiding receipts", icon: X, color: "emerald", extraFields: [] },
     ]
   },
   {
@@ -80,67 +111,10 @@ const SETUP_GROUPS: SetupGroupConfig[] = [
     icon: Building2,
     groupColor: "text-green-600",
     categories: [
-      { key: "campuses", label: "Campuses", description: "Manage school campus locations", icon: MapPin, color: "green", extraFields: [{ key: "address", label: "Address", type: "text", placeholder: "Full address", colSpan: 2 }, { key: "contactNo", label: "Contact No.", type: "text" }] },
       { key: "buildings", label: "Buildings", description: "Buildings within campuses", icon: Building2, color: "green", extraFields: [{ key: "campusId", label: "Campus", type: "text", placeholder: "Campus code or ID" }, { key: "numberOfFloors", label: "Number of Floors", type: "number" }] },
+      { key: "campuses", label: "Campuses", description: "Manage school campus locations", icon: MapPin, color: "green", extraFields: [{ key: "address", label: "Address", type: "text", placeholder: "Full address", colSpan: 2 }, { key: "contactNo", label: "Contact No.", type: "text" }] },
       { key: "room_types", label: "Room Types", description: "Classroom, Lab, Hall, etc.", icon: Layers, color: "green", extraFields: [{ key: "maxCapacity", label: "Max Capacity", type: "number" }] },
       { key: "rooms", label: "Rooms / Classrooms", description: "Individual room management", icon: Building2, color: "green", extraFields: [{ key: "buildingId", label: "Building", type: "text" }, { key: "capacity", label: "Capacity", type: "number" }] },
-    ]
-  },
-  {
-    groupKey: "scheduling",
-    groupLabel: "Scheduling & Sectioning",
-    icon: Clock,
-    groupColor: "text-purple-600",
-    categories: [
-      { key: "time_slots", label: "Time Slots", description: "Defined class periods and durations", icon: Clock, color: "purple", extraFields: [{ key: "startTime", label: "Start Time (HH:MM)", type: "text", placeholder: "08:00" }, { key: "endTime", label: "End Time (HH:MM)", type: "text", placeholder: "10:00" }] },
-    ]
-  },
-  {
-    groupKey: "faculty",
-    groupLabel: "Faculty Management",
-    icon: Users,
-    groupColor: "text-indigo-600",
-    categories: [
-      { key: "faculty_ranks", label: "Faculty Ranks", description: "Instructor I, Professor, etc.", icon: Award, color: "indigo", extraFields: [{ key: "level", label: "Rank Level (num)", type: "number" }] },
-      { key: "employment_types", label: "Employment Types", description: "Full-Time, Part-Time, Contractual", icon: Users, color: "indigo", extraFields: [{ key: "isFullTime", label: "Is Full-Time?", type: "toggle" }] },
-    ]
-  },
-  {
-    groupKey: "accounting",
-    groupLabel: "Accounting Setup",
-    icon: Coins,
-    groupColor: "text-emerald-600",
-    categories: [
-      { key: "fee_categories", label: "Fee Categories", description: "Tuition, Miscellaneous, Lab, etc.", icon: Coins, color: "emerald", extraFields: [] },
-      { key: "fee_items", label: "Fee Items", description: "Specific fee line items with amounts", icon: Coins, color: "emerald", extraFields: [{ key: "categoryId", label: "Category", type: "select", dataSourceKey: "fee_categories" }, { key: "amount", label: "Amount (PHP)", type: "number" }, { key: "yearLevel", label: "Year Level", type: "select", dataSourceKey: "year_levels" }] },
-      { key: "payment_terms", label: "Payment Terms", description: "Cash, Installment options", icon: CreditCard, color: "emerald", extraFields: [{ key: "numberOfInstallments", label: "No. of Installments", type: "number" }, { key: "downpaymentPercent", label: "Down Payment %", type: "number" }] },
-      { key: "payment_methods", label: "Payment Methods", description: "Cash, GCash, Bank Transfer, etc.", icon: CreditCard, color: "emerald", extraFields: [{ key: "type", label: "Method Type", type: "select", options: ["Cash", "Digital", "Bank", "Card"] }] },
-      { key: "chart_of_accounts", label: "Chart of Accounts", description: "Account codes for financial reporting", icon: BarChart3, color: "emerald", extraFields: [{ key: "accountNo", label: "Account No.", type: "text", required: true }, { key: "accountType", label: "Account Type", type: "select", options: ["Asset", "Liability", "Equity", "Revenue", "Expense"] }] },
-      { key: "accounting_periods", label: "Accounting Periods", description: "Fiscal and academic period definitions", icon: Calendar, color: "emerald", extraFields: [{ key: "startDate", label: "Period Start", type: "date" }, { key: "endDate", label: "Period End", type: "date" }, { key: "isClosed", label: "Closed?", type: "toggle" }] },
-      { key: "or_series", label: "Official Receipt Series", description: "OR numbering configuration", icon: FileText, color: "emerald", extraFields: [{ key: "prefix", label: "OR Prefix", type: "text" }, { key: "currentSerial", label: "Current Serial", type: "number" }, { key: "year", label: "Year", type: "number" }] },
-      { key: "collection_types", label: "Collection Types", description: "Tuition, Misc, Penalty, Refund", icon: Coins, color: "emerald", extraFields: [] },
-      { key: "refund_reasons", label: "Refund Reasons", description: "Valid reasons for student refunds", icon: RefreshCw, color: "emerald", extraFields: [] },
-      { key: "void_reasons", label: "Void Reasons", description: "Reasons for voiding receipts", icon: X, color: "emerald", extraFields: [] },
-    ]
-  },
-  {
-    groupKey: "student_refs",
-    groupLabel: "Student Profile References",
-    icon: Flag,
-    groupColor: "text-red-500",
-    categories: [
-      { key: "nationalities", label: "Nationalities", description: "Filipino, Chinese, Korean, etc.", icon: Globe, color: "rose", extraFields: [] },
-      { key: "civil_statuses", label: "Civil Statuses", description: "Single, Married, Widowed, etc.", icon: Heart, color: "rose", extraFields: [] },
-      { key: "religions", label: "Religions", description: "Catholic, Protestant, Islam, etc.", icon: BookMarked, color: "rose", extraFields: [] },
-    ]
-  },
-  {
-    groupKey: "grading",
-    groupLabel: "Grading & Academic Rules",
-    icon: Scale,
-    groupColor: "text-teal-600",
-    categories: [
-      { key: "grade_scales", label: "Grade Scale", description: "Numeric grade equivalent and remarks", icon: Scale, color: "teal", extraFields: [{ key: "minGrade", label: "Min Grade", type: "number" }, { key: "maxGrade", label: "Max Grade", type: "number" }, { key: "equivalent", label: "Grade Equivalent", type: "text" }, { key: "remarks", label: "Remarks", type: "text" }] },
     ]
   },
   {
@@ -153,13 +127,13 @@ const SETUP_GROUPS: SetupGroupConfig[] = [
     ]
   },
   {
-    groupKey: "access_control",
-    groupLabel: "Access Control & Security",
-    icon: Shield,
-    groupColor: "text-slate-600",
+    groupKey: "faculty",
+    groupLabel: "Faculty Management",
+    icon: Users,
+    groupColor: "text-indigo-600",
     categories: [
-      { key: "roles_setup", label: "Roles", description: "System roles and access levels", icon: Shield, color: "slate", extraFields: [{ key: "level", label: "Access Level (1-10)", type: "number" }] },
-      { key: "permissions_setup", label: "Permissions", description: "Module-level permission definitions", icon: Key, color: "slate", extraFields: [{ key: "module", label: "Module", type: "text" }] },
+      { key: "employment_types", label: "Employment Types", description: "Full-Time, Part-Time, Contractual", icon: Users, color: "indigo", extraFields: [{ key: "isFullTime", label: "Is Full-Time?", type: "toggle" }] },
+      { key: "faculty_ranks", label: "Faculty Ranks", description: "Instructor I, Professor, etc.", icon: Award, color: "indigo", extraFields: [{ key: "level", label: "Rank Level (num)", type: "number" }] },
     ]
   },
   {
@@ -172,13 +146,42 @@ const SETUP_GROUPS: SetupGroupConfig[] = [
     ]
   },
   {
+    groupKey: "library",
+    groupLabel: "Library",
+    icon: Library,
+    groupColor: "text-violet-600",
+    categories: [
+      { key: "books_setup", label: "Book Setup", description: "Configure book packages by grade level", icon: Library, color: "violet", customPage: "books_setup", extraFields: [] },
+    ]
+  },
+  {
+    groupKey: "scheduling",
+    groupLabel: "Scheduling & Sectioning",
+    icon: Clock,
+    groupColor: "text-purple-600",
+    categories: [
+      { key: "time_slots", label: "Time Slots", description: "Defined class periods and durations", icon: Clock, color: "purple", extraFields: [{ key: "startTime", label: "Start Time (HH:MM)", type: "text", placeholder: "08:00" }, { key: "endTime", label: "End Time (HH:MM)", type: "text", placeholder: "10:00" }] },
+    ]
+  },
+  {
+    groupKey: "student_refs",
+    groupLabel: "Student Profile References",
+    icon: Flag,
+    groupColor: "text-red-500",
+    categories: [
+      { key: "civil_statuses", label: "Civil Statuses", description: "Single, Married, Widowed, etc.", icon: Heart, color: "rose", extraFields: [] },
+      { key: "nationalities", label: "Nationalities", description: "Filipino, Chinese, Korean, etc.", icon: Globe, color: "rose", extraFields: [] },
+      { key: "religions", label: "Religions", description: "Catholic, Protestant, Islam, etc.", icon: BookMarked, color: "rose", extraFields: [] },
+    ]
+  },
+  {
     groupKey: "workflows",
     groupLabel: "Workflow Configuration",
     icon: Workflow,
     groupColor: "text-cyan-600",
     categories: [
-      { key: "enrollment_workflows", label: "Enrollment Approval Workflow", description: "Step configuration for enrollment approvals", icon: Workflow, color: "cyan", extraFields: [] },
       { key: "clearance_workflows", label: "Clearance Workflow", description: "Department clearance step configuration", icon: Workflow, color: "cyan", extraFields: [] },
+      { key: "enrollment_workflows", label: "Enrollment Approval Workflow", description: "Step configuration for enrollment approvals", icon: Workflow, color: "cyan", extraFields: [] },
     ]
   },
 ];
@@ -269,6 +272,7 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
     purple: "from-purple-600 to-purple-500", indigo: "from-indigo-600 to-indigo-500", emerald: "from-emerald-700 to-emerald-600",
     rose: "from-rose-600 to-rose-500", teal: "from-teal-600 to-teal-500", orange: "from-orange-600 to-orange-500",
     slate: "from-slate-600 to-slate-500", pink: "from-pink-600 to-pink-500", cyan: "from-cyan-600 to-cyan-500",
+    violet: "from-violet-600 to-violet-500",
   };
 
   const Icon = config.icon;
@@ -397,7 +401,7 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
 
       {/* CREATE / EDIT MODAL */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
             <div className={`bg-gradient-to-r ${colorMap[config.color] || "from-stsn-brown to-stsn-brown-dark"} text-white p-4 flex items-center justify-between`}>
               <div className="flex items-center gap-2">
@@ -530,7 +534,7 @@ interface CoreSetupModuleProps {
 }
 
 export default function CoreSetupModule({ initialCategoryKey }: CoreSetupModuleProps) {
-  const { setupData } = useSTSNStore();
+  const { setupData, bookPackages } = useSTSNStore();
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>(initialCategoryKey || "academic_categories");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     SETUP_GROUPS.reduce((acc, g) => ({ ...acc, [g.groupKey]: g.groupKey === "academic" }), {})
@@ -626,7 +630,7 @@ export default function CoreSetupModule({ initialCategoryKey }: CoreSetupModuleP
                     <div className="pb-1">
                       {group.categories.map((cat) => {
                         const CatIcon = cat.icon;
-                        const count = (setupData[cat.key] || []).length;
+                        const count = cat.customPage === "books_setup" ? bookPackages.length : (setupData[cat.key] || []).length;
                         const isSelected = selectedCategoryKey === cat.key;
                         return (
                           <button
@@ -654,7 +658,9 @@ export default function CoreSetupModule({ initialCategoryKey }: CoreSetupModuleP
 
         {/* MAIN CONTENT */}
         <div className="flex-1 min-w-0">
-          {selectedConfig ? (
+          {selectedConfig?.customPage === "books_setup" ? (
+            <BooksSetupPage />
+          ) : selectedConfig ? (
             <GenericSetupTable
               categoryKey={selectedCategoryKey}
               config={selectedConfig}

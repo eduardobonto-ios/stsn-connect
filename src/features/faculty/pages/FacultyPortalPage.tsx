@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../services/store";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -23,7 +24,9 @@ import {
   GraduationCap,
   MapPin,
   Sun,
-  ChevronRight
+  ChevronRight,
+  Users,
+  X,
 } from "lucide-react";
 import GradingModule from "../../grading/pages/GradingModulePage";
 import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
@@ -51,6 +54,7 @@ export default function FacultyPortal() {
 
   // States
   const [activeTab, setActiveTab] = useState<"dashboard" | "schedule" | "attendance" | "grading">("dashboard");
+  const [viewSectionStudents, setViewSectionStudents] = useState<string | null>(null);
   const [attendanceData, setAttendanceData] = useState<Record<string, "Present" | "Late" | "Absent">>({});
   const [attendanceDate, setAttendanceDate] = useState("2026-05-30");
   const [attendanceMessage, setAttendanceMessage] = useState("");
@@ -527,12 +531,13 @@ export default function FacultyPortal() {
                       <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">End</th>
                       <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Semester</th>
                       <th className="px-4 py-3 text-left font-bold text-stone-500 text-[10px] uppercase tracking-wide">Dept</th>
+                      <th className="px-4 py-3 text-center font-bold text-stone-500 text-[10px] uppercase tracking-wide">Students</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-50">
                     {teacherSchedules.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-stone-400 text-xs italic">
+                        <td colSpan={9} className="px-4 py-8 text-center text-stone-400 text-xs italic">
                           No class schedules assigned. Contact the admin to assign your teaching load.
                         </td>
                       </tr>
@@ -560,6 +565,15 @@ export default function FacultyPortal() {
                               {sched.department === "College" ? "College" : "Basic Ed"}
                             </span>
                           </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => setViewSectionStudents(sched.section)}
+                              className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-1 bg-stsn-cream border border-stsn-beige text-stsn-brown rounded-lg hover:bg-stsn-beige cursor-pointer transition"
+                            >
+                              <Users className="w-3 h-3" />
+                              View
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -567,6 +581,66 @@ export default function FacultyPortal() {
                 </table>
               </div>
             </div>
+
+            {/* Section Students Modal */}
+            {viewSectionStudents && createPortal(
+              <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] mx-4">
+                  <div className="modal-header-gradient text-stsn-cream p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-5 h-5 text-stsn-gold" />
+                      <div>
+                        <h3 className="font-display font-bold text-sm">Students — {viewSectionStudents}</h3>
+                        <p className="text-[10px] text-stsn-gold-light/70">Enrolled student roster for this section</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setViewSectionStudents(null)} className="cursor-pointer hover:bg-white/10 p-1 rounded transition">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {(() => {
+                      const sectionStudents = students.filter((s) => s.section === viewSectionStudents);
+                      return sectionStudents.length === 0 ? (
+                        <p className="text-center text-stone-400 text-xs py-10 italic">No students found in this section.</p>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-stsn-brown text-white">
+                            <tr>
+                              <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Student No.</th>
+                              <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Full Name</th>
+                              <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Year Level</th>
+                              <th className="px-4 py-2.5 text-left text-[10px] uppercase font-bold">Track / Course</th>
+                              <th className="px-4 py-2.5 text-center text-[10px] uppercase font-bold">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-100">
+                            {sectionStudents.map((s) => (
+                              <tr key={s.id} className="hover:bg-stone-50">
+                                <td className="px-4 py-2.5 font-mono font-bold text-stsn-brown">{s.studentNo}</td>
+                                <td className="px-4 py-2.5 font-semibold text-stone-800">{s.lastName}, {s.firstName}</td>
+                                <td className="px-4 py-2.5 text-stone-500">{s.yearLevel}</td>
+                                <td className="px-4 py-2.5 text-stone-500">{s.trackOrCourse || "—"}</td>
+                                <td className="px-4 py-2.5 text-center">
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${s.enrollmentStatus === "Enrolled" ? "bg-green-50 text-green-700 border-green-200" : s.enrollmentStatus === "Approved" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                                    {s.enrollmentStatus}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
+                  <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-between items-center">
+                    <span className="text-xs text-stone-400 font-mono">{students.filter((s) => s.section === viewSectionStudents).length} student(s) in section</span>
+                    <button onClick={() => setViewSectionStudents(null)} className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer">Close</button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
 
             {/* Assigned Subjects Summary */}
             <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">

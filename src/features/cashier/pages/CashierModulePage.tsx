@@ -22,6 +22,15 @@ type CashierTab = "queue" | "history";
 const PAYMENT_METHODS: Payment["paymentMethod"][] = ["Cash", "GCash", "Bank Transfer", "Credit Card"];
 const PAYMENT_REMITTANCE_TERMS: Payment["term"][] = ["Downpayment", "Midterm", "Finals", "Full Payment", "Installment"];
 
+function getActiveSetupNames(items: { name: string; isActive?: boolean; sortOrder?: number }[] | undefined, fallback: string[]): string[] {
+  const configured = [...(items ?? [])]
+    .filter((item) => item.isActive !== false)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+    .map((item) => item.name)
+    .filter(Boolean);
+  return configured.length > 0 ? configured : fallback;
+}
+
 /** Resolves the assigned book package for an assessment, if books were availed (Basic Ed only). */
 function getBookPackageInfo(assessment: StudentAssessment, bookPackages: BookPackage[]) {
   if (!assessment.booksAvailed) return undefined;
@@ -89,7 +98,7 @@ function CardPagination({
 }
 
 export default function CashierModule() {
-  const { students, assessments, payments, currentUser, academicUnit, addPayment, bookPackages } = useSTSNStore();
+  const { students, assessments, payments, currentUser, academicUnit, addPayment, bookPackages, setupData } = useSTSNStore();
   const [activeTab, setActiveTab] = useState<CashierTab>("queue");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -106,6 +115,14 @@ export default function CashierModule() {
   const [pendingPage, setPendingPage] = useState(1);
 
   const departmentFilter = academicUnitToDepartment(academicUnit);
+  const paymentMethodOptions = useMemo(
+    () => getActiveSetupNames(setupData.payment_methods, PAYMENT_METHODS),
+    [setupData.payment_methods],
+  );
+  const paymentRemittanceTermOptions = useMemo(
+    () => getActiveSetupNames(setupData.payment_remittance_terms, PAYMENT_REMITTANCE_TERMS),
+    [setupData.payment_remittance_terms],
+  );
 
   useEffect(() => {
     setApprovedPage(1);
@@ -156,7 +173,13 @@ export default function CashierModule() {
 
   const openCollect = (assessmentId: string) => {
     const row = queueRows.find((r) => r.assessment.id === assessmentId);
-    setPaymentForm({ orNumber: "", amount: row ? String(row.assessment.balance) : "", paymentMethod: "Cash", term: "Installment", reference: "" });
+    setPaymentForm({
+      orNumber: "",
+      amount: row ? String(row.assessment.balance) : "",
+      paymentMethod: (paymentMethodOptions[0] ?? "Cash") as Payment["paymentMethod"],
+      term: (paymentRemittanceTermOptions[0] ?? "Installment") as Payment["term"],
+      reference: "",
+    });
     setOrError(null);
     setCollectModalId(assessmentId);
   };
@@ -515,7 +538,7 @@ export default function CashierModule() {
                     onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as Payment["paymentMethod"] })}
                     className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
                   >
-                    {PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}
+                    {paymentMethodOptions.map((m) => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div>
@@ -525,7 +548,7 @@ export default function CashierModule() {
                     onChange={(e) => setPaymentForm({ ...paymentForm, term: e.target.value as Payment["term"] })}
                     className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
                   >
-                    {PAYMENT_REMITTANCE_TERMS.map((t) => <option key={t}>{t}</option>)}
+                    {paymentRemittanceTermOptions.map((t) => <option key={t}>{t}</option>)}
                   </select>
                 </div>
               </div>

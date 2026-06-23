@@ -205,9 +205,9 @@ export interface Payment {
   assessmentId?: string; // links payment to a specific assessment (prevents balance deducted from all)
   amount: number;
   paymentDate: string;
-  paymentMethod: "Cash" | "Bank Transfer" | "GCash" | "Credit Card";
+  paymentMethod: string;
   orNumber: string; // Official Receipt Number
-  term: "Downpayment" | "Midterm" | "Finals" | "Full Payment" | "Installment";
+  term: string;
   remarks?: string;
 }
 

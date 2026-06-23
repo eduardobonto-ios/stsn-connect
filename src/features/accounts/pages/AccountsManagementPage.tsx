@@ -153,7 +153,7 @@ export default function AccountsManagement() {
 
       {/* NEW PROVISIONING DIALOG FORM MODAL */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="app-modal-backdrop z-50 animate-fade-in">
           <form onSubmit={handleCreateCredential} className="bg-white rounded-2xl shadow-2xl border border-stone-200 text-stone-800 w-full max-w-md overflow-hidden animate-fade-in font-sans">
             <div className="modal-header-gradient text-white p-4 flex items-center justify-between">
               <h3 className="font-display font-semibold text-base flex items-center gap-2">
