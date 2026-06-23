@@ -20,7 +20,7 @@ export default function AccountsManagement() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<"SUPER_ADMIN" | "REGISTRAR" | "ACCOUNTING" | "TEACHER" | "STUDENT" | "HR" | "EMPLOYEE">("STUDENT");
+  const [role, setRole] = useState<"SUPER_ADMIN" | "REGISTRAR" | "ACCOUNTING" | "TEACHER" | "STUDENT" | "HR" | "EMPLOYEE" | "CASHIER" | "GUIDANCE" | "NURSE">("STUDENT");
 
   const filteredUsers = users.filter((u) => {
     return u.email.toLowerCase().includes(searchQuery.toLowerCase()) || u.role.toLowerCase().includes(searchQuery.toLowerCase());
@@ -201,8 +201,11 @@ export default function AccountsManagement() {
                   <option value="SUPER_ADMIN">SUPER_ADMIN (General Chancellor)</option>
                   <option value="REGISTRAR">REGISTRAR (Admissions Dean)</option>
                   <option value="ACCOUNTING">ACCOUNTING (Treasurer Bureau)</option>
+                  <option value="CASHIER">CASHIER (Collection Window)</option>
                   <option value="TEACHER">TEACHER (Licensed Faculty LPT)</option>
                   <option value="HR">HR (Personnel Lead)</option>
+                  <option value="GUIDANCE">GUIDANCE (Guidance Office)</option>
+                  <option value="NURSE">NURSE (Clinic Office)</option>
                   <option value="STUDENT">STUDENT (Admitted Candidate)</option>
                   <option value="EMPLOYEE">EMPLOYEE (Support Staff)</option>
                 </select>

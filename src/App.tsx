@@ -54,6 +54,7 @@ export default function App() {
   const { toast } = useAppDialog();
   const [activeModule, setActiveModule] = useState<STSNModule>("DASHBOARD");
   const [accountingSubPage, setAccountingSubPage] = useState("dashboard");
+  const [coreSetupSubPage, setCoreSetupSubPage] = useState("academic_categories");
   const [portalSubPage, setPortalSubPage] = useState("overview");
   const [expandedModule, setExpandedModule] = useState<STSNModule | null>("DASHBOARD");
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -86,6 +87,8 @@ export default function App() {
       setActiveModule("FACULTY_PORTAL");
     else if (currentUser.role === "ACCOUNTING") setActiveModule("ACCOUNTING");
     else if (currentUser.role === "CASHIER") setActiveModule("CASHIER");
+    else if (currentUser.role === "GUIDANCE") setActiveModule("GUIDANCE");
+    else if (currentUser.role === "NURSE") setActiveModule("NURSE_CLINIC");
     else setActiveModule("DASHBOARD");
   }, [currentUser]);
 
@@ -241,7 +244,7 @@ export default function App() {
                     <div className="mt-0.5 ml-2 pl-3 border-l border-white/10 space-y-0.5">
                       {item.children.map((child) => {
                         const isChildActive = child.targetModule
-                          ? activeModule === child.targetModule
+                          ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
                           : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : accountingSubPage === child.id);
                         const ChildIcon = child.icon;
                         return (
@@ -250,6 +253,9 @@ export default function App() {
                             onClick={() => {
                               if (child.targetModule) {
                                 setActiveModule(child.targetModule);
+                                if (child.targetModule === "CORE_SETUP") {
+                                  setCoreSetupSubPage(child.id);
+                                }
                               } else {
                                 setActiveModule(item.id);
                                 if (item.id === "STUDENT_PORTAL") {
@@ -431,7 +437,7 @@ export default function App() {
               <AccountsManagement />
             )}
           {activeModule === "CORE_SETUP" &&
-            allowedModules.includes("CORE_SETUP") && <CoreSetupModule />}
+            allowedModules.includes("CORE_SETUP") && <CoreSetupModule initialCategoryKey={coreSetupSubPage} />}
           {activeModule === "SCHEDULING" &&
             allowedModules.includes("SCHEDULING") && <SchedulingModule />}
           {activeModule === "CLASS_SECTIONING" &&
@@ -499,7 +505,7 @@ export default function App() {
                         <div className="ml-3 pl-2 border-l border-white/10 mt-0.5 space-y-0.5">
                           {item.children.map((child) => {
                             const isChildActive = child.targetModule
-                              ? activeModule === child.targetModule
+                              ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
                               : isSelected && accountingSubPage === child.id;
                             return (
                               <button
@@ -507,6 +513,9 @@ export default function App() {
                                 onClick={() => {
                                   if (child.targetModule) {
                                     setActiveModule(child.targetModule);
+                                    if (child.targetModule === "CORE_SETUP") {
+                                      setCoreSetupSubPage(child.id);
+                                    }
                                   } else {
                                     setActiveModule(item.id);
                                     setAccountingSubPage(child.id);

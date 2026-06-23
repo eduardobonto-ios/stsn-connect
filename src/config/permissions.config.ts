@@ -43,6 +43,8 @@ export const ROLE_PERMISSIONS: Record<CanonicalRole, Permission[]> = {
   teacher: ["FACULTY_PORTAL", "GRADING", "CURRICULUM", "ONLINE_LEARNING", "CONSULTATION"],
   student: ["STUDENT_PORTAL", "CONSULTATION"],
   hr: ["DASHBOARD", "HR_MANAGEMENT", "NURSE_CLINIC"],
+  guidance: ["GUIDANCE"],
+  nurse: ["NURSE_CLINIC"],
 };
 
 /**

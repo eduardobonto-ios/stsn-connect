@@ -14,7 +14,9 @@ export type UserRole =
   | "STUDENT"
   | "HR"
   | "EMPLOYEE"
-  | "CASHIER";
+  | "CASHIER"
+  | "GUIDANCE"
+  | "NURSE";
 
 export type SchoolId = "STSN" | "CDSTA";
 

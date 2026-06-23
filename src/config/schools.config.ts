@@ -18,7 +18,7 @@ export const SCHOOL_CONTEXTS: SchoolContext[] = [
     shortName: "St. Theresa's School",
     location: "Novaliches, QC",
     academicUnit: "basic-ed",
-    supportedRoles: ["super-admin", "registrar", "accounting", "cashier", "teacher", "student", "hr"],
+    supportedRoles: ["super-admin", "registrar", "accounting", "cashier", "teacher", "student", "hr", "guidance", "nurse"],
     brandingLabel: "Basic Education / K-12",
   },
   {
@@ -27,7 +27,7 @@ export const SCHOOL_CONTEXTS: SchoolContext[] = [
     shortName: "Colegio de Sta. Teresa",
     location: "de Avila",
     academicUnit: "college",
-    supportedRoles: ["super-admin", "registrar", "accounting", "cashier", "teacher", "student", "hr"],
+    supportedRoles: ["super-admin", "registrar", "accounting", "cashier", "teacher", "student", "hr", "guidance", "nurse"],
     brandingLabel: "College / Tertiary Academics",
   },
 ];

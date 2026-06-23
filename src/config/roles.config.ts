@@ -25,6 +25,8 @@ export const ROLES: RoleDefinition[] = [
   { id: "teacher", label: "Teacher", description: "Manages classes, attendance and grade encoding" },
   { id: "student", label: "Student", description: "Views academic records, grades and billing" },
   { id: "hr", label: "HR", description: "Manages employee records and payroll" },
+  { id: "guidance", label: "Guidance", description: "Accesses the Guidance Office module only" },
+  { id: "nurse", label: "Nurse", description: "Accesses the Clinic module only" },
 ];
 
 export { toCanonicalRole, ROLE_TO_CANONICAL } from "../types/role.types";

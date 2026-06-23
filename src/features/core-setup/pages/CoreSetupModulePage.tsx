@@ -525,13 +525,25 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
 // ============================================================
 // MAIN CORE SETUP MODULE
 // ============================================================
-export default function CoreSetupModule() {
+interface CoreSetupModuleProps {
+  initialCategoryKey?: string;
+}
+
+export default function CoreSetupModule({ initialCategoryKey }: CoreSetupModuleProps) {
   const { setupData } = useSTSNStore();
-  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>("academic_categories");
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>(initialCategoryKey || "academic_categories");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     SETUP_GROUPS.reduce((acc, g) => ({ ...acc, [g.groupKey]: g.groupKey === "academic" }), {})
   );
   const [globalSearch, setGlobalSearch] = useState("");
+
+  useEffect(() => {
+    if (!initialCategoryKey) return;
+    const category = ALL_CATEGORIES.find((c) => c.key === initialCategoryKey);
+    if (!category) return;
+    setSelectedCategoryKey(initialCategoryKey);
+    setExpandedGroups((prev) => ({ ...prev, [category.groupKey]: true }));
+  }, [initialCategoryKey]);
 
   const toggleGroup = (key: string) => setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
