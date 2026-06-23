@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo, useRef, useEffect, useCallback } from "react";
 import DataTable, { type DataTableSlots } from "datatables.net-react";
 import DT from "datatables.net-dt";
 import "datatables.net-dt/css/dataTables.dataTables.css";
@@ -43,6 +43,8 @@ export interface STSNDataTableProps<T = any> {
   caption?: string;
   /** Called when the user clicks anywhere on a data row */
   onRowClick?: (row: T) => void;
+  /** ID of the currently selected row — highlights it with a left-border accent */
+  selectedId?: string;
 }
 
 /**
@@ -59,11 +61,35 @@ export default function STSNDataTable<T = any>({
   className = "",
   caption,
   onRowClick,
+  selectedId,
 }: STSNDataTableProps<T>) {
   const onRowClickRef = useRef(onRowClick);
   useEffect(() => {
     onRowClickRef.current = onRowClick;
   });
+
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const applySelection = useCallback(() => {
+    if (!containerRef.current) return;
+    containerRef.current.querySelectorAll<HTMLElement>("tr[data-row-id]").forEach((row) => {
+      if (row.getAttribute("data-row-id") === selectedIdRef.current) {
+        row.classList.add("stsn-row-selected");
+      } else {
+        row.classList.remove("stsn-row-selected");
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    applySelection();
+  }, [selectedId, applySelection]);
+
   const dtColumns = useMemo(
     () =>
       columns.map((col) => ({
@@ -88,9 +114,40 @@ export default function STSNDataTable<T = any>({
     return result;
   }, [columns]);
 
+  const options = useMemo(
+    () => ({
+      paging: true,
+      pageLength,
+      searching: searchable,
+      ordering: true,
+      info: true,
+      lengthChange: false,
+      language: {
+        emptyTable: emptyMessage,
+        search: "Search:",
+        paginate: {
+          previous: "Prev",
+          next: "Next",
+        },
+      },
+      createdRow: (row: Node, data: unknown) => {
+        const el = row as HTMLElement;
+        const id = (data as any)?.id;
+        if (id) el.setAttribute("data-row-id", id);
+        if (id && id === selectedIdRef.current) el.classList.add("stsn-row-selected");
+        if (onRowClickRef.current) {
+          el.style.cursor = "pointer";
+          el.addEventListener("click", () => onRowClickRef.current?.(data as T));
+        }
+        setTimeout(applySelection, 0);
+      },
+    }),
+    [applySelection, emptyMessage, pageLength, searchable],
+  );
+
   if (rows.length === 0) {
     return (
-      <div className={`stsn-datatable ${className}`}>
+      <div ref={containerRef} className={`stsn-datatable ${className}`}>
         {caption && (
           <p className="text-xs font-mono uppercase tracking-wide text-stone-400 mb-2">
             {caption}
@@ -105,7 +162,7 @@ export default function STSNDataTable<T = any>({
   }
 
   return (
-    <div className={`stsn-datatable overflow-x-auto ${className}`}>
+    <div ref={containerRef} className={`stsn-datatable overflow-x-auto ${className}`}>
       {caption && (
         <p className="text-xs font-mono uppercase tracking-wide text-stone-400 mb-2">
           {caption}
@@ -116,30 +173,7 @@ export default function STSNDataTable<T = any>({
         columns={dtColumns}
         slots={slots}
         className="display w-full text-xs"
-        options={{
-          paging: true,
-          pageLength,
-          searching: searchable,
-          ordering: true,
-          info: true,
-          lengthChange: false,
-          language: {
-            emptyTable: emptyMessage,
-            search: "Search:",
-            paginate: {
-              previous: "Prev",
-              next: "Next",
-            },
-          },
-          createdRow: onRowClick
-            ? (row: Node, data: unknown) => {
-                (row as HTMLElement).style.cursor = "pointer";
-                (row as HTMLElement).addEventListener("click", () => {
-                  onRowClickRef.current?.(data as T);
-                });
-              }
-            : undefined,
-        }}
+        options={options}
       >
         <thead>
           <tr>

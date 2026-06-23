@@ -76,19 +76,19 @@ export default function AddGradeItemModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl border border-stsn-beige w-full max-w-md mx-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md mx-4 overflow-hidden animate-fade-in">
         {/* Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-stone-100">
+        <div className="modal-header-gradient text-white px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <PlusCircle className="w-4 h-4 text-stsn-gold" />
-            <h3 className="text-sm font-bold text-stone-900 uppercase tracking-wide">
+            <h3 className="text-sm font-bold uppercase tracking-wide">
               Add Grade Item
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="text-stone-400 hover:text-stone-700 cursor-pointer transition"
+            className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1 cursor-pointer transition"
           >
             <X className="w-4 h-4" />
           </button>

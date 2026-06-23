@@ -36,7 +36,7 @@ interface SectionFormProps {
 
 function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: SectionFormProps) {
   const { toast } = useAppDialog();
-  const { setupData, courses } = useSTSNStore();
+  const { setupData, courses, sections } = useSTSNStore();
   const [dept, setDept] = useState<"Basic Education" | "College">(initial?.department || lockedDept || "Basic Education");
   const [code, setCode] = useState(initial?.code || "");
   const [name, setName] = useState(initial?.name || "");
@@ -56,7 +56,15 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
 
   const terms = useMemo(() => getAcademicTerms(departmentToAcademicUnit(dept)), [dept]);
   const availableStrands = (yearLevel === "Grade 11" || yearLevel === "Grade 12") ? shsStrands : [];
-  const filteredTeachers = teachers.filter((t) => dept === "Basic Education" ? t.department === "Basic Education" : t.department === "College");
+  // Teachers already advising a DIFFERENT section cannot be selected.
+  const busyAdviserIds = new Set(
+    sections.filter((s) => s.adviserId && s.id !== initial?.id).map((s) => s.adviserId as string)
+  );
+  const filteredTeachers = teachers.filter(
+    (t) =>
+      (dept === "Basic Education" ? t.department === "Basic Education" : t.department === "College") &&
+      !busyAdviserIds.has(t.id)
+  );
   const adviserObj = teachers.find((t) => t.id === adviserId);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -225,8 +233,9 @@ interface AddStudentsModalProps {
 }
 
 function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDept, alreadyEnrolled, onClose }: AddStudentsModalProps) {
-  const { students, assignStudentsToSection, setupData } = useSTSNStore();
+  const { students, sections, assignStudentsToSection, setupData } = useSTSNStore();
   const { toast } = useAppDialog();
+  const sectionCapacity = sections.find((s) => s.id === sectionId)?.capacity ?? Infinity;
   const [filterYear, setFilterYear] = useState(sectionYearLevel !== "All" ? sectionYearLevel : "All");
   const [searchQ, setSearchQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -268,6 +277,10 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
 
   const handleSave = () => {
     if (selected.size === 0) { toast("No students selected.", { variant: "warning" }); return; }
+    if (alreadyEnrolled.length + selected.size > sectionCapacity) {
+      toast(`Cannot assign ${selected.size} student(s): section capacity (${sectionCapacity}) would be exceeded. Currently ${alreadyEnrolled.length} enrolled.`, { variant: "warning" });
+      return;
+    }
     assignStudentsToSection(sectionId, Array.from(selected));
     toast(`${selected.size} student(s) successfully assigned to ${sectionName}.`);
     onClose();

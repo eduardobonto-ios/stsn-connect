@@ -1,6 +1,8 @@
 import {
   LayoutDashboard, Compass, Coins, GraduationCap, Users, BookOpen,
-  Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet, Library
+  Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet, Library,
+  List, FileText, Truck, Package, Receipt, TrendingUp, TrendingDown, Scale, PieChart, Activity,
+  Percent, Lock, ClipboardList, BookMarked, Banknote
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { UserRole } from "../types";
@@ -11,6 +13,13 @@ import type { STSNModule, Permission } from "./permissions.config";
 export type { STSNModule, Permission };
 export { ROLE_PERMISSIONS, getPermissionsForRole };
 
+export interface NavSubItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+}
+
 export interface NavItem {
   id: STSNModule;
   label: string;
@@ -20,12 +29,36 @@ export interface NavItem {
   labelByUnit?: Partial<Record<AcademicUnit, string>>;
   /** Optional per-academic-unit description override, resolved by getNavItemsForRole(). Falls back to `desc`. */
   descByUnit?: Partial<Record<AcademicUnit, string>>;
+  /** If present, renders as an expandable group in the sidebar. */
+  children?: NavSubItem[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { id: "DASHBOARD",        label: "Registrar Dashboard", icon: LayoutDashboard, desc: "Live admissions & fees" },
   { id: "REGISTRAR",        label: "Admissions & Enrollment", icon: Compass,     desc: "Student registrations" },
-  { id: "ACCOUNTING",       label: "Accounting",          icon: Coins,           desc: "Ledger, discounts & reports" },
+  {
+    id: "ACCOUNTING", label: "Accounting", icon: Coins, desc: "Ledger, discounts & reports",
+    children: [
+      { id: "dashboard",         label: "Dashboard",               icon: LayoutDashboard, desc: "KPIs & receivables watchlist" },
+      { id: "ledger",            label: "Student Ledger",          icon: BookOpen,        desc: "Per-student debit/credit ledger" },
+      { id: "discounts",         label: "Discounts",               icon: Percent,         desc: "Discount types & approval requests" },
+      { id: "billing",           label: "Billing & Assessment",    icon: ClipboardList,   desc: "Assessment approval & summary" },
+      { id: "holds",             label: "Financial Holds",         icon: Lock,            desc: "Student financial hold management" },
+      { id: "chart-of-accounts", label: "Chart of Accounts",      icon: List,            desc: "GL account codes & hierarchy" },
+      { id: "cost-centers",      label: "Cost Centers",            icon: Building2,       desc: "Departmental cost segmentation" },
+      { id: "journal-entries",   label: "Journal Entries",         icon: BookMarked,      desc: "Double-entry bookkeeping postings" },
+      { id: "suppliers",         label: "Supplier Management",     icon: Truck,           desc: "Vendor & supplier master list" },
+      { id: "items",             label: "Item / Product Mgmt",     icon: Package,         desc: "Product & service catalog" },
+      { id: "sales-invoices",    label: "Sales Invoice",           icon: Receipt,         desc: "Customer sales invoices (AR)" },
+      { id: "purchase-invoices", label: "Purchase Invoice",        icon: FileText,        desc: "Vendor purchase invoices (AP)" },
+      { id: "ar-aging",          label: "AR with Aging",           icon: TrendingUp,      desc: "Receivables aged 30/60/90/120+ days" },
+      { id: "ap-aging",          label: "AP with Aging",           icon: TrendingDown,    desc: "Payables aged by vendor & due date" },
+      { id: "trial-balance",     label: "Trial Balance",           icon: Scale,           desc: "Debit/credit totals by GL account" },
+      { id: "balance-sheet",     label: "Balance Sheet",           icon: PieChart,        desc: "Assets = Liabilities + Equity snapshot" },
+      { id: "income-statement",  label: "Income Statement",        icon: Activity,        desc: "Revenue − Expenses = Net Income" },
+      { id: "cash-flow",         label: "Cash Flow Report",        icon: Banknote,        desc: "Operating / investing / financing flows" },
+    ],
+  },
   { id: "CASHIER",          label: "Cashiering",          icon: Wallet,          desc: "Payments, receipts & collections" },
   {
     id: "BOOKS_SETUP", label: "Books Setup", icon: Library, desc: "Configure book packages by grade level",

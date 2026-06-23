@@ -70,10 +70,9 @@ interface ScheduleFormProps {
 }
 
 function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
-  const { subjects, teachers, sections, rooms, classSchedules, setupData } = useSTSNStore();
+  const { subjects, teachers, sections, rooms, classSchedules, setupData, assignSectionAdviser } = useSTSNStore();
   const { toast, confirm } = useAppDialog();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
-  const semesterOptions = setupData.semesters ?? [];
   const beYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel !== "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
   const collegeYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel === "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
 
@@ -81,15 +80,24 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
   const [yearLevel, setYearLevel] = useState(initial?.yearLevel || "");
   const [teacherId, setTeacherId] = useState(initial?.teacherId || "");
   const [subjectCode, setSubjectCode] = useState(initial?.subjectCode || "");
-  const [subjectName, setSubjectName] = useState(initial?.subjectName || "");
   const [sectionName, setSectionName] = useState(initial?.section || "");
   const [roomName, setRoomName] = useState(initial?.roomName || "");
   const [day, setDay] = useState<ClassSchedule["day"]>(initial?.day || "Monday");
   const [startTime, setStartTime] = useState(initial?.startTime || "08:00");
   const [endTime, setEndTime] = useState(initial?.endTime || "10:00");
   const [semester, setSemester] = useState(initial?.semester || "First Semester");
-  const [courseOrTrack, setCourseOrTrack] = useState(initial?.courseOrTrack || "");
+  const courseOrTrack = initial?.courseOrTrack || "";
   const [notes, setNotes] = useState(initial?.notes || "");
+  const initialSection = initial ? sections.find(
+    (section) => section.name === initial.section && section.department === initial.department && (!initial.yearLevel || section.yearLevel === initial.yearLevel)
+  ) : undefined;
+  const initiallyAssignedAsAdviser = Boolean(
+    initial && (
+      initialSection?.adviserId === initial.teacherId ||
+      teachers.find((teacher) => teacher.id === initial.teacherId)?.advisorySection === initial.section
+    )
+  );
+  const [assignAsAdviser, setAssignAsAdviser] = useState(initiallyAssignedAsAdviser);
 
   const [roomConflictWarning, setRoomConflictWarning] = useState("");
   const [sectionConflictWarning, setSectionConflictWarning] = useState("");
@@ -125,8 +133,8 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
     setTeacherId(newTeacherId);
     // Reset subject and section when teacher changes
     setSubjectCode("");
-    setSubjectName("");
     setSectionName("");
+    setAssignAsAdviser(false);
     setSectionConflictWarning("");
     // For new schedules, default the semester based on the teacher's department
     if (!initial) {
@@ -138,6 +146,12 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
 
   const handleSectionChange = (newSection: string) => {
     setSectionName(newSection);
+    const section = availableSections.find((item) => item.name === newSection);
+    setAssignAsAdviser(Boolean(
+      newSection && teacherId && (
+        section?.adviserId === teacherId || selectedTeacher?.advisorySection === newSection
+      )
+    ));
     if (!newSection || !teacherId) { setSectionConflictWarning(""); return; }
     // Check if this teacher already has this section in any existing schedule
     const conflict = classSchedules.find(
@@ -196,9 +210,19 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
       if (!(await confirm("Section already assigned to this teacher. Proceed anyway?", { variant: "warning" }))) return;
     }
     const selectedSub = subjects.find((s) => s.code === subjectCode);
+    const selectedSection = availableSections.find((section) => section.name === sectionName);
+    const advisoryAssignmentChanged = initial && (
+      initial.teacherId !== teacherId || initial.section !== sectionName || !assignAsAdviser
+    );
+    if (initiallyAssignedAsAdviser && advisoryAssignmentChanged && initialSection) {
+      assignSectionAdviser(initialSection.id, null);
+    }
+    if (assignAsAdviser && selectedSection) {
+      assignSectionAdviser(selectedSection.id, teacherId);
+    }
     onSave({
       subjectCode,
-      subjectName: selectedSub?.name || subjectName,
+      subjectName: selectedSub?.name || "",
       teacherId,
       teacherName: selectedTeacher ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}` : "",
       section: sectionName,
@@ -218,8 +242,8 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <form onSubmit={handleSave} className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
-        <div className="modal-header-gradient text-stsn-cream p-4 flex items-center justify-between">
+      <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-2xl overflow-hidden">
+        <div className="modal-header-gradient text-white p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-stsn-gold" />
             <h3 className="font-display font-bold text-sm">{initial ? "Edit Schedule" : "Create New Schedule"}</h3>
@@ -229,21 +253,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
 
         <div className="p-5 bg-stsn-cream space-y-4 max-h-[80vh] overflow-y-auto">
 
-          {/* Row 1: Year Level */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level *</label>
-            <select
-              required
-              value={yearLevel}
-              onChange={(e) => setYearLevel(e.target.value)}
-              className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-            >
-              <option value="">— Select Year Level —</option>
-              {yearLevelsForDept.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-
-          {/* Row 2: Teacher */}
+          {/* Row 1: Teacher */}
           <div>
             <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Faculty / Teacher *</label>
             <select
@@ -264,6 +274,20 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
             )}
           </div>
 
+          {/* Row 2: Year Level */}
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level *</label>
+            <select
+              required
+              value={yearLevel}
+              onChange={(e) => setYearLevel(e.target.value)}
+              className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+            >
+              <option value="">— Select Year Level —</option>
+              {yearLevelsForDept.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+
           {/* Row 3: Subject */}
           <div>
             <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Subject *</label>
@@ -273,21 +297,12 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
               onChange={(e) => {
                 const sub = subjects.find((s) => s.code === e.target.value);
                 setSubjectCode(sub?.code || e.target.value);
-                setSubjectName(sub?.name || "");
               }}
               className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
             >
               <option value="">— Select Subject —</option>
               {availableSubjects.map((s) => <option key={s.id} value={s.code}>{s.code} — {s.name}</option>)}
             </select>
-            {subjectCode === "" && (
-              <input
-                value={subjectName}
-                onChange={(e) => setSubjectName(e.target.value)}
-                className="w-full mt-1 bg-white border border-stone-200 rounded-lg py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                placeholder="Or type subject name if not in list..."
-              />
-            )}
           </div>
 
           {/* Row 4: Section dropdown (from Class Sectioning) */}
@@ -310,6 +325,19 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
                 <span className="text-[10px] text-amber-700 font-medium">{sectionConflictWarning}</span>
               </div>
             )}
+            <label className={`mt-2 flex items-start gap-2 rounded-lg border p-2.5 ${teacherId && sectionName ? "bg-white border-stone-200 cursor-pointer" : "bg-stone-100 border-stone-200 cursor-not-allowed opacity-60"}`}>
+              <input
+                type="checkbox"
+                checked={assignAsAdviser}
+                disabled={!teacherId || !sectionName}
+                onChange={(e) => setAssignAsAdviser(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-stsn-brown"
+              />
+              <span>
+                <span className="block text-[11px] font-bold text-stone-700">Assign as Class Adviser</span>
+                <span className="block text-[10px] text-stone-500">Make the selected faculty member the adviser of this class section.</span>
+              </span>
+            </label>
           </div>
 
           {/* Row 5: Room dropdown (from rooms store) */}
@@ -352,28 +380,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
             </div>
           </div>
 
-          {/* Row 7: Semester & Course/Track */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Semester *</label>
-              {teacherDept === "Basic Education" ? (
-                <div className="flex items-center justify-between p-2.5 bg-white border border-stone-200 rounded-lg">
-                  <span className="text-xs font-bold text-stone-700">{semester}</span>
-                  <span className="text-[9px] font-mono uppercase text-stone-400">{terms.enrollmentUnit}</span>
-                </div>
-              ) : (
-                <select required value={semester} onChange={(e) => setSemester(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
-                  {semesterOptions.map((s) => <option key={s.id}>{s.name}</option>)}
-                </select>
-              )}
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">{terms.trackNoun}</label>
-              <input value={courseOrTrack} onChange={(e) => setCourseOrTrack(e.target.value)} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. BSIT, STEM, ABM" />
-            </div>
-          </div>
-
-          {/* Row 8: Notes */}
+          {/* Row 7: Notes */}
           <div>
             <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Notes</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs focus:outline-none resize-none" placeholder="Optional scheduling notes..." />

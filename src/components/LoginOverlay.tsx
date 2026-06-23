@@ -12,7 +12,6 @@ import {
   Key,
   Mail,
   Sparkles,
-  Building2,
   Landmark,
   School,
   GraduationCap,
@@ -89,15 +88,17 @@ export default function LoginOverlay() {
       <div className="w-full md:w-[450px] lg:w-[500px] flex-shrink-0 flex flex-col justify-between p-8 md:p-12 bg-white border-r border-stsn-beige h-full overflow-y-auto">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-stsn-brown flex items-center justify-center text-stsn-cream shadow-md">
-            <Building2 className="w-5 h-5 text-stsn-gold-light" />
-          </div>
+          <img
+            src="/stsn-crest.png"
+            alt="STSN Crest"
+            className="w-10 h-10 object-contain mix-blend-multiply"
+          />
           <div>
             <h1 className="font-display font-bold text-xl tracking-tight text-stsn-brown-dark leading-none">
               STSN <span className="text-stsn-gold">Connect</span>
             </h1>
             <p className="text-[10px] text-stone-400 uppercase tracking-widest font-mono mt-1">
-              St. Theresa School
+              St. Theresa's School of Novaliches
             </p>
           </div>
         </div>
@@ -365,7 +366,7 @@ export default function LoginOverlay() {
         <div className="flex justify-between items-center z-10">
           <div className="text-[11px] font-mono tracking-widest text-stsn-gold-light/75 uppercase uppercase font-semibold flex items-center gap-1.5">
             <Landmark className="w-3.5 h-3.5" />
-            Established 1990 • Novaliches, Quezon City
+            Established 1998 • Novaliches, Quezon City
           </div>
           <span className="bg-stsn-cream/10 border border-stsn-cream/20 rounded-full px-3 py-1 text-[10px] font-semibold text-stsn-gold-light tracking-wide">
             Enterprise Client Presentation SY 2026-2027
@@ -381,49 +382,31 @@ export default function LoginOverlay() {
             Welcome to{" "}
             <span className="text-stsn-gold-light">STSN Connect</span>
           </h2>
-          <p className="text-stone-300 text-sm mt-4 font-normal leading-relaxed">
+          <p className="text-stone-300 text-sm mt-4 font-normal leading-relaxed max-w-md">
             A state-of-the-art educational resource platform seamlessly
             consolidating enrollment checklists, assessment billing, hybrid
             grade distribution, and HR payroll services under one intuitive
             enterprise dashboard.
           </p>
 
-          <div className="grid grid-cols-3 gap-6 mt-8 p-5 bg-black/25 backdrop-blur-md rounded-2xl border border-white/5">
-            <div>
-              <div className="text-2xl font-bold text-stsn-gold-light font-display">
-                100%
+          <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
+            {[
+              "Enrollment & Checklist Management",
+              "Assessment Billing & Collection",
+              "Hybrid Grade Distribution",
+              "HR & Payroll Administration",
+            ].map((feature) => (
+              <div key={feature} className="flex items-center gap-3">
+                <CheckCircle className="w-4 h-4 text-stsn-gold flex-shrink-0" />
+                <span className="text-sm text-stone-300">{feature}</span>
               </div>
-              <div className="text-[10px] uppercase text-stone-400 mt-0.5 tracking-wider font-mono">
-                Philippine K-12 Compliant
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-stsn-gold-light font-display">
-                Zero-DB
-              </div>
-              <div className="text-[10px] uppercase text-stone-400 mt-0.5 tracking-wider font-mono">
-                Dynamic Mock-TS State
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-stsn-gold-light font-display">
-                Multi-Role
-              </div>
-              <div className="text-[10px] uppercase text-stone-400 mt-0.5 tracking-wider font-mono">
-                Enterprise Grade ERP
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Legal Disclaimer & Tech Stack Indicators */}
-        <div className="text-xs text-stone-400/90 flex justify-between z-10 border-t border-white/5 pt-4">
-          <p>© St. Theresa School (STSN Connect) • All rights reserved.</p>
-          <div className="flex gap-3 text-[10px] font-mono">
-            <span>REACT 19</span>
-            <span>TAILWIND v4</span>
-            <span>ZUSTAND</span>
-          </div>
+        {/* Legal Disclaimer */}
+        <div className="text-xs text-stone-400/90 z-10 border-t border-white/5 pt-4">
+          <p>© St. Theresa's School of Novaliches (STSN Connect) • All rights reserved.</p>
         </div>
       </div>
     </div>

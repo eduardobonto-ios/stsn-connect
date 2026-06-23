@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import { useSTSNStore } from "../../../services/store";
+import { supabase } from "../../../lib/supabase";
 import {
   Award,
   BookOpen,
@@ -31,9 +32,11 @@ export default function FacultyPortal() {
   const { teachers, currentUser, students, announcements, grades, subjects, classSchedules, academicUnit, activityLogs, employees } = useSTSNStore();
   const currentTeacher = resolveCurrentTeacher(teachers, currentUser, academicUnit);
 
-  // Advisory Class Details
-  const advisorySectionName = currentTeacher.advisorySection || "St. Thomas";
-  const advisoryStudents = students.filter((s) => s.section === advisorySectionName);
+  // Advisory Class Details — empty when no section is assigned to prevent data leaks.
+  const advisorySectionName = currentTeacher.advisorySection || "";
+  const advisoryStudents = advisorySectionName
+    ? students.filter((s) => s.section === advisorySectionName)
+    : [];
 
   // Teaching load — total units across this teacher's class schedules (sourced from Supabase)
   const teachingLoadUnits = classSchedules
@@ -60,9 +63,22 @@ export default function FacultyPortal() {
     }));
   };
 
-  // Submit Attendance Handler
+  // Submit Attendance Handler — persists to student_attendance table in Supabase
   const handleAttendanceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (advisoryStudents.length > 0) {
+      const records = advisoryStudents.map((s) => ({
+        student_id: s.id,
+        section: advisorySectionName,
+        date: attendanceDate,
+        status: getStudentAttendanceStatus(s.id),
+        recorded_by: currentTeacher.id,
+      }));
+      supabase
+        .from("student_attendance")
+        .upsert(records, { onConflict: "student_id,date" })
+        .then(({ error }) => { if (error) console.error("[supabase] attendance upsert failed:", error); });
+    }
     setAttendanceMessage(`Attendance for section "${advisorySectionName}" has been successfully logged for ${attendanceDate}! Dispatched automated SMS notifications to parents.`);
     setTimeout(() => {
       setAttendanceMessage("");
@@ -95,7 +111,7 @@ export default function FacultyPortal() {
             Welcome, {currentTeacher.firstName} {currentTeacher.lastName}, LPT
           </h2>
           <p className="text-stone-300 text-xs mt-1">
-            Department: <strong>{currentTeacher.department} Academics</strong> • Advisory Section: <strong className="text-stsn-gold-light">{advisorySectionName}</strong>
+            Department: <strong>{currentTeacher.department} Academics</strong> • Advisory Section: <strong className="text-stsn-gold-light">{advisorySectionName || "Not Assigned"}</strong>
           </p>
         </div>
 

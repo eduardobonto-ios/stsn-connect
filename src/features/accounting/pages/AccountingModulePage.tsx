@@ -20,10 +20,15 @@ import STSNDataTable, { type STSNColumn } from "../../../components/common/STSND
 import { Payment, StudentAssessment, Student } from "../../../types";
 import { getAccountingLabels, FINANCIAL_HOLD_STATUS_CONFIG, DISCOUNT_STATUS_CONFIG, BLOCKED_PROCESS_LABELS, DEFAULT_HOLD_CATEGORY, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
 import { FinancialHold, AssessmentBillingSummary, BookPackage } from "../../../types";
+import ChartOfAccountsPage from "./sub-pages/ChartOfAccountsPage";
+import CostCentersPage from "./sub-pages/CostCentersPage";
+import JournalEntriesPage from "./sub-pages/JournalEntriesPage";
+import SupplierManagementPage from "./sub-pages/SupplierManagementPage";
+import ItemProductManagementPage from "./sub-pages/ItemProductManagementPage";
+import SalesInvoicesPage from "./sub-pages/SalesInvoicesPage";
+import PurchaseInvoicesPage from "./sub-pages/PurchaseInvoicesPage";
 
 type AccountingTab = "dashboard" | "ledger" | "discounts" | "billing" | "holds";
-type DiscountsSubTab = "types" | "requests" | "government" | "sibling";
-type BillingSubTab = "approval" | "summary";
 
 
 /** Default Discount Type form state, including enterprise policy fields. */
@@ -394,7 +399,7 @@ function StudentLedger() {
   const [holdOverrides, setHoldOverrides] = useState<Record<string, "None" | "Hold" | "Cleared">>({});
   const [manualEntries, setManualEntries] = useState<Record<string, Omit<LedgerRow, "balance">[]>>({});
   const [activeAction, setActiveAction] = useState<LedgerActionModal>(null);
-  const [paymentForm, setPaymentForm] = useState<{ amount: string; paymentMethod: Payment["paymentMethod"]; term: Payment["term"] }>({ amount: "", paymentMethod: "Cash", term: "Installment" });
+  const [paymentForm, setPaymentForm] = useState<{ orNumber: string; amount: string; paymentMethod: Payment["paymentMethod"]; term: Payment["term"] }>({ orNumber: "", amount: "", paymentMethod: "Cash", term: "Installment" });
   const [adjustmentForm, setAdjustmentForm] = useState<{ description: string; amount: string; direction: "debit" | "credit" }>({ description: "", amount: "", direction: "credit" });
   const [discountTypeId, setDiscountTypeId] = useState("");
 
@@ -479,12 +484,13 @@ function StudentLedger() {
     addPayment({
       studentId: currentStudent.id,
       schoolId: currentStudent.schoolId,
+      orNumber: paymentForm.orNumber.trim(),
       amount: Number(paymentForm.amount),
       paymentMethod: paymentForm.paymentMethod,
       term: paymentForm.term,
       remarks: "Recorded via Student Ledger — Add Payment",
     });
-    setPaymentForm({ amount: "", paymentMethod: "Cash", term: "Installment" });
+    setPaymentForm({ orNumber: "", amount: "", paymentMethod: "Cash", term: "Installment" });
     setActiveAction(null);
   };
 
@@ -832,12 +838,16 @@ function StudentLedger() {
       {/* ADD PAYMENT MODAL */}
       {activeAction === "payment" && currentStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleAddPayment} className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="modal-header-gradient text-stsn-cream p-4 flex justify-between items-center">
+          <form onSubmit={handleAddPayment} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
+            <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-display font-bold text-sm">Add Payment — {currentStudent.lastName}, {currentStudent.firstName}</h3>
               <button type="button" onClick={() => setActiveAction(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4 bg-stsn-cream">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">BIR Official Receipt No. *</label>
+                <input required type="text" value={paymentForm.orNumber} onChange={(e) => setPaymentForm({ ...paymentForm, orNumber: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. 0001234" />
+              </div>
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Amount (₱) *</label>
                 <input required type="number" min={1} value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown" placeholder="e.g. 5000" />
@@ -867,8 +877,8 @@ function StudentLedger() {
       {/* ADD ADJUSTMENT MODAL */}
       {activeAction === "adjustment" && currentStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleAddAdjustment} className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="modal-header-gradient text-stsn-cream p-4 flex justify-between items-center">
+          <form onSubmit={handleAddAdjustment} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
+            <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-display font-bold text-sm">Add Adjustment — {currentStudent.lastName}, {currentStudent.firstName}</h3>
               <button type="button" onClick={() => setActiveAction(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
@@ -901,8 +911,8 @@ function StudentLedger() {
       {/* APPLY DISCOUNT MODAL */}
       {activeAction === "discount" && currentStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleApplyDiscount} className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="modal-header-gradient text-stsn-cream p-4 flex justify-between items-center">
+          <form onSubmit={handleApplyDiscount} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
+            <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-display font-bold text-sm">Apply Discount — {currentStudent.lastName}, {currentStudent.firstName}</h3>
               <button type="button" onClick={() => setActiveAction(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
@@ -995,7 +1005,6 @@ function DiscountManagement() {
   const { confirm } = useAppDialog();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
 
-  const [subTab, setSubTab] = useState<DiscountsSubTab>("types");
   const [searchTypes, setSearchTypes] = useState("");
   const [searchRequests, setSearchRequests] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -1017,26 +1026,23 @@ function DiscountManagement() {
   // View Audit Trail
   const [viewAudit, setViewAudit] = useState<DiscountRequest | null>(null);
 
-  const filteredTypes = discountTypes.filter((dt) => {
+  const filteredTypes = useMemo(() => {
     const q = searchTypes.toLowerCase();
-    const matchSearch = dt.name.toLowerCase().includes(q) || dt.code.toLowerCase().includes(q);
-    const matchSource = filterSource === "All" || dt.discountSource === filterSource;
-    return matchSearch && matchSource;
-  });
+    return discountTypes.filter((dt) => {
+      const matchSearch = dt.name.toLowerCase().includes(q) || dt.code.toLowerCase().includes(q);
+      const matchSource = filterSource === "All" || dt.discountSource === filterSource;
+      return matchSearch && matchSource;
+    });
+  }, [discountTypes, filterSource, searchTypes]);
 
-  const filteredRequests = discountRequests.filter((req) => {
+  const filteredRequests = useMemo(() => {
     const q = searchRequests.toLowerCase();
-    const matchSearch = req.studentName.toLowerCase().includes(q) || req.referenceNo.toLowerCase().includes(q) || req.discountTypeName.toLowerCase().includes(q);
-    const matchStatus = filterStatus === "All" || getRequestWorkflowStatus(req).label === filterStatus;
-    const matchSubTab = subTab === "requests"
-      ? true
-      : subTab === "government"
-        ? ["Government"].includes(discountTypes.find((d) => d.id === req.discountTypeId)?.discountSource || "")
-        : subTab === "sibling"
-          ? ["Sibling", "Owner", "Employee"].includes(discountTypes.find((d) => d.id === req.discountTypeId)?.discountSource || "")
-          : true;
-    return matchSearch && matchStatus && matchSubTab;
-  });
+    return discountRequests.filter((req) => {
+      const matchSearch = req.studentName.toLowerCase().includes(q) || req.referenceNo.toLowerCase().includes(q) || req.discountTypeName.toLowerCase().includes(q);
+      const matchStatus = filterStatus === "All" || getRequestWorkflowStatus(req).label === filterStatus;
+      return matchSearch && matchStatus;
+    });
+  }, [discountRequests, filterStatus, searchRequests]);
 
   const handleSaveType = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1083,9 +1089,12 @@ function DiscountManagement() {
     setApprovalRemarks("");
   };
 
-  const SOURCES = ["All", ...(setupData.discount_sources ?? []).map((s) => s.name)];
+  const SOURCES = useMemo(
+    () => ["All", ...(setupData.discount_sources ?? []).map((s) => s.name)],
+    [setupData.discount_sources],
+  );
 
-  const discountTypeColumns: STSNColumn<DiscountType>[] = [
+  const discountTypeColumns: STSNColumn<DiscountType>[] = useMemo(() => [
     {
       title: "Code",
       data: "code",
@@ -1183,39 +1192,29 @@ function DiscountManagement() {
         </div>
       ),
     },
-  ];
+  ], [confirm, deleteDiscountType, toggleDiscountTypeActive]);
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Sub-navigation */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="flex border-b border-stone-100">
-          {([
-            { key: "types", label: "Discount Types" },
-            { key: "requests", label: "All Requests" },
-            { key: "government", label: "Government Discounts" },
-            { key: "sibling", label: "Sibling / Owner" },
-          ] as { key: DiscountsSubTab; label: string }[]).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setSubTab(tab.key)}
-              className={`flex-1 py-3 text-xs font-bold transition cursor-pointer ${subTab === tab.key ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden p-4">
+        <p className="text-xs font-mono uppercase tracking-wider text-stone-400">Discounts</p>
+        <p className="text-sm text-stone-500 mt-1">
+          Discount Types and Approval Requests are shown together to keep the page focused and avoid table remount flicker.
+        </p>
+      </div>
 
+      {/* Discount Types */}
+      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
         {/* ---- DISCOUNT TYPES ---- */}
-        {subTab === "types" && (
+        {true && (
           <div className="p-5 space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 justify-between">
-              <div className="flex gap-2 flex-1">
+              <div className="flex items-stretch gap-2 flex-1">
                 <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-                  <input type="text" placeholder="Search discount types..." value={searchTypes} onChange={(e) => setSearchTypes(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:outline-none" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                  <input type="text" placeholder="Search discount types..." value={searchTypes} onChange={(e) => setSearchTypes(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
                 </div>
-                <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none">
+                <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="h-9 min-w-[108px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
                   {SOURCES.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
@@ -1231,20 +1230,21 @@ function DiscountManagement() {
               columns={discountTypeColumns}
               rows={filteredTypes}
               emptyMessage="No discount types found."
+              searchable={false}
             />
           </div>
         )}
 
         {/* ---- APPROVAL REQUESTS ---- */}
-        {(subTab === "requests" || subTab === "government" || subTab === "sibling") && (
+        {true && (
           <div className="p-5 space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 justify-between">
-              <div className="flex gap-2 flex-1">
+              <div className="flex items-stretch gap-2 flex-1">
                 <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-                  <input type="text" placeholder="Search by student or reference..." value={searchRequests} onChange={(e) => setSearchRequests(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:outline-none" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                  <input type="text" placeholder="Search by student or reference..." value={searchRequests} onChange={(e) => setSearchRequests(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
                 </div>
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none">
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 min-w-[168px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
                   {REQUEST_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
@@ -1360,8 +1360,8 @@ function DiscountManagement() {
       {/* DISCOUNT TYPE FORM MODAL */}
       {isTypeFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleSaveType} className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="modal-header-gradient text-stsn-cream p-4 flex justify-between items-center flex-shrink-0">
+          <form onSubmit={handleSaveType} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="modal-header-gradient text-white p-4 flex justify-between items-center flex-shrink-0">
               <h3 className="font-display font-bold text-sm">{editingType ? "Edit Discount Type" : "New Discount Type"}</h3>
               <button type="button" onClick={() => setIsTypeFormOpen(false)} className="cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
@@ -1480,8 +1480,8 @@ function DiscountManagement() {
       {/* NEW REQUEST FORM MODAL */}
       {isRequestFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleSubmitRequest} className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="modal-header-gradient text-stsn-cream p-4 flex justify-between items-center">
+          <form onSubmit={handleSubmitRequest} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md overflow-hidden">
+            <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-display font-bold text-sm">Submit Discount Request</h3>
               <button type="button" onClick={() => setIsRequestFormOpen(false)} className="cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
@@ -1523,7 +1523,7 @@ function DiscountManagement() {
       {/* APPROVAL MODAL */}
       {approvalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
             <div className={`p-4 text-white flex justify-between items-center ${approvalModal.action === "approve" ? "bg-gradient-to-r from-emerald-700 to-emerald-600" : "bg-gradient-to-r from-red-700 to-red-600"}`}>
               <h3 className="font-bold text-sm">{approvalModal.action === "approve" ? "Approve" : "Reject"} — Level {approvalModal.level}</h3>
               <button onClick={() => setApprovalModal(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
@@ -1547,8 +1547,8 @@ function DiscountManagement() {
       {/* AUDIT TRAIL MODAL */}
       {viewAudit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="modal-header-gradient text-stsn-cream p-4 flex justify-between items-center">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
+            <div className="modal-header-gradient text-white p-4 flex justify-between items-center">
               <h3 className="font-bold text-sm">Audit Trail — {viewAudit.referenceNo}</h3>
               <button onClick={() => setViewAudit(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
@@ -1687,12 +1687,12 @@ function FinancialHolds() {
               </h3>
               <p className="text-xs text-stone-500 mt-0.5">Students with active or resolved financial holds restricting school processes.</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-stretch gap-2">
               <div className="relative flex-1 sm:w-56">
-                <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-                <input type="text" placeholder="Search student..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:outline-none" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <input type="text" placeholder="Search student..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
               </div>
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none">
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 min-w-[84px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
                 {HOLD_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>
@@ -1702,6 +1702,7 @@ function FinancialHolds() {
             columns={holdColumns}
             rows={rows}
             emptyMessage="No financial holds match the selected filters."
+            searchable={false}
           />
 
           <div className="bg-stsn-cream border border-stsn-beige rounded-lg p-3 flex items-start gap-2">
@@ -1944,7 +1945,7 @@ function AssessmentApproval() {
         const Icon = cfg.icon;
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm overflow-hidden">
               <div className={`p-4 text-white flex justify-between items-center ${cfg.confirmClass}`}>
                 <h3 className="font-bold text-sm flex items-center gap-2"><Icon className="w-4 h-4" /> {cfg.title}</h3>
                 <button onClick={() => setActionModal(null)} className="cursor-pointer"><X className="w-5 h-5" /></button>
@@ -2307,35 +2308,11 @@ function AssessmentBilling() {
   );
 }
 
-// ============================================================
-// ASSESSMENT & BILLING — sub-tab wrapper (Assessment Approval + Billing Summary)
-// ============================================================
-const BILLING_SUB_TABS: { key: BillingSubTab; label: string; icon: React.ElementType }[] = [
-  { key: "approval", label: "Assessment Approval", icon: ClipboardList },
-  { key: "summary", label: "Billing Summary", icon: FileText },
-];
-
 function AssessmentAndBilling() {
-  const [subTab, setSubTab] = useState<BillingSubTab>("approval");
-
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex gap-2 bg-white rounded-xl border border-stsn-beige shadow-sm p-1.5">
-        {BILLING_SUB_TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setSubTab(tab.key)}
-              className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer ${subTab === tab.key ? "bg-stsn-brown text-stsn-cream" : "text-stone-500 hover:bg-stone-50"}`}
-            >
-              <Icon className="w-3.5 h-3.5" /> {tab.label}
-            </button>
-          );
-        })}
-      </div>
-      {subTab === "approval" && <AssessmentApproval />}
-      {subTab === "summary" && <AssessmentBilling />}
+      <AssessmentApproval />
+      <AssessmentBilling />
     </div>
   );
 }
@@ -2343,16 +2320,61 @@ function AssessmentAndBilling() {
 // ============================================================
 // MAIN ACCOUNTING MODULE
 // ============================================================
-export default function AccountingModule() {
-  const [activeTab, setActiveTab] = useState<AccountingTab>("dashboard");
+// ============================================================
+// SUB-PAGE ROUTER — new accounting features
+// ============================================================
+function ComingSoon({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 animate-fade-in">
+      <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+        <Coins className="w-7 h-7 text-stsn-brown opacity-60" />
+      </div>
+      <h3 className="text-lg font-display font-semibold text-stone-700">{title}</h3>
+      <p className="text-sm text-stone-400 max-w-sm">{desc}</p>
+      <span className="text-[10px] font-mono uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+        Coming Soon
+      </span>
+    </div>
+  );
+}
 
-  const tabs: { key: AccountingTab; label: string; icon: React.ElementType }[] = [
-    { key: "dashboard", label: "Accounting Dashboard", icon: BarChart3 },
-    { key: "ledger", label: "Student Ledger", icon: Scale },
-    { key: "discounts", label: "Discounts & Scholarships", icon: Percent },
-    { key: "billing", label: "Assessment & Billing", icon: ClipboardList },
-    { key: "holds", label: "Financial Holds", icon: Lock },
-  ];
+function AccountingSubPageRouter({ subPage }: { subPage: string }) {
+  switch (subPage) {
+    case "chart-of-accounts":  return <ChartOfAccountsPage />;
+    case "cost-centers":       return <CostCentersPage />;
+    case "journal-entries":    return <JournalEntriesPage />;
+    case "suppliers":          return <SupplierManagementPage />;
+    case "items":              return <ItemProductManagementPage />;
+    case "sales-invoices":     return <SalesInvoicesPage />;
+    case "purchase-invoices":  return <PurchaseInvoicesPage />;
+    case "ar-aging":           return <ComingSoon title="AR Summary with Aging" desc="Receivables aged by 30 / 60 / 90 / 120+ day buckets. Coming in Phase 4." />;
+    case "ap-aging":           return <ComingSoon title="AP Summary with Aging" desc="Payables aged by vendor and due date. Coming in Phase 4." />;
+    case "trial-balance":      return <ComingSoon title="Trial Balance Report" desc="Debit and credit totals by GL account. Coming in Phase 5." />;
+    case "balance-sheet":      return <ComingSoon title="Balance Sheet Report" desc="Assets = Liabilities + Equity snapshot for a period. Coming in Phase 5." />;
+    case "income-statement":   return <ComingSoon title="Income Statement" desc="Revenue − Expenses = Net Income for a period. Coming in Phase 5." />;
+    case "cash-flow":          return <ComingSoon title="Cash Flow Report" desc="Operating, investing, and financing cash flows. Coming in Phase 5." />;
+    default:                   return null;
+  }
+}
+
+const LEGACY_TABS: AccountingTab[] = ["dashboard", "ledger", "discounts", "billing", "holds"];
+
+interface AccountingModuleProps {
+  subPage?: string;
+  onSubPageChange?: (page: string) => void;
+}
+
+export default function AccountingModule({ subPage = "dashboard", onSubPageChange }: AccountingModuleProps) {
+  const isLegacyTab = LEGACY_TABS.includes(subPage as AccountingTab);
+  const activeTab = isLegacyTab ? (subPage as AccountingTab) : "dashboard";
+
+  if (!isLegacyTab) {
+    return (
+      <div className="space-y-6 animate-fade-in font-sans">
+        <AccountingSubPageRouter subPage={subPage} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
@@ -2366,26 +2388,6 @@ export default function AccountingModule() {
           Financial analytics, student ledger management, discount administration, and accounting operations.
         </p>
       </div>
-
-      {/* Tab Navigation */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="flex border-b border-stone-100">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === tab.key ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Tab Content */}
       {activeTab === "dashboard" && <AccountingDashboard />}
       {activeTab === "ledger" && <StudentLedger />}

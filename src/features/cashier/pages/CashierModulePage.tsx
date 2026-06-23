@@ -94,9 +94,10 @@ export default function CashierModule() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [collectModalId, setCollectModalId] = useState<string | null>(null);
-  const [paymentForm, setPaymentForm] = useState<{ amount: string; paymentMethod: Payment["paymentMethod"]; term: Payment["term"]; reference: string }>({
-    amount: "", paymentMethod: "Cash", term: "Installment", reference: "",
+  const [paymentForm, setPaymentForm] = useState<{ orNumber: string; amount: string; paymentMethod: Payment["paymentMethod"]; term: Payment["term"]; reference: string }>({
+    orNumber: "", amount: "", paymentMethod: "Cash", term: "Installment", reference: "",
   });
+  const [orError, setOrError] = useState<string | null>(null);
 
   const [receipt, setReceipt] = useState<{ payment: Payment; student: Student; assessment?: StudentAssessment } | null>(null);
 
@@ -136,7 +137,14 @@ export default function CashierModule() {
   // Collection History — all payments posted against students in this academic unit.
   const historyRows = useMemo(() => {
     return payments
-      .map((p) => ({ payment: p, student: students.find((s) => s.id === p.studentId), assessment: assessments.find((a) => a.studentId === p.studentId) }))
+      .map((p) => ({
+        payment: p,
+        student: students.find((s) => s.id === p.studentId),
+        // Prefer the specific assessment the payment was collected against; fall back to first match.
+        assessment: p.assessmentId
+          ? assessments.find((a) => a.id === p.assessmentId)
+          : assessments.find((a) => a.studentId === p.studentId),
+      }))
       .filter(({ student }) => student?.department === departmentFilter && matchesSearch(student))
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
   }, [payments, students, assessments, departmentFilter, searchQuery]);
@@ -148,7 +156,8 @@ export default function CashierModule() {
 
   const openCollect = (assessmentId: string) => {
     const row = queueRows.find((r) => r.assessment.id === assessmentId);
-    setPaymentForm({ amount: row ? String(row.assessment.balance) : "", paymentMethod: "Cash", term: "Installment", reference: "" });
+    setPaymentForm({ orNumber: "", amount: row ? String(row.assessment.balance) : "", paymentMethod: "Cash", term: "Installment", reference: "" });
+    setOrError(null);
     setCollectModalId(assessmentId);
   };
 
@@ -158,9 +167,19 @@ export default function CashierModule() {
     const amount = Number(paymentForm.amount);
     if (!amount || amount <= 0) return;
 
+    const orNumber = paymentForm.orNumber.trim();
+    if (!orNumber) { setOrError("BIR Official Receipt No. is required."); return; }
+    if (payments.some((p) => p.orNumber === orNumber)) {
+      setOrError(`OR No. "${orNumber}" has already been used. Check your receipt booklet.`);
+      return;
+    }
+    setOrError(null);
+
     const posted = addPayment({
       studentId: collectRow.student.id,
+      assessmentId: collectRow.assessment.id,
       schoolId: collectRow.student.schoolId,
+      orNumber,
       amount,
       paymentMethod: paymentForm.paymentMethod,
       term: paymentForm.term,
@@ -376,7 +395,7 @@ export default function CashierModule() {
 
       {/* ===================== COLLECT PAYMENT MODAL ===================== */}
       {collectRow && (
-        <PreviewModal isOpen={true} onClose={() => setCollectModalId(null)} title="Collect Payment">
+        <PreviewModal isOpen={true} onClose={() => setCollectModalId(null)} title="Collect Payment" hidePrint>
           <div className="space-y-4 text-xs">
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-blue-700">
               <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
@@ -387,14 +406,72 @@ export default function CashierModule() {
               <p className="text-sm font-bold text-stone-900">{collectRow.student ? `${collectRow.student.lastName}, ${collectRow.student.firstName}` : "—"}</p>
               <p className="font-mono text-stone-400">{collectRow.student?.studentNo}</p>
               <p className="text-stone-500">{getAcademicLine(collectRow.student, academicUnit)} • {collectRow.assessment.schoolYear}</p>
+              {/* Fee breakdown table */}
+              {collectRow.assessment.fees && collectRow.assessment.fees.length > 0 && (() => {
+                const groups: Record<string, { feeName: string; amount: number }[]> = {};
+                for (const fee of collectRow.assessment.fees) {
+                  if (!groups[fee.category]) groups[fee.category] = [];
+                  groups[fee.category].push({ feeName: fee.feeName, amount: fee.amount });
+                }
+                return (
+                  <div className="pt-2 border-t border-stone-200">
+                    <p className="text-[9px] uppercase font-mono text-stone-400 mb-1.5">Fee Breakdown</p>
+                    <div className="space-y-2">
+                      {Object.entries(groups).map(([category, fees]) => (
+                        <div key={category}>
+                          <p className="text-[9px] font-bold uppercase text-stone-500 mb-0.5">{category}</p>
+                          {fees.map((fee, i) => (
+                            <div key={i} className="flex justify-between pl-2 text-[10px]">
+                              <span className="text-stone-600">{fee.feeName}</span>
+                              <span className="font-mono text-stone-700">₱{fee.amount.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Books */}
+              {getBookPackageInfo(collectRow.assessment, bookPackages) && (
+                <div className="pt-2 border-t border-stone-200">
+                  <p className="text-[9px] uppercase font-mono text-stone-400 mb-1.5">Books</p>
+                  {(() => {
+                    const pkg = getBookPackageInfo(collectRow.assessment, bookPackages)!;
+                    return (
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1 text-purple-700 font-semibold text-[10px]">
+                            <Package className="w-3 h-3" /> {pkg.packageName}
+                          </span>
+                          <span className="font-mono text-[10px] text-stone-700">₱{pkg.totalAmount.toLocaleString()}</span>
+                        </div>
+                        {pkg.books.map((book) => (
+                          <div key={book.id} className="flex justify-between pl-4 text-[9px] text-stone-500">
+                            <span>{book.title}</span>
+                            <span className="font-mono">₱{book.unitPrice.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Totals summary */}
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-200">
                 <div>
                   <p className="text-[9px] uppercase font-mono text-stone-400">Total Assessment</p>
                   <p className="font-mono font-bold text-stone-800">₱{collectRow.assessment.totalAmount.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase font-mono text-stone-400">Discount</p>
-                  <p className="font-mono font-bold text-stone-800">₱{collectRow.assessment.discountAmount.toLocaleString()}</p>
+                  <p className="text-[9px] uppercase font-mono text-stone-400">
+                    Discount{collectRow.assessment.discountPercentage > 0 ? ` (${collectRow.assessment.discountPercentage}%)` : ""}
+                  </p>
+                  <p className="font-mono font-bold text-emerald-700">
+                    {collectRow.assessment.discountAmount > 0 ? `-₱${collectRow.assessment.discountAmount.toLocaleString()}` : "₱0"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-[9px] uppercase font-mono text-stone-400">Payment Term</p>
@@ -405,15 +482,22 @@ export default function CashierModule() {
                   <p className="font-mono font-bold text-emerald-700">₱{collectRow.assessment.balance.toLocaleString()}</p>
                 </div>
               </div>
-              {getBookPackageInfo(collectRow.assessment, bookPackages) && (
-                <div className="pt-2 border-t border-stone-200 flex items-center gap-1.5 text-purple-700">
-                  <Package className="w-3.5 h-3.5" />
-                  <span className="font-semibold">{getBookPackageInfo(collectRow.assessment, bookPackages)?.packageName} included</span>
-                </div>
-              )}
             </div>
 
             <form onSubmit={handlePostPayment} className="space-y-3">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">
+                  BIR Official Receipt No. <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text" required
+                  value={paymentForm.orNumber}
+                  onChange={(e) => { setPaymentForm({ ...paymentForm, orNumber: e.target.value }); setOrError(null); }}
+                  placeholder="e.g. 0001234 — must match physical receipt booklet"
+                  className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown ${orError ? "border-red-400 ring-1 ring-red-400" : "border-stone-200"}`}
+                />
+                {orError && <p className="text-red-600 text-[10px] mt-1 font-semibold">{orError}</p>}
+              </div>
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Amount to Collect</label>
                 <input
@@ -471,7 +555,12 @@ export default function CashierModule() {
       {/* ===================== RECEIPT PREVIEW ===================== */}
       {receipt && (
         <PreviewModal isOpen={true} onClose={() => setReceipt(null)} title="Official Receipt">
-          <ReceiptPreview student={receipt.student} assessment={receipt.assessment} payment={receipt.payment} />
+          <ReceiptPreview
+            student={receipt.student}
+            assessment={receipt.assessment}
+            payment={receipt.payment}
+            bookPackage={receipt.assessment ? getBookPackageInfo(receipt.assessment, bookPackages) : undefined}
+          />
           <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-[11px] flex items-start gap-2">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
             <span>Receipt preview only. Use the Print button above to print this OR for the payor.</span>

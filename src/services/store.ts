@@ -117,7 +117,7 @@ interface STSNState {
   // Accounting Actions
   addAssessment: (assessment: StudentAssessment) => void;
   updateAssessment: (id: string, updates: Partial<StudentAssessment>) => void;
-  addPayment: (payment: Omit<Payment, "id" | "orNumber" | "paymentDate">) => Payment;
+  addPayment: (payment: Omit<Payment, "id" | "paymentDate">) => Payment;
 
   // Accounting Approval Workflow Actions
   approveAssessment: (assessmentId: string, approvedBy: string, remarks?: string) => void;
@@ -180,6 +180,7 @@ interface STSNState {
   updateClassSchedule: (id: string, updates: Partial<ClassSchedule>) => void;
   deleteClassSchedule: (id: string) => void;
   toggleClassScheduleActive: (id: string) => void;
+  assignSectionAdviser: (sectionId: string, teacherId: string | null) => void;
 
   // Multi-school actions
   setActiveSchool: (school: SchoolId | "ALL") => void;
@@ -201,6 +202,7 @@ interface STSNState {
   assignStudentsToSection: (sectionId: string, studentIds: string[]) => void;
 
   // Book Package CRUD
+  addBookPackage: (bookPackage: Omit<BookPackage, "id">) => BookPackage;
   updateBookPackage: (id: string, updates: Partial<BookPackage>) => void;
 
   // Room CRUD
@@ -368,7 +370,26 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       )
     }));
 
-    const isCollege = get().students.find((s) => s.id === enrollData.studentId)?.department === "College";
+    const student = get().students.find((s) => s.id === enrollData.studentId);
+    const isCollege = student?.department === "College";
+
+    const existingReqs = get().requirements.filter((r) => r.studentId === enrollData.studentId);
+    if (existingReqs.length === 0) {
+      const reqNames: string[] = [
+        "PSA Birth Certificate",
+        "Good Moral Certificate",
+        "ID Picture (2x2)",
+        isCollege ? "Transcript of Records (TOR)" : "Form 137 / SF9",
+      ];
+      const newReqs: Requirement[] = reqNames.map((name) => ({
+        id: newId(),
+        studentId: enrollData.studentId,
+        name,
+        status: "Pending" as const,
+      }));
+      set((state) => ({ requirements: [...state.requirements, ...newReqs] }));
+      for (const r of newReqs) dbInsert("requirements", r);
+    }
     const tuitionRate = isCollege ? 950 * enrollData.subjectCodes.length * 3 : 18000;
     const totalAmount = tuitionRate + 4500 + 3500 + 1000;
 
@@ -409,6 +430,18 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   approveEnrollment: (enrollmentId, section) => {
     const enrollment = get().enrollments.find((e) => e.id === enrollmentId);
     if (!enrollment) return;
+
+    // Block approval when any required document is still pending (not yet submitted or verified).
+    const pendingDocs = get().requirements.filter(
+      (r) => r.studentId === enrollment.studentId && r.status === "Pending"
+    );
+    if (pendingDocs.length > 0) {
+      console.warn(
+        `[approveEnrollment] Blocked: ${pendingDocs.length} required document(s) still pending for student ${enrollment.studentId}: ${pendingDocs.map((r) => r.name).join(", ")}`
+      );
+      return;
+    }
+
     set((state) => ({
       enrollments: state.enrollments.map((e) => (e.id === enrollmentId ? { ...e, status: "Enrolled" } : e)),
       students: state.students.map((s) => (s.id === enrollment.studentId ? { ...s, enrollmentStatus: "Enrolled", section } : s))
@@ -488,20 +521,27 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   },
 
   addPayment: (paymentData) => {
-    const serial = get().payments.length + 10451;
-    const orNumber = `OR-2026-${serial}`;
     const newPaymentId = newId();
     const paymentDate = new Date().toISOString().replace("T", " ").substring(0, 16);
-    const newPayment: Payment = { ...paymentData, id: newPaymentId, orNumber, paymentDate };
+    const newPayment: Payment = { ...paymentData, id: newPaymentId, paymentDate };
 
-    const affectedAssessments = get().assessments.filter((a) => a.studentId === paymentData.studentId);
     set((state) => ({
       payments: [...state.payments, newPayment],
-      assessments: state.assessments.map((a) => a.studentId === paymentData.studentId ? { ...a, balance: Math.max(0, a.balance - paymentData.amount) } : a)
+      assessments: state.assessments.map((a) => {
+        // Only deduct from the specific assessment that was collected against.
+        // If no assessmentId provided, fall back to the first matching assessment (legacy path).
+        const isTarget = paymentData.assessmentId
+          ? a.id === paymentData.assessmentId
+          : a.studentId === paymentData.studentId;
+        return isTarget ? { ...a, balance: Math.max(0, a.balance - paymentData.amount) } : a;
+      })
     }));
 
-    dbInsert("payments", { ...paymentData, id: newPaymentId, orNumber, paymentDate });
-    for (const a of affectedAssessments) dbUpdate("assessments", a.id, { balance: Math.max(0, a.balance - paymentData.amount) });
+    dbInsert("payments", { ...paymentData, id: newPaymentId, paymentDate });
+    const targetAssessment = get().assessments.find((a) =>
+      paymentData.assessmentId ? a.id === paymentData.assessmentId : a.studentId === paymentData.studentId
+    );
+    if (targetAssessment) dbUpdate("assessments", targetAssessment.id, { balance: Math.max(0, targetAssessment.balance - paymentData.amount) });
 
     return newPayment;
   },
@@ -525,8 +565,13 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   saveGradeEntry: (studentId, gradeItemId, score) => {
     const periods = get().gradePeriods;
+    const period = periods.find((p) => p.items.some((i) => i.id === gradeItemId));
+    if (period?.isFinalized) {
+      console.warn(`[saveGradeEntry] Grade period "${period.label}" is finalized — entry not saved.`);
+      return;
+    }
     const existing = get().studentGradeEntries.find((e) => e.studentId === studentId && e.gradeItemId === gradeItemId);
-    const periodId = periods.find((p) => p.items.some((i) => i.id === gradeItemId))?.id ?? "";
+    const periodId = period?.id ?? "";
 
     if (existing) {
       set((state) => ({
@@ -678,7 +723,11 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     for (const block of curriculumData.subjects) {
       for (const code of block.subjectCodes) {
         const subjectId = resolveSubjectId(code);
-        if (subjectId) dbInsert("curriculum_subjects", { curriculum_id: newCurriculumId, subject_id: subjectId, yearLevel: block.yearLevel, semester: block.semester });
+        if (subjectId) {
+          dbInsert("curriculum_subjects", { curriculum_id: newCurriculumId, subject_id: subjectId, yearLevel: block.yearLevel, semester: block.semester });
+        } else {
+          console.warn(`[addCurriculum] Subject code "${code}" could not be resolved to a DB ID — curriculum_subjects row skipped.`);
+        }
       }
     }
   },
@@ -692,7 +741,11 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       for (const block of subjects) {
         for (const code of block.subjectCodes) {
           const subjectId = resolveSubjectId(code);
-          if (subjectId) dbInsert("curriculum_subjects", { curriculum_id: id, subject_id: subjectId, yearLevel: block.yearLevel, semester: block.semester });
+          if (subjectId) {
+            dbInsert("curriculum_subjects", { curriculum_id: id, subject_id: subjectId, yearLevel: block.yearLevel, semester: block.semester });
+          } else {
+            console.warn(`[updateCurriculum] Subject code "${code}" could not be resolved to a DB ID — curriculum_subjects row skipped.`);
+          }
         }
       }
     }
@@ -848,6 +901,53 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     if (sched) dbUpdate("class_schedules", id, { isActive: !sched.isActive });
   },
 
+  assignSectionAdviser: (sectionId, teacherId) => {
+    const targetSection = get().sections.find((section) => section.id === sectionId);
+    if (!targetSection) return;
+
+    const selectedTeacher = teacherId ? get().teachers.find((teacher) => teacher.id === teacherId) : undefined;
+    const previousAdviserId = targetSection.adviserId;
+    const previousSection = teacherId
+      ? get().sections.find((section) => section.id !== sectionId && section.adviserId === teacherId)
+      : undefined;
+    const teachersAssignedToTarget = get().teachers.filter(
+      (teacher) => teacher.id !== teacherId && teacher.advisorySection === targetSection.name
+    );
+    const adviserName = selectedTeacher ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}` : undefined;
+
+    set((state) => ({
+      sections: state.sections.map((section) => {
+        if (section.id === sectionId) {
+          return { ...section, adviserId: teacherId || undefined, adviserName };
+        }
+        if (teacherId && section.adviserId === teacherId) {
+          return { ...section, adviserId: undefined, adviserName: undefined };
+        }
+        return section;
+      }),
+      teachers: state.teachers.map((teacher) => {
+        if (teacher.id === teacherId) return { ...teacher, advisorySection: targetSection.name };
+        if (teacher.id === previousAdviserId && teacher.advisorySection === targetSection.name) {
+          return { ...teacher, advisorySection: undefined };
+        }
+        if (teacher.id !== teacherId && teacher.advisorySection === targetSection.name) {
+          return { ...teacher, advisorySection: undefined };
+        }
+        return teacher;
+      }),
+    }));
+
+    dbUpdate("sections", sectionId, { adviserId: teacherId });
+    if (previousSection) dbUpdate("sections", previousSection.id, { adviserId: null });
+    if (previousAdviserId && previousAdviserId !== teacherId) {
+      dbUpdate("teachers", previousAdviserId, { advisorySection: null });
+    }
+    for (const teacher of teachersAssignedToTarget) {
+      if (teacher.id !== previousAdviserId) dbUpdate("teachers", teacher.id, { advisorySection: null });
+    }
+    if (teacherId) dbUpdate("teachers", teacherId, { advisorySection: targetSection.name });
+  },
+
   // ---- Multi-school ----
   setActiveSchool: (school) => set({ activeSchool: school, academicUnit: getAcademicUnit(school) }),
 
@@ -915,34 +1015,83 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   assignStudentsToSection: (sectionId, studentIds) => {
     const section = get().sections.find((s) => s.id === sectionId);
-    set((state) => ({
-      sections: state.sections.map((s) => {
-        if (s.id !== sectionId) return s;
-        const merged = Array.from(new Set([...(s.enrolledStudentIds || []), ...studentIds]));
-        return { ...s, enrolledStudentIds: merged, currentCount: merged.length };
-      }),
-      students: state.students.map((stu) => {
-        if (!studentIds.includes(stu.id)) return stu;
-        const sec = state.sections.find((s) => s.id === sectionId);
-        return sec ? { ...stu, section: sec.name } : stu;
-      })
-    }));
+
+    // Identify sections that will lose students (to update their counts in DB).
+    const affectedOldSections = get().sections.filter(
+      (s) => s.id !== sectionId && (s.enrolledStudentIds || []).some((id) => studentIds.includes(id))
+    );
+
+    set((state) => {
+      // Remove reassigned students from all OTHER sections first.
+      const sectionsCleared = state.sections.map((s) => {
+        if (s.id === sectionId) return s;
+        const prev = s.enrolledStudentIds || [];
+        const filtered = prev.filter((id) => !studentIds.includes(id));
+        if (filtered.length === prev.length) return s;
+        return { ...s, enrolledStudentIds: filtered, currentCount: filtered.length };
+      });
+      const targetSection = sectionsCleared.find((s) => s.id === sectionId);
+      const merged = Array.from(new Set([...(targetSection?.enrolledStudentIds || []), ...studentIds]));
+      return {
+        sections: sectionsCleared.map((s) =>
+          s.id === sectionId ? { ...s, enrolledStudentIds: merged, currentCount: merged.length } : s
+        ),
+        students: state.students.map((stu) => {
+          if (!studentIds.includes(stu.id)) return stu;
+          return section ? { ...stu, section: section.name } : stu;
+        })
+      };
+    });
+
     const merged = Array.from(new Set([...(section?.enrolledStudentIds || []), ...studentIds]));
     dbUpdate("sections", sectionId, { currentCount: merged.length });
+
+    // Update old sections' counts in DB.
+    for (const s of affectedOldSections) {
+      const newCount = (s.enrolledStudentIds || []).filter((id) => !studentIds.includes(id)).length;
+      dbUpdate("sections", s.id, { currentCount: newCount });
+    }
+
     for (const studentId of studentIds) {
+      // Delete any existing section membership before inserting the new one.
+      supabase.from("section_students").delete().eq("student_id", studentId)
+        .then(({ error }) => { if (error) console.error("[supabase] clear section_students failed:", error); });
       dbInsert("section_students", { section_id: sectionId, student_id: studentId });
       if (section) dbUpdate("students", studentId, { section: section.name });
     }
   },
 
   // ---- Book Package CRUD ----
+  addBookPackage: (packageData) => {
+    const packageId = newId();
+    const books = packageData.books.map((book) => ({ ...book, id: book.id || newId() }));
+    const newPackage: BookPackage = { ...packageData, id: packageId, books };
+    set((state) => ({ bookPackages: [...state.bookPackages, newPackage] }));
+
+    const { books: _books, ...packageRow } = newPackage;
+    dbInsert("book_packages", withSchoolFk(packageRow)).then(() => {
+      for (const book of books) {
+        dbInsert("book_package_items", withSubjectFk({
+          id: book.id,
+          bookPackageId: packageId,
+          title: book.title,
+          quantity: book.quantity,
+          unitPrice: book.unitPrice,
+          subjectCode: book.subjectCode,
+        }));
+      }
+    });
+    return newPackage;
+  },
+
   updateBookPackage: (id, updates) => {
     set((state) => ({ bookPackages: state.bookPackages.map((p) => (p.id === id ? { ...p, ...updates } : p)) }));
     const { books, ...rest } = updates;
     if (Object.keys(rest).length > 0) dbUpdate("book_packages", id, "schoolId" in rest ? withSchoolFk(rest as any) : rest);
     if (books) {
-      dbDeleteWhere("book_package_items", "book_package_id", id);
-      for (const book of books) dbInsert("book_package_items", withSubjectFk({ id: book.id ?? newId(), bookPackageId: id, title: book.title, quantity: book.quantity, unitPrice: book.unitPrice, subjectCode: book.subjectCode }));
+      dbDeleteWhere("book_package_items", "book_package_id", id).then(() => {
+        for (const book of books) dbInsert("book_package_items", withSubjectFk({ id: book.id ?? newId(), bookPackageId: id, title: book.title, quantity: book.quantity, unitPrice: book.unitPrice, subjectCode: book.subjectCode }));
+      });
     }
   },
 

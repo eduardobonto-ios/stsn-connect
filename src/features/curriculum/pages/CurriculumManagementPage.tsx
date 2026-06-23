@@ -710,7 +710,7 @@ export default function CurriculumManagement() {
       {/* 1. NEW CURRICULUM MODAL (MATCHING SCREENSHOTS 2 & 3) */}
       {isCurriculumModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stsn-beige w-full max-w-lg p-7 animate-fade-in text-stone-800">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg p-7 animate-fade-in text-stone-800">
             
             <div className="flex flex-col items-center mb-6">
               <h3 className="text-lg font-bold font-display text-[#4A3728] tracking-tight">New Curriculum</h3>
@@ -799,7 +799,7 @@ export default function CurriculumManagement() {
       {/* 2. RENAME ACTIVE CURRICULUM MODAL */}
       {isEditCurrModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stsn-beige w-full max-w-sm p-6 animate-fade-in text-stone-800">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-sm p-6 animate-fade-in text-stone-800">
             <h3 className="text-sm font-bold font-display text-[#4A3728] pb-1 border-b mb-3">Rename Curriculum</h3>
             
             <form onSubmit={handleRenameActiveCurriculum} className="space-y-4 text-xs font-semibold">
@@ -830,7 +830,7 @@ export default function CurriculumManagement() {
       {/* 3. ADD SUBJECT TO SELECTED CURRICULUM MODAL (MATCHING SCREENSHOT 1 EXACTLY!) */}
       {isAddSubjectToCurrModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stsn-beige w-full max-w-lg p-7 animate-fade-in text-stone-800">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg p-7 animate-fade-in text-stone-800">
             
             <div className="flex flex-col items-center mb-5">
               <h3 className="text-lg font-bold font-display text-[#4A3728] tracking-tight">Add Subject</h3>
@@ -913,7 +913,7 @@ export default function CurriculumManagement() {
       {/* 4. CRUD NEW/EDIT COURSE PROGRAM PROGRAM MODAL */}
       {isCourseModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stsn-beige w-full max-w-md p-6 animate-fade-in text-stone-800">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md p-6 animate-fade-in text-stone-800">
             <h3 className="text-sm font-bold font-display text-stsn-brown pb-2 border-b border-stone-100">
               {editingCourse ? "Edit Course Program" : "Add Course Program"}
             </h3>
@@ -986,7 +986,7 @@ export default function CurriculumManagement() {
       {/* 5. CRUD NEW/EDIT SUBJECT REGISTER MODAL */}
       {isSubjectModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stsn-beige w-full max-w-md p-6 animate-fade-in text-stone-800">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-md p-6 animate-fade-in text-stone-800">
             <h3 className="text-sm font-bold font-display text-stsn-brown pb-2 border-b border-stone-100">
               {editingSubject ? "Edit Subject Registry" : "Add Subject to Catalog"}
             </h3>

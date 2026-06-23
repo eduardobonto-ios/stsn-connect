@@ -13,6 +13,7 @@ import {
   Clock,
   Menu,
   ChevronDown,
+  ChevronRight,
   School,
 } from "lucide-react";
 
@@ -49,6 +50,8 @@ export default function App() {
     useSTSNStore();
   const { toast } = useAppDialog();
   const [activeModule, setActiveModule] = useState<STSNModule>("DASHBOARD");
+  const [accountingSubPage, setAccountingSubPage] = useState("dashboard");
+  const [expandedModule, setExpandedModule] = useState<STSNModule | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
 
@@ -189,12 +192,83 @@ export default function App() {
         <nav className="flex-1 space-y-0.5 py-3 overflow-y-auto px-3">
           {renderedSidebarItems.map((item) => {
             const isSelected = activeModule === item.id;
+            const isExpanded = expandedModule === item.id;
             const Icon = item.icon;
+
+            if (item.children) {
+              return (
+                <div key={item.id}>
+                  {/* Parent row — toggles expansion and navigates to module */}
+                  <button
+                    onClick={() => {
+                      setActiveModule(item.id);
+                      setExpandedModule(isExpanded ? null : item.id);
+                      setIsMobileOpen(false);
+                    }}
+                    className={`w-full text-left py-2.5 px-3 rounded-xl flex items-start gap-3 transition-all duration-200 cursor-pointer group ${
+                      isSelected
+                        ? "sidebar-item-active text-stsn-cream font-bold shadow-md"
+                        : "hover:bg-white/8 text-stone-300 font-medium opacity-80 hover:opacity-100"
+                    }`}
+                  >
+                    <Icon
+                      className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isSelected ? "text-stsn-gold" : "text-stone-400 group-hover:text-stone-200"}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] leading-none">{item.label}</p>
+                      <p className={`text-[9.5px] font-normal truncate mt-0.5 leading-none ${isSelected ? "text-stsn-gold-light/70" : "text-stone-500"}`}>
+                        {item.desc}
+                      </p>
+                    </div>
+                    {isExpanded
+                      ? <ChevronDown className="w-3 h-3 flex-shrink-0 mt-1 text-stsn-gold/70" />
+                      : <ChevronRight className="w-3 h-3 flex-shrink-0 mt-1 text-stone-500 group-hover:text-stone-300" />
+                    }
+                  </button>
+
+                  {/* Children */}
+                  {isExpanded && (
+                    <div className="mt-0.5 ml-2 pl-3 border-l border-white/10 space-y-0.5">
+                      {item.children.map((child) => {
+                        const isChildActive = isSelected && accountingSubPage === child.id;
+                        const ChildIcon = child.icon;
+                        return (
+                          <button
+                            key={child.id}
+                            onClick={() => {
+                              setActiveModule(item.id);
+                              setAccountingSubPage(child.id);
+                              setIsMobileOpen(false);
+                            }}
+                            className={`w-full text-left py-2 px-2.5 rounded-lg flex items-start gap-2.5 transition-all duration-150 cursor-pointer group ${
+                              isChildActive
+                                ? "bg-stsn-gold/20 text-stsn-cream font-semibold"
+                                : "hover:bg-white/6 text-stone-400 font-medium opacity-80 hover:opacity-100"
+                            }`}
+                          >
+                            <ChildIcon className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`} />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] leading-none">{child.label}</p>
+                              <p className={`text-[9px] font-normal truncate mt-0.5 leading-none ${isChildActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}>
+                                {child.desc}
+                              </p>
+                            </div>
+                            {isChildActive && <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <button
                 key={item.id}
                 onClick={() => {
                   setActiveModule(item.id);
+                  setExpandedModule(null);
                   setIsMobileOpen(false);
                 }}
                 className={`w-full text-left py-2.5 px-3 rounded-xl flex items-start gap-3 transition-all duration-200 cursor-pointer group ${
@@ -318,7 +392,9 @@ export default function App() {
           {activeModule === "REGISTRAR" &&
             allowedModules.includes("REGISTRAR") && <RegistrarModule />}
           {activeModule === "ACCOUNTING" &&
-            allowedModules.includes("ACCOUNTING") && <AccountingModule />}
+            allowedModules.includes("ACCOUNTING") && (
+              <AccountingModule subPage={accountingSubPage} onSubPageChange={setAccountingSubPage} />
+            )}
           {activeModule === "GRADING" && allowedModules.includes("GRADING") && (
             <GradingModule />
           )}
@@ -370,9 +446,49 @@ export default function App() {
                 Close
               </button>
             </div>
-            <nav className="space-y-1.5 flex-1 overflow-y-auto pb-4">
+            <nav className="space-y-1 flex-1 overflow-y-auto pb-4">
               {renderedSidebarItems.map((item) => {
                 const isSelected = activeModule === item.id;
+                const isExpanded = expandedModule === item.id;
+                if (item.children) {
+                  return (
+                    <div key={item.id}>
+                      <button
+                        onClick={() => {
+                          setActiveModule(item.id);
+                          setExpandedModule(isExpanded ? null : item.id);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-between ${
+                          isSelected ? "sidebar-item-active text-stsn-cream" : "text-stone-300 hover:bg-white/8"
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      </button>
+                      {isExpanded && (
+                        <div className="ml-3 pl-2 border-l border-white/10 mt-0.5 space-y-0.5">
+                          {item.children.map((child) => (
+                            <button
+                              key={child.id}
+                              onClick={() => {
+                                setActiveModule(item.id);
+                                setAccountingSubPage(child.id);
+                                setIsMobileOpen(false);
+                              }}
+                              className={`w-full text-left px-2.5 py-2 text-[11px] rounded-lg transition-all ${
+                                isSelected && accountingSubPage === child.id
+                                  ? "bg-stsn-gold/20 text-stsn-cream font-semibold"
+                                  : "text-stone-400 hover:bg-white/6"
+                              }`}
+                            >
+                              {child.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
                 return (
                   <button
                     key={item.id}
@@ -381,9 +497,7 @@ export default function App() {
                       setIsMobileOpen(false);
                     }}
                     className={`w-full text-left px-3 py-2.5 text-xs font-bold rounded-xl transition-all ${
-                      isSelected
-                        ? "sidebar-item-active text-stsn-cream"
-                        : "text-stone-300 hover:bg-white/8"
+                      isSelected ? "sidebar-item-active text-stsn-cream" : "text-stone-300 hover:bg-white/8"
                     }`}
                   >
                     {item.label}

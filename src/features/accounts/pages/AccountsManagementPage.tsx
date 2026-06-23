@@ -154,13 +154,13 @@ export default function AccountsManagement() {
       {/* NEW PROVISIONING DIALOG FORM MODAL */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <form onSubmit={handleCreateCredential} className="bg-white border text-stone-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in font-sans">
-            <div className="bg-stsn-brown text-stsn-cream p-4 flex items-center justify-between">
+          <form onSubmit={handleCreateCredential} className="bg-white rounded-2xl shadow-2xl border border-stone-200 text-stone-800 w-full max-w-md overflow-hidden animate-fade-in font-sans">
+            <div className="modal-header-gradient text-white p-4 flex items-center justify-between">
               <h3 className="font-display font-semibold text-base flex items-center gap-2">
                 <Shield className="w-5 h-5 text-stsn-gold" />
                 Provision Workspace Credentials
               </h3>
-              <button type="button" onClick={() => setIsFormOpen(false)} className="text-stsn-cream">
+              <button type="button" onClick={() => setIsFormOpen(false)} className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1 transition">
                 <ShieldAlert className="w-5 h-5 rotate-45" />
               </button>
             </div>

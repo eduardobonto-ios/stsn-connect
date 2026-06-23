@@ -37,7 +37,7 @@ const report = (label: string) => (error: unknown) => {
 };
 
 export function dbInsert(table: string, row: Record<string, any>) {
-  supabase.from(table).insert(toSnake(row)).then(({ error }) => report(`insert ${table}`)(error));
+  return supabase.from(table).insert(toSnake(row)).then(({ error }) => report(`insert ${table}`)(error));
 }
 
 export function dbUpdate(table: string, id: string, updates: Record<string, any>) {
@@ -49,7 +49,7 @@ export function dbDelete(table: string, id: string) {
 }
 
 export function dbDeleteWhere(table: string, column: string, value: string) {
-  supabase.from(table).delete().eq(column, value).then(({ error }) => report(`delete ${table} where ${column}`)(error));
+  return supabase.from(table).delete().eq(column, value).then(({ error }) => report(`delete ${table} where ${column}`)(error));
 }
 
 export async function dbSelectAll<T = any>(table: string, select = "*"): Promise<T[]> {

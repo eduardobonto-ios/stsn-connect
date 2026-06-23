@@ -199,6 +199,7 @@ export interface Payment {
   id: string;
   schoolId?: SchoolId;
   studentId: string;
+  assessmentId?: string; // links payment to a specific assessment (prevents balance deducted from all)
   amount: number;
   paymentDate: string;
   paymentMethod: "Cash" | "Bank Transfer" | "GCash" | "Credit Card";

@@ -29,6 +29,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
+import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 
 // ============================================================
 // ENROLLMENT ANALYTICS SUB-PAGE
@@ -559,6 +560,91 @@ export default function Dashboard({
     return students.filter((s) => s.enrollmentStatus === statusModal);
   }, [statusModal, students]);
 
+  type ModalRow = {
+    id: string;
+    studentNo: string;
+    fullName: string;
+    yearLevel: string;
+    program: string;
+    enrollmentStatus: string;
+    assessmentStatus: string;
+    schoolYear: string;
+  };
+
+  const modalTableRows = useMemo<ModalRow[]>(() => {
+    return modalStudents.map((s) => {
+      const assessment = assessments.find((a) => a.studentId === s.id);
+      const enrollment = enrollments.find((e) => e.studentId === s.id);
+      return {
+        id: s.id,
+        studentNo: s.studentNo,
+        fullName: `${s.lastName}, ${s.firstName}`,
+        yearLevel: s.yearLevel,
+        program: s.trackOrCourse || s.department,
+        enrollmentStatus: s.enrollmentStatus,
+        assessmentStatus: assessment?.approvalStatus ?? "—",
+        schoolYear: enrollment?.schoolYear || "2026-2027",
+      };
+    });
+  }, [modalStudents, assessments, enrollments]);
+
+  const modalColumns: STSNColumn<ModalRow>[] = [
+    {
+      title: "Student ID",
+      data: "studentNo",
+      render: (v) => (
+        <span className="font-mono font-bold text-stsn-brown">{v}</span>
+      ),
+    },
+    {
+      title: "Student Name",
+      data: "fullName",
+      render: (v) => (
+        <span className="font-semibold text-stone-800">{v}</span>
+      ),
+    },
+    { title: "Grade / Year Level", data: "yearLevel" },
+    {
+      title: "Program / Dept",
+      data: "program",
+      render: (v) => (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-stsn-cream text-stsn-brown border border-stsn-beige">
+          {v}
+        </span>
+      ),
+    },
+    {
+      title: "Enrollment Status",
+      data: "enrollmentStatus",
+      className: "text-center",
+      render: (v) => (
+        <span
+          className={`inline-block text-[9.5px] font-bold px-2 py-1 rounded-full border ${
+            v === "Enrolled"
+              ? "bg-green-50 text-green-700 border-green-200"
+              : v === "Approved"
+              ? "bg-blue-50 text-blue-700 border-blue-200"
+              : v === "Rejected"
+              ? "bg-red-50 text-red-700 border-red-200"
+              : "bg-amber-50 text-amber-700 border-amber-200"
+          }`}
+        >
+          {v}
+        </span>
+      ),
+    },
+    {
+      title: "Assessment Status",
+      data: "assessmentStatus",
+      className: "text-center",
+    },
+    {
+      title: "School Year",
+      data: "schoolYear",
+      render: (v) => <span className="font-mono text-stone-500">{v}</span>,
+    },
+  ];
+
   // Chart data — sourced from enrollment_history_stats (Supabase)
   const chartData = enrollmentHistoryStats;
   const maxCount = Math.max(580, ...chartData.flatMap((d) => [d.stsn, d.cdsta]));
@@ -971,92 +1057,38 @@ export default function Dashboard({
       {/* Enrollment Status Drill-down Modal */}
       {statusModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={() => setStatusModal(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl border border-stsn-beige w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col animate-fade-in"
+            className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-5xl overflow-hidden animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center px-5 py-4 border-b border-stone-100 bg-stsn-cream/40">
+            <div className="modal-header-gradient text-white px-5 py-4 flex items-center justify-between">
               <div>
-                <h3 className="font-display font-bold text-sm text-stone-900">
-                  Students - {statusModal}
+                <h3 className="font-display font-bold text-sm">
+                  Students — {statusModal}
                 </h3>
-                <p className="text-[10px] text-stone-400 mt-0.5 font-mono">
+                <p className="text-[10px] text-white/60 mt-0.5 font-mono">
                   {modalStudents.length} record{modalStudents.length !== 1 ? "s" : ""} found
                 </p>
               </div>
               <button
                 onClick={() => setStatusModal(null)}
-                className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 cursor-pointer transition"
+                className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1.5 cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="overflow-auto flex-1">
-              {modalStudents.length === 0 ? (
-                <p className="p-10 text-center text-sm text-stone-400 italic">
-                  No students found for this status.
-                </p>
-              ) : (
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-stsn-brown text-white text-[10px] uppercase font-bold sticky top-0">
-                      <th className="py-2.5 px-4 text-left">Student ID</th>
-                      <th className="py-2.5 px-4 text-left">Student Name</th>
-                      <th className="py-2.5 px-4 text-left">Grade / Year Level</th>
-                      <th className="py-2.5 px-4 text-left">Program / Department</th>
-                      <th className="py-2.5 px-4 text-center">Enrollment Status</th>
-                      <th className="py-2.5 px-4 text-center">Assessment Status</th>
-                      <th className="py-2.5 px-4 text-left">School Year</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100">
-                    {modalStudents.map((s) => {
-                      const assessment = assessments.find((a) => a.studentId === s.id);
-                      const enrollment = enrollments.find((e) => e.studentId === s.id);
-                      const assessmentStatus = assessment?.approvalStatus ?? "—";
-                      return (
-                        <tr key={s.id} className="hover:bg-stone-50 transition">
-                          <td className="py-2.5 px-4 font-mono font-bold text-stsn-brown">{s.studentNo}</td>
-                          <td className="py-2.5 px-4 font-semibold text-stone-800">
-                            {s.lastName}, {s.firstName}
-                          </td>
-                          <td className="py-2.5 px-4 text-stone-600">{s.yearLevel}</td>
-                          <td className="py-2.5 px-4">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-stsn-cream text-stsn-brown border border-stsn-beige">
-                              {s.trackOrCourse || s.department}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-4 text-center">
-                            <span
-                              className={`inline-block text-[9.5px] font-bold px-2 py-1 rounded-full border ${
-                                s.enrollmentStatus === "Enrolled"
-                                  ? "bg-green-50 text-green-700 border-green-200"
-                                  : s.enrollmentStatus === "Approved"
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : s.enrollmentStatus === "Rejected"
-                                  ? "bg-red-50 text-red-700 border-red-200"
-                                  : "bg-amber-50 text-amber-700 border-amber-200"
-                              }`}
-                            >
-                              {s.enrollmentStatus}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-4 text-center text-[10.5px] text-stone-600">
-                            {assessmentStatus}
-                          </td>
-                          <td className="py-2.5 px-4 font-mono text-stone-500">
-                            {enrollment?.schoolYear || "2026-2027"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
+            <div className="p-4">
+              <STSNDataTable<ModalRow>
+                columns={modalColumns}
+                rows={modalTableRows}
+                emptyMessage="No students found for this status."
+                pageLength={10}
+                searchable
+              />
             </div>
           </div>
         </div>

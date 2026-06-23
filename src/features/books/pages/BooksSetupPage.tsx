@@ -5,12 +5,13 @@
 
 import React, { useMemo, useState } from "react";
 import {
-  Library, BookOpen, AlertCircle, Eye, ToggleLeft, ToggleRight, X, Check, GraduationCap, Package, Coins,
+  Library, BookOpen, AlertCircle, Eye, ToggleLeft, ToggleRight, X, Check, GraduationCap, Package, Coins, Plus, Trash2,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
 import PageHeader from "../../../components/common/PageHeader";
 import StatCard from "../../../components/common/StatCard";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import { useAppDialog } from "../../../components/common/useAppDialog";
 import type { BookPackage, BookPackageItem } from "../../../types";
 import type { AcademicUnit } from "../../../types/school.types";
 import {
@@ -28,7 +29,8 @@ const ACADEMIC_UNIT_OPTIONS: { value: AcademicUnit | "All"; label: string }[] = 
 ];
 
 export default function BooksSetupPage() {
-  const { academicUnit, activeSchool, bookPackages: packages, updateBookPackage, setupData } = useSTSNStore();
+  const { academicUnit, activeSchool, bookPackages: packages, subjects, addBookPackage, updateBookPackage, setupData } = useSTSNStore();
+  const { toast } = useAppDialog();
 
   const SCHOOL_YEAR_OPTIONS = useMemo(() => setupData.school_years?.map((sy) => sy.name) || [], [setupData]);
   const CURRENT_SCHOOL_YEAR = useMemo(
@@ -50,9 +52,11 @@ export default function BooksSetupPage() {
   // ---- Detail / Edit modal ----
   const [selectedPackage, setSelectedPackage] = useState<BookPackage | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [editDraft, setEditDraft] = useState<BookPackage | null>(null);
 
   const isCollegeView = filterAcademicUnit === "college";
+  const basicEdSubjects = subjects.filter((subject) => subject.department === "Basic Education");
 
   const filteredPackages = useMemo(() => {
     if (isCollegeView) return [];
@@ -74,24 +78,63 @@ export default function BooksSetupPage() {
   const openView = (pkg: BookPackage) => {
     setSelectedPackage(pkg);
     setIsEditing(false);
+    setIsCreating(false);
     setEditDraft(null);
   };
 
   const openEdit = (pkg: BookPackage) => {
     setSelectedPackage(pkg);
     setIsEditing(true);
+    setIsCreating(false);
     setEditDraft({ ...pkg, books: pkg.books.map((b) => ({ ...b })) });
+  };
+
+  const openCreate = () => {
+    const schoolId = activeSchool === "STSN" || activeSchool === "CDSTA"
+      ? activeSchool
+      : filterSchool === "STSN" || filterSchool === "CDSTA" ? filterSchool : "STSN";
+    setSelectedPackage(null);
+    setIsEditing(false);
+    setIsCreating(true);
+    setEditDraft({
+      id: "",
+      packageName: "",
+      gradeLevel: BOOK_PACKAGE_GRADE_LEVELS[0],
+      schoolId,
+      academicUnit: "basic-ed",
+      schoolYear: filterSchoolYear === "All" ? CURRENT_SCHOOL_YEAR : filterSchoolYear,
+      books: [{ id: crypto.randomUUID(), title: "", subjectCode: "", quantity: 1, unitPrice: 0 }],
+      totalAmount: 0,
+      isRequired: true,
+      status: "Active",
+      lastUpdated: new Date().toISOString().slice(0, 10),
+    });
   };
 
   const closeModal = () => {
     setSelectedPackage(null);
     setIsEditing(false);
+    setIsCreating(false);
     setEditDraft(null);
   };
 
-  const updateDraftBook = (bookId: string, field: "quantity" | "unitPrice", value: number) => {
+  const updateDraftBook = (bookId: string, field: keyof Pick<BookPackageItem, "title" | "subjectCode" | "quantity" | "unitPrice">, value: string | number) => {
     if (!editDraft) return;
     const books = editDraft.books.map((b) => (b.id === bookId ? { ...b, [field]: value } : b));
+    setEditDraft({ ...editDraft, books, totalAmount: computeBookPackageTotal(books) });
+  };
+
+  const addDraftBook = () => {
+    if (!editDraft) return;
+    setEditDraft({
+      ...editDraft,
+      books: [...editDraft.books, { id: crypto.randomUUID(), title: "", subjectCode: "", quantity: 1, unitPrice: 0 }],
+    });
+  };
+
+  const removeDraftBook = (bookId: string) => {
+    if (!editDraft || editDraft.books.length === 1) return;
+    const books = editDraft.books.filter((book) => book.id !== bookId);
     setEditDraft({ ...editDraft, books, totalAmount: computeBookPackageTotal(books) });
   };
 
@@ -104,10 +147,26 @@ export default function BooksSetupPage() {
     }
   };
 
-  const saveEdit = () => {
+  const saveDraft = () => {
     if (!editDraft) return;
+    if (!editDraft.packageName.trim() || editDraft.books.some((book) => !book.title.trim())) {
+      toast("Package name and all book titles are required.", { variant: "warning" });
+      return;
+    }
+    if (isCreating && packages.some((pkg) =>
+      pkg.schoolId === editDraft.schoolId && pkg.schoolYear === editDraft.schoolYear && pkg.gradeLevel === editDraft.gradeLevel
+    )) {
+      toast(`A book package already exists for ${editDraft.gradeLevel} in ${editDraft.schoolYear}.`, { variant: "warning" });
+      return;
+    }
     const today = new Date().toISOString().slice(0, 10);
-    updateBookPackage(editDraft.id, { ...editDraft, lastUpdated: today });
+    const packageToSave = { ...editDraft, packageName: editDraft.packageName.trim(), lastUpdated: today };
+    if (isCreating) {
+      const { id: _id, ...newPackage } = packageToSave;
+      addBookPackage(newPackage);
+    } else {
+      updateBookPackage(editDraft.id, packageToSave);
+    }
     closeModal();
   };
 
@@ -117,7 +176,7 @@ export default function BooksSetupPage() {
     updateBookPackage(pkgId, { status: pkg.status === "Active" ? "Inactive" : "Active", lastUpdated: new Date().toISOString().slice(0, 10) });
   };
 
-  const displayPackage = isEditing ? editDraft : selectedPackage;
+  const displayPackage = isEditing || isCreating ? editDraft : selectedPackage;
 
   const packageColumns: STSNColumn<BookPackage>[] = [
     { title: "Grade Level", data: "gradeLevel", className: "font-bold text-stsn-brown" },
@@ -176,7 +235,16 @@ export default function BooksSetupPage() {
         icon={Library}
         title="Books Setup"
         description="Configure required book packages by Basic Education grade level."
-      />
+      >
+        <button
+          type="button"
+          onClick={openCreate}
+          disabled={isCollegeView}
+          className="flex items-center gap-2 bg-stsn-brown hover:bg-stsn-brown-dark disabled:opacity-50 disabled:cursor-not-allowed text-stsn-cream font-bold text-xs px-4 py-2.5 rounded-lg shadow cursor-pointer transition"
+        >
+          <Plus className="w-4 h-4" /> Add Book Package
+        </button>
+      </PageHeader>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -284,7 +352,7 @@ export default function BooksSetupPage() {
               <div className="flex items-center gap-2">
                 <Library className="w-5 h-5" />
                 <h3 className="font-display font-bold text-sm">
-                  {isEditing ? "Edit Book Package" : "Book Package Details"}
+                  {isCreating ? "Add Book Package" : isEditing ? "Edit Book Package" : "Book Package Details"}
                 </h3>
               </div>
               <button onClick={closeModal} className="cursor-pointer hover:bg-white/20 rounded p-1 transition">
@@ -297,27 +365,70 @@ export default function BooksSetupPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Package Name</label>
-                  <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stone-800">{displayPackage.packageName}</p>
+                  {isCreating ? (
+                    <input
+                      required
+                      value={displayPackage.packageName}
+                      onChange={(e) => setEditDraft({ ...displayPackage, packageName: e.target.value })}
+                      placeholder="e.g. Grade 5 Book Package"
+                      className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                    />
+                  ) : (
+                    <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stone-800">{displayPackage.packageName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Grade Level</label>
-                  <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stsn-brown">{displayPackage.gradeLevel}</p>
+                  {isCreating ? (
+                    <select
+                      value={displayPackage.gradeLevel}
+                      onChange={(e) => setEditDraft({ ...displayPackage, gradeLevel: e.target.value })}
+                      className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stsn-brown focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                    >
+                      {BOOK_PACKAGE_GRADE_LEVELS.map((gradeLevel) => <option key={gradeLevel}>{gradeLevel}</option>)}
+                    </select>
+                  ) : (
+                    <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stsn-brown">{displayPackage.gradeLevel}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">School Year</label>
-                  <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800">{displayPackage.schoolYear}</p>
+                  {isCreating ? (
+                    <select
+                      value={displayPackage.schoolYear}
+                      onChange={(e) => setEditDraft({ ...displayPackage, schoolYear: e.target.value })}
+                      className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                    >
+                      {SCHOOL_YEAR_OPTIONS.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}
+                    </select>
+                  ) : (
+                    <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800">{displayPackage.schoolYear}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Total Price</label>
                   <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-mono font-bold text-stone-800">₱{displayPackage.totalAmount.toLocaleString()}</p>
                 </div>
               </div>
+              {isCreating && (
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">School</label>
+                  <select
+                    value={displayPackage.schoolId}
+                    onChange={(e) => setEditDraft({ ...displayPackage, schoolId: e.target.value as BookPackage["schoolId"] })}
+                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                  >
+                    <option value="STSN">St. Theresa's School of Novaliches</option>
+                    <option value="CDSTA">Colegio de Sta. Teresa de Avila</option>
+                  </select>
+                </div>
+              )}
 
               {/* Required / Active toggles */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Required / Included</label>
-                  {isEditing ? (
+                  {isEditing || isCreating ? (
                     <button
                       type="button"
                       onClick={() => toggleDraftFlag("isRequired")}
@@ -335,7 +446,7 @@ export default function BooksSetupPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Active / Inactive</label>
-                  {isEditing ? (
+                  {isEditing || isCreating ? (
                     <button
                       type="button"
                       onClick={() => toggleDraftFlag("status")}
@@ -365,15 +476,37 @@ export default function BooksSetupPage() {
                         <th className="text-center py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px] w-20">Qty</th>
                         <th className="text-right py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px] w-28">Unit Price</th>
                         <th className="text-right py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px] w-28">Line Total</th>
+                        {(isEditing || isCreating) && <th className="w-10" aria-label="Actions" />}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
                       {displayPackage.books.map((book: BookPackageItem) => (
                         <tr key={book.id}>
-                          <td className="py-2 px-3 font-semibold text-stone-800">{book.title}</td>
-                          <td className="py-2 px-3 text-stone-500 font-mono text-[10px]">{book.subjectCode || "—"}</td>
+                          <td className="py-2 px-3 font-semibold text-stone-800">
+                            {isEditing || isCreating ? (
+                              <input
+                                required
+                                value={book.title}
+                                onChange={(e) => updateDraftBook(book.id, "title", e.target.value)}
+                                placeholder="Book title"
+                                className="w-full min-w-36 bg-stone-50 border border-stone-200 rounded py-1 px-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                              />
+                            ) : book.title}
+                          </td>
+                          <td className="py-2 px-3 text-stone-500 font-mono text-[10px]">
+                            {isEditing || isCreating ? (
+                              <select
+                                value={book.subjectCode || ""}
+                                onChange={(e) => updateDraftBook(book.id, "subjectCode", e.target.value)}
+                                className="w-full min-w-28 bg-stone-50 border border-stone-200 rounded py-1 px-2 text-[10px] focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                              >
+                                <option value="">— General —</option>
+                                {basicEdSubjects.map((subject) => <option key={subject.id} value={subject.code}>{subject.code}</option>)}
+                              </select>
+                            ) : book.subjectCode || "—"}
+                          </td>
                           <td className="py-2 px-3 text-center">
-                            {isEditing ? (
+                            {isEditing || isCreating ? (
                               <input
                                 type="number"
                                 min={0}
@@ -384,7 +517,7 @@ export default function BooksSetupPage() {
                             ) : book.quantity}
                           </td>
                           <td className="py-2 px-3 text-right font-mono">
-                            {isEditing ? (
+                            {isEditing || isCreating ? (
                               <input
                                 type="number"
                                 min={0}
@@ -397,6 +530,19 @@ export default function BooksSetupPage() {
                           <td className="py-2 px-3 text-right font-mono font-bold text-stone-800">
                             ₱{(book.quantity * book.unitPrice).toLocaleString()}
                           </td>
+                          {(isEditing || isCreating) && (
+                            <td className="py-2 pr-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => removeDraftBook(book.id)}
+                                disabled={displayPackage.books.length === 1}
+                                className="p-1.5 rounded text-stone-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                title="Remove book"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -404,20 +550,30 @@ export default function BooksSetupPage() {
                       <tr className="bg-stone-50 border-t border-stone-200">
                         <td colSpan={4} className="py-2 px-3 text-right font-bold text-stone-600 uppercase text-[10px]">Total Price</td>
                         <td className="py-2 px-3 text-right font-mono font-black text-stsn-brown">₱{displayPackage.totalAmount.toLocaleString()}</td>
+                        {(isEditing || isCreating) && <td />}
                       </tr>
                     </tfoot>
                   </table>
                 </div>
+                {(isEditing || isCreating) && (
+                  <button
+                    type="button"
+                    onClick={addDraftBook}
+                    className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-stsn-brown hover:text-stsn-brown-dark cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Book
+                  </button>
+                )}
               </div>
 
-              {isEditing && (
+              {(isEditing || isCreating) && (
                 <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-blue-600">Changes are applied to this prototype session only and are not sent to any backend.</p>
+                  <p className="text-[10px] text-blue-600">The package and its book list will be saved to Book Setup.</p>
                 </div>
               )}
 
-              {isEditing ? (
+              {isEditing || isCreating ? (
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -428,10 +584,10 @@ export default function BooksSetupPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={saveEdit}
+                    onClick={saveDraft}
                     className="flex-1 bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream font-bold text-xs py-2.5 rounded-lg shadow cursor-pointer transition"
                   >
-                    Save Changes
+                    {isCreating ? "Create Book Package" : "Save Changes"}
                   </button>
                 </div>
               ) : (

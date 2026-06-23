@@ -170,8 +170,8 @@ export default function RegistrarModule() {
       ["Preschool", [0, 2]],
       ["Primary", [3, 5]],
       ["Intermediate", [6, 8]],
-      ["Junior High School", [9, 12]],
-      ["Senior High School", [13, 14]],
+      ["Junior High School", [11, 13]],
+      ["Senior High School", [14, 14]],
     ];
     const result: Record<string, string[]> = {};
     for (const [bucketName, [lo, hi]] of buckets) {
@@ -304,18 +304,17 @@ export default function RegistrarModule() {
   // section is always offered when one exists for the student's department.
   const matchingSections = useMemo(() => {
     if (!selectedStudent) return [];
-    const active = sections.filter(
-      (s) => s.isActive && s.department === selectedStudent.department,
-    );
-    const byYear = active.filter(
-      (s) => s.yearLevel === selectedStudent.yearLevel,
+    const byYear = sections.filter(
+      (s) =>
+        s.isActive &&
+        s.department === selectedStudent.department &&
+        s.yearLevel === selectedStudent.yearLevel,
     );
     const byTrack = byYear.filter(
       (s) => s.strandOrTrack === selectedStudent.trackOrCourse,
     );
     if (byTrack.length > 0) return byTrack;
-    if (byYear.length > 0) return byYear;
-    return active;
+    return byYear;
   }, [sections, selectedStudent]);
 
   const [selectedSectionId, setSelectedSectionId] = useState("");
@@ -378,23 +377,80 @@ export default function RegistrarModule() {
   }, [schoolContext, selectedStudent, activeSchool]);
   const bookPackage = bookPackageResolution.package;
 
-  const mockFallbackAssessment = useMemo(
-    () =>
-      selectedStudent
-        ? computeMockAssessment(
-            selectedStudent.department,
-            selectedStudent.yearLevel ?? "Grade 11",
-            selectedStudent.trackOrCourse ?? undefined,
-            regSelectedDiscount.percentage,
-            regPaymentTerm,
-            tuitionFeeSchedule,
-            miscFeeSchedule,
-            labFeeAdjustments,
-            "2026-2027",
-          )
-        : null,
-    [selectedStudent, regSelectedDiscount.percentage, regPaymentTerm, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments],
-  );
+  const mockFallbackAssessment = useMemo(() => {
+    if (!selectedStudent) return null;
+
+    // Use fee items configured in Core Setup > Fee Items when available
+    const feeItems = setupData.fee_items ?? [];
+    const feeCategories = setupData.fee_categories ?? [];
+    const yearLevels = setupData.year_levels ?? [];
+    if (feeItems.length > 0) {
+      const catByCode = new Map(feeCategories.map((c) => [c.code, c.name]));
+      const legacyMap: Record<string, string> = {
+        "fc-1": "Tuition", "fc-2": "Miscellaneous", "fc-3": "Laboratory",
+        "fc-4": "Other", "fc-5": "Other", "fc-6": "Other",
+      };
+      const resolveCategory = (catId: string) =>
+        catByCode.get(catId) ?? legacyMap[catId] ?? catId;
+
+      // When year-level-mapped tuition items exist for Basic Ed, use year-level matching
+      // so only ONE tuition fee is shown — the one for the student's year level.
+      const isBasicEd = selectedStudent.department === "Basic Education";
+      const hasYearLevelTuition = isBasicEd && feeItems.some(
+        (item) => item.isActive !== false &&
+          resolveCategory((item.categoryId as string) ?? "") === "Tuition" &&
+          item.yearLevel
+      );
+
+      const fees = feeItems
+        .filter((item) => item.isActive !== false)
+        .filter((item) => {
+          const catName = resolveCategory((item.categoryId as string) ?? "");
+          if (catName === "Penalty") return false;
+          if (catName === "Tuition" && isBasicEd && hasYearLevelTuition) {
+            const itemYearLevelCode = item.yearLevel as string | undefined;
+            if (!itemYearLevelCode) return false;
+            const resolved = yearLevels.find((yl) => yl.code === itemYearLevelCode)?.name ?? itemYearLevelCode;
+            return resolved === selectedStudent.yearLevel;
+          }
+          if (selectedStudent.department === "Basic Education" && (item.code as string)?.startsWith("COL")) return false;
+          if (selectedStudent.department === "College" && (item.code as string)?.startsWith("SHS")) return false;
+          return true;
+        })
+        .map((item) => {
+          const catName = resolveCategory((item.categoryId as string) ?? "");
+          const category: "Tuition" | "Laboratory" | "Miscellaneous" | "Other" | "Books" =
+            catName === "Tuition" ? "Tuition" :
+            catName === "Laboratory" ? "Laboratory" :
+            catName === "Miscellaneous" ? "Miscellaneous" : "Other";
+          return { feeName: item.name, category, amount: Number(item.amount) || 0, isRequired: true };
+        });
+
+      const grossTotal = fees.reduce((s, f) => s + f.amount, 0);
+      const discountAmount = Math.round(grossTotal * (regSelectedDiscount.percentage / 100));
+      const netPayable = Math.max(0, grossTotal - discountAmount);
+      return {
+        fees,
+        tuitionTotal: fees.filter((f) => f.category === "Tuition").reduce((s, f) => s + f.amount, 0),
+        labTotal: fees.filter((f) => f.category === "Laboratory").reduce((s, f) => s + f.amount, 0),
+        miscTotal: fees.filter((f) => f.category === "Miscellaneous").reduce((s, f) => s + f.amount, 0),
+        grossTotal, discountAmount, netPayable,
+        paymentSchedule: generatePaymentSchedule(netPayable, regPaymentTerm, "2026-2027"),
+      };
+    }
+
+    return computeMockAssessment(
+      selectedStudent.department,
+      selectedStudent.yearLevel ?? "Grade 11",
+      selectedStudent.trackOrCourse ?? undefined,
+      regSelectedDiscount.percentage,
+      regPaymentTerm,
+      tuitionFeeSchedule,
+      miscFeeSchedule,
+      labFeeAdjustments,
+      "2026-2027",
+    );
+  }, [selectedStudent, regSelectedDiscount.percentage, regPaymentTerm, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, setupData.fee_items, setupData.fee_categories, setupData.year_levels]);
 
   // Effective assessment = mock fallback + optional Books Package (Basic Ed only)
   const effectiveAssessment = useMemo(() => {
@@ -841,6 +897,8 @@ export default function RegistrarModule() {
               columns={studentDirectoryColumns}
               rows={filteredStudents}
               emptyMessage="No students found."
+              searchable={false}
+              selectedId={selectedStudent?.id}
               onRowClick={(stud) => {
                 setSelectedStudent(stud);
                 setDetailTab("info");

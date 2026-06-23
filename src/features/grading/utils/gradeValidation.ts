@@ -11,11 +11,11 @@ export function isScoreInvalid(score: number | null, maxScore: number): boolean 
   return score < 0 || score > maxScore || !Number.isFinite(score);
 }
 
-/** Returns true if all category weights sum exactly to 100 */
+/** Returns true if all category weights sum to 100 (±0.5 to allow e.g. 33.3% × 3 = 99.9%) */
 export function areCategoryWeightsValid(categories: GradeCategory[]): boolean {
   if (categories.length === 0) return true;
   const total = categories.reduce((s, c) => s + c.weight, 0);
-  return Math.abs(total - 100) < 0.01;
+  return Math.abs(total - 100) < 0.5;
 }
 
 /** Returns the remaining weight budget (100 minus sum of current weights) */

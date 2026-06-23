@@ -23,6 +23,7 @@ interface FieldConfig {
   label: string;
   type: "text" | "number" | "select" | "date" | "textarea" | "toggle";
   options?: string[];
+  dataSourceKey?: string;
   required?: boolean;
   placeholder?: string;
   colSpan?: 1 | 2;
@@ -111,7 +112,7 @@ const SETUP_GROUPS: SetupGroupConfig[] = [
     groupColor: "text-emerald-600",
     categories: [
       { key: "fee_categories", label: "Fee Categories", description: "Tuition, Miscellaneous, Lab, etc.", icon: Coins, color: "emerald", extraFields: [] },
-      { key: "fee_items", label: "Fee Items", description: "Specific fee line items with amounts", icon: Coins, color: "emerald", extraFields: [{ key: "categoryId", label: "Category", type: "text" }, { key: "amount", label: "Amount (PHP)", type: "number" }] },
+      { key: "fee_items", label: "Fee Items", description: "Specific fee line items with amounts", icon: Coins, color: "emerald", extraFields: [{ key: "categoryId", label: "Category", type: "select", dataSourceKey: "fee_categories" }, { key: "amount", label: "Amount (PHP)", type: "number" }, { key: "yearLevel", label: "Year Level", type: "select", dataSourceKey: "year_levels" }] },
       { key: "payment_terms", label: "Payment Terms", description: "Cash, Installment options", icon: CreditCard, color: "emerald", extraFields: [{ key: "numberOfInstallments", label: "No. of Installments", type: "number" }, { key: "downpaymentPercent", label: "Down Payment %", type: "number" }] },
       { key: "payment_methods", label: "Payment Methods", description: "Cash, GCash, Bank Transfer, etc.", icon: CreditCard, color: "emerald", extraFields: [{ key: "type", label: "Method Type", type: "select", options: ["Cash", "Digital", "Bank", "Card"] }] },
       { key: "chart_of_accounts", label: "Chart of Accounts", description: "Account codes for financial reporting", icon: BarChart3, color: "emerald", extraFields: [{ key: "accountNo", label: "Account No.", type: "text", required: true }, { key: "accountType", label: "Account Type", type: "select", options: ["Asset", "Liability", "Equity", "Revenue", "Expense"] }] },
@@ -337,7 +338,9 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
                       {f.type === "toggle"
                         ? <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${item[f.key] ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-stone-500 bg-stone-50 border-stone-200"}`}>{item[f.key] ? "Yes" : "No"}</span>
                         : f.type === "number" ? (item[f.key] || 0).toLocaleString()
-                        : String(item[f.key] || "—")}
+                        : f.dataSourceKey
+                          ? (setupData[f.dataSourceKey] ?? []).find((c) => c.code === String(item[f.key] || ""))?.name ?? String(item[f.key] || "—")
+                          : String(item[f.key] || "—")}
                     </td>
                   ))}
                   <td className="py-3 px-4 text-stone-500 text-[11px] hidden lg:table-cell max-w-xs truncate">{item.description || "—"}</td>
@@ -395,7 +398,7 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
       {/* CREATE / EDIT MODAL */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <form onSubmit={handleSave} className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg overflow-hidden">
             <div className={`bg-gradient-to-r ${colorMap[config.color] || "from-stsn-brown to-stsn-brown-dark"} text-white p-4 flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <Icon className="w-5 h-5" />
@@ -447,7 +450,9 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
                           className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
                         >
                           <option value="">— Select —</option>
-                          {field.options?.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                          {field.dataSourceKey
+                            ? (setupData[field.dataSourceKey] ?? []).filter((i) => i.isActive).map((i) => <option key={i.code} value={i.code}>{i.name}</option>)
+                            : field.options?.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                       )}
                       {field.type === "toggle" && (

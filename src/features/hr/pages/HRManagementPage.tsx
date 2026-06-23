@@ -450,13 +450,13 @@ export default function HRManagement() {
       {/* NEW EMPLOYEE REGISTER MODAL */}
       {isNewEmpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <form onSubmit={handleRegisterEmployee} className="bg-white border text-stone-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in font-sans max-h-[90vh] flex flex-col">
-            <div className="bg-stsn-brown text-stsn-cream p-4 flex items-center justify-between flex-shrink-0">
+          <form onSubmit={handleRegisterEmployee} className="bg-white rounded-2xl shadow-2xl border border-stone-200 text-stone-800 w-full max-w-lg overflow-hidden animate-fade-in font-sans max-h-[90vh] flex flex-col">
+            <div className="modal-header-gradient text-white p-4 flex items-center justify-between flex-shrink-0">
               <h3 className="font-display font-semibold text-base flex items-center gap-2">
                 <Users className="w-5 h-5 text-stsn-gold" />
                 Register New Administrative Staff
               </h3>
-              <button type="button" onClick={() => setIsNewEmpOpen(false)} className="text-stsn-cream cursor-pointer">
+              <button type="button" onClick={() => setIsNewEmpOpen(false)} className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1 cursor-pointer transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -542,15 +542,15 @@ export default function HRManagement() {
       {/* EXCEL/CSV IMPORT MODAL */}
       {isImportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col animate-fade-in">
             {/* Header */}
-            <div className="bg-emerald-700 text-white p-4 flex items-center justify-between flex-shrink-0">
+            <div className="modal-header-gradient text-white p-4 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="font-bold text-sm flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5" />
+                  <FileSpreadsheet className="w-5 h-5 text-stsn-gold" />
                   Upload Employee Records — Excel / CSV Import
                 </h3>
-                <p className="text-[10px] text-emerald-100 mt-0.5 font-mono">Supports .CSV files. Download template for the correct column format.</p>
+                <p className="text-[10px] text-white/60 mt-0.5 font-mono">Supports .CSV files. Download template for the correct column format.</p>
               </div>
               <button onClick={() => setIsImportOpen(false)} className="text-white cursor-pointer hover:bg-white/10 rounded-lg p-1.5 transition">
                 <X className="w-5 h-5" />
