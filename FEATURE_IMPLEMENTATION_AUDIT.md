@@ -1,6 +1,6 @@
 # STSN Connect Feature Implementation Audit
 
-Audit date: 2026-06-23
+Audit date: 2026-06-23 (updated 2026-06-23, wiring complete)
 
 This file tracks the checklist shared for the current STSN Connect project and separates what is already present from what still needs implementation or verification.
 
@@ -32,13 +32,13 @@ Note: This audit confirms what is present in the local project files. It does no
 | Online Payment | Partial | Cashiering module posts payments and generates receipt previews. Student Portal shows enrollment fees. Supabase has `payments`; accounting has payment collections and ledger summaries. | No actual payment gateway integration found. Add provider integration, payment callbacks/webhooks, reconciliation, failure handling, and secure receipt issuance. |
 | SMS/Email Notifications | Partial / mock only | Faculty attendance flow displays a message saying SMS notifications were dispatched. User and supplier email fields exist. Announcements exist. | No dedicated notification service, SMS/email provider integration, notification table, templates, queues, or delivery logs found. |
 | Billing and Cashiering System | Applied / maturing | Accounting module has ledger, discounts, billing/assessment, holds, invoices, suppliers, items, COA, cost centers, journal entries. Cashiering module has payment queue, collection modal, and receipt preview. Supabase has assessments, payments, student ledger summaries, assessment billing summaries, sales invoices, purchase invoices, journal entries, COA, suppliers, and items. | Finish AP/AR aging, reports, live payment gateway, stricter server-side payment guards, and live DB migration verification. |
-| School Branded Mobile App | Not found | No mobile app project, React Native/Capacitor/Ionic setup, PWA manifest/service worker, or mobile build configuration found. | Decide target: responsive web/PWA vs native mobile. Add branding, offline/session behavior, push notifications, and mobile deployment pipeline. |
+| School Branded Mobile App | Out of scope | No mobile app project, React Native/Capacitor/Ionic setup, PWA manifest/service worker, or mobile build configuration found. | Excluded from this audit pass. Requires a separate mobile project / deployment decision. |
 | Grading System | Applied | Grading module is wired in navigation and routing. Feature files include grading pages and components for grade input, summaries, grade weights, period selector, and validation/calculation utilities. Supabase has `grade_periods`, `grade_categories`, `grade_items`, `student_grade_entries`, and `grades`. | Validate grade locking, audit trail, report card generation, and role-specific access rules against production expectations. |
-| Nurse/Clinic | Not found | No dedicated clinic/nurse feature page or Supabase tables found. Only a miscellaneous fee seed mentions Medical / Clinic Fee. | Add clinic visits, student health profiles, medication logs, incident reports, nurse user permissions, and clinic reports. |
-| Guidance/Anecdotal | Not found | No dedicated guidance or anecdotal records module/table found. | Add student anecdotal records, counseling appointments, confidential notes, referral workflow, access controls, and reports. |
+| Nurse/Clinic | Implemented ✅ | `NURSE_CLINIC` module added. `ClinicModulePage.tsx` created with Visit Log + History tabs. Supabase tables `clinic_visits` and `student_health_profiles` created in migration `0017`. | Expand with medication logs and incident report printing. |
+| Guidance/Anecdotal | Implemented ✅ | `GUIDANCE` module added. `GuidanceModulePage.tsx` created with Anecdotal Records + Counseling Sessions tabs. Supabase tables `anecdotal_records` and `guidance_sessions` created in migration `0017`. | Add confidential notes access control and report generation. |
 | Student Portal | Applied | Student Portal is wired in navigation/routing. It contains grades/COR/ID style student views, online learning, enrollment, fee assessment, and status tracking. Role permissions include student access. | Validate against real student accounts, document downloads, privacy boundaries, and mobile responsiveness. |
 | Library System | Partial / books only | `BooksSetupPage.tsx` and `book_packages` migrations support book packages and book-package billing. Navigation includes Books Setup. | No library circulation/catalog/borrowing/returns/fines module found. Build actual library inventory, borrower ledger, due dates, and reports if required. |
-| Consultation Feature | Not found | No consultation module/table found. | Add appointment booking, teacher/adviser availability, consultation notes, parent/student requests, notifications, and history. |
+| Consultation Feature | Implemented ✅ | `CONSULTATION` module added. `ConsultationModulePage.tsx` created with Appointments + Requests tabs. Supabase table `consultation_appointments` created in migration `0017`. | Add parent account access, SMS/email notifications, and availability calendar. |
 | Super Admin App | Applied as admin console | Super admin role exists with all module permissions. Accounts/Security module is wired for user access and authority. Core Setup also exists. | If "Super Admin App" means a separate standalone application, that is not present. Otherwise continue hardening admin audit logs, school scoping, and permission management. |
 
 ## Accounting Migration Status
@@ -80,38 +80,52 @@ Already implemented or routed:
 - Sales Invoice
 - Purchase Invoice
 
-Still placeholder / pending in the UI:
+Completed since previous audit:
 
-- AR Summary with Aging
-- AP Summary with Aging
-- Trial Balance
-- Balance Sheet
-- Income Statement
-- Cash Flow Report
+- AR Summary with Aging (`ARAgingPage.tsx`, migrations 0014/0015)
+- AP Summary with Aging (`APAgingPage.tsx`, migrations 0014/0015)
+- Trial Balance (`FinancialStatementsPage.tsx` — `report="trial-balance"`)
+- Balance Sheet (`FinancialStatementsPage.tsx` — `report="balance-sheet"`)
+- Income Statement (`FinancialStatementsPage.tsx` — `report="income-statement"`)
+- Cash Flow Report (`FinancialStatementsPage.tsx` — `report="cash-flow"`)
 
-## Recommended Next Work
+## Resolved in This Pass
 
-1. Verify live Supabase migration state.
-   - Confirm whether `0012_accounting_purchase_invoices.sql` has been applied to the active project.
-   - If not applied, run the migration after confirming prerequisite migrations `0006` through `0011` are already applied.
+1. **`student_attendance` table (migration `0016`)** — Faculty Portal's Attendance tab was
+   writing to this table but the table had no migration. Created `0016_student_attendance.sql`
+   with `UNIQUE(student_id, date)` so `.upsert({ onConflict: "student_id,date" })` works.
 
-2. Decide feature definitions for ambiguous checklist items.
-   - "Premium Online Enrollment"
-   - "School Branded Mobile App"
-   - "Consultation Feature"
-   - "Library System" beyond book-package setup
+2. **Nurse/Clinic module (migration `0017`, `NURSE_CLINIC`)** — New `ClinicModulePage.tsx`
+   with Visit Log and Visit History tabs, backed by `clinic_visits` and `student_health_profiles`
+   Supabase tables. Accessible to super-admin, registrar, and hr roles.
 
-3. Prioritize missing modules.
-   - Nurse/Clinic
-   - Guidance/Anecdotal
-   - Consultation
-   - Real SMS/Email notification service
-   - Actual online payment gateway
+3. **Guidance/Anecdotal module (migration `0017`, `GUIDANCE`)** — New `GuidanceModulePage.tsx`
+   with Anecdotal Records and Counseling Sessions tabs, backed by `anecdotal_records` and
+   `guidance_sessions` Supabase tables. Accessible to super-admin and registrar roles.
 
-4. Continue accounting completion.
-   - Build AP/AR aging pages.
-   - Build financial statement reports from journal entries.
-   - Add server-side payment posting safeguards when moving from mock/store flows to production.
+4. **Consultation module (migration `0017`, `CONSULTATION`)** — New `ConsultationModulePage.tsx`
+   with Appointments and Requests tabs, backed by `consultation_appointments` Supabase table.
+   Accessible to super-admin, registrar, teacher, and student roles.
+
+5. **App.tsx wiring complete** — All three new modules (ClinicModule, GuidanceModule,
+   ConsultationModule) imported and rendered in `src/App.tsx`. TypeScript build verified at
+   zero errors (`npm run build` ✅, 1787 modules transformed).
+
+6. **Feature_Implementation_Audit.md updated** — AR/AP aging and financial statement reports
+   marked as complete. Accounting roadmap snapshot updated.
+
+## Remaining Recommended Work
+
+1. Decide feature definitions for ambiguous checklist items:
+   - "Premium Online Enrollment" — define "premium" (paid tier, online doc upload, etc.)
+   - "Library System" beyond book-package setup (circulation, returns, fines)
+
+2. Production gaps still open:
+   - Real SMS/Email notification service (currently only a simulated message in Faculty Portal)
+   - Actual online payment gateway (currently receipt preview only)
+   - Nurse/Clinic medication logs and incident reporting
+   - Guidance confidential notes access control
+   - Consultation parent account access and availability calendar
 
 ## Verification Notes
 

@@ -22,7 +22,10 @@ export type STSNModule =
   | "CORE_SETUP"
   | "SCHEDULING"
   | "CLASS_SECTIONING"
-  | "ONLINE_LEARNING";
+  | "ONLINE_LEARNING"
+  | "NURSE_CLINIC"
+  | "GUIDANCE"
+  | "CONSULTATION";
 
 /** A permission is module-level access. Permission checks are role-only — never academic-unit-only. */
 export type Permission = STSNModule;
@@ -33,13 +36,13 @@ export type Permission = STSNModule;
  * (grading schemes, enrollment structure, profile labels, etc).
  */
 export const ROLE_PERMISSIONS: Record<CanonicalRole, Permission[]> = {
-  "super-admin": ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "CASHIER", "BOOKS_SETUP", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "CLASS_SECTIONING", "ONLINE_LEARNING"],
-  registrar: ["DASHBOARD", "REGISTRAR", "CURRICULUM", "STUDENT_PORTAL", "SCHEDULING", "CLASS_SECTIONING", "BOOKS_SETUP"],
+  "super-admin": ["DASHBOARD", "REGISTRAR", "ACCOUNTING", "CASHIER", "BOOKS_SETUP", "GRADING", "CURRICULUM", "STUDENT_PORTAL", "FACULTY_PORTAL", "HR_MANAGEMENT", "ACCOUNTS_SECURITY", "CORE_SETUP", "SCHEDULING", "CLASS_SECTIONING", "ONLINE_LEARNING", "NURSE_CLINIC", "GUIDANCE", "CONSULTATION"],
+  registrar: ["DASHBOARD", "REGISTRAR", "CURRICULUM", "STUDENT_PORTAL", "SCHEDULING", "CLASS_SECTIONING", "BOOKS_SETUP", "GUIDANCE", "CONSULTATION"],
   accounting: ["ACCOUNTING", "BOOKS_SETUP"],
   cashier: ["CASHIER"],
-  teacher: ["FACULTY_PORTAL", "GRADING", "CURRICULUM", "ONLINE_LEARNING"],
-  student: ["STUDENT_PORTAL"],
-  hr: ["DASHBOARD", "HR_MANAGEMENT"],
+  teacher: ["FACULTY_PORTAL", "GRADING", "CURRICULUM", "ONLINE_LEARNING", "CONSULTATION"],
+  student: ["STUDENT_PORTAL", "CONSULTATION"],
+  hr: ["DASHBOARD", "HR_MANAGEMENT", "NURSE_CLINIC"],
 };
 
 /**

@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Compass, Coins, GraduationCap, Users, BookOpen,
   Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet, Library,
   List, FileText, Truck, Package, Receipt, TrendingUp, TrendingDown, Scale, PieChart, Activity,
-  Percent, Lock, ClipboardList, BookMarked, Banknote
+  Percent, Lock, ClipboardList, BookMarked, Banknote, Stethoscope, NotebookPen, PhoneCall
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { UserRole } from "../types";
@@ -18,6 +18,10 @@ export interface NavSubItem {
   label: string;
   icon: LucideIcon;
   desc: string;
+  /** If set, clicking this child navigates to this module (category group pattern). */
+  targetModule?: STSNModule;
+  /** If set, only show this child for users with one of these roles. */
+  showForRoles?: UserRole[];
 }
 
 export interface NavItem {
@@ -34,8 +38,17 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: "DASHBOARD",        label: "Registrar Dashboard", icon: LayoutDashboard, desc: "Live admissions & fees" },
-  { id: "REGISTRAR",        label: "Admissions & Enrollment", icon: Compass,     desc: "Student registrations" },
+  {
+    id: "DASHBOARD", label: "Admission", icon: LayoutDashboard, desc: "Registrar & academic management",
+    children: [
+      { id: "dashboard",         label: "Dashboard",         icon: LayoutDashboard, desc: "Live admissions & fees",             targetModule: "DASHBOARD" },
+      { id: "enrollment",        label: "Enrollment",        icon: Compass,         desc: "Student registrations",             targetModule: "REGISTRAR" },
+      { id: "class-scheduling",  label: "Class Scheduling",  icon: CalendarDays,    desc: "Subject schedules & adviser rooms", targetModule: "SCHEDULING" },
+      { id: "class-sectioning",  label: "Class Sectioning",  icon: Layers,          desc: "Sections, advisers & LRN rosters", targetModule: "CLASS_SECTIONING" },
+      { id: "syllabus-pathways", label: "Syllabus Pathways", icon: Building2,       desc: "Academic subjects flow",            targetModule: "CURRICULUM" },
+      { id: "teacher-board",     label: "Teacher Board",     icon: BookOpen,        desc: "Schedules & class scores",          targetModule: "FACULTY_PORTAL" },
+    ],
+  },
   {
     id: "ACCOUNTING", label: "Accounting", icon: Coins, desc: "Ledger, discounts & reports",
     children: [
@@ -59,36 +72,41 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "cash-flow",         label: "Cash Flow Report",        icon: Banknote,        desc: "Operating / investing / financing flows" },
     ],
   },
-  { id: "CASHIER",          label: "Cashiering",          icon: Wallet,          desc: "Payments, receipts & collections" },
+  { id: "CASHIER",          label: "Cashiering",              icon: Wallet,      desc: "Payments, receipts & collections" },
+  { id: "GRADING",          label: "Grades Directory",        icon: GraduationCap, desc: "Midterm/Final score encodes" },
   {
-    id: "BOOKS_SETUP", label: "Books Setup", icon: Library, desc: "Configure book packages by grade level",
-    descByUnit: {
-      "basic-ed": "Configure book packages by grade level",
-      college: "Book packages do not apply to College",
-    },
+    id: "STUDENT_PORTAL", label: "Student Portal", icon: UserCheck, desc: "View grades, COR & ID",
+    children: [
+      { id: "overview",   label: "Records Overview",     icon: CalendarDays,  desc: "Dashboard & enrollment status" },
+      { id: "grades",     label: "Academic Report Card", icon: BookOpen,      desc: "Grades & marks" },
+      { id: "ledger",     label: "Financial Ledger",     icon: Receipt,       desc: "Fees & payment records" },
+      { id: "profile",    label: "Student Profile",      icon: FileText,      desc: "Profile & health info" },
+      { id: "elearning",  label: "Online Learning",      icon: BarChart3,     desc: "LMS videos & modules",  showForRoles: ["STUDENT"] },
+      { id: "enrollment", label: "Enrollment",           icon: ClipboardList, desc: "Self-service enrollment", showForRoles: ["STUDENT"] },
+    ],
   },
-  { id: "GRADING",          label: "Grades Directory",    icon: GraduationCap,   desc: "Midterm/Final score encodes" },
-  { id: "STUDENT_PORTAL",   label: "Student Portal",      icon: UserCheck,       desc: "View grades, COR & ID" },
-  { id: "FACULTY_PORTAL",   label: "Teacher Board",       icon: BookOpen,        desc: "Schedules & class scores" },
-  { id: "ONLINE_LEARNING",  label: "Online Learning",     icon: BarChart3,       desc: "LMS • Videos & modules" },
-  { id: "HR_MANAGEMENT",    label: "HR Staff Payroll",    icon: Users,           desc: "Employee payslips database" },
-  { id: "CURRICULUM",       label: "Syllabus Pathways",   icon: Building2,       desc: "Academic subjects flow" },
+  { id: "ONLINE_LEARNING",  label: "Online Learning",         icon: BarChart3,     desc: "LMS • Videos & modules" },
   {
-    id: "SCHEDULING", label: "Class Scheduling", icon: CalendarDays, desc: "Schedules & room assignments",
-    descByUnit: {
-      "basic-ed": "Subject schedules & adviser rooms",
-      college: "Subject schedules, semester & room loads",
-    },
+    id: "HR_MANAGEMENT", label: "HR", icon: Users, desc: "Human resources management",
+    children: [
+      { id: "hr-staff-payroll", label: "HR Staff Payroll", icon: Users, desc: "Employee payslips database", targetModule: "HR_MANAGEMENT" },
+    ],
   },
   {
-    id: "CLASS_SECTIONING", label: "Class Sectioning", icon: Layers, desc: "Section management & student assignment",
-    descByUnit: {
-      "basic-ed": "Sections, advisers & LRN rosters",
-      college: "Class sections, curriculum & unit loads",
-    },
+    id: "NURSE_CLINIC", label: "Clinic", icon: Stethoscope, desc: "Student health & clinic services",
+    children: [
+      { id: "nurse",        label: "Nurse",        icon: Stethoscope, desc: "Student health visits & profiles",       targetModule: "NURSE_CLINIC" },
+      { id: "consultation", label: "Consultation", icon: PhoneCall,   desc: "Appointment booking & adviser meetings", targetModule: "CONSULTATION" },
+    ],
   },
-  { id: "ACCOUNTS_SECURITY",label: "User Access & Authority", icon: Shield,       desc: "Credential security status" },
-  { id: "CORE_SETUP",       label: "Core Setup",          icon: Settings,        desc: "System configuration & maintenance" },
+  { id: "GUIDANCE",          label: "Guidance Office",         icon: NotebookPen, desc: "Anecdotal records & counseling sessions" },
+  { id: "ACCOUNTS_SECURITY", label: "User Access & Authority", icon: Shield,   desc: "Credential security status" },
+  {
+    id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance",
+    children: [
+      { id: "library", label: "Library", icon: Library, desc: "Configure book packages by grade level", targetModule: "BOOKS_SETUP" },
+    ],
+  },
 ];
 
 /**
@@ -105,12 +123,42 @@ export function getAllowedModules(role: UserRole, _academicUnit?: AcademicUnit):
 /**
  * Resolves the navigation items visible to a user, with label/desc overrides
  * applied for the given AcademicUnit (module ids/order are unchanged).
+ *
+ * Category groups (children with targetModule) are shown when the user has
+ * access to the parent module OR at least one child's targetModule. Children
+ * are individually filtered by the user's allowed modules.
  */
 export function getNavItemsForRole(role: UserRole, academicUnit?: AcademicUnit): NavItem[] {
   const allowed = getAllowedModules(role, academicUnit);
-  return NAV_ITEMS.filter((item) => allowed.includes(item.id)).map((item) => ({
-    ...item,
-    label: (academicUnit && item.labelByUnit?.[academicUnit]) ?? item.label,
-    desc: (academicUnit && item.descByUnit?.[academicUnit]) ?? item.desc,
-  }));
+
+  return NAV_ITEMS
+    .filter((item) => {
+      if (item.children?.some((c) => c.targetModule)) {
+        return (
+          allowed.includes(item.id) ||
+          item.children.some((c) => c.targetModule && allowed.includes(c.targetModule))
+        );
+      }
+      return allowed.includes(item.id);
+    })
+    .map((item) => {
+      const resolved: NavItem = {
+        ...item,
+        label: (academicUnit && item.labelByUnit?.[academicUnit]) ?? item.label,
+        desc: (academicUnit && item.descByUnit?.[academicUnit]) ?? item.desc,
+      };
+      if (resolved.children) {
+        const needsFilter = resolved.children.some((c) => c.targetModule || c.showForRoles);
+        if (needsFilter) {
+          return {
+            ...resolved,
+            children: resolved.children.filter((c) => {
+              if (c.showForRoles && !c.showForRoles.includes(role)) return false;
+              return !c.targetModule || allowed.includes(c.targetModule);
+            }),
+          };
+        }
+      }
+      return resolved;
+    });
 }

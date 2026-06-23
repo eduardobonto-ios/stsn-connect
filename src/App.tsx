@@ -44,6 +44,9 @@ import OnlineLearning from "./features/online-learning/pages/OnlineLearningPage"
 import ClassSectioningModule from "./features/class-sectioning/pages/ClassSectioningModulePage";
 import BooksSetupPage from "./features/books/pages/BooksSetupPage";
 import CashierModule from "./features/cashier/pages/CashierModulePage";
+import ClinicModule from "./features/clinic/pages/ClinicModulePage";
+import GuidanceModule from "./features/guidance/pages/GuidanceModulePage";
+import ConsultationModule from "./features/consultation/pages/ConsultationModulePage";
 
 export default function App() {
   const { currentUser, login, logout, users, activeSchool, academicUnit, isLoading, initialize } =
@@ -51,7 +54,8 @@ export default function App() {
   const { toast } = useAppDialog();
   const [activeModule, setActiveModule] = useState<STSNModule>("DASHBOARD");
   const [accountingSubPage, setAccountingSubPage] = useState("dashboard");
-  const [expandedModule, setExpandedModule] = useState<STSNModule | null>(null);
+  const [portalSubPage, setPortalSubPage] = useState("overview");
+  const [expandedModule, setExpandedModule] = useState<STSNModule | null>("DASHBOARD");
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
 
@@ -196,48 +200,64 @@ export default function App() {
             const Icon = item.icon;
 
             if (item.children) {
+              const isCategoryGroup = item.children.some((c) => c.targetModule);
+              const isSelectedGroup = isCategoryGroup
+                ? activeModule === item.id || item.children.some((c) => c.targetModule === activeModule)
+                : isSelected;
+              const isExpandedGroup = expandedModule === item.id;
+
               return (
                 <div key={item.id}>
-                  {/* Parent row — toggles expansion and navigates to module */}
+                  {/* Parent row — toggles expansion; category groups do not navigate on click */}
                   <button
                     onClick={() => {
-                      setActiveModule(item.id);
-                      setExpandedModule(isExpanded ? null : item.id);
+                      if (!isCategoryGroup) setActiveModule(item.id);
+                      setExpandedModule(isExpandedGroup ? null : item.id);
                       setIsMobileOpen(false);
                     }}
                     className={`w-full text-left py-2.5 px-3 rounded-xl flex items-start gap-3 transition-all duration-200 cursor-pointer group ${
-                      isSelected
+                      isSelectedGroup
                         ? "sidebar-item-active text-stsn-cream font-bold shadow-md"
                         : "hover:bg-white/8 text-stone-300 font-medium opacity-80 hover:opacity-100"
                     }`}
                   >
                     <Icon
-                      className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isSelected ? "text-stsn-gold" : "text-stone-400 group-hover:text-stone-200"}`}
+                      className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isSelectedGroup ? "text-stsn-gold" : "text-stone-400 group-hover:text-stone-200"}`}
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-[12px] leading-none">{item.label}</p>
-                      <p className={`text-[9.5px] font-normal truncate mt-0.5 leading-none ${isSelected ? "text-stsn-gold-light/70" : "text-stone-500"}`}>
+                      <p className={`text-[9.5px] font-normal truncate mt-0.5 leading-none ${isSelectedGroup ? "text-stsn-gold-light/70" : "text-stone-500"}`}>
                         {item.desc}
                       </p>
                     </div>
-                    {isExpanded
+                    {isExpandedGroup
                       ? <ChevronDown className="w-3 h-3 flex-shrink-0 mt-1 text-stsn-gold/70" />
                       : <ChevronRight className="w-3 h-3 flex-shrink-0 mt-1 text-stone-500 group-hover:text-stone-300" />
                     }
                   </button>
 
                   {/* Children */}
-                  {isExpanded && (
+                  {isExpandedGroup && (
                     <div className="mt-0.5 ml-2 pl-3 border-l border-white/10 space-y-0.5">
                       {item.children.map((child) => {
-                        const isChildActive = isSelected && accountingSubPage === child.id;
+                        const isChildActive = child.targetModule
+                          ? activeModule === child.targetModule
+                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : accountingSubPage === child.id);
                         const ChildIcon = child.icon;
                         return (
                           <button
                             key={child.id}
                             onClick={() => {
-                              setActiveModule(item.id);
-                              setAccountingSubPage(child.id);
+                              if (child.targetModule) {
+                                setActiveModule(child.targetModule);
+                              } else {
+                                setActiveModule(item.id);
+                                if (item.id === "STUDENT_PORTAL") {
+                                  setPortalSubPage(child.id);
+                                } else {
+                                  setAccountingSubPage(child.id);
+                                }
+                              }
                               setIsMobileOpen(false);
                             }}
                             className={`w-full text-left py-2 px-2.5 rounded-lg flex items-start gap-2.5 transition-all duration-150 cursor-pointer group ${
@@ -401,7 +421,7 @@ export default function App() {
           {activeModule === "CURRICULUM" &&
             allowedModules.includes("CURRICULUM") && <CurriculumManagement />}
           {activeModule === "STUDENT_PORTAL" &&
-            allowedModules.includes("STUDENT_PORTAL") && <StudentPortal />}
+            allowedModules.includes("STUDENT_PORTAL") && <StudentPortal subPage={portalSubPage} />}
           {activeModule === "FACULTY_PORTAL" &&
             allowedModules.includes("FACULTY_PORTAL") && <FacultyPortal />}
           {activeModule === "HR_MANAGEMENT" &&
@@ -424,6 +444,12 @@ export default function App() {
             allowedModules.includes("BOOKS_SETUP") && <BooksSetupPage />}
           {activeModule === "CASHIER" &&
             allowedModules.includes("CASHIER") && <CashierModule />}
+          {activeModule === "NURSE_CLINIC" &&
+            allowedModules.includes("NURSE_CLINIC") && <ClinicModule />}
+          {activeModule === "GUIDANCE" &&
+            allowedModules.includes("GUIDANCE") && <GuidanceModule />}
+          {activeModule === "CONSULTATION" &&
+            allowedModules.includes("CONSULTATION") && <ConsultationModule />}
         </main>
       </div>
 
@@ -448,14 +474,18 @@ export default function App() {
             </div>
             <nav className="space-y-1 flex-1 overflow-y-auto pb-4">
               {renderedSidebarItems.map((item) => {
-                const isSelected = activeModule === item.id;
-                const isExpanded = expandedModule === item.id;
+                const isCategoryGroup = item.children?.some((c) => c.targetModule) ?? false;
+                const isSelected = isCategoryGroup
+                  ? activeModule === item.id || (item.children?.some((c) => c.targetModule === activeModule) ?? false)
+                  : activeModule === item.id;
+                const isExpanded = expandedModule === item.id ||
+                  (isCategoryGroup && (item.children?.some((c) => c.targetModule === activeModule) ?? false));
                 if (item.children) {
                   return (
                     <div key={item.id}>
                       <button
                         onClick={() => {
-                          setActiveModule(item.id);
+                          if (!isCategoryGroup) setActiveModule(item.id);
                           setExpandedModule(isExpanded ? null : item.id);
                         }}
                         className={`w-full text-left px-3 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-between ${
@@ -467,23 +497,32 @@ export default function App() {
                       </button>
                       {isExpanded && (
                         <div className="ml-3 pl-2 border-l border-white/10 mt-0.5 space-y-0.5">
-                          {item.children.map((child) => (
-                            <button
-                              key={child.id}
-                              onClick={() => {
-                                setActiveModule(item.id);
-                                setAccountingSubPage(child.id);
-                                setIsMobileOpen(false);
-                              }}
-                              className={`w-full text-left px-2.5 py-2 text-[11px] rounded-lg transition-all ${
-                                isSelected && accountingSubPage === child.id
-                                  ? "bg-stsn-gold/20 text-stsn-cream font-semibold"
-                                  : "text-stone-400 hover:bg-white/6"
-                              }`}
-                            >
-                              {child.label}
-                            </button>
-                          ))}
+                          {item.children.map((child) => {
+                            const isChildActive = child.targetModule
+                              ? activeModule === child.targetModule
+                              : isSelected && accountingSubPage === child.id;
+                            return (
+                              <button
+                                key={child.id}
+                                onClick={() => {
+                                  if (child.targetModule) {
+                                    setActiveModule(child.targetModule);
+                                  } else {
+                                    setActiveModule(item.id);
+                                    setAccountingSubPage(child.id);
+                                  }
+                                  setIsMobileOpen(false);
+                                }}
+                                className={`w-full text-left px-2.5 py-2 text-[11px] rounded-lg transition-all ${
+                                  isChildActive
+                                    ? "bg-stsn-gold/20 text-stsn-cream font-semibold"
+                                    : "text-stone-400 hover:bg-white/6"
+                                }`}
+                              >
+                                {child.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

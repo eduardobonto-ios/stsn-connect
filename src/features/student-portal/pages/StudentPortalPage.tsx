@@ -53,7 +53,7 @@ import type { Requirement, Student } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
 
-export default function StudentPortal() {
+export default function StudentPortal({ subPage }: { subPage: string }) {
   const {
     students,
     assessments,
@@ -86,7 +86,7 @@ export default function StudentPortal() {
   const isRecordsView = currentUser?.role !== "STUDENT";
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
 
-  const [activeTab, setActiveTab] = useState<PortalTab>("overview");
+  const activeTab = subPage as PortalTab;
   const [isCorModalOpen, setIsCorModalOpen] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -330,17 +330,6 @@ export default function StudentPortal() {
     uploadInputRef.current?.click();
   };
 
-  const allTabs: { id: PortalTab; label: string; icon: React.ElementType }[] = [
-    { id: "overview", label: isRecordsView ? "Records Overview" : "My Dashboard & Schedule", icon: Calendar },
-    { id: "grades", label: `Academic Report Card${gradesLocked ? " 🔒" : ""}`, icon: BookOpen },
-    { id: "elearning", label: "Online Learning", icon: Monitor },
-    { id: "ledger", label: isRecordsView ? "Financial Ledger (Records)" : "Financial Ledger Statement", icon: CreditCard },
-    { id: "profile", label: isRecordsView ? "Student Profile" : "Editable Student Profile", icon: User },
-    { id: "enrollment", label: "Enrollment", icon: ClipboardList }
-  ];
-  // Records view (Registrar) browses permanent records — self-service
-  // enrollment/online-learning actions are out of scope here.
-  const tabDef = isRecordsView ? allTabs.filter((t) => t.id !== "elearning" && t.id !== "enrollment") : allTabs;
 
   return (
     <div className="space-y-6 animate-fade-in font-sans text-stone-850">
@@ -387,28 +376,6 @@ export default function StudentPortal() {
             Official COR PDF
           </button>
         </div>
-      </div>
-
-      {/* TAB CONTROLLERS */}
-      <div className="flex border-b border-stsn-beige/70 gap-1 overflow-x-auto pb-0">
-        {tabDef.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 border-b-2 ${
-                isActive
-                  ? "bg-stsn-brown text-white border-stsn-gold shadow-sm"
-                  : "text-stone-500 hover:text-stsn-brown-dark border-transparent hover:bg-stone-50"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {tab.label}
-            </button>
-          );
-        })}
       </div>
 
       {/* ENROLLMENT STEPPER BAR */}
