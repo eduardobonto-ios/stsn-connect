@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useSTSNStore } from "../../../services/store";
-import { Student, Enrollment, Subject, Requirement, SetupItem } from "../../../types";
+import { Student, Enrollment, Subject, Requirement, SetupItem, OnlineEnrollmentApplication } from "../../../types";
 import {
   FileCheck,
   CheckCircle,
@@ -194,6 +194,7 @@ export default function RegistrarModule() {
     students,
     requirements,
     enrollments,
+    onlineEnrollmentApplications,
     subjects,
     courses,
     assessments,
@@ -261,6 +262,7 @@ export default function RegistrarModule() {
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<"All" | "Online" | "Walk-in/ERP">("All");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("info");
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
@@ -339,15 +341,55 @@ export default function RegistrarModule() {
     return getAcademicScopedData({ currentUser, activeSchool, academicUnit, students }).students;
   }, [students, currentUser, activeSchool, academicUnit]);
 
+  const latestEnrollmentByStudentId = useMemo(() => {
+    const map = new Map<string, Enrollment>();
+    for (const enrollment of enrollments) {
+      const current = map.get(enrollment.studentId);
+      if (!current || new Date(enrollment.submittedAt).getTime() > new Date(current.submittedAt).getTime()) {
+        map.set(enrollment.studentId, enrollment);
+      }
+    }
+    return map;
+  }, [enrollments]);
+
+  const getEnrollmentSourceLabel = (enrollment?: Enrollment) =>
+    enrollment?.isOnlineEnrollment || enrollment?.enrollmentSource === "Online"
+      ? "Online"
+      : enrollment?.enrollmentSource === "Walk-in"
+        ? "Walk-in"
+        : "ERP";
+
   const filteredStudents = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return contextStudents.filter((s) => {
       const fullName = `${s.firstName} ${s.lastName}`.toLowerCase();
-      return (
+      const latestEnrollment = latestEnrollmentByStudentId.get(s.id);
+      const sourceLabel = getEnrollmentSourceLabel(latestEnrollment);
+      const matchesSource =
+        sourceFilter === "All" ||
+        (sourceFilter === "Online" && sourceLabel === "Online") ||
+        (sourceFilter === "Walk-in/ERP" && sourceLabel !== "Online");
+      return matchesSource && (
         fullName.includes(query) || s.studentNo.toLowerCase().includes(query)
       );
     });
-  }, [contextStudents, searchQuery]);
+  }, [contextStudents, latestEnrollmentByStudentId, searchQuery, sourceFilter]);
+
+  const selectedEnrollment = useMemo(
+    () => selectedStudent ? latestEnrollmentByStudentId.get(selectedStudent.id) : undefined,
+    [latestEnrollmentByStudentId, selectedStudent],
+  );
+
+  const selectedOnlineApplication = useMemo<OnlineEnrollmentApplication | undefined>(() => {
+    if (!selectedStudent) return undefined;
+    return onlineEnrollmentApplications.find((application) =>
+      (selectedEnrollment?.onlineApplicationId && application.id === selectedEnrollment.onlineApplicationId) ||
+      application.enrollmentId === selectedEnrollment?.id ||
+      application.studentId === selectedStudent.id
+    );
+  }, [onlineEnrollmentApplications, selectedEnrollment, selectedStudent]);
+
+  const selectedSourceLabel = getEnrollmentSourceLabel(selectedEnrollment);
 
   const studentReqs = useMemo(
     () =>
@@ -999,6 +1041,34 @@ export default function RegistrarModule() {
         ),
       },
       {
+        title: "Source",
+        className: "text-center",
+        searchable: false,
+        render: (_value, stud) => {
+          const enrollment = latestEnrollmentByStudentId.get(stud.id);
+          const source = getEnrollmentSourceLabel(enrollment);
+          const isIncomplete = source === "Online" && enrollment?.completionStatus === "Incomplete";
+          return (
+            <div className="flex flex-col items-center gap-1">
+              <span
+                className={`inline-block text-[9.5px] font-bold leading-none px-2 py-1 rounded-full ${
+                  source === "Online"
+                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                    : "bg-stone-50 text-stone-600 border border-stone-200"
+                }`}
+              >
+                {source === "Online" ? "Online" : source}
+              </span>
+              {isIncomplete && (
+                <span className="inline-block text-[9px] font-bold leading-none px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  Incomplete
+                </span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
         title: "Status",
         data: "enrollmentStatus",
         className: "text-center",
@@ -1048,6 +1118,7 @@ export default function RegistrarModule() {
       terms,
       schoolContext,
       schoolBadgeClass,
+      latestEnrollmentByStudentId,
       setSelectedStudent,
       setDetailTab,
       setIsCorModalOpen,
@@ -1142,6 +1213,24 @@ export default function RegistrarModule() {
                 />
               </div>
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-md p-1">
+                  {(["All", "Online", "Walk-in/ERP"] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setSourceFilter(filter)}
+                      className={`px-2 py-1 rounded text-[9.5px] font-bold transition ${
+                        sourceFilter === filter
+                          ? schoolContext === "BASIC_ED"
+                            ? "bg-stsn-brown text-white"
+                            : "bg-blue-600 text-white"
+                          : "text-stone-500 hover:bg-stone-50"
+                      }`}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
                 <span
                   className={`text-[9px] font-mono px-2 py-0.5 rounded border font-bold ${schoolBadgeClass}`}
                 >
@@ -1184,6 +1273,16 @@ export default function RegistrarModule() {
                     {selectedStudent.studentNo} •{" "}
                     {selectedStudent.trackOrCourse}
                   </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/15 border border-white/20">
+                      {selectedSourceLabel}
+                    </span>
+                    {selectedEnrollment?.completionStatus === "Incomplete" && (
+                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-200/90 text-amber-950">
+                        Incomplete
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Detail Tabs */}
@@ -2376,10 +2475,12 @@ export default function RegistrarModule() {
                             Enrollment Type:
                           </span>
                           <strong>
-                            {enrollments.find(
-                              (e) => e.studentId === selectedStudent.id,
-                            )?.enrollmentType || "New Student"}
+                            {selectedEnrollment?.enrollmentType || "New Student"}
                           </strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-stone-400">Source:</span>
+                          <strong>{selectedSourceLabel}</strong>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-stone-400">Status:</span>
@@ -2398,6 +2499,72 @@ export default function RegistrarModule() {
                           </span>
                         </div>
                       </div>
+
+                      {selectedSourceLabel === "Online" && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h5 className="text-[10px] font-bold uppercase text-blue-800">
+                                Online Application
+                              </h5>
+                              <p className="text-[10px] text-blue-700/80 font-mono">
+                                {selectedOnlineApplication?.referenceNo || selectedEnrollment?.onlineApplicationId || "Reference pending"}
+                              </p>
+                            </div>
+                            <span
+                              className={`text-[9px] font-bold px-2 py-1 rounded-full border ${
+                                selectedEnrollment?.completionStatus === "Incomplete"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-green-50 text-green-700 border-green-200"
+                              }`}
+                            >
+                              {selectedEnrollment?.completionStatus || selectedOnlineApplication?.completionStatus || "Complete"}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {[
+                              ["Submitted", selectedOnlineApplication?.submittedAt || selectedEnrollment?.submittedAt],
+                              ["Birthdate", selectedOnlineApplication?.birthDate || selectedStudent.birthday],
+                              ["Gender", selectedOnlineApplication?.gender || selectedStudent.gender],
+                              ["Previous School", selectedOnlineApplication?.previousSchool],
+                              ["Previous School Address", selectedOnlineApplication?.previousSchoolAddress],
+                              ["Complete Address", selectedOnlineApplication?.completeAddress || selectedStudent.address],
+                              ["Barangay", selectedOnlineApplication?.barangay],
+                              ["City/Municipality", selectedOnlineApplication?.cityMunicipality || selectedStudent.municipality],
+                              ["Province", selectedOnlineApplication?.province || selectedStudent.province],
+                              ["Guardian Name", selectedOnlineApplication?.guardianName],
+                              ["Guardian Relationship", selectedOnlineApplication?.guardianRelationship],
+                              ["Guardian Contact", selectedOnlineApplication?.guardianContactNo],
+                              ["Guardian Email", selectedOnlineApplication?.guardianEmail],
+                            ].map(([label, value]) => (
+                              <div key={label} className="bg-white/80 border border-blue-100 rounded-lg p-2">
+                                <span className="block text-[9px] uppercase font-mono text-stone-400">
+                                  {label}
+                                </span>
+                                <span className="block text-[11px] font-semibold text-stone-800 break-words">
+                                  {value || "N/A"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {((selectedEnrollment?.missingFields ?? selectedOnlineApplication?.missingFields ?? []).length > 0) && (
+                            <div>
+                              <span className="block text-[9px] uppercase font-mono text-amber-700 mb-1">
+                                Missing Fields
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {(selectedEnrollment?.missingFields ?? selectedOnlineApplication?.missingFields ?? []).map((field) => (
+                                  <span key={field} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                    {field}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {!isFeesPaid && (
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-amber-800 text-[10.5px]">

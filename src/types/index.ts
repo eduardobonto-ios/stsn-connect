@@ -38,6 +38,8 @@ export interface Student {
   schoolId?: SchoolId;
   studentNo: string;
   lrn?: string;
+  createdVia?: "erp" | "online" | "import";
+  sourceMetadata?: Record<string, unknown>;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -166,6 +168,50 @@ export interface Enrollment {
   submittedAt: string;
   subjectCodes: string[];
   assessmentId?: string;
+  enrollmentSource?: "ERP" | "Online" | "Walk-in" | "Import";
+  isOnlineEnrollment?: boolean;
+  onlineApplicationId?: string;
+  completionStatus?: "Complete" | "Incomplete";
+  missingFields?: string[];
+  sourceMetadata?: Record<string, unknown>;
+}
+
+export interface OnlineEnrollmentApplication {
+  id: string;
+  referenceNo: string;
+  studentId?: string;
+  enrollmentId?: string;
+  enrollmentType: string;
+  lrn?: string;
+  schoolYear: string;
+  semester?: string;
+  gradeLevelApplyingFor?: string;
+  strandOrTrack?: string;
+  previousSchool?: string;
+  previousSchoolAddress?: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  birthDate?: string;
+  gender?: string;
+  email?: string;
+  contactNo?: string;
+  completeAddress?: string;
+  barangay?: string;
+  cityMunicipality?: string;
+  province?: string;
+  zipCode?: string;
+  guardianName?: string;
+  guardianRelationship?: string;
+  guardianContactNo?: string;
+  guardianEmail?: string;
+  guardianAddress?: string;
+  status: "Pending Registrar Review" | "For Completion" | "Accepted" | "Rejected" | "Cancelled";
+  completionStatus: "Complete" | "Incomplete";
+  missingFields: string[];
+  submittedFrom: string;
+  submittedAt: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface AssessmentFee {
