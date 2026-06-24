@@ -16,7 +16,8 @@ export type UserRole =
   | "EMPLOYEE"
   | "CASHIER"
   | "GUIDANCE"
-  | "NURSE";
+  | "NURSE"
+  | "PAYROLL";
 
 export type SchoolId = "STSN" | "CDSTA";
 
@@ -35,6 +36,7 @@ export interface Student {
   id: string;
   schoolId?: SchoolId;
   studentNo: string;
+  lrn?: string;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -205,6 +207,83 @@ export interface StudentAssessment {
   approvedBy?: string;
   approvedDate?: string;
   auditTrail?: AuditEntry[];
+}
+
+// ============================================================
+// REGISTRAR IMPORT - Student masterlist staging/profile support
+// ============================================================
+export interface StudentRegistrarProfile {
+  id: string;
+  studentId: string;
+  lrn?: string;
+  nameExtension?: string;
+  studentStatus?: string;
+  academicStage?: "Preschool" | "Elementary" | "Junior High School" | "Senior High School" | string;
+  strand?: string;
+  escQvrNo?: string;
+  voucherStatus?: string;
+  admissionSlipStatus?: string;
+  importEnrollmentMarker?: string;
+  preferredModeOfPayment?: string;
+  commentsInquiries?: string;
+  confirmationStatus?: string;
+  discountDescription?: string;
+  discountAmount?: number;
+  reservationAmount?: number;
+  accountingModeOfPayment?: string;
+  accountingOrDate?: string;
+  accountingOrNumber?: string;
+  assessedBy?: string;
+  previousSchool?: string;
+  referralSource?: string;
+  sourceImportBatchId?: string;
+  sourceSheetRow?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RegistrarImportBatch {
+  id: string;
+  schoolId?: string;
+  schoolYear: string;
+  academicUnit: AcademicUnit;
+  importType: string;
+  sourceFileName: string;
+  sourceSheetName: string;
+  headerRow: number;
+  dataStartRow: number;
+  status: "draft" | "validated" | "committing" | "committed" | "failed" | "cancelled";
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+  errorRows: number;
+  duplicateRows: number;
+  uploadedBy?: string;
+  uploadedAt?: string;
+  committedBy?: string;
+  committedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RegistrarImportPreviewRow {
+  id?: string;
+  batchId?: string;
+  sheetRowNumber: number;
+  rowHash?: string;
+  lrn?: string;
+  fullName: string;
+  gender?: string;
+  birthday?: string;
+  yearLevel?: string;
+  trackOrCourse?: string;
+  academicStage?: string;
+  studentStatus?: string;
+  importStatus: "parsed" | "valid" | "warning" | "error" | "duplicate" | "skipped" | "committed";
+  errors: string[];
+  warnings: string[];
+  matchedStudentId?: string;
+  committedStudentId?: string;
 }
 
 export interface Payment {

@@ -258,6 +258,7 @@ export interface StudentsRow {
   school_id: string | null;
   user_id: string | null;
   student_no: string;
+  lrn: string | null;
   first_name: string;
   last_name: string;
   middle_name: string | null;
@@ -287,6 +288,7 @@ export interface StudentsInsert {
   school_id?: string | null;
   user_id?: string | null;
   student_no: string;
+  lrn?: string | null;
   first_name: string;
   last_name: string;
   middle_name?: string | null;
@@ -316,6 +318,7 @@ export interface StudentsUpdate {
   school_id?: string | null;
   user_id?: string | null;
   student_no?: string;
+  lrn?: string | null;
   first_name?: string;
   last_name?: string;
   middle_name?: string | null;
@@ -336,6 +339,210 @@ export interface StudentsUpdate {
   track_or_course?: string | null;
   section?: string | null;
   enrollment_status?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StudentRegistrarProfilesRow {
+  id: string;
+  student_id: string;
+  lrn: string | null;
+  name_extension: string | null;
+  student_status: string | null;
+  academic_stage: string | null;
+  strand: string | null;
+  esc_qvr_no: string | null;
+  voucher_status: string | null;
+  admission_slip_status: string | null;
+  import_enrollment_marker: string | null;
+  preferred_mode_of_payment: string | null;
+  comments_inquiries: string | null;
+  confirmation_status: string | null;
+  discount_description: string | null;
+  discount_amount: number | null;
+  reservation_amount: number | null;
+  accounting_mode_of_payment: string | null;
+  accounting_or_date: string | null;
+  accounting_or_number: string | null;
+  assessed_by: string | null;
+  previous_school: string | null;
+  referral_source: string | null;
+  source_import_batch_id: string | null;
+  source_sheet_row: number | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface StudentRegistrarProfilesInsert {
+  id?: string;
+  student_id: string;
+  lrn?: string | null;
+  name_extension?: string | null;
+  student_status?: string | null;
+  academic_stage?: string | null;
+  strand?: string | null;
+  esc_qvr_no?: string | null;
+  voucher_status?: string | null;
+  admission_slip_status?: string | null;
+  import_enrollment_marker?: string | null;
+  preferred_mode_of_payment?: string | null;
+  comments_inquiries?: string | null;
+  confirmation_status?: string | null;
+  discount_description?: string | null;
+  discount_amount?: number | null;
+  reservation_amount?: number | null;
+  accounting_mode_of_payment?: string | null;
+  accounting_or_date?: string | null;
+  accounting_or_number?: string | null;
+  assessed_by?: string | null;
+  previous_school?: string | null;
+  referral_source?: string | null;
+  source_import_batch_id?: string | null;
+  source_sheet_row?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface StudentRegistrarProfilesUpdate {
+  id?: string;
+  student_id?: string;
+  lrn?: string | null;
+  name_extension?: string | null;
+  student_status?: string | null;
+  academic_stage?: string | null;
+  strand?: string | null;
+  esc_qvr_no?: string | null;
+  voucher_status?: string | null;
+  admission_slip_status?: string | null;
+  import_enrollment_marker?: string | null;
+  preferred_mode_of_payment?: string | null;
+  comments_inquiries?: string | null;
+  confirmation_status?: string | null;
+  discount_description?: string | null;
+  discount_amount?: number | null;
+  reservation_amount?: number | null;
+  accounting_mode_of_payment?: string | null;
+  accounting_or_date?: string | null;
+  accounting_or_number?: string | null;
+  assessed_by?: string | null;
+  previous_school?: string | null;
+  referral_source?: string | null;
+  source_import_batch_id?: string | null;
+  source_sheet_row?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RegistrarImportBatchesRow {
+  id: string;
+  school_id: string | null;
+  school_year: string;
+  academic_unit: string;
+  import_type: string;
+  source_file_name: string;
+  source_sheet_name: string;
+  header_row: number;
+  data_start_row: number;
+  status: string;
+  total_rows: number;
+  valid_rows: number;
+  warning_rows: number;
+  error_rows: number;
+  duplicate_rows: number;
+  uploaded_by: string | null;
+  uploaded_at: string;
+  committed_by: string | null;
+  committed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface RegistrarImportBatchesInsert {
+  id?: string;
+  school_id?: string | null;
+  school_year: string;
+  academic_unit?: string;
+  import_type?: string;
+  source_file_name: string;
+  source_sheet_name?: string;
+  header_row?: number;
+  data_start_row?: number;
+  status?: string;
+  total_rows?: number;
+  valid_rows?: number;
+  warning_rows?: number;
+  error_rows?: number;
+  duplicate_rows?: number;
+  uploaded_by?: string | null;
+  uploaded_at?: string;
+  committed_by?: string | null;
+  committed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface RegistrarImportBatchesUpdate {
+  id?: string;
+  school_id?: string | null;
+  school_year?: string;
+  academic_unit?: string;
+  import_type?: string;
+  source_file_name?: string;
+  source_sheet_name?: string;
+  header_row?: number;
+  data_start_row?: number;
+  status?: string;
+  total_rows?: number;
+  valid_rows?: number;
+  warning_rows?: number;
+  error_rows?: number;
+  duplicate_rows?: number;
+  uploaded_by?: string | null;
+  uploaded_at?: string;
+  committed_by?: string | null;
+  committed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RegistrarImportRowsRow {
+  id: string;
+  batch_id: string;
+  sheet_row_number: number;
+  row_hash: string | null;
+  raw_data: Json;
+  normalized_data: Json;
+  validation_errors: Json;
+  validation_warnings: Json;
+  import_status: string;
+  matched_student_id: string | null;
+  committed_student_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface RegistrarImportRowsInsert {
+  id?: string;
+  batch_id: string;
+  sheet_row_number: number;
+  row_hash?: string | null;
+  raw_data?: Json;
+  normalized_data?: Json;
+  validation_errors?: Json;
+  validation_warnings?: Json;
+  import_status?: string;
+  matched_student_id?: string | null;
+  committed_student_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface RegistrarImportRowsUpdate {
+  id?: string;
+  batch_id?: string;
+  sheet_row_number?: number;
+  row_hash?: string | null;
+  raw_data?: Json;
+  normalized_data?: Json;
+  validation_errors?: Json;
+  validation_warnings?: Json;
+  import_status?: string;
+  matched_student_id?: string | null;
+  committed_student_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -1967,6 +2174,9 @@ export interface Database {
       subjects: { Row: SubjectsRow; Insert: SubjectsInsert; Update: SubjectsUpdate };
       teachers: { Row: TeachersRow; Insert: TeachersInsert; Update: TeachersUpdate };
       students: { Row: StudentsRow; Insert: StudentsInsert; Update: StudentsUpdate };
+      student_registrar_profiles: { Row: StudentRegistrarProfilesRow; Insert: StudentRegistrarProfilesInsert; Update: StudentRegistrarProfilesUpdate };
+      registrar_import_batches: { Row: RegistrarImportBatchesRow; Insert: RegistrarImportBatchesInsert; Update: RegistrarImportBatchesUpdate };
+      registrar_import_rows: { Row: RegistrarImportRowsRow; Insert: RegistrarImportRowsInsert; Update: RegistrarImportRowsUpdate };
       employees: { Row: EmployeesRow; Insert: EmployeesInsert; Update: EmployeesUpdate };
       curriculums: { Row: CurriculumsRow; Insert: CurriculumsInsert; Update: CurriculumsUpdate };
       curriculum_subjects: { Row: CurriculumSubjectsRow; Insert: CurriculumSubjectsInsert; Update: CurriculumSubjectsUpdate };

@@ -27,6 +27,7 @@ export const ROLES: RoleDefinition[] = [
   { id: "hr", label: "HR", description: "Manages employee records and payroll" },
   { id: "guidance", label: "Guidance", description: "Accesses the Guidance Office module only" },
   { id: "nurse", label: "Nurse", description: "Accesses the Clinic module only" },
+  { id: "payroll", label: "Payroll", description: "Manages payroll runs, salary payouts, taxes and benefits" },
 ];
 
 export { toCanonicalRole, ROLE_TO_CANONICAL } from "../types/role.types";

@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useSTSNStore } from "../../../services/store";
-import { Student, Enrollment, Subject, Requirement } from "../../../types";
+import { Student, Enrollment, Subject, Requirement, SetupItem } from "../../../types";
 import {
   FileCheck,
   CheckCircle,
@@ -70,6 +70,8 @@ import {
   ASSESSMENT_APPROVAL_STATUS_CONFIG,
   DEFAULT_ASSESSMENT_APPROVAL_STATUS,
 } from "../../../config/accounting.config";
+import type { RegistrarImportPreviewRow, RegistrarImportSummary } from "../types/studentImport.types";
+import { parseRegistrarStudentCsvTemplate } from "../utils/studentImportParser";
 
 const PAYMENT_TERMS = [
   "Cash Basis",
@@ -144,6 +146,49 @@ function getDocumentPreviewKind(fileName: string): DocumentPreviewKind {
   return "unsupported";
 }
 
+const BASIC_ED_PROGRAM_CATEGORY_ORDER = [
+  "Preschool",
+  "Primary",
+  "Intermediate",
+  "Junior High School",
+  "Senior High School",
+] as const;
+
+const DEFAULT_BE_PROGRAM_CATEGORIES: Record<string, string[]> = {
+  Preschool: ["Kinder 1", "Kinder 2"],
+  Primary: ["Grade 1", "Grade 2", "Grade 3"],
+  Intermediate: ["Grade 4", "Grade 5", "Grade 6"],
+  "Junior High School": ["Grade 7", "Grade 8", "Grade 9", "Grade 10"],
+  "Senior High School": ["Grade 11", "Grade 12"],
+};
+
+function getGradeNumber(levelName: string): number | null {
+  const match = levelName.match(/^Grade\s+(\d+)$/i);
+  return match ? Number(match[1]) : null;
+}
+
+function getBasicEdProgramCategory(level: SetupItem): string | null {
+  const name = String(level.name ?? "");
+  const code = String(level.code ?? "").toUpperCase();
+  const academicLevel = String(level.academicLevel ?? "").toLowerCase();
+  const gradeNumber = getGradeNumber(name);
+
+  if (academicLevel.includes("college")) return null;
+  if (academicLevel.includes("senior") || code === "G11" || code === "G12" || (gradeNumber !== null && gradeNumber >= 11)) {
+    return "Senior High School";
+  }
+  if (academicLevel.includes("junior") || (gradeNumber !== null && gradeNumber >= 7 && gradeNumber <= 10)) {
+    return "Junior High School";
+  }
+  if (academicLevel.includes("preschool") || /^(nursery|kinder)/i.test(name)) {
+    return "Preschool";
+  }
+  if (gradeNumber !== null && gradeNumber >= 1 && gradeNumber <= 3) return "Primary";
+  if (gradeNumber !== null && gradeNumber >= 4 && gradeNumber <= 6) return "Intermediate";
+  if (academicLevel.includes("elementary")) return "Primary";
+  return null;
+}
+
 export default function RegistrarModule() {
   const {
     students,
@@ -176,37 +221,33 @@ export default function RegistrarModule() {
     labFeeAdjustments,
     setupData,
   } = useSTSNStore();
-  const { toast, prompt } = useAppDialog();
+  const { toast, confirm, prompt } = useAppDialog();
 
   // Basic-Ed cascading dropdown data — derived from setupData.year_levels (grouped
   // by level range, since level ranges map 1:1 to the BE program categories) and
   // courses (Basic Education strands/department codes).
   const BE_PROGRAM_CATEGORIES: Record<string, string[]> = useMemo(() => {
     const yearLevels = setupData.year_levels ?? [];
-    const buckets: [string, [number, number]][] = [
-      ["Preschool", [0, 2]],
-      ["Primary", [3, 5]],
-      ["Intermediate", [6, 8]],
-      ["Junior High School", [11, 13]],
-      ["Senior High School", [14, 14]],
-    ];
-    const result: Record<string, string[]> = {};
-    for (const [bucketName, [lo, hi]] of buckets) {
-      result[bucketName] = yearLevels
-        .filter((yl) => typeof yl.level === "number" && yl.level >= lo && yl.level <= hi)
+    const result: Record<string, string[]> = { ...DEFAULT_BE_PROGRAM_CATEGORIES };
+    for (const category of BASIC_ED_PROGRAM_CATEGORY_ORDER) {
+      const levels = yearLevels
+        .filter((yl) => getBasicEdProgramCategory(yl) === category)
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-        .map((yl) => yl.name);
+        .map((yl) => yl.name)
+        .filter(Boolean);
+      if (levels.length > 0) result[category] = levels;
     }
     return result;
   }, [setupData.year_levels]);
 
   const BE_STRANDS_BY_LEVEL: Record<string, string[]> = useMemo(() => {
     const shsStrands = courses.filter((c) => c.department === "Basic Education" && c.durationYears === 2).map((c) => c.code);
+    const seniorHighStrands = shsStrands.length > 0 ? shsStrands : ["STEM", "HUMSS", "ABM", "GAS"];
     const result: Record<string, string[]> = {};
     for (const level of BE_PROGRAM_CATEGORIES["Preschool"] ?? []) result[level] = ["Preschool"];
     for (const level of [...(BE_PROGRAM_CATEGORIES["Primary"] ?? []), ...(BE_PROGRAM_CATEGORIES["Intermediate"] ?? [])]) result[level] = ["Elementary"];
     for (const level of BE_PROGRAM_CATEGORIES["Junior High School"] ?? []) result[level] = ["Junior High"];
-    for (const level of BE_PROGRAM_CATEGORIES["Senior High School"] ?? []) result[level] = shsStrands;
+    for (const level of BE_PROGRAM_CATEGORIES["Senior High School"] ?? []) result[level] = seniorHighStrands;
     return result;
   }, [BE_PROGRAM_CATEGORIES, courses]);
 
@@ -270,8 +311,10 @@ export default function RegistrarModule() {
   );
   const [dragActive, setDragActive] = useState(false);
   const [mockFileName, setMockFileName] = useState<string | null>(null);
-  const [mockRowsPreview, setMockRowsPreview] = useState<any[]>([]);
+  const [mockRowsPreview, setMockRowsPreview] = useState<RegistrarImportPreviewRow[]>([]);
+  const [importSummary, setImportSummary] = useState<RegistrarImportSummary | null>(null);
   const [bulkImportSuccess, setBulkImportSuccess] = useState("");
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // Document verification modal
   const [verifyModal, setVerifyModal] = useState<{
@@ -724,83 +767,179 @@ export default function RegistrarModule() {
     ];
   };
 
-  const mockBulkDrop = () => {
-    setMockFileName(
-      importType === "masterlist"
-        ? "DepEd_Learners_SF9_SHS_ABM_BatchA.xlsx"
-        : "Advisory_Class_Roster_Sectioning.xlsx",
-    );
-    if (importType === "masterlist") {
-      setMockRowsPreview([
-        {
-          colA: "10281940173",
-          colB: "Reyes",
-          colC: "Cesar Daniel",
-          colD: "Gomez",
-          colE: schoolContext === "BASIC_ED" ? "Basic Education" : "College",
-          colF: schoolContext === "BASIC_ED" ? "STEM" : "BSIT",
-          colG: schoolContext === "BASIC_ED" ? "Grade 11" : "1st Year",
-          colH: "Novaliches, QC",
-          colI: "Elena Reyes",
-          colJ: "+639194918204",
-        },
-        {
-          colA: "30294029184",
-          colB: "Sy",
-          colC: "Jonathan",
-          colD: "Co",
-          colE: schoolContext === "BASIC_ED" ? "Basic Education" : "College",
-          colF: schoolContext === "BASIC_ED" ? "ABM" : "BSCS",
-          colG: schoolContext === "BASIC_ED" ? "Grade 12" : "1st Year",
-          colH: "Binondo, Manila",
-          colI: "Robert Sy",
-          colJ: "+639151234567",
-        },
-        {
-          colA: "20148591820",
-          colB: "Salvador",
-          colC: "Marcus",
-          colD: "Reyes",
-          colE: schoolContext === "BASIC_ED" ? "Basic Education" : "College",
-          colF: schoolContext === "BASIC_ED" ? "HUMSS" : "BSBA",
-          colG: schoolContext === "BASIC_ED" ? "Grade 11" : "2nd Year",
-          colH: "Caloocan City",
-          colI: "Sonia Salvador",
-          colJ: "+639228889911",
-        },
-      ]);
-    } else {
-      setMockRowsPreview([
-        {
-          lrn: "10281940173",
-          name: "Reyes, Cesar Daniel",
-          section: schoolContext === "BASIC_ED" ? "St. Thomas" : "IT101",
-          adviser:
-            schoolContext === "BASIC_ED"
-              ? "Mrs. Beatriz Cruz"
-              : "Dr. Jose Mercado",
-        },
-        {
-          lrn: "30294029184",
-          name: "Sy, Jonathan",
-          section: schoolContext === "BASIC_ED" ? "St. Catherine" : "BA201",
-          adviser:
-            schoolContext === "BASIC_ED"
-              ? "Ms. Elena Soriano"
-              : "Prof. Elena Santos",
-        },
-        {
-          lrn: "20148591820",
-          name: "Salvador, Marcus",
-          section: schoolContext === "BASIC_ED" ? "St. Albert" : "CS101",
-          adviser:
-            schoolContext === "BASIC_ED"
-              ? "Mr. Roel Santos"
-              : "Dr. Maria Reyes",
-        },
-      ]);
-    }
+  const resetImportPreview = () => {
+    setMockFileName(null);
+    setMockRowsPreview([]);
+    setImportSummary(null);
+    setBulkImportSuccess("");
   };
+
+  const handleImportFile = async (file: File) => {
+    resetImportPreview();
+    if (importType !== "masterlist") {
+      toast("Roster assignment imports are not implemented yet.");
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      toast("Please use the CSV template for this first import preview. XLSX parsing is a later step.");
+      return;
+    }
+
+    const text = await file.text();
+    const parsed = parseRegistrarStudentCsvTemplate(text);
+    const existingLrns = new Set(contextStudents.map((student) => student.lrn?.trim()).filter(Boolean));
+    const rows = parsed.rows.map((row) => {
+      if (!row.lrn || !existingLrns.has(row.lrn.trim()) || row.importStatus === "duplicate") return row;
+      return {
+        ...row,
+        importStatus: "duplicate" as const,
+        errors: [...row.errors, "LRN already exists in student directory"],
+      };
+    });
+    setMockFileName(file.name);
+    setMockRowsPreview(rows);
+    setImportSummary(summarizeImportRows(rows));
+  };
+
+  const getImportStatusClass = (status: RegistrarImportPreviewRow["importStatus"]) => {
+    if (status === "valid") return "bg-green-50 text-green-700 border-green-200";
+    if (status === "warning") return "bg-amber-50 text-amber-700 border-amber-200";
+    if (status === "duplicate") return "bg-purple-50 text-purple-700 border-purple-200";
+    if (status === "error") return "bg-red-50 text-red-700 border-red-200";
+    return "bg-stone-50 text-stone-600 border-stone-200";
+  };
+
+  const summarizeImportRows = (rows: RegistrarImportPreviewRow[]): RegistrarImportSummary => ({
+    totalRows: rows.length,
+    validRows: rows.filter((row) => row.importStatus === "valid").length,
+    warningRows: rows.filter((row) => row.importStatus === "warning").length,
+    errorRows: rows.filter((row) => row.importStatus === "error").length,
+    duplicateRows: rows.filter((row) => row.importStatus === "duplicate").length,
+  });
+
+  const escapeCsvValue = (value: string | number | undefined): string => {
+    const text = String(value ?? "");
+    if (!/[",\r\n]/.test(text)) return text;
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const buildImportRowsCsv = (rows: RegistrarImportPreviewRow[]): string => {
+    const headers = [
+      "Row No.",
+      "LRN",
+      "Student Name",
+      "Gender",
+      "Birthdate",
+      "Year Level",
+      "Strand/Track",
+      "Stage",
+      "Status",
+      "Errors",
+      "Warnings",
+    ];
+    const csvRows = rows.map((row) =>
+      [
+        row.sheetRowNumber,
+        row.lrn,
+        row.fullName,
+        row.gender,
+        row.birthday,
+        row.yearLevel,
+        row.trackOrCourse,
+        row.academicStage,
+        row.importStatus,
+        row.errors.join("; "),
+        row.warnings.join("; "),
+      ].map(escapeCsvValue).join(","),
+    );
+    return [headers.join(","), ...csvRows].join("\r\n");
+  };
+
+  const downloadImportRows = (rows: RegistrarImportPreviewRow[], fileName: string) => {
+    if (rows.length === 0) {
+      toast("No rows available to download.");
+      return;
+    }
+    const blob = new Blob([buildImportRowsCsv(rows)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCommitImportRows = async () => {
+    const rowsToCommit = mockRowsPreview.filter((row) => row.importStatus === "valid" || row.importStatus === "warning");
+    const excludedRows = mockRowsPreview.filter((row) => row.importStatus === "error" || row.importStatus === "duplicate");
+    if (rowsToCommit.length === 0) {
+      toast("No valid or warning rows are available to upload.", { variant: "warning" });
+      return;
+    }
+
+    const confirmed = await confirm(
+      `Upload ${rowsToCommit.length} student record(s)? ${excludedRows.length} error/duplicate row(s) will be excluded.`,
+      {
+        title: "Commit Registrar Import",
+        variant: "warning",
+        confirmText: "Upload Valid Rows",
+        cancelText: "Review Again",
+      },
+    );
+    if (!confirmed) return;
+
+    const committedRows = new Set<RegistrarImportPreviewRow>();
+    rowsToCommit.forEach((row) => {
+      addStudent({
+        schoolId: activeSchool === "STSN" || activeSchool === "CDSTA" ? activeSchool : currentUser?.schoolId,
+        lrn: row.lrn,
+        firstName: row.firstName ?? "",
+        lastName: row.lastName ?? "",
+        middleName: row.middleName ?? "",
+        gender: row.gender === "Female" ? "Female" : "Male",
+        civilStatus: "Single",
+        religion: "",
+        nationality: "Filipino",
+        birthday: row.birthday ?? "",
+        birthplace: "",
+        email: "",
+        contactNo: "",
+        address: "",
+        province: "",
+        municipality: "",
+        zipCode: "",
+        department: "Basic Education",
+        yearLevel: row.yearLevel ?? "",
+        trackOrCourse: row.trackOrCourse ?? "",
+        section: "",
+        enrollmentStatus: "Pending",
+      });
+      committedRows.add(row);
+    });
+
+    const nextRows = mockRowsPreview.map((row) =>
+      committedRows.has(row) ? { ...row, importStatus: "committed" as const } : row,
+    );
+    setMockRowsPreview(nextRows);
+    setImportSummary(summarizeImportRows(nextRows));
+    setBulkImportSuccess(
+      `Uploaded ${rowsToCommit.length} student record(s). ${excludedRows.length} error/duplicate row(s) were excluded.`,
+    );
+    toast(`Uploaded ${rowsToCommit.length} student record(s).`, { variant: "success" });
+  };
+
+  const importErrorRows = useMemo(
+    () => mockRowsPreview.filter((row) => row.importStatus === "error"),
+    [mockRowsPreview],
+  );
+  const importDuplicateRows = useMemo(
+    () => mockRowsPreview.filter((row) => row.importStatus === "duplicate"),
+    [mockRowsPreview],
+  );
+  const importCommittableRows = useMemo(
+    () => mockRowsPreview.filter((row) => row.importStatus === "valid" || row.importStatus === "warning"),
+    [mockRowsPreview],
+  );
 
   const schoolLabel =
     schoolContext === "BASIC_ED"
@@ -977,9 +1116,7 @@ export default function RegistrarModule() {
         <button
           onClick={() => {
             setActiveSubTab("bulk_import");
-            setMockFileName(null);
-            setMockRowsPreview([]);
-            setBulkImportSuccess("");
+            resetImportPreview();
           }}
           className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${activeSubTab === "bulk_import" ? "btn-primary-gradient text-white shadow-sm" : "text-stone-500 hover:text-stone-800 hover:bg-stone-50"}`}
         >
@@ -2544,15 +2681,28 @@ export default function RegistrarModule() {
       {/* ===================== BULK IMPORT TAB ===================== */}
       {activeSubTab === "bulk_import" && (
         <div className="bg-white p-6 border border-stsn-beige rounded-xl shadow-sm space-y-6 animate-fade-in">
-          <div className="border-b border-stone-100 pb-4">
-            <h3 className="text-base font-display font-bold text-stone-900 flex items-center gap-2">
-              <FileSpreadsheet
-                className={`w-5 h-5 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`}
-              />
-              {schoolContext === "BASIC_ED"
-                ? "DepEd Learner Excel Upload Portal"
-                : "CHEd College Student Masterlist Upload"}
-            </h3>
+          <div className="border-b border-stone-100 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="text-base font-display font-bold text-stone-900 flex items-center gap-2">
+                <FileSpreadsheet
+                  className={`w-5 h-5 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`}
+                />
+                {schoolContext === "BASIC_ED"
+                  ? "DepEd Learner Excel Upload Portal"
+                  : "CHEd College Student Masterlist Upload"}
+              </h3>
+              <p className="text-[11px] text-stone-500 mt-1">
+                Use the official template so LRN, Grade 11/12 strand, guardian, requirement, and enrollment markers line up with staging.
+              </p>
+            </div>
+            <a
+              href="/templates/registrar-student-masterlist-template.csv"
+              download
+              className={`inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg border transition ${schoolContext === "BASIC_ED" ? "border-stsn-beige text-stsn-brown hover:bg-stsn-cream" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download CSV Template
+            </a>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2561,9 +2711,7 @@ export default function RegistrarModule() {
                 key={type}
                 onClick={() => {
                   setImportType(type);
-                  setMockFileName(null);
-                  setMockRowsPreview([]);
-                  setBulkImportSuccess("");
+                  resetImportPreview();
                 }}
                 className={`p-4 border rounded-xl cursor-pointer transition ${importType === type ? "card-gold-accent border-stsn-brown shadow-sm" : "border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-50/50"}`}
               >
@@ -2587,30 +2735,44 @@ export default function RegistrarModule() {
           </div>
 
           {!mockFileName ? (
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragActive(true);
-              }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragActive(false);
-                mockBulkDrop();
-              }}
-              onClick={mockBulkDrop}
-              className={`p-10 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition ${dragActive ? "border-stsn-gold bg-stsn-cream/30" : "border-stone-300 hover:border-stone-400"}`}
-            >
-              <UploadCloud
-                className={`w-12 h-12 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`}
+            <>
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.currentTarget.files?.[0];
+                  if (file) void handleImportFile(file);
+                  e.currentTarget.value = "";
+                }}
               />
-              <p className="text-stone-700 text-xs font-bold mt-3">
-                Drag & drop your Excel file here, or click to browse
-              </p>
-              <p className="text-stone-400 text-[10px] uppercase font-mono mt-1">
-                Conforming Excel format (.xlsx, .csv) up to 50MB
-              </p>
-            </div>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) void handleImportFile(file);
+                }}
+                onClick={() => importFileInputRef.current?.click()}
+                className={`p-10 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition ${dragActive ? "border-stsn-gold bg-stsn-cream/30" : "border-stone-300 hover:border-stone-400"}`}
+              >
+                <UploadCloud
+                  className={`w-12 h-12 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`}
+                />
+                <p className="text-stone-700 text-xs font-bold mt-3">
+                  Drag & drop your completed CSV template here, or click to browse
+                </p>
+                <p className="text-stone-400 text-[10px] uppercase font-mono mt-1">
+                  CSV template preview only. XLSX parsing will be added in the next import phase.
+                </p>
+              </div>
+            </>
           ) : (
             <div className="space-y-4 animate-fade-in">
               <div className="flex justify-between items-center bg-stone-50 p-3 rounded-lg border border-stone-200">
@@ -2626,16 +2788,51 @@ export default function RegistrarModule() {
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    setMockFileName(null);
-                    setMockRowsPreview([]);
-                    setBulkImportSuccess("");
-                  }}
+                  onClick={resetImportPreview}
                   className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
                 >
                   Change File
                 </button>
               </div>
+
+              {importSummary && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {[
+                      ["Total Rows", importSummary.totalRows, "text-stone-700"],
+                      ["Ready", importSummary.validRows, "text-green-700"],
+                      ["Warnings", importSummary.warningRows, "text-amber-700"],
+                      ["Errors", importSummary.errorRows, "text-red-700"],
+                      ["Duplicate LRN", importSummary.duplicateRows, "text-purple-700"],
+                    ].map(([label, value, color]) => (
+                      <div key={label} className="rounded-lg border border-stone-200 bg-stone-50 p-3">
+                        <p className="text-[9px] uppercase font-mono text-stone-400">{label}</p>
+                        <p className={`text-lg font-display font-bold ${color}`}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => downloadImportRows(importErrorRows, "registrar-import-error-rows.csv")}
+                      disabled={importErrorRows.length === 0}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-[11px] font-bold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download Error Rows
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadImportRows(importDuplicateRows, "registrar-import-duplicate-rows.csv")}
+                      disabled={importDuplicateRows.length === 0}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-purple-200 px-3 py-2 text-[11px] font-bold text-purple-700 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download Duplicate Rows
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="overflow-x-auto border border-stone-200 rounded-lg max-h-[290px]">
                 <table className="w-full text-left text-xs">
@@ -2646,15 +2843,15 @@ export default function RegistrarModule() {
                       {importType === "masterlist"
                         ? [
                             "LRN",
-                            "Surname",
-                            "First Name",
-                            "Middle",
-                            "Dept",
+                            "Student Name",
+                            "Gender",
+                            "Birthdate",
+                            "Stage",
                             "Strand/Course",
                             "Year Level",
-                            "Address",
-                            "Guardian",
-                            "Contact",
+                            "Status",
+                            "Errors",
+                            "Warnings",
                             "Cols K–AQ",
                           ].map((h) => (
                             <th
@@ -2687,21 +2884,23 @@ export default function RegistrarModule() {
                             <td
                               className={`p-2 font-bold font-mono text-[10.5px] ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}
                             >
-                              {row.colA}
+                              {row.lrn || "No LRN"}
                             </td>
-                            <td className="p-2 font-bold">{row.colB}</td>
-                            <td className="p-2">{row.colC}</td>
-                            <td className="p-2 text-stone-400">{row.colD}</td>
+                            <td className="p-2 font-bold">{row.fullName || "Unnamed row"}</td>
+                            <td className="p-2">{row.gender || "-"}</td>
+                            <td className="p-2 text-stone-400">{row.birthday || "-"}</td>
                             <td className="p-2 font-mono text-[10px]">
-                              {row.colE}
+                              {row.academicStage || "-"}
                             </td>
-                            <td className="p-2 font-bold">{row.colF}</td>
-                            <td className="p-2">{row.colG}</td>
+                            <td className="p-2 font-bold">{row.trackOrCourse || "-"}</td>
+                            <td className="p-2">{row.yearLevel || "-"}</td>
                             <td className="p-2 text-stone-500 truncate max-w-[100px]">
-                              {row.colH}
+                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${getImportStatusClass(row.importStatus)}`}>
+                                {row.importStatus}
+                              </span>
                             </td>
-                            <td className="p-2 text-stone-500">{row.colI}</td>
-                            <td className="p-2 font-mono">{row.colJ}</td>
+                            <td className="p-2 text-stone-500">{row.errors.join("; ") || "-"}</td>
+                            <td className="p-2 font-mono">{row.warnings.join("; ") || "-"}</td>
                             <td className="p-2 text-stone-300 italic font-mono text-[10px]">
                               Mapped tags
                             </td>
@@ -2714,11 +2913,11 @@ export default function RegistrarModule() {
                             >
                               {row.lrn}
                             </td>
-                            <td className="p-2 font-bold">{row.name}</td>
+                            <td className="p-2 font-bold">{row.fullName}</td>
                             <td className="p-2 font-mono font-bold text-green-700">
-                              {row.section}
+                              {row.yearLevel || "-"}
                             </td>
-                            <td className="p-2">{row.adviser}</td>
+                            <td className="p-2">{row.trackOrCourse || "-"}</td>
                             <td className="p-2 text-green-700 font-mono text-[10px]">
                               Ready (Matched)
                             </td>
@@ -2731,22 +2930,20 @@ export default function RegistrarModule() {
               <div className="bg-stsn-cream p-4 border border-stsn-beige rounded-xl flex justify-between items-center">
                 <div className="text-xs text-stone-600">
                   <strong className="text-stsn-brown uppercase font-mono text-[10px] block">
-                    Academic Integrity Check
+                    Upload Validation
                   </strong>
                   <span className="text-[11px]">
-                    Committing will register {mockRowsPreview.length} students
-                    in "Pending" status.
+                    {importCommittableRows.length} valid/warning row(s) will upload.
+                    {importErrorRows.length + importDuplicateRows.length} error/duplicate row(s) will be excluded.
                   </span>
                 </div>
                 <button
-                  onClick={() =>
-                    setBulkImportSuccess(
-                      `Success: ${mockRowsPreview.length} students batch-registered under ${schoolLabel}.`,
-                    )
-                  }
-                  className={`text-white text-xs font-bold px-4 py-2.5 rounded-lg inline-flex items-center gap-1.5 cursor-pointer shadow-md ${schoolContext === "BASIC_ED" ? "btn-primary-gradient" : "bg-blue-600 hover:bg-blue-700"}`}
+                  type="button"
+                  onClick={() => void handleCommitImportRows()}
+                  disabled={importCommittableRows.length === 0}
+                  className={`text-white text-xs font-bold px-4 py-2.5 rounded-lg inline-flex items-center gap-1.5 shadow-md ${importCommittableRows.length === 0 ? "cursor-not-allowed bg-stone-400" : schoolContext === "BASIC_ED" ? "btn-primary-gradient cursor-pointer" : "bg-blue-600 hover:bg-blue-700 cursor-pointer"}`}
                 >
-                  <Cpu className="w-4 h-4" /> Commit & Authorize
+                  <Cpu className="w-4 h-4" /> Commit Valid Rows
                 </button>
               </div>
 

@@ -196,9 +196,13 @@ function CardPagination({
   );
 }
 
-export default function CashierModule() {
+export default function CashierModule({ subPage, onSubPageChange }: { subPage?: string; onSubPageChange?: (page: string) => void }) {
   const { students, assessments, payments, currentUser, activeSchool, academicUnit, addPayment, bookPackages, setupData } = useSTSNStore();
-  const [activeTab, setActiveTab] = useState<CashierTab>("queue");
+  const [activeTab, setActiveTab] = useState<CashierTab>((subPage as CashierTab) ?? "queue");
+
+  useEffect(() => {
+    if (subPage && subPage !== activeTab) setActiveTab(subPage as CashierTab);
+  }, [subPage]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReportId, setSelectedReportId] = useState<CashierReportId>("daily-collection");
   const [reportDateFrom, setReportDateFrom] = useState("");
@@ -514,21 +518,21 @@ export default function CashierModule() {
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
         <div className="flex border-b border-stone-100">
           <button
-            onClick={() => setActiveTab("queue")}
+            onClick={() => { setActiveTab("queue"); onSubPageChange?.("queue"); }}
             className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === "queue" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
           >
             <Receipt className="w-4 h-4" />
             Payment Queue
           </button>
           <button
-            onClick={() => setActiveTab("history")}
+            onClick={() => { setActiveTab("history"); onSubPageChange?.("history"); }}
             className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === "history" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
           >
             <History className="w-4 h-4" />
             Collection History
           </button>
           <button
-            onClick={() => setActiveTab("reports")}
+            onClick={() => { setActiveTab("reports"); onSubPageChange?.("reports"); }}
             className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === "reports" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
           >
             <BarChart3 className="w-4 h-4" />

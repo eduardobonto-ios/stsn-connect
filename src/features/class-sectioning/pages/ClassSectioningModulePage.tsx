@@ -111,7 +111,14 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
   const selectedYearLevelData = (setupData.year_levels ?? []).find((yl) => yl.name === yearLevel);
   const academicLevelStr = (selectedYearLevelData?.academicLevel || "").toLowerCase().trim();
   const levelNum = Number(selectedYearLevelData?.level) || 0;
-  const isSeniorHigh = academicLevelStr.includes("senior") || academicLevelStr === "shs" || levelNum === 11 || levelNum === 12;
+  const gradeNumber = Number(yearLevel.match(/^Grade\s+(\d+)$/i)?.[1] ?? 0);
+  const isSeniorHigh =
+    academicLevelStr.includes("senior") ||
+    academicLevelStr === "shs" ||
+    gradeNumber === 11 ||
+    gradeNumber === 12 ||
+    levelNum === 11 ||
+    levelNum === 12;
   const availableStrands = courses.filter(
     (c) => c.department === dept && (dept === "College" || (isSeniorHigh && c.durationYears === 2))
   );

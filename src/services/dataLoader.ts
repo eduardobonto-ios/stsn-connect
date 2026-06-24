@@ -132,7 +132,7 @@ export async function loadAllData(): Promise<LoadedData> {
   // ---- Students ----
   const { data: studentRows } = await supabase.from("students").select("*, schools(code)");
   const students: Student[] = (studentRows ?? []).map((s: any) => ({
-    id: s.id, schoolId: s.schools?.code, studentNo: s.student_no, firstName: s.first_name, lastName: s.last_name,
+    id: s.id, schoolId: s.schools?.code, studentNo: s.student_no, lrn: s.lrn, firstName: s.first_name, lastName: s.last_name,
     middleName: s.middle_name, gender: s.gender, civilStatus: s.civil_status, religion: s.religion,
     nationality: s.nationality, birthday: s.birthday, birthplace: s.birthplace, email: s.email,
     contactNo: s.contact_no, address: s.address, province: s.province, municipality: s.municipality,
