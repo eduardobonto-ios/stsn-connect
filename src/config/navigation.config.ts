@@ -46,13 +46,14 @@ export const NAV_ITEMS: NavItem[] = [
     id: "DASHBOARD", label: "Admission", icon: LayoutDashboard, desc: "Registrar & academic management",
     children: [
       { id: "dashboard",         label: "Dashboard",         icon: LayoutDashboard, desc: "Live admissions & fees",             targetModule: "DASHBOARD" },
-      { id: "enrollment",        label: "Enrollment",        icon: Compass,         desc: "Student registrations",             targetModule: "REGISTRAR" },
       { id: "students",          label: "Students",          icon: UsersRound,      desc: "All students & quick record access", targetModule: "STUDENT_DIRECTORY" },
-      { id: "class-scheduling",  label: "Class Scheduling",  icon: CalendarDays,    desc: "Subject schedules & adviser rooms", targetModule: "SCHEDULING" },
+      { id: "enrollment",        label: "Enrollment",        icon: Compass,         desc: "Student registrations",             targetModule: "REGISTRAR" },
       { id: "class-sectioning",  label: "Class Sectioning",  icon: Layers,          desc: "Sections, advisers & LRN rosters", targetModule: "CLASS_SECTIONING" },
-      { id: "registrar-reports", label: "Registrar Reports", icon: FileText,        desc: "Enrollment and student records reports", targetModule: "REGISTRAR_REPORTS" },
-      { id: "syllabus-pathways", label: "Syllabus Pathways", icon: Building2,       desc: "Academic subjects flow",            targetModule: "CURRICULUM" },
+      { id: "class-scheduling",  label: "Class Scheduling",  icon: CalendarDays,    desc: "Subject schedules & adviser rooms", targetModule: "SCHEDULING" },
       { id: "faculty-admin",     label: "Faculty",           icon: UsersRound,      desc: "Teacher & faculty management",      targetModule: "FACULTY_ADMIN" },
+      { id: "syllabus-pathways", label: "Syllabus Pathways", icon: Building2,       desc: "Academic subjects flow",            targetModule: "CURRICULUM" },
+      { id: "grades-directory", label: "Grades Directory",  icon: GraduationCap,   desc: "Student grade records by section",  targetModule: "GRADING" },
+      { id: "registrar-reports", label: "Registrar Reports", icon: FileText,        desc: "Enrollment and student records reports", targetModule: "REGISTRAR_REPORTS" },
     ],
   },
   {
@@ -116,7 +117,6 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "reports", label: "Reports",            icon: BarChart3, desc: "Cashiering reports & summaries" },
     ],
   },
-  { id: "GRADING",          label: "Grades Directory",        icon: GraduationCap, desc: "Midterm/Final score encodes" },
   { id: "FACULTY_PORTAL",   label: "Teacher Board",           icon: BookOpen,    desc: "Schedules & class scores" },
   {
     id: "STUDENT_PORTAL", label: "Student Portal", icon: UserCheck, desc: "View grades, COR & ID",

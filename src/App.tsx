@@ -490,7 +490,7 @@ export default function App() {
                 </div>
                 {users.map((u) => (
                   <button
-                    key={u.role}
+                    key={u.email}
                     onClick={() => handleRoleQuickSwitch(u.email)}
                     className="w-full text-left font-sans font-semibold text-xs py-1.5 px-3 hover:bg-stsn-cream hover:text-stsn-brown-dark transition-all flex items-center gap-2"
                   >
