@@ -489,18 +489,19 @@ export default function SchedulingModule() {
   const semesterOptions = setupData.semesters ?? [];
 
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
-  const lockedDept = activeSchool === "ALL" ? undefined : academicUnitToDepartment(academicUnit);
   const scopedData = useMemo(
     () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students, teachers, sections, classSchedules }),
     [currentUser, activeSchool, academicUnit, students, teachers, sections, classSchedules],
   );
+  const lockedDept = scopedData.scope.department;
   const scopedTeachers = scopedData.teachers ?? [];
   const scopedClassSchedules = scopedData.classSchedules ?? [];
   const scopedSections = scopedData.sections ?? [];
+  const defaultSemester = lockedDept === "Basic Education" ? "Full Year" : "First Semester";
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [filterYear, setFilterYear] = useState("2026-2027");
-  const [filterSemester, setFilterSemester] = useState("First Semester");
+  const [filterSemester, setFilterSemester] = useState(defaultSemester);
   const [filterDept, setFilterDept] = useState<"All" | ClassSchedule["department"]>(lockedDept || "All");
   const [filterTeacher, setFilterTeacher] = useState("All");
   const [filterDay, setFilterDay] = useState("All");
@@ -512,7 +513,8 @@ export default function SchedulingModule() {
   // Keep the department filter pinned to the active school's academic unit
   useEffect(() => {
     if (lockedDept) setFilterDept(lockedDept);
-  }, [lockedDept]);
+    setFilterSemester(defaultSemester);
+  }, [lockedDept, defaultSemester]);
 
   const filteredSchedules = useMemo(() => {
     return scopedClassSchedules.filter((s) => {

@@ -49,6 +49,9 @@ import ClinicModule from "./features/clinic/pages/ClinicModulePage";
 import GuidanceModule from "./features/guidance/pages/GuidanceModulePage";
 import ConsultationModule from "./features/consultation/pages/ConsultationModulePage";
 import RegistrarReportsPage from "./features/reports/pages/RegistrarReportsPage";
+import GuidanceReportsPage from "./features/reports/pages/GuidanceReportsPage";
+import ClinicReportsPage from "./features/reports/pages/ClinicReportsPage";
+import AdminReportsPage from "./features/reports/pages/AdminReportsPage";
 import StudentDirectoryPage from "./features/student-directory/pages/StudentDirectoryPage";
 
 export default function App() {
@@ -60,6 +63,7 @@ export default function App() {
   const [coreSetupSubPage, setCoreSetupSubPage] = useState("academic_categories");
   const [portalSubPage, setPortalSubPage] = useState("overview");
   const [hrSubPage, setHrSubPage] = useState("hr-dashboard");
+  const [cashierSubPage, setCashierSubPage] = useState("queue");
   const [portalStudentId, setPortalStudentId] = useState<string | undefined>(undefined);
   const [expandedModule, setExpandedModule] = useState<STSNModule | null>("DASHBOARD");
   const [expandedAccountingGroups, setExpandedAccountingGroups] = useState<string[]>([]);
@@ -341,7 +345,7 @@ export default function App() {
                         }
                         const isChildActive = child.targetModule
                           ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
-                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : accountingSubPage === child.id);
+                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "CASHIER" ? cashierSubPage === child.id : accountingSubPage === child.id);
                         const ChildIcon = child.icon;
                         return (
                           <button
@@ -358,6 +362,8 @@ export default function App() {
                                   setPortalSubPage(child.id);
                                 } else if (item.id === "HR_MANAGEMENT") {
                                   setHrSubPage(child.id);
+                                } else if (item.id === "CASHIER") {
+                                  setCashierSubPage(child.id);
                                 } else {
                                   setAccountingSubPage(child.id);
                                 }
@@ -567,11 +573,17 @@ export default function App() {
           {activeModule === "BOOKS_SETUP" &&
             allowedModules.includes("BOOKS_SETUP") && <BooksSetupPage />}
           {activeModule === "CASHIER" &&
-            allowedModules.includes("CASHIER") && <CashierModule />}
+            allowedModules.includes("CASHIER") && <CashierModule subPage={cashierSubPage} onSubPageChange={setCashierSubPage} />}
           {activeModule === "NURSE_CLINIC" &&
             allowedModules.includes("NURSE_CLINIC") && <ClinicModule />}
           {activeModule === "GUIDANCE" &&
             allowedModules.includes("GUIDANCE") && <GuidanceModule />}
+          {activeModule === "GUIDANCE_REPORTS" &&
+            allowedModules.includes("GUIDANCE_REPORTS") && <GuidanceReportsPage />}
+          {activeModule === "CLINIC_REPORTS" &&
+            allowedModules.includes("CLINIC_REPORTS") && <ClinicReportsPage />}
+          {activeModule === "ADMIN_REPORTS" &&
+            allowedModules.includes("ADMIN_REPORTS") && <AdminReportsPage />}
           {activeModule === "CONSULTATION" &&
             allowedModules.includes("CONSULTATION") && <ConsultationModule />}
         </main>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { Employee, PayrollRow } from "../../../../types";
@@ -109,14 +109,27 @@ export default function PayrollManagementPage() {
   // School scope follows the user's own school assignment, or — for
   // school-agnostic accounts like Super Admin — the active school context.
   const effectiveSchool = userSchool ?? (activeSchool !== "ALL" ? activeSchool : undefined);
-  const filteredEmployees = employees.filter((e) => {
+  const filteredEmployees = useMemo(() => employees.filter((e) => {
     if (effectiveSchool && e.schoolId && e.schoolId !== effectiveSchool) return false;
     const fullName = `${e.firstName} ${e.lastName}`.toLowerCase();
     return fullName.includes(searchQuery.toLowerCase()) || e.position.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  }), [employees, effectiveSchool, searchQuery]);
 
-  const activeEmpObj = employees.find((e) => e.id === selectedEmpId);
+  useEffect(() => {
+    if (filteredEmployees.length === 0) {
+      if (selectedEmpId) setSelectedEmpId("");
+      return;
+    }
+    if (!filteredEmployees.some((employee) => employee.id === selectedEmpId)) {
+      setSelectedEmpId(filteredEmployees[0].id);
+    }
+  }, [filteredEmployees, selectedEmpId]);
+
+  const activeEmpObj = filteredEmployees.find((e) => e.id === selectedEmpId);
   const employeePayrollList = payroll.filter((p) => p.employeeId === selectedEmpId);
+  const pendingRows = payroll.filter((p) => filteredEmployees.some((employee) => employee.id === p.employeeId) && p.status === "Pending").length;
+  const paidRows = payroll.filter((p) => filteredEmployees.some((employee) => employee.id === p.employeeId) && p.status === "Paid").length;
+  const projectedMonthlyPayroll = filteredEmployees.reduce((sum, employee) => sum + employee.salary, 0);
 
   const resetForm = () => {
     setFirstName(""); setLastName(""); setMiddleName("");
@@ -309,12 +322,15 @@ export default function PayrollManagementPage() {
       {/* Dynamic Title Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
         <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-stsn-gold font-bold">
+            HR Compensation Center
+          </span>
+          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2 mt-1">
             <Banknote className="w-5 h-5 text-stsn-brown" />
             Payroll Management
           </h2>
           <p className="text-stone-500 text-xs mt-1">
-            Maintain employee records, process automated salary disbursements, and clear municipal withholding deductions.
+            Review scoped employee compensation, process payroll runs, and issue payslips from one controlled workspace.
           </p>
         </div>
 
@@ -343,10 +359,42 @@ export default function PayrollManagementPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          { label: "Scoped Employees", value: filteredEmployees.length, sub: effectiveSchool || "All Schools", icon: Users, tone: "text-stsn-brown" },
+          { label: "Monthly Payroll", value: `PHP ${projectedMonthlyPayroll.toLocaleString()}`, sub: "gross projection", icon: DollarSign, tone: "text-emerald-600" },
+          { label: "Pending Payouts", value: pendingRows, sub: "awaiting clearance", icon: AlertCircle, tone: "text-amber-600" },
+          { label: "Paid Payslips", value: paidRows, sub: "cleared records", icon: FileCheck, tone: "text-blue-600" },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-stone-50 border border-stone-100 flex items-center justify-center">
+                <Icon className={`w-5 h-5 ${item.tone}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-stone-400 uppercase font-mono">{item.label}</p>
+                <p className="text-lg font-display font-black text-stone-900 truncate">{item.value}</p>
+                <p className="text-[10px] text-stone-400">{item.sub}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Left column: Staff directory list */}
-        <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
+        <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-display font-bold text-stone-900">Payroll Roster</h3>
+              <p className="text-[10px] text-stone-400 font-mono uppercase tracking-wide">{filteredEmployees.length} employee records</p>
+            </div>
+            <span className="text-[10px] px-2 py-1 rounded-full bg-stsn-cream text-stsn-brown border border-stsn-beige font-bold">
+              {effectiveSchool || "ALL"}
+            </span>
+          </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 text-stone-400 w-4 h-4" />
             <input
@@ -358,7 +406,7 @@ export default function PayrollManagementPage() {
             />
           </div>
 
-          <div className="divide-y divide-stone-100 max-h-[420px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
             {filteredEmployees.map((emp) => {
               const isSelected = selectedEmpId === emp.id;
 
@@ -366,8 +414,8 @@ export default function PayrollManagementPage() {
                 <div
                   key={emp.id}
                   onClick={() => setSelectedEmpId(emp.id)}
-                  className={`p-3 rounded-lg cursor-pointer transition flex items-center justify-between ${
-                    isSelected ? "bg-stsn-cream border border-stsn-beige" : "hover:bg-stone-50"
+                  className={`p-3 rounded-xl cursor-pointer transition flex items-center justify-between border ${
+                    isSelected ? "bg-stsn-cream border-stsn-gold shadow-sm" : "bg-white border-stone-100 hover:bg-stone-50 hover:border-stsn-beige"
                   }`}
                 >
                   <div className="min-w-0 pr-2">
@@ -376,7 +424,7 @@ export default function PayrollManagementPage() {
                     <span className="text-[9.5px] text-stone-500 truncate block">{emp.position}</span>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <span className="bg-stsn-beige/40 text-[10px] text-stsn-brown font-bold rounded px-2 py-0.5">
+                    <span className="bg-stsn-beige/40 text-[10px] text-stsn-brown font-bold rounded-full px-2 py-0.5">
                       {emp.status}
                     </span>
                     <span className="text-[9.5px] text-stone-400 block font-mono mt-1">₱{emp.salary.toLocaleString()}/mo</span>
@@ -384,12 +432,46 @@ export default function PayrollManagementPage() {
                 </div>
               );
             })}
+            {filteredEmployees.length === 0 && (
+              <div className="py-10 text-center text-xs text-stone-400">
+                No employees match the current search or school scope.
+              </div>
+            )}
           </div>
         </div>
 
         {/* Central & Right details */}
         {activeEmpObj ? (
           <div className="lg:col-span-2 space-y-6">
+
+            <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-stsn-brown text-stsn-cream flex items-center justify-center font-display font-black text-lg">
+                  {activeEmpObj.firstName.charAt(0)}{activeEmpObj.lastName.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-mono tracking-wider text-stone-400 font-bold">
+                    Selected Employee
+                  </p>
+                  <h3 className="text-lg font-display font-bold text-stone-900">
+                    {activeEmpObj.lastName}, {activeEmpObj.firstName}
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    {activeEmpObj.department} / {activeEmpObj.positionTitle || activeEmpObj.position}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-right">
+                <div className="bg-stone-50 border border-stone-100 rounded-lg px-4 py-2">
+                  <p className="text-[10px] text-stone-400 uppercase font-mono">Monthly Salary</p>
+                  <p className="text-sm font-mono font-bold text-stsn-brown">PHP {activeEmpObj.salary.toLocaleString()}</p>
+                </div>
+                <div className="bg-stone-50 border border-stone-100 rounded-lg px-4 py-2">
+                  <p className="text-[10px] text-stone-400 uppercase font-mono">Status</p>
+                  <p className="text-sm font-bold text-stone-800">{activeEmpObj.status}</p>
+                </div>
+              </div>
+            </div>
 
             {/* Overview Card */}
             <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">

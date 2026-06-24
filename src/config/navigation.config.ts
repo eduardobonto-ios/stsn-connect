@@ -3,7 +3,7 @@ import {
   Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet,
   List, FileText, Truck, Package, Receipt, TrendingUp, TrendingDown, Scale, PieChart, Activity,
   Percent, Lock, ClipboardList, BookMarked, Banknote, Stethoscope, NotebookPen, PhoneCall,
-  UsersRound, Clock, FileCheck, Award, Briefcase
+  UsersRound, Clock, FileCheck, Award, Briefcase, History
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { UserRole } from "../types";
@@ -108,7 +108,14 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
-  { id: "CASHIER",          label: "Cashiering",              icon: Wallet,      desc: "Payments, receipts & collections" },
+  {
+    id: "CASHIER", label: "Cashiering", icon: Wallet, desc: "Payments, receipts & collections",
+    children: [
+      { id: "queue",   label: "Payment Queue",      icon: Receipt,   desc: "Approved assessments awaiting payment" },
+      { id: "history", label: "Collection History", icon: History,   desc: "Posted payments & official receipts" },
+      { id: "reports", label: "Reports",            icon: BarChart3, desc: "Cashiering reports & summaries" },
+    ],
+  },
   { id: "GRADING",          label: "Grades Directory",        icon: GraduationCap, desc: "Midterm/Final score encodes" },
   { id: "FACULTY_PORTAL",   label: "Teacher Board",           icon: BookOpen,    desc: "Schedules & class scores" },
   {
@@ -138,15 +145,6 @@ export const NAV_ITEMS: NavItem[] = [
         ],
       },
       {
-        id: "hr-compensation", label: "Compensation", icon: Banknote, desc: "Payroll, payouts, taxes & benefits",
-        children: [
-          { id: "payroll-management", label: "Payroll Management", icon: Banknote, desc: "Payroll runs & payslips" },
-          { id: "salary-payouts",     label: "Salary Payouts",     icon: Wallet,   desc: "Payment batches & release status" },
-          { id: "taxes",              label: "Taxes",              icon: Percent,  desc: "Withholding tax setup & reports" },
-          { id: "benefits",           label: "Benefits",           icon: Award,    desc: "Employee benefits & contributions" },
-        ],
-      },
-      {
         id: "hr-talent", label: "Talent Acquisition", icon: Briefcase, desc: "Recruitment & onboarding",
         children: [
           { id: "recruitment", label: "Recruitment", icon: Briefcase, desc: "Job openings & applicants" },
@@ -156,14 +154,36 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    id: "NURSE_CLINIC", label: "Clinic", icon: Stethoscope, desc: "Student health & clinic services",
+    id: "PAYROLL_MANAGEMENT", label: "Payroll", icon: Banknote, desc: "Payroll, payouts, taxes & benefits",
     children: [
-      { id: "nurse",        label: "Nurse",        icon: Stethoscope, desc: "Student health visits & profiles",       targetModule: "NURSE_CLINIC" },
-      { id: "consultation", label: "Consultation", icon: PhoneCall,   desc: "Appointment booking & adviser meetings", targetModule: "CONSULTATION" },
+      { id: "payroll-management", label: "Payroll Management", icon: Banknote, desc: "Payroll runs & payslips" },
+      { id: "salary-payouts",     label: "Salary Payouts",     icon: Wallet,   desc: "Payment batches & release status" },
+      { id: "taxes",              label: "Taxes",              icon: Percent,  desc: "Withholding tax setup & reports" },
+      { id: "benefits",           label: "Benefits",           icon: Award,    desc: "Employee benefits & contributions" },
     ],
   },
-  { id: "GUIDANCE",          label: "Guidance Office",         icon: NotebookPen, desc: "Anecdotal records & counseling sessions" },
-  { id: "ACCOUNTS_SECURITY", label: "User Access & Authority", icon: Shield,   desc: "Credential security status" },
+  {
+    id: "NURSE_CLINIC", label: "Clinic", icon: Stethoscope, desc: "Student health & clinic services",
+    children: [
+      { id: "nurse",          label: "Nurse",          icon: Stethoscope, desc: "Student health visits & profiles",        targetModule: "NURSE_CLINIC" },
+      { id: "consultation",   label: "Consultation",   icon: PhoneCall,   desc: "Appointment booking & adviser meetings",  targetModule: "CONSULTATION" },
+      { id: "clinic-reports", label: "Clinic Reports", icon: FileText,    desc: "Visit logs, health profiles, and incidents", targetModule: "CLINIC_REPORTS" },
+    ],
+  },
+  {
+    id: "GUIDANCE", label: "Guidance Office", icon: NotebookPen, desc: "Anecdotal records & counseling sessions",
+    children: [
+      { id: "guidance-office",  label: "Guidance Office",  icon: NotebookPen, desc: "Anecdotal records & counseling sessions", targetModule: "GUIDANCE" },
+      { id: "guidance-reports", label: "Guidance Reports", icon: FileText,    desc: "Counseling, incidents, and conference reports", targetModule: "GUIDANCE_REPORTS" },
+    ],
+  },
+  {
+    id: "ACCOUNTS_SECURITY", label: "User Access & Authority", icon: Shield, desc: "Credential security & admin reports",
+    children: [
+      { id: "user-security", label: "User Access & Authority", icon: Shield,   desc: "Credential security status",              targetModule: "ACCOUNTS_SECURITY" },
+      { id: "admin-reports", label: "Admin Reports",           icon: FileText, desc: "User access, logs, and audit reports",    targetModule: "ADMIN_REPORTS" },
+    ],
+  },
   { id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance" },
 ];
 
