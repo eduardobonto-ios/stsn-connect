@@ -8,6 +8,7 @@ import type { AcademicUnit } from "./school.types";
 export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
+  | "PRINCIPAL"
   | "REGISTRAR"
   | "ACCOUNTING"
   | "TEACHER"

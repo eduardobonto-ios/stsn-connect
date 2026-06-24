@@ -31,7 +31,7 @@ import {
   Download,
   Printer,
 } from "lucide-react";
-import GradingModule from "../../grading/pages/GradingModulePage";
+import GradeEncodingPage from "../../grading/pages/GradeEncodingPage";
 import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { ClassSchedule } from "../../../types";
@@ -1027,7 +1027,7 @@ export default function FacultyPortal() {
             </p>
           </div>
 
-          <GradingModule />
+          <GradeEncodingPage />
         </div>
       )}
 

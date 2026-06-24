@@ -4,8 +4,8 @@
  */
 
 import React from "react";
-import GradeEncodingPage from "./GradeEncodingPage";
+import GradesDirectoryPage from "./GradesDirectoryPage";
 
 export default function GradingModule() {
-  return <GradeEncodingPage />;
+  return <GradesDirectoryPage />;
 }
