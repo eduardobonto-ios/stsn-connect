@@ -352,16 +352,16 @@ Use sequential numbering after the latest migration.
 Current latest known migration in this project:
 
 ```text
-0019_relax_payment_setup_constraints.sql
+0029_payroll_role_users.sql
 ```
 
-For HR expansion, use:
+For new expansions, continue with:
 
 ```text
-0020_hr_module_expansion.sql
-0021_hr_module_rls.sql
-0022_hr_module_seed_data.sql
-0023_hr_demo_data_optional.sql
+0030_<feature_name>.sql
+0031_<feature_name>_rls.sql
+0032_<feature_name>_seed_data.sql
+0033_<feature_name>_demo_data_optional.sql
 ```
 
 If those numbers already exist, continue with the next available number.

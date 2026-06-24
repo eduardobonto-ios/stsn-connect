@@ -100,31 +100,59 @@ Completion note:
 
 ### Guidance Reports
 
-Recommended reports:
+Status: Completed
 
-- Anecdotal Records Report
-- Counseling Sessions Report
-- Student Incident Report
-- Parent Conference Report
+Implemented reports:
+
+- [x] Anecdotal Records Report
+- [x] Counseling Sessions Report
+- [x] Student Incident Report
+- [x] Parent Conference Report
+
+Completion note:
+
+- Guidance Reports are available as a separate `GuidanceReportsPage` under the `GUIDANCE_REPORTS` module permission.
+- Data is loaded from the `anecdotal_records` and `guidance_sessions` Supabase tables, scoped to the current user's school and academic unit.
+- The Guidance sidebar entry now expands as a group with Guidance Office and Guidance Reports children.
+- Guidance role is granted `GUIDANCE_REPORTS` permission. Super Admin also has access.
 
 ### Clinic Reports
 
-Recommended reports:
+Status: Completed
 
-- Clinic Visit Report
-- Student Health Profile Report
-- Medicine Issuance Report
-- Medical Incident Report
+Implemented reports:
+
+- [x] Clinic Visit Report
+- [x] Student Health Profile Report
+- [x] Medicine Issuance Report
+- [x] Medical Incident Report
+
+Completion note:
+
+- Clinic Reports are available as a separate `ClinicReportsPage` under the `CLINIC_REPORTS` module permission.
+- Data is loaded from the `clinic_visits` and `student_health_profiles` Supabase tables, scoped to the current user's school and academic unit.
+- The Clinic sidebar group (Nurse, Consultation) now includes a Clinic Reports child entry.
+- Nurse role is granted `CLINIC_REPORTS` permission. Super Admin also has access.
 
 ### Admin Reports
 
-Recommended reports:
+Status: Completed
 
-- User Access Report
-- Login History
-- Activity Logs
-- Generated Reports History
-- Data Export History
+Implemented reports:
+
+- [x] User Access Report
+- [x] Login History
+- [x] Activity Logs
+- [x] Generated Reports History
+- [x] Data Export History
+
+Completion note:
+
+- Admin Reports are available as a separate `AdminReportsPage` under the `ADMIN_REPORTS` module permission.
+- User Access Report is populated from the in-memory user list in the Zustand store.
+- Login History, Activity Logs, Generated Reports History, and Data Export History require audit logging to be enabled at the database level. They currently return empty rows with a descriptive note.
+- The User Access & Authority sidebar entry now expands as a group with User Access & Authority and Admin Reports children.
+- `ADMIN_REPORTS` permission is assigned to Super Admin only.
 
 ## Shared Reporting Components
 
