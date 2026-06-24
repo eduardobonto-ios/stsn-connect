@@ -40,15 +40,66 @@ supabase/migrations/0001_schema.sql
 supabase/migrations/0004_additional_data.sql
 ```
 
+### 2.1 Progress update - 2026-06-24
+
+Status:
+
+```text
+Phase 1 database migration completed; type wiring, Grade 11 SHS Registrar enrollment grouping,
+Class Sectioning SHS fallback, CSV template, CSV import preview, and valid-row upload completed.
+Supabase staging service, transactional RPC commit, and XLSX parsing are not implemented yet.
+```
+
+Completed in this review:
+
+```text
+- Re-read this Registrar import alignment guide.
+- Re-read AI_PROJECT_CODING_STANDARD.md and confirmed scope rules.
+- Inspected source touchpoints for Grade 11 / Grade 12, SHS, strand/track, enrollment, assessment, sectioning, and reporting.
+- Created Registrar import staging/profile migration files after the current latest migration.
+- Added TypeScript domain/database types for students.lrn, student_registrar_profiles, registrar_import_batches, and registrar_import_rows.
+- Updated student loading to include students.lrn.
+- Updated Registrar Basic Ed enrollment grouping so Grade 11 and Grade 12 are classified by Senior High School academic level and use Strand / Track.
+- Confirmed Cashier, Accounting, Reports, and Curriculum do not currently require code changes for the Grade 11 SHS alignment.
+- Adjusted Class Sectioning Senior High detection fallback so Grade 11/12 names are treated as SHS even when setup numeric levels differ.
+- Added a Registrar student masterlist CSV template under public/templates for Registrar copy/paste import preparation.
+- Added a CSV parser/normalizer for the template with LRN duplicate checks, required field checks, and Grade 11/12 strand validation.
+- Replaced the mock import drop action with CSV file selection/drop preview and validation summary.
+- Added commit handling for valid/warning rows only through the existing student creation path.
+- Excluded error and duplicate rows from upload and added CSV downloads for correction/review.
+- Kept Supabase staging/RPC commit work pending for the next production hardening phase.
+```
+
+Important scope decision:
+
+```text
+The Grade 11 move/classification adjustment was applied only where approved by the user:
+Registrar enrollment/import alignment and Class Sectioning fallback validation.
+Cashier, Accounting, Reports, and Curriculum were reviewed but not changed.
+```
+
+Current migration numbering note:
+
+```text
+The project now contains migrations through 0026_hr_demo_data_optional.sql.
+Registrar import migrations were added using the next available prefixes:
+- 0027_registrar_student_import_staging.sql
+- 0028_registrar_student_import_rls.sql
+Do not reuse older suggested numbers such as 0020-0022 because those numbers already exist.
+```
+
 Current Registrar bulk import behavior:
 
 ```text
 RegistrarModulePage.tsx
 - activeSubTab supports: directory | bulk_import
-- mockBulkDrop() generates hardcoded preview rows
-- Commit & Authorize only updates UI success text
-- No actual Excel parsing yet
-- No Supabase staging/import commit yet
+- Bulk Import accepts the official CSV template and parses local preview rows
+- Validation summary shows total, ready, warning, error, and duplicate counts
+- Commit uploads only valid and warning rows into official student records
+- Rows with status error or duplicate are excluded from upload
+- Error and duplicate rows can be downloaded as CSV files for correction
+- No XLSX parsing yet; xlsx dependency was not added
+- No Supabase staging/import RPC commit yet
 ```
 
 Current database tables that can already receive some imported data:
@@ -181,6 +232,37 @@ Grade 7 to Grade 10   -> trackOrCourse: Junior High
 Grade 11 to Grade 12  -> use STRAND column when available, otherwise infer from grade suffix
 ```
 
+Grade 11 / SHS alignment decision:
+
+```text
+Grade 11 must be treated as Senior High School for Basic Education workflows.
+Grade 11 should keep yearLevel = Grade 11.
+The strand/track should come from AE Strand when present, otherwise from the grade suffix or import mapping.
+Do not classify Grade 11 under Junior High School.
+```
+
+The import normalizer should therefore map:
+
+```text
+Grade 11              -> yearLevel: Grade 11, academicStage: Senior High School, trackOrCourse: AE Strand if present
+Grade 11 - Academics  -> yearLevel: Grade 11, academicStage: Senior High School, trackOrCourse: Academics
+Grade 11 - Tech-Pro   -> yearLevel: Grade 11, academicStage: Senior High School, trackOrCourse: Tech-Pro
+```
+
+If a future implementation introduces a dedicated academic stage field, use a normalized value such as:
+
+```text
+academicStage: Senior High School
+```
+
+Until then, the project should continue using the existing fields:
+
+```text
+department: Basic Education
+yearLevel: Grade 11
+trackOrCourse: strand/track value
+```
+
 ---
 
 ## 5. DATABASE Sheet Column Mapping
@@ -300,7 +382,7 @@ Create new migration files under:
 supabase/migrations/
 ```
 
-Recommended next migration names:
+Recommended migration names from the original planning pass:
 
 ```text
 0020_registrar_student_import_staging.sql
@@ -309,6 +391,13 @@ Recommended next migration names:
 ```
 
 Adjust the numeric prefix if the project already has newer migrations.
+
+Current repository note from the 2026-06-24 review:
+
+```text
+The repository already had migrations through 0026_hr_demo_data_optional.sql.
+Registrar import Phase 1 migrations were added as 0027 and 0028.
+```
 
 ---
 
@@ -445,14 +534,15 @@ Target page:
 src/features/registrar/pages/RegistrarModulePage.tsx
 ```
 
-Replace the mock-only import interaction with real file upload.
+The first real upload interaction is now in place for the CSV template preview.
+The remaining work is to replace the temporary state names with production
+batch/staging state and wire Supabase staging/commit actions.
 
-Current mock state to refactor:
+Current temporary preview state still to refactor:
 
 ```text
 mockFileName
 mockRowsPreview
-mockBulkDrop()
 bulkImportSuccess
 ```
 
@@ -713,6 +803,97 @@ Do not load all import row staging data on app startup. Import rows can be loade
 
 ---
 
+## 9A. Grade 11 Senior High School Alignment Impact Review
+
+This section tracks the requested Grade 11 adjustment. It is intentionally a review/approval gate before any code changes outside this guide.
+
+### 9A.1 Requested business rule
+
+```text
+Grade 11 belongs to Senior High School.
+Grade 11 students should use Strand / Track values.
+Enrollment and adjacent modules should not treat Grade 11 as Junior High School.
+```
+
+### 9A.2 Source areas found during review
+
+Potentially affected files/modules:
+
+```text
+src/features/registrar/pages/RegistrarModulePage.tsx
+- New student enrollment form defaults to Senior High School / Grade 11 / STEM for Basic Ed.
+- BE_STRANDS_BY_LEVEL maps Senior High School year levels to Basic Education courses with durationYears = 2.
+- Subject loading filters Basic Education subjects by trackOrCourse and yearLevel.
+- Clear & Enroll section matching uses department + yearLevel + trackOrCourse.
+
+src/services/store.ts
+- submitNewEnrollment currently treats non-College students as Basic Education and labels tuition as SHS Tuition Fee (Flat).
+- Requirement defaults differ only by College vs Basic Education, not by Preschool/Elementary/JHS/SHS.
+
+src/services/mockAssessmentService.ts
+- Grade 11 and Grade 12 already receive SHS lab fee adjustment behavior by strand/program code.
+- Tuition fallback currently uses Grade 11 when no exact tuition fee schedule row is found.
+
+src/features/class-sectioning/pages/ClassSectioningModulePage.tsx
+- Senior High detection already uses academicLevel containing senior/shs or numeric level 11/12.
+- Available strand list is shown for Senior High year levels and matched by strandOrTrack.
+
+src/features/curriculum/pages/CurriculumManagementPage.tsx
+- Subject/curriculum records use department, yearLevel, and track/course fields.
+- Any Grade 11 SHS adjustment may require validating subject and curriculum setup data.
+
+src/features/cashier/pages/CashierModulePage.tsx
+- Academic display lines use Basic Ed vs College labels from accounting config.
+- No direct Grade 11 classification change should be made without confirming billing wording.
+
+src/features/accounting/pages/AccountingModulePage.tsx
+- Accounting derives Basic Ed vs College from student.department.
+- Grade 11 remains Basic Education, but billing and assessment labels may need SHS-specific wording.
+
+src/features/reports/data/registrarReports.ts
+- Enrollment reports group by department, yearLevel, section, status, and track/course.
+- If a separate Senior High grouping is desired, report grouping needs explicit approval.
+
+src/config/schools.config.ts
+src/types/school.types.ts
+src/services/academicUnitScopeService.ts
+- Current top-level academic units are only basic-ed and college.
+- Senior High is currently a Basic Education stage, not a separate academic unit.
+```
+
+### 9A.3 Approval required before code changes
+
+Before changing Enrollment or adjacent modules, confirm which scope is approved:
+
+```text
+[ ] Registrar import normalization only:
+    Normalize Grade 11 rows as Basic Education + Grade 11 + strand/track.
+
+[ ] Registrar Enrollment section:
+    Ensure the Basic Ed enrollment form, subject selection, and Clear & Enroll flow consistently treat Grade 11 as Senior High School.
+
+[ ] Class Sectioning:
+    Validate or adjust Grade 11 section creation and student assignment so Grade 11 requires SHS strand/track matching.
+
+[ ] Curriculum / Subjects:
+    Validate or adjust Grade 11 subject/curriculum filters so SHS strands drive subject availability.
+
+[ ] Cashier / Accounting assessment display:
+    Review labels and fee display for Grade 11 as Senior High School without changing official accounting records unexpectedly.
+
+[ ] Registrar Reports:
+    Add Senior High-specific grouping/filtering if reports need to separate Preschool, Elementary, Junior High, and Senior High inside Basic Education.
+```
+
+Recommended first implementation scope:
+
+```text
+Start with Registrar import normalization and Registrar Enrollment section only.
+Do not modify Cashier, Accounting, Curriculum, Sectioning, or Reports until specifically approved.
+```
+
+---
+
 ## 10. UI / UX Requirements for Registrar Module
 
 Replace the mock import page with a production-grade flow:
@@ -848,8 +1029,8 @@ Scope:
 Scope:
 
 ```text
-- Replace mockBulkDrop()
-- Add real file input/drop handling
+- Replace temporary CSV-only preview state names with production import state
+- Expand file input/drop handling to XLSX or backend parsing when approved
 - Add STSNDataTable preview
 - Add summary cards
 - Add filter chips

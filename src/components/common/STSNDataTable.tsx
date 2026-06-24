@@ -10,6 +10,7 @@ import "datatables.net-dt/css/dataTables.dataTables.css";
 import { Inbox } from "lucide-react";
 
 DataTable.use(DT);
+const DataTableComponent = DataTable as unknown as React.ComponentType<any>;
 
 export interface STSNColumn<T = any> {
   /** Column header label */
@@ -29,6 +30,7 @@ export interface STSNColumn<T = any> {
 }
 
 export interface STSNDataTableProps<T = any> {
+  key?: React.Key;
   columns: STSNColumn<T>[];
   rows: T[];
   /** Message shown when there are no rows */
@@ -168,7 +170,7 @@ export default function STSNDataTable<T = any>({
           {caption}
         </p>
       )}
-      <DataTable
+      <DataTableComponent
         data={rows}
         columns={dtColumns}
         slots={slots}
@@ -182,7 +184,7 @@ export default function STSNDataTable<T = any>({
             ))}
           </tr>
         </thead>
-      </DataTable>
+      </DataTableComponent>
     </div>
   );
 }
