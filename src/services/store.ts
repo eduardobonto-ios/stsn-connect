@@ -57,6 +57,7 @@ import {
   OnboardingTemplate,
   OnboardingTask,
   EmployeeOnboardingTask,
+  OnlineEnrollmentApplication,
 } from "../types";
 import type { AcademicUnit } from "../types/school.types";
 import { getAcademicUnit } from "../config/schools.config";
@@ -85,6 +86,7 @@ interface STSNState {
   curriculums: Curriculum[];
   requirements: Requirement[];
   enrollments: Enrollment[];
+  onlineEnrollmentApplications: OnlineEnrollmentApplication[];
   assessments: StudentAssessment[];
   payments: Payment[];
   grades: Grade[];
@@ -397,6 +399,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   curriculums: [],
   requirements: [],
   enrollments: [],
+  onlineEnrollmentApplications: [],
   assessments: [],
   payments: [],
   grades: [],
@@ -546,7 +549,15 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   submitNewEnrollment: (enrollData) => {
     const newEnrollmentId = newId();
-    const newEnrollment: Enrollment = { ...enrollData, id: newEnrollmentId, status: "Pending" };
+    const newEnrollment: Enrollment = {
+      ...enrollData,
+      id: newEnrollmentId,
+      status: "Pending",
+      enrollmentSource: enrollData.enrollmentSource ?? "ERP",
+      isOnlineEnrollment: enrollData.isOnlineEnrollment ?? false,
+      completionStatus: enrollData.completionStatus ?? "Complete",
+      missingFields: enrollData.missingFields ?? [],
+    };
 
     set((state) => ({
       enrollments: [...state.enrollments, newEnrollment],
@@ -599,7 +610,21 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     set((state) => ({ assessments: [...state.assessments, newAssessment] }));
 
     const persisted = (studentPersistence.get(enrollData.studentId) ?? Promise.resolve()).then(async () => {
-      await dbInsert("enrollments", { id: newEnrollmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, enrollmentType: enrollData.enrollmentType, status: "Pending", submittedAt: enrollData.submittedAt });
+      await dbInsert("enrollments", {
+        id: newEnrollmentId,
+        studentId: enrollData.studentId,
+        schoolYear: enrollData.schoolYear,
+        semester: enrollData.semester,
+        enrollmentType: enrollData.enrollmentType,
+        status: "Pending",
+        submittedAt: enrollData.submittedAt,
+        enrollmentSource: newEnrollment.enrollmentSource,
+        isOnlineEnrollment: newEnrollment.isOnlineEnrollment,
+        onlineApplicationId: newEnrollment.onlineApplicationId,
+        completionStatus: newEnrollment.completionStatus,
+        missingFields: newEnrollment.missingFields,
+        sourceMetadata: newEnrollment.sourceMetadata,
+      });
       await Promise.all(enrollData.subjectCodes.map((code) => {
         const subjectId = resolveSubjectId(code);
         return subjectId ? dbInsert("enrollment_subjects", { enrollment_id: newEnrollmentId, subject_id: subjectId }) : Promise.resolve();
