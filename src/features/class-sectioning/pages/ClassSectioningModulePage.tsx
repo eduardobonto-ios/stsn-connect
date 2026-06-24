@@ -103,6 +103,7 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
 
   const beYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel !== "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => String(yl.name ?? ""));
+  const collegeYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel === "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => String(yl.name ?? ""));
   const semesterOptions = (setupData.semesters ?? []).map((s) => s.name);
 
   const terms = useMemo(() => getAcademicTerms(departmentToAcademicUnit(dept)), [dept]);
@@ -112,7 +113,7 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
   const levelNum = Number(selectedYearLevelData?.level) || 0;
   const isSeniorHigh = academicLevelStr.includes("senior") || academicLevelStr === "shs" || levelNum === 11 || levelNum === 12;
   const availableStrands = courses.filter(
-    (c) => isSeniorHigh && c.department === "Basic Education" && c.durationYears === 2
+    (c) => c.department === dept && (dept === "College" || (isSeniorHigh && c.durationYears === 2))
   );
   const adviserObj = teachers.find((t) => t.id === adviserId);
 
@@ -180,7 +181,7 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level *</label>
               <select required value={yearLevel} onChange={(e) => { setYearLevel(e.target.value); setStrand(""); }} className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown">
                 <option value="">— Select Year Level —</option>
-                {beYearLevels.map((y) => <option key={y}>{y}</option>)}
+                {(dept === "College" ? collegeYearLevels : beYearLevels).map((y) => <option key={y}>{y}</option>)}
               </select>
             </div>
             <div>
@@ -247,11 +248,12 @@ interface AddStudentsModalProps {
   sectionYearLevel: string;
   sectionDept: string;
   alreadyEnrolled: string[];
+  students: Student[];
   onClose: () => void;
 }
 
-function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDept, alreadyEnrolled, onClose }: AddStudentsModalProps) {
-  const { students, sections, assignStudentsToSection, setupData } = useSTSNStore();
+function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDept, alreadyEnrolled, students, onClose }: AddStudentsModalProps) {
+  const { sections, assignStudentsToSection, setupData } = useSTSNStore();
   const { toast } = useAppDialog();
   const sectionCapacity = sections.find((s) => s.id === sectionId)?.capacity ?? Infinity;
   const [filterYear, setFilterYear] = useState(sectionYearLevel !== "All" ? sectionYearLevel : "All");
@@ -428,10 +430,10 @@ export default function ClassSectioningModule() {
   // When a specific school is active (not Super Admin's "ALL"), lock new
   // sections to that school's department so a Registrar can't accidentally
   // create a section for the other academic unit.
-  const lockedDept = activeSchool === "ALL" ? undefined : academicUnitToDepartment(academicUnit);
+  const lockedDept = scopedData.scope.department;
 
   const [searchQ, setSearchQ] = useState("");
-  const [filterDept, setFilterDept] = useState<"All" | "Basic Education" | "College">("All");
+  const [filterDept, setFilterDept] = useState<"All" | "Basic Education" | "College">(lockedDept || "All");
   const [filterYear, setFilterYear] = useState("All");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<SchoolSection | null>(null);
@@ -442,6 +444,10 @@ export default function ClassSectioningModule() {
     const all = [...new Set(scopedSections.map((s) => s.yearLevel))].sort();
     return ["All", ...all];
   }, [scopedSections]);
+
+  React.useEffect(() => {
+    if (lockedDept) setFilterDept(lockedDept);
+  }, [lockedDept]);
 
   const filtered = useMemo(() => {
     return scopedSections.filter((s) => {
@@ -454,10 +460,11 @@ export default function ClassSectioningModule() {
   }, [scopedSections, searchQ, filterDept, filterYear]);
 
   const handleSave = (data: Omit<SchoolSection, "id" | "createdAt">) => {
+    const scopedSection = scopedData.scope.schoolId ? { ...data, schoolId: scopedData.scope.schoolId } : data;
     if (editingSection) {
-      updateSection(editingSection.id, data);
+      updateSection(editingSection.id, scopedSection);
     } else {
-      addSection(data);
+      addSection(scopedSection);
     }
     setIsFormOpen(false);
     setEditingSection(null);
@@ -552,10 +559,10 @@ export default function ClassSectioningModule() {
   ];
 
   // Stats
-  const totalActive = scopedSections.filter((s) => s.isActive).length;
-  const totalCapacity = scopedSections.reduce((sum, s) => sum + s.capacity, 0);
-  const totalEnrolled = scopedSections.reduce((sum, s) => sum + getSectionRoster(s, scopedStudents).length, 0);
-  const beCount = scopedSections.filter((s) => s.department === "Basic Education").length;
+  const totalActive = filtered.filter((s) => s.isActive).length;
+  const totalCapacity = filtered.reduce((sum, s) => sum + s.capacity, 0);
+  const totalEnrolled = filtered.reduce((sum, s) => sum + getSectionRoster(s, scopedStudents).length, 0);
+  const unitSectionCount = filtered.filter((s) => !lockedDept || s.department === lockedDept).length;
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
@@ -585,8 +592,8 @@ export default function ClassSectioningModule() {
           <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Active Sections</p>
         </div>
         <div className="bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-display font-black text-emerald-700">{beCount}</p>
-          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Basic Ed Sections</p>
+          <p className="text-2xl font-display font-black text-emerald-700">{unitSectionCount}</p>
+          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">{lockedDept ? `${lockedDept} Sections` : "Scoped Sections"}</p>
         </div>
         <div className="bg-sky-50 border border-sky-100 rounded-xl shadow-sm p-4 text-center">
           <p className="text-2xl font-display font-black text-sky-700">{totalEnrolled}</p>
@@ -604,11 +611,17 @@ export default function ClassSectioningModule() {
           <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
           <input type="text" placeholder="Search by section name, code, adviser..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none" />
         </div>
-        <select value={filterDept} onChange={(e: any) => setFilterDept(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
-          <option value="All">All Departments</option>
-          <option value="Basic Education">Basic Education</option>
-          <option value="College">College</option>
-        </select>
+        {lockedDept ? (
+          <div className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-500">
+            {lockedDept}
+          </div>
+        ) : (
+          <select value={filterDept} onChange={(e: any) => setFilterDept(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
+            <option value="All">All Departments</option>
+            <option value="Basic Education">Basic Education</option>
+            <option value="College">College</option>
+          </select>
+        )}
         <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
           {yearLevelOptions.map((y) => <option key={y}>{y}</option>)}
         </select>
@@ -647,6 +660,7 @@ export default function ClassSectioningModule() {
           sectionYearLevel={addStudentsModal.yearLevel}
           sectionDept={addStudentsModal.department}
           alreadyEnrolled={getSectionRoster(addStudentsModal, scopedStudents).map((student) => student.id)}
+          students={scopedStudents}
           onClose={() => setAddStudentsModal(null)}
         />
       )}

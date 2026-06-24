@@ -10,6 +10,7 @@ import { supabase } from "../../../lib/supabase";
 import type { Teacher } from "../../../types";
 import GradingModule from "../../grading/pages/GradingModulePage";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
+import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import {
   Users,
   Eye,
@@ -631,6 +632,66 @@ export default function FacultyAdminPage() {
     setActiveModal({ teacher, type });
   const closeModal = () => setActiveModal(null);
 
+  const facultyColumns: STSNColumn<Teacher>[] = [
+    {
+      title: "Teacher",
+      data: "lastName",
+      render: (_value, teacher) => (
+        <div>
+          <p className="font-bold text-stone-900">
+            {teacher.lastName}, {teacher.firstName}
+          </p>
+          <p className="text-[10px] text-stone-400 font-mono mt-0.5">
+            {teacher.email}
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: "Department",
+      data: "department",
+      render: (value: Teacher["department"]) => (
+        <span className="text-[9px] font-bold px-2 py-0.5 rounded border bg-stsn-cream text-stsn-brown border-stsn-beige">
+          {value === "Basic Education" ? "Basic Ed" : "College"}
+        </span>
+      ),
+    },
+    {
+      title: "Specialization",
+      data: "specialization",
+      className: "text-stone-600",
+      render: (value) => value || "-",
+    },
+    {
+      title: "Advisory Section",
+      data: "advisorySection",
+      className: "font-semibold text-stone-700",
+      render: (value) => value || "-",
+    },
+    {
+      title: "Actions",
+      orderable: false,
+      searchable: false,
+      className: "text-center",
+      render: (_value, teacher) => (
+        <div className="flex items-center justify-center gap-1.5">
+          <button onClick={() => openModal(teacher, "dashboard")} title="Overview & Advisory" className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition">
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => openModal(teacher, "schedule")} title="Class Schedule & Subjects" className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition">
+            <Calendar className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => openModal(teacher, "attendance")} title="Attendance Monitoring" className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition">
+            <UserCheck className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => openModal(teacher, "grading")} title="Student Grades Encoding" className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition">
+            <GraduationCap className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5 animate-fade-in font-sans">
       {/* Header */}
@@ -667,8 +728,14 @@ export default function FacultyAdminPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden p-4">
+        <STSNDataTable<Teacher>
+          columns={facultyColumns}
+          rows={filtered}
+          searchable={false}
+          emptyMessage="No teachers found."
+        />
+        <div className="hidden">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-stone-50 border-b border-stone-100 text-stone-500 text-[10px] uppercase font-bold">
