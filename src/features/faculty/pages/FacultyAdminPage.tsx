@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../services/store";
 import { supabase } from "../../../lib/supabase";
@@ -619,20 +619,24 @@ export default function FacultyAdminPage() {
   } | null>(null);
   const [searchQ, setSearchQ] = useState("");
 
-  const filtered = scopedTeachers.filter((t) => {
-    if (!searchQ) return true;
-    const q = searchQ.toLowerCase();
-    return (
-      `${t.firstName} ${t.lastName}`.toLowerCase().includes(q) ||
-      (t.specialization || "").toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(
+    () =>
+      scopedTeachers.filter((t) => {
+        if (!searchQ) return true;
+        const q = searchQ.toLowerCase();
+        return (
+          `${t.firstName} ${t.lastName}`.toLowerCase().includes(q) ||
+          (t.specialization || "").toLowerCase().includes(q)
+        );
+      }),
+    [scopedTeachers, searchQ],
+  );
 
-  const openModal = (teacher: Teacher, type: ModalType) =>
-    setActiveModal({ teacher, type });
-  const closeModal = () => setActiveModal(null);
+  const openModal = useCallback((teacher: Teacher, type: ModalType) =>
+    setActiveModal({ teacher, type }), []);
+  const closeModal = useCallback(() => setActiveModal(null), []);
 
-  const facultyColumns: STSNColumn<Teacher>[] = [
+  const facultyColumns: STSNColumn<Teacher>[] = useMemo(() => [
     {
       title: "Teacher",
       data: "lastName",
@@ -690,7 +694,7 @@ export default function FacultyAdminPage() {
         </div>
       ),
     },
-  ];
+  ], [openModal]);
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">

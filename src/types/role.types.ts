@@ -11,6 +11,7 @@ import type { UserRole } from "./index";
  */
 export type CanonicalRole =
   | "super-admin"
+  | "principal"
   | "registrar"
   | "accounting"
   | "teacher"
@@ -25,6 +26,7 @@ export type CanonicalRole =
 export const ROLE_TO_CANONICAL: Record<UserRole, CanonicalRole> = {
   SUPER_ADMIN: "super-admin",
   ADMIN: "super-admin",
+  PRINCIPAL: "principal",
   REGISTRAR: "registrar",
   ACCOUNTING: "accounting",
   TEACHER: "teacher",
