@@ -49,6 +49,7 @@ import {
   SalaryPayoutBatch,
   SalaryPayoutLine,
   BenefitPlan,
+  StatutoryContributionRule,
   TaxTable,
   TaxBracket,
   JobRequisition,
@@ -58,6 +59,13 @@ import {
   OnboardingTask,
   EmployeeOnboardingTask,
   OnlineEnrollmentApplication,
+  VoidRequest,
+  STSNNotification,
+  AuditLogEntry,
+  AuditEntityType,
+  AuditAction,
+  ApprovalDelegation,
+  DelegationScope,
 } from "../types";
 import type { AcademicUnit } from "../types/school.types";
 import { getAcademicUnit } from "../config/schools.config";
@@ -97,6 +105,8 @@ interface STSNState {
   setupData: Record<string, SetupItem[]>;
   discountTypes: DiscountType[];
   discountRequests: DiscountRequest[];
+  voidRequests: VoidRequest[];
+  notifications: STSNNotification[];
   classSchedules: ClassSchedule[];
   learningMaterials: LearningMaterial[];
   sections: SchoolSection[];
@@ -135,6 +145,7 @@ interface STSNState {
   salaryPayoutBatches: SalaryPayoutBatch[];
   salaryPayoutLines: SalaryPayoutLine[];
   benefitPlans: BenefitPlan[];
+  statutoryContributionRules: StatutoryContributionRule[];
   taxTables: TaxTable[];
   taxBrackets: TaxBracket[];
   // HR Phase 5
@@ -144,6 +155,23 @@ interface STSNState {
   onboardingTemplates: OnboardingTemplate[];
   onboardingTasks: OnboardingTask[];
   employeeOnboardingTasks: EmployeeOnboardingTask[];
+
+  // P4-F: Central Audit Log
+  auditLog: AuditLogEntry[];
+  logAudit: (
+    action: AuditAction,
+    entityType: AuditEntityType,
+    entityId: string,
+    prev?: Record<string, unknown>,
+    next?: Record<string, unknown>,
+    remarks?: string,
+  ) => void;
+
+  // P4-D: Approval Delegations
+  delegations: ApprovalDelegation[];
+  addDelegation: (delegation: Omit<ApprovalDelegation, "id" | "createdAt">) => void;
+  revokeDelegation: (id: string) => void;
+  getActiveDelegation: (scope: DelegationScope, delegateId: string) => ApprovalDelegation | undefined;
 
   // Bootstrap
   initialize: () => Promise<void>;
@@ -161,6 +189,8 @@ interface STSNState {
   approveEnrollment: (enrollmentId: string, section: string) => void;
   rejectEnrollment: (enrollmentId: string) => void;
   submitNewEnrollment: (enrollment: Omit<Enrollment, "id">) => Enrollment;
+  updateEnrollmentStatus: (enrollmentId: string, status: Enrollment["status"]) => void;
+  updateOnlineEnrollmentApplicationStatus: (applicationId: string, status: OnlineEnrollmentApplication["status"]) => void;
 
   // Accounting Actions
   addAssessment: (assessment: StudentAssessment) => void;
@@ -223,6 +253,21 @@ interface STSNState {
   approveDiscountRequest: (id: string, level: 1 | 2, approvedBy: string, remarks?: string) => void;
   rejectDiscountRequest: (id: string, level: 1 | 2, approvedBy: string, remarks?: string) => void;
 
+  // Payment Void Approval Workflow
+  submitVoidRequest: (req: Omit<VoidRequest, "id" | "requestedAt" | "status">) => VoidRequest;
+  approveVoidRequest: (id: string, reviewedBy: string, remarks?: string) => void;
+  rejectVoidRequest: (id: string, reviewedBy: string, remarks: string) => void;
+
+  // Notification Actions
+  addNotification: (n: Omit<STSNNotification, "id" | "createdAt" | "readBy">) => void;
+  markNotificationRead: (id: string, userId: string) => void;
+  clearAllNotifications: () => void;
+
+  // Grade submission workflow
+  submitGradePeriod: (periodId: string, submittedBy: string) => void;
+  approveGradePeriod: (periodId: string, approvedBy: string) => void;
+  returnGradePeriod: (periodId: string, returnedBy: string, remarks: string) => void;
+
   // Class Scheduling actions
   addClassSchedule: (schedule: Omit<ClassSchedule, "id">) => ClassSchedule;
   updateClassSchedule: (id: string, updates: Partial<ClassSchedule>) => void;
@@ -275,6 +320,7 @@ interface STSNState {
 
   // HR Phase 4 — Salary Payouts
   addSalaryPayoutBatch: (batch: Omit<SalaryPayoutBatch, "id" | "createdAt">) => SalaryPayoutBatch;
+  addSalaryPayoutLines: (lines: Omit<SalaryPayoutLine, "id" | "createdAt">[]) => void;
   releaseSalaryPayoutBatch: (id: string, releasedBy: string) => void;
 
   // HR Phase 4 — Benefits
@@ -410,6 +456,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   setupData: {},
   discountTypes: [],
   discountRequests: [],
+  voidRequests: [],
+  notifications: [],
   classSchedules: [],
   learningMaterials: [],
   sections: [],
@@ -446,6 +494,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   salaryPayoutBatches: [],
   salaryPayoutLines: [],
   benefitPlans: [],
+  statutoryContributionRules: [],
   taxTables: [],
   taxBrackets: [],
   jobRequisitions: [],
@@ -454,6 +503,12 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   onboardingTemplates: [],
   onboardingTasks: [],
   employeeOnboardingTasks: [],
+
+  // P4-F: Central Audit Log
+  auditLog: [],
+
+  // P4-D: Approval Delegations
+  delegations: [],
 
   initialize: async () => {
     const data = await loadAllData();
@@ -552,7 +607,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const newEnrollment: Enrollment = {
       ...enrollData,
       id: newEnrollmentId,
-      status: "Pending",
+      status: "For Assessment",
       enrollmentSource: enrollData.enrollmentSource ?? "ERP",
       isOnlineEnrollment: enrollData.isOnlineEnrollment ?? false,
       completionStatus: enrollData.completionStatus ?? "Complete",
@@ -562,7 +617,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     set((state) => ({
       enrollments: [...state.enrollments, newEnrollment],
       students: state.students.map((student) =>
-        student.id === enrollData.studentId ? { ...student, enrollmentStatus: "Pending" } : student
+        student.id === enrollData.studentId ? { ...student, enrollmentStatus: "For Assessment" } : student
       )
     }));
 
@@ -616,7 +671,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         schoolYear: enrollData.schoolYear,
         semester: enrollData.semester,
         enrollmentType: enrollData.enrollmentType,
-        status: "Pending",
+        status: "For Assessment",
         submittedAt: enrollData.submittedAt,
         enrollmentSource: newEnrollment.enrollmentSource,
         isOnlineEnrollment: newEnrollment.isOnlineEnrollment,
@@ -674,6 +729,36 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     dbUpdate("students", enrollment.studentId, { enrollmentStatus: "Rejected" });
   },
 
+  updateEnrollmentStatus: (enrollmentId, status) => {
+    const enrollment = get().enrollments.find((e) => e.id === enrollmentId);
+    if (!enrollment) return;
+    set((state) => ({
+      enrollments: state.enrollments.map((e) => (e.id === enrollmentId ? { ...e, status } : e)),
+      students: state.students.map((s) => (s.id === enrollment.studentId ? { ...s, enrollmentStatus: status } : s)),
+    }));
+    dbUpdate("enrollments", enrollmentId, { status });
+    dbUpdate("students", enrollment.studentId, { enrollmentStatus: status });
+  },
+
+  updateOnlineEnrollmentApplicationStatus: (applicationId, status) => {
+    set((state) => ({
+      onlineEnrollmentApplications: state.onlineEnrollmentApplications.map((application) =>
+        application.id === applicationId
+          ? {
+              ...application,
+              status,
+              completionStatus: status === "For Completion" ? "Incomplete" : application.completionStatus,
+            }
+          : application,
+      ),
+    }));
+    dbUpdate("online_enrollment_applications", applicationId, {
+      status,
+      completionStatus: status === "For Completion" ? "Incomplete" : undefined,
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
   addAssessment: (assessment) => {
     set((state) => ({ assessments: [...state.assessments, assessment] }));
     const { fees, auditTrail, ...rest } = assessment;
@@ -698,15 +783,35 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   approveAssessment: (assessmentId, approvedBy, remarks) => {
     const now = nowStamp();
+    const assessment = get().assessments.find((a) => a.id === assessmentId);
+    const linkedEnrollment = assessment
+      ? get().enrollments.find((e) => e.assessmentId === assessmentId || (
+          e.studentId === assessment.studentId &&
+          e.schoolYear === assessment.schoolYear &&
+          e.semester === assessment.semester
+        ))
+      : undefined;
     const entry: AuditEntry = { id: newId(), action: "APPROVED_FOR_PAYMENT", performedBy: approvedBy, performedAt: now, details: remarks || "Assessment approved for payment." };
     set((state) => ({
       assessments: state.assessments.map((a) => a.id !== assessmentId ? a : {
         ...a, approvalStatus: "Approved for Payment", approvedBy, approvedDate: now,
         accountingRemarks: remarks || a.accountingRemarks, auditTrail: [...(a.auditTrail || []), entry],
-      })
+      }),
+      enrollments: linkedEnrollment
+        ? state.enrollments.map((e) => e.id === linkedEnrollment.id ? { ...e, status: "For Payment" } : e)
+        : state.enrollments,
+      students: linkedEnrollment
+        ? state.students.map((s) => s.id === linkedEnrollment.studentId ? { ...s, enrollmentStatus: "For Payment" } : s)
+        : state.students,
     }));
     dbUpdate("assessments", assessmentId, { approvalStatus: "Approved for Payment", approvedBy, approvedDate: now, accountingRemarks: remarks });
+    if (linkedEnrollment) {
+      dbUpdate("enrollments", linkedEnrollment.id, { status: "For Payment" });
+      dbUpdate("students", linkedEnrollment.studentId, { enrollmentStatus: "For Payment" });
+    }
     dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+    const asmtStudent = get().students.find((s) => s.id === assessment?.studentId);
+    get().addNotification({ title: "Assessment Approved for Payment", body: `Assessment for ${asmtStudent ? `${asmtStudent.firstName} ${asmtStudent.lastName}` : "student"} approved. Student may now proceed to Cashier.`, type: "approval", entityType: "assessment", entityId: assessmentId, targetRoles: ["CASHIER", "REGISTRAR", "SUPER_ADMIN", "ADMIN"], schoolId: assessment?.schoolId as any });
   },
 
   returnAssessmentToRegistrar: (assessmentId, performedBy, remarks) => {
@@ -719,6 +824,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     }));
     dbUpdate("assessments", assessmentId, { approvalStatus: "Returned to Registrar", accountingRemarks: remarks });
     dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+    get().addNotification({ title: "Assessment Returned to Registrar", body: `An assessment was returned for correction: ${remarks}`, type: "return", entityType: "assessment", entityId: assessmentId, targetRoles: ["REGISTRAR", "SUPER_ADMIN", "ADMIN"] });
   },
 
   rejectAssessment: (assessmentId, performedBy, remarks) => {
@@ -737,6 +843,21 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const newPaymentId = newId();
     const paymentDate = new Date().toISOString().replace("T", " ").substring(0, 16);
     const newPayment: Payment = { ...paymentData, id: newPaymentId, paymentDate };
+    const targetAssessmentBeforePayment = get().assessments.find((a) =>
+      paymentData.assessmentId ? a.id === paymentData.assessmentId : a.studentId === paymentData.studentId
+    );
+    const nextAssessmentBalance = targetAssessmentBeforePayment
+      ? Math.max(0, targetAssessmentBeforePayment.balance - paymentData.amount)
+      : undefined;
+    const linkedEnrollment = targetAssessmentBeforePayment
+      ? get().enrollments.find((e) => e.assessmentId === targetAssessmentBeforePayment.id || (
+          e.studentId === targetAssessmentBeforePayment.studentId &&
+          e.schoolYear === targetAssessmentBeforePayment.schoolYear &&
+          e.semester === targetAssessmentBeforePayment.semester
+        ))
+      : undefined;
+    const nextEnrollmentStatus: Enrollment["status"] | undefined =
+      nextAssessmentBalance === undefined ? undefined : nextAssessmentBalance > 0 ? "Partially Paid" : "Enrolled";
 
     set((state) => ({
       payments: [...state.payments, newPayment],
@@ -747,7 +868,13 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
           ? a.id === paymentData.assessmentId
           : a.studentId === paymentData.studentId;
         return isTarget ? { ...a, balance: Math.max(0, a.balance - paymentData.amount) } : a;
-      })
+      }),
+      enrollments: linkedEnrollment && nextEnrollmentStatus
+        ? state.enrollments.map((e) => e.id === linkedEnrollment.id ? { ...e, status: nextEnrollmentStatus } : e)
+        : state.enrollments,
+      students: linkedEnrollment && nextEnrollmentStatus
+        ? state.students.map((s) => s.id === linkedEnrollment.studentId ? { ...s, enrollmentStatus: nextEnrollmentStatus } : s)
+        : state.students,
     }));
 
     dbInsert("payments", { ...paymentData, id: newPaymentId, paymentDate });
@@ -755,6 +882,10 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       paymentData.assessmentId ? a.id === paymentData.assessmentId : a.studentId === paymentData.studentId
     );
     if (targetAssessment) dbUpdate("assessments", targetAssessment.id, { balance: Math.max(0, targetAssessment.balance - paymentData.amount) });
+    if (linkedEnrollment && nextEnrollmentStatus) {
+      dbUpdate("enrollments", linkedEnrollment.id, { status: nextEnrollmentStatus });
+      dbUpdate("students", linkedEnrollment.studentId, { enrollmentStatus: nextEnrollmentStatus });
+    }
 
     return newPayment;
   },
@@ -1090,6 +1221,87 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     dbInsert("discount_request_audit_trail", { id: auditEntry.id, discountRequestId: id, action: auditEntry.action, performedBy: auditEntry.performedBy, performedAt: auditEntry.performedAt, details: auditEntry.details });
   },
 
+  // ---- Payment Void Approval Actions ----
+  submitVoidRequest: (reqData) => {
+    const newReq: VoidRequest = { ...reqData, id: newId(), requestedAt: nowStamp(), status: "Pending Void Approval" };
+    set((state) => ({ voidRequests: [newReq, ...state.voidRequests] }));
+    return newReq;
+  },
+
+  approveVoidRequest: (id, reviewedBy, remarks) => {
+    const now = nowStamp();
+    const req = get().voidRequests.find((r) => r.id === id);
+    set((state) => ({
+      voidRequests: state.voidRequests.map((r) =>
+        r.id !== id ? r : { ...r, status: "Approved", reviewedBy, reviewedAt: now, reviewRemarks: remarks }
+      ),
+    }));
+    if (req) get().addNotification({ title: "Void Request Approved", body: `OR No. ${req.orNumber} for ${req.studentName} has been approved for voiding.`, type: "approval", entityType: "void", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: req.schoolId });
+  },
+
+  rejectVoidRequest: (id, reviewedBy, remarks) => {
+    const now = nowStamp();
+    const req = get().voidRequests.find((r) => r.id === id);
+    set((state) => ({
+      voidRequests: state.voidRequests.map((r) =>
+        r.id !== id ? r : { ...r, status: "Rejected", reviewedBy, reviewedAt: now, reviewRemarks: remarks }
+      ),
+    }));
+    if (req) get().addNotification({ title: "Void Request Rejected", body: `Void request for OR No. ${req.orNumber} was rejected: ${remarks}`, type: "rejection", entityType: "void", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: req.schoolId });
+  },
+
+  // ---- Notification Actions ----
+  addNotification: (n) => {
+    const notif: STSNNotification = { ...n, id: newId(), createdAt: new Date().toISOString(), readBy: [] };
+    set((state) => ({ notifications: [notif, ...state.notifications].slice(0, 100) }));
+  },
+
+  markNotificationRead: (id, userId) => {
+    set((state) => ({
+      notifications: state.notifications.map((n) =>
+        n.id !== id || n.readBy.includes(userId) ? n : { ...n, readBy: [...n.readBy, userId] }
+      ),
+    }));
+  },
+
+  clearAllNotifications: () => {
+    set({ notifications: [] });
+  },
+
+  // ---- Grade Submission Workflow ----
+  submitGradePeriod: (periodId, submittedBy) => {
+    const now = nowStamp();
+    const period = get().gradePeriods.find((p) => p.id === periodId);
+    set((state) => ({
+      gradePeriods: state.gradePeriods.map((p) =>
+        p.id !== periodId ? p : { ...p, submittedForApproval: true, submittedAt: now, submittedBy, gradeApprovalStatus: "Submitted" as const }
+      ),
+    }));
+    if (period) get().addNotification({ title: "Grade Period Submitted for Approval", body: `${period.label} — ${period.subjectCode} submitted by ${submittedBy} and awaiting Principal approval.`, type: "reminder", entityType: "grade", entityId: periodId, targetRoles: ["PRINCIPAL", "SUPER_ADMIN", "ADMIN"] });
+  },
+
+  approveGradePeriod: (periodId, approvedBy) => {
+    const now = nowStamp();
+    const period = get().gradePeriods.find((p) => p.id === periodId);
+    set((state) => ({
+      gradePeriods: state.gradePeriods.map((p) =>
+        p.id !== periodId ? p : { ...p, isFinalized: true, finalizedAt: now, finalizedBy: approvedBy, gradeApprovalStatus: "Approved" as const, approvedAt: now, approvedBy }
+      ),
+    }));
+    if (period) get().addNotification({ title: "Grade Period Approved", body: `${period.label} — ${period.subjectCode} has been approved and finalized by ${approvedBy}.`, type: "approval", entityType: "grade", entityId: periodId, targetRoles: ["TEACHER", "REGISTRAR", "SUPER_ADMIN", "ADMIN"] });
+  },
+
+  returnGradePeriod: (periodId, returnedBy, remarks) => {
+    const now = nowStamp();
+    const period = get().gradePeriods.find((p) => p.id === periodId);
+    set((state) => ({
+      gradePeriods: state.gradePeriods.map((p) =>
+        p.id !== periodId ? p : { ...p, submittedForApproval: false, gradeApprovalStatus: "Returned" as const, returnRemarks: remarks, returnedAt: now, returnedBy }
+      ),
+    }));
+    if (period) get().addNotification({ title: "Grade Period Returned", body: `${period.label} — ${period.subjectCode} was returned for revision: ${remarks}`, type: "return", entityType: "grade", entityId: periodId, targetRoles: ["TEACHER", "SUPER_ADMIN", "ADMIN"] });
+  },
+
   // ---- Class Scheduling Actions ----
   addClassSchedule: (scheduleData) => {
     const newSchedule: ClassSchedule = { ...scheduleData, id: newId() };
@@ -1299,18 +1511,24 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   approveLeaveRequest: (id, approvedBy, remarks) => {
     const now = new Date().toISOString();
+    const req = get().leaveRequests.find((r) => r.id === id);
+    const emp = req ? get().employees.find((e) => e.id === req.employeeId) : undefined;
     set((state) => ({
       leaveRequests: state.leaveRequests.map((r) => r.id === id ? { ...r, status: "Approved", approvedBy, approvedAt: now, remarks: remarks ?? r.remarks } : r)
     }));
     dbUpdate("leave_requests", id, { status: "Approved", approved_by: approvedBy, approved_at: now, remarks });
+    if (req) get().addNotification({ title: "Leave Request Approved", body: `Leave request for ${emp ? `${emp.firstName} ${emp.lastName}` : "employee"} (${req.startDate} – ${req.endDate}) has been approved.`, type: "approval", entityType: "leave", entityId: id, targetRoles: ["HR", "SUPER_ADMIN", "ADMIN"] });
   },
 
   rejectLeaveRequest: (id, approvedBy, remarks) => {
     const now = new Date().toISOString();
+    const req = get().leaveRequests.find((r) => r.id === id);
+    const emp = req ? get().employees.find((e) => e.id === req.employeeId) : undefined;
     set((state) => ({
       leaveRequests: state.leaveRequests.map((r) => r.id === id ? { ...r, status: "Rejected", approvedBy, approvedAt: now, remarks } : r)
     }));
     dbUpdate("leave_requests", id, { status: "Rejected", approved_by: approvedBy, approved_at: now, remarks });
+    if (req) get().addNotification({ title: "Leave Request Rejected", body: `Leave request for ${emp ? `${emp.firstName} ${emp.lastName}` : "employee"} was rejected: ${remarks}`, type: "rejection", entityType: "leave", entityId: id, targetRoles: ["HR", "SUPER_ADMIN", "ADMIN"] });
   },
 
   cancelLeaveRequest: (id) => {
@@ -1351,12 +1569,24 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         if (status === "Computed") { updates.computedBy = by; updates.computedAt = now; }
         if (status === "Approved") { updates.approvedBy = by; updates.approvedAt = now; }
         return { ...r, ...updates };
-      })
+      }),
+      payrollLines: state.payrollLines.map((line) => {
+        if (line.payrollRunId !== id) return line;
+        if (status === "Approved") return { ...line, status: "Approved" };
+        if (status === "Released") return { ...line, status: "Released" };
+        if (status === "Cancelled") return { ...line, status: "Cancelled" };
+        return line;
+      }),
     }));
     const dbUpdates: any = { status };
     if (status === "Computed") { dbUpdates.computed_by = by; dbUpdates.computed_at = now; }
     if (status === "Approved") { dbUpdates.approved_by = by; dbUpdates.approved_at = now; }
     dbUpdate("payroll_runs", id, dbUpdates);
+    if (status === "Approved" || status === "Released" || status === "Cancelled") {
+      get().payrollLines
+        .filter((line) => line.payrollRunId === id)
+        .forEach((line) => dbUpdate("payroll_lines", line.id, { status }));
+    }
   },
 
   addPayrollLine: (lineData) => {
@@ -1398,13 +1628,33 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     return newBatch;
   },
 
+  addSalaryPayoutLines: (linesData) => {
+    const newLines: SalaryPayoutLine[] = linesData.map((line) => ({ ...line, id: newId(), createdAt: new Date().toISOString() }));
+    set((state) => ({ salaryPayoutLines: [...state.salaryPayoutLines, ...newLines] }));
+    for (const line of newLines) {
+      dbInsert("salary_payout_lines", {
+        id: line.id, payout_batch_id: line.payoutBatchId, payroll_line_id: line.payrollLineId,
+        employee_id: line.employeeId, amount: line.amount, reference_no: line.referenceNo,
+        status: line.status, released_at: line.releasedAt,
+      });
+    }
+  },
+
   releaseSalaryPayoutBatch: (id, releasedBy) => {
     const now = new Date().toISOString();
+    const affectedRunId = get().salaryPayoutBatches.find((b) => b.id === id)?.payrollRunId;
+    const affectedPayrollLineIds = get().salaryPayoutLines
+      .filter((line) => line.payoutBatchId === id)
+      .map((line) => line.payrollLineId);
     set((state) => ({
       salaryPayoutBatches: state.salaryPayoutBatches.map((b) => b.id === id ? { ...b, status: "Released", releasedBy, releasedAt: now } : b),
       salaryPayoutLines: state.salaryPayoutLines.map((l) => l.payoutBatchId === id ? { ...l, status: "Released", releasedAt: now } : l),
+      payrollRuns: state.payrollRuns.map((r) => r.id === affectedRunId ? { ...r, status: "Released" } : r),
+      payrollLines: state.payrollLines.map((l) => affectedPayrollLineIds.includes(l.id) ? { ...l, status: "Released" } : l),
     }));
     dbUpdate("salary_payout_batches", id, { status: "Released", released_by: releasedBy, released_at: now });
+    if (affectedRunId) dbUpdate("payroll_runs", affectedRunId, { status: "Released" });
+    affectedPayrollLineIds.forEach((lineId) => dbUpdate("payroll_lines", lineId, { status: "Released" }));
   },
 
   // ---- HR Phase 4: Benefit Plans ----
@@ -1526,6 +1776,61 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   deleteSection: (id) => {
     set((state) => ({ sections: state.sections.filter((s) => s.id !== id) }));
     dbDelete("sections", id);
+  },
+
+  // ---- P4-F: Central Audit Log ----
+
+  logAudit: (action, entityType, entityId, prev, next, remarks) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    const entry: AuditLogEntry = {
+      id: newId(),
+      timestamp: new Date().toISOString(),
+      actorId: currentUser.id,
+      actorRole: currentUser.role,
+      actorName: currentUser.name,
+      schoolId: currentUser.schoolId,
+      entityType,
+      entityId,
+      action,
+      previousValue: prev,
+      newValue: next,
+      remarks,
+    };
+    set((state) => ({
+      auditLog: [entry, ...state.auditLog].slice(0, 1000),
+    }));
+  },
+
+  // ---- P4-D: Approval Delegations ----
+
+  addDelegation: (delegation) => {
+    const newDelegation: ApprovalDelegation = {
+      ...delegation,
+      id: newId(),
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({ delegations: [newDelegation, ...state.delegations] }));
+  },
+
+  revokeDelegation: (id) => {
+    set((state) => ({
+      delegations: state.delegations.map((d) =>
+        d.id === id ? { ...d, isActive: false } : d,
+      ),
+    }));
+  },
+
+  getActiveDelegation: (scope, delegateId) => {
+    const today = todayStamp();
+    return get().delegations.find(
+      (d) =>
+        d.isActive &&
+        d.delegateId === delegateId &&
+        (d.scope === scope || d.scope === "ALL") &&
+        d.startDate <= today &&
+        d.endDate >= today,
+    );
   },
 
   toggleSectionActive: (id) => {

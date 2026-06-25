@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import { Employee, PayrollRow } from "../../../../types";
+import { Employee, PayrollLine, PayrollRow, PayrollRun } from "../../../../types";
 import {
   Users,
   Layers,
@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import { PreviewModal, PayslipPreview } from "../../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import EmptyState from "../../../../components/common/EmptyState";
+import { calculatePayrollLine } from "../../utils/payrollCalculations";
 
 interface ImportRow {
   firstName: string;
@@ -65,10 +67,23 @@ export default function PayrollManagementPage() {
   const {
     employees,
     payroll,
+    payrollPeriods,
+    payrollRuns,
+    payrollLines,
+    salaryPayoutBatches,
+    benefitPlans,
+    statutoryContributionRules,
+    taxTables,
     addEmployee,
     updateEmployee,
     markPaidPayroll,
     processGlobalPayroll,
+    addPayrollPeriod,
+    addPayrollRun,
+    updatePayrollRunStatus,
+    addPayrollLines,
+    addSalaryPayoutBatch,
+    addSalaryPayoutLines,
     bulkImportEmployees,
     currentUser,
     activeSchool,
@@ -130,6 +145,91 @@ export default function PayrollManagementPage() {
   const pendingRows = payroll.filter((p) => filteredEmployees.some((employee) => employee.id === p.employeeId) && p.status === "Pending").length;
   const paidRows = payroll.filter((p) => filteredEmployees.some((employee) => employee.id === p.employeeId) && p.status === "Paid").length;
   const projectedMonthlyPayroll = filteredEmployees.reduce((sum, employee) => sum + employee.salary, 0);
+  const effectivePayrollSchool = (effectiveSchool as any) || "STSN";
+  const employeeMap = useMemo(() => new Map(employees.map((employee) => [employee.id, employee])), [employees]);
+
+  const scopedPayrollRuns = useMemo(
+    () =>
+      payrollRuns
+        .filter((run) => !run.schoolId || run.schoolId === effectivePayrollSchool)
+        .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")),
+    [payrollRuns, effectivePayrollSchool],
+  );
+  const latestPayrollRun = scopedPayrollRuns[0];
+  const latestPayrollRunLines = useMemo(
+    () => payrollLines.filter((line) => line.payrollRunId === latestPayrollRun?.id),
+    [payrollLines, latestPayrollRun?.id],
+  );
+  const latestPayrollPeriod = payrollPeriods.find((period) => period.id === latestPayrollRun?.payrollPeriodId);
+  const latestRunHasPayout = latestPayrollRun
+    ? salaryPayoutBatches.some((batch) => batch.payrollRunId === latestPayrollRun.id && batch.status !== "Cancelled")
+    : false;
+  const latestRunNetPay = latestPayrollRunLines.reduce((sum, line) => sum + line.netPay, 0);
+  const payrollExceptionRows = useMemo(() => {
+    const rows: Array<{ issue: string; detail: string; severity: "Warning" | "Blocking" }> = [];
+    const missingSalaryEmployees = filteredEmployees.filter((employee) => employee.salary <= 0);
+    if (missingSalaryEmployees.length > 0) {
+      rows.push({
+        issue: "Missing salary profile",
+        detail: `${missingSalaryEmployees.length} employee(s) have zero or missing salary.`,
+        severity: "Blocking",
+      });
+    }
+    if (benefitPlans.filter((plan) => plan.category === "Statutory" && plan.isActive).length > 0 && statutoryContributionRules.length === 0) {
+      rows.push({
+        issue: "No statutory rule rows",
+        detail: "Active statutory benefit plans exist, but no effective-dated contribution rules are configured.",
+        severity: "Warning",
+      });
+    }
+    if (taxTables.length === 0) {
+      rows.push({
+        issue: "No configured tax table",
+        detail: "Payroll will use the simplified fallback withholding table.",
+        severity: "Warning",
+      });
+    }
+    const lineCounts = new Map<string, number>();
+    latestPayrollRunLines.forEach((line) => lineCounts.set(line.employeeId, (lineCounts.get(line.employeeId) ?? 0) + 1));
+    const duplicateLineCount = [...lineCounts.values()].filter((count) => count > 1).length;
+    if (duplicateLineCount > 0) {
+      rows.push({
+        issue: "Duplicate employee payroll lines",
+        detail: `${duplicateLineCount} employee(s) appear more than once in the latest payroll run.`,
+        severity: "Blocking",
+      });
+    }
+    const negativeNetLines = latestPayrollRunLines.filter((line) => line.netPay < 0);
+    if (negativeNetLines.length > 0) {
+      rows.push({
+        issue: "Negative net pay",
+        detail: `${negativeNetLines.length} line(s) computed below zero net pay.`,
+        severity: "Blocking",
+      });
+    }
+    return rows;
+  }, [benefitPlans, filteredEmployees, latestPayrollRunLines, statutoryContributionRules.length, taxTables.length]);
+
+  const getCurrentSemiMonthlyPeriodDraft = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const cutoff = today.getDate() <= 15 ? "A" : "B";
+    const startDay = cutoff === "A" ? 1 : 16;
+    const endDay = cutoff === "A" ? 15 : new Date(year, month + 1, 0).getDate();
+    const start = new Date(year, month, startDay);
+    const end = new Date(year, month, endDay);
+    const payout = new Date(year, month, Math.min(endDay + 2, new Date(year, month + 1, 0).getDate()));
+    const monthCode = String(month + 1).padStart(2, "0");
+
+    return {
+      periodCode: `${effectivePayrollSchool}-${year}-${monthCode}-${cutoff}`,
+      label: `${today.toLocaleString("en-US", { month: "short" })} ${startDay}-${endDay}, ${year}`,
+      startDate: start.toISOString().split("T")[0],
+      endDate: end.toISOString().split("T")[0],
+      payoutDate: payout.toISOString().split("T")[0],
+    };
+  };
 
   const resetForm = () => {
     setFirstName(""); setLastName(""); setMiddleName("");
@@ -249,10 +349,195 @@ export default function PayrollManagementPage() {
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
+  const handleGeneratePayrollRun = () => {
+    const missingSalaryEmployees = filteredEmployees.filter((employee) => employee.salary <= 0);
+    if (missingSalaryEmployees.length > 0) {
+      toast(`${missingSalaryEmployees.length} employee(s) need salary profiles before payroll can be generated.`, { variant: "warning" });
+      return;
+    }
+    const payableEmployees = filteredEmployees;
+    if (payableEmployees.length === 0) {
+      toast("No employees found for the current school scope.", { variant: "warning" });
+      return;
+    }
+
+    const periodDraft = getCurrentSemiMonthlyPeriodDraft();
+    const period =
+      payrollPeriods.find((p) => p.periodCode === periodDraft.periodCode && (!p.schoolId || p.schoolId === effectivePayrollSchool)) ??
+      addPayrollPeriod({
+        schoolId: effectivePayrollSchool,
+        ...periodDraft,
+        status: "Open",
+      });
+
+    const duplicateRun = payrollRuns.find(
+      (run) =>
+        run.payrollPeriodId === period.id &&
+        (!run.schoolId || run.schoolId === effectivePayrollSchool) &&
+        run.status !== "Cancelled",
+    );
+    if (duplicateRun) {
+      toast(`Payroll run ${duplicateRun.runNo} already exists for ${period.label ?? period.periodCode}.`, { variant: "warning" });
+      return;
+    }
+
+    const year = new Date().getFullYear();
+    const taxTable = [...taxTables]
+      .filter((table) => table.effectiveYear <= year)
+      .sort((a, b) => b.effectiveYear - a.effectiveYear)[0];
+    const run = addPayrollRun({
+      schoolId: effectivePayrollSchool,
+      payrollPeriodId: period.id,
+      runNo: `PR-${period.periodCode}`,
+      status: "Computed",
+      computedBy: currentUser?.name ?? "Payroll",
+      computedAt: new Date().toISOString(),
+      notes: `Generated from ${payableEmployees.length} scoped employee compensation profile(s).`,
+    });
+
+    addPayrollLines(
+      payableEmployees.map((employee) => ({
+        ...calculatePayrollLine({ employee, payrollRunId: run.id, taxTable, benefitPlans, statutoryContributionRules }),
+        status: "Computed",
+      })),
+    );
+
+    toast(`Payroll run ${run.runNo} computed for ${payableEmployees.length} employee(s).`);
+  };
+
+  const handleApprovePayrollRun = (run: PayrollRun) => {
+    const runLines = payrollLines.filter((line) => line.payrollRunId === run.id);
+    if (runLines.length === 0) {
+      toast("Cannot approve this payroll run because it has no payroll lines.", { variant: "warning" });
+      return;
+    }
+    if (run.id === latestPayrollRun?.id && payrollExceptionRows.some((row) => row.severity === "Blocking")) {
+      toast("Resolve blocking payroll exceptions before approval.", { variant: "warning" });
+      return;
+    }
+    updatePayrollRunStatus(run.id, "Approved", currentUser?.name ?? "Payroll Approver");
+    toast(`Payroll run ${run.runNo} approved.`);
+  };
+
+  const handleCreatePayoutBatch = (run: PayrollRun) => {
+    if (run.status !== "Approved") {
+      toast("Only approved payroll runs can create payout batches.", { variant: "warning" });
+      return;
+    }
+    if (run.id === latestPayrollRun?.id && payrollExceptionRows.some((row) => row.severity === "Blocking")) {
+      toast("Resolve blocking payroll exceptions before payout batch creation.", { variant: "warning" });
+      return;
+    }
+    if (salaryPayoutBatches.some((batch) => batch.payrollRunId === run.id && batch.status !== "Cancelled")) {
+      toast(`A payout batch already exists for ${run.runNo}.`, { variant: "warning" });
+      return;
+    }
+    const approvedLines = payrollLines.filter((line) => line.payrollRunId === run.id && line.status === "Approved");
+    if (approvedLines.length === 0) {
+      toast("No approved payroll lines are available for payout.", { variant: "warning" });
+      return;
+    }
+
+    const batch = addSalaryPayoutBatch({
+      payrollRunId: run.id,
+      payoutNo: `PO-${run.runNo.replace(/^PR-/, "")}`,
+      payoutMethod: "Bank Transfer",
+      status: "Queued",
+      notes: `Created from approved payroll run ${run.runNo}.`,
+    });
+    addSalaryPayoutLines(
+      approvedLines.map((line) => ({
+        payoutBatchId: batch.id,
+        payrollLineId: line.id,
+        employeeId: line.employeeId,
+        amount: line.netPay,
+        status: "Pending",
+      })),
+    );
+    toast(`Payout batch ${batch.payoutNo} queued for ${approvedLines.length} employee(s).`);
+  };
+
   const handleRunPayrollPeriod = () => {
     processGlobalPayroll();
-    toast("Bi-weekly payroll successfully processed for all active employees!");
+    toast("Legacy bi-weekly payroll ledger processed. Use Generate Payroll Run for the approved payout workflow.");
   };
+
+  const payrollRunColumns: STSNColumn<PayrollRun>[] = [
+    { title: "Run #", data: "runNo", render: (value) => <span className="font-mono text-xs font-bold text-stsn-brown">{value}</span> },
+    {
+      title: "Period",
+      render: (_, row) => {
+        const period = payrollPeriods.find((p) => p.id === row.payrollPeriodId);
+        return <span className="text-xs text-stone-600">{period?.label ?? period?.periodCode ?? row.payrollPeriodId}</span>;
+      },
+    },
+    {
+      title: "Status",
+      data: "status",
+      render: (value) => <span className="text-[10px] px-2 py-0.5 rounded-full bg-stsn-cream text-stsn-brown font-bold border border-stsn-beige">{value}</span>,
+      width: "95px",
+    },
+    {
+      title: "Net Pay",
+      render: (_, row) => {
+        const total = payrollLines.filter((line) => line.payrollRunId === row.id).reduce((sum, line) => sum + line.netPay, 0);
+        return <span className="font-mono text-xs font-bold text-emerald-700">PHP {total.toLocaleString()}</span>;
+      },
+      width: "110px",
+    },
+    {
+      title: "Actions",
+      orderable: false,
+      searchable: false,
+      render: (_, row) => {
+        const hasBatch = salaryPayoutBatches.some((batch) => batch.payrollRunId === row.id && batch.status !== "Cancelled");
+        return (
+          <div className="flex gap-1 justify-end">
+            {row.status === "Computed" && (
+              <button onClick={() => handleApprovePayrollRun(row)} className="px-2 py-1 text-[10px] bg-emerald-600 text-white rounded font-bold cursor-pointer">
+                Approve
+              </button>
+            )}
+            {row.status === "Approved" && !hasBatch && (
+              <button onClick={() => handleCreatePayoutBatch(row)} className="px-2 py-1 text-[10px] bg-stsn-brown text-white rounded font-bold cursor-pointer">
+                Create Payout
+              </button>
+            )}
+            {hasBatch && <span className="text-[10px] text-stone-400 font-semibold">Payout queued</span>}
+          </div>
+        );
+      },
+    },
+  ];
+
+  const payrollLineColumns: STSNColumn<PayrollLine>[] = [
+    {
+      title: "Employee",
+      render: (_, row) => {
+        const employee = employeeMap.get(row.employeeId);
+        return <span className="text-xs font-semibold text-stone-800">{employee ? `${employee.lastName}, ${employee.firstName}` : row.employeeId}</span>;
+      },
+    },
+    { title: "Gross", data: "grossPay", render: (value) => <span className="font-mono text-xs">PHP {Number(value).toLocaleString()}</span>, width: "100px" },
+    { title: "Deductions", render: (_, row) => <span className="font-mono text-xs text-red-600">PHP {(row.sssDeduction + row.philhealthDeduction + row.pagibigDeduction + row.withholdingTax + row.otherDeductions).toLocaleString()}</span>, width: "110px" },
+    { title: "Net Pay", data: "netPay", render: (value) => <span className="font-mono text-xs font-bold text-emerald-700">PHP {Number(value).toLocaleString()}</span>, width: "105px" },
+    { title: "Status", data: "status", render: (value) => <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-semibold">{value}</span>, width: "90px" },
+  ];
+
+  const payrollExceptionColumns: STSNColumn<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>[] = [
+    { title: "Issue", data: "issue", render: (value) => <span className="text-xs font-bold text-stone-800">{value}</span> },
+    { title: "Detail", data: "detail", render: (value) => <span className="text-xs text-stone-500">{value}</span> },
+    {
+      title: "Severity",
+      data: "severity",
+      render: (value) => (
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${value === "Blocking" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+          {value}
+        </span>
+      ),
+      width: "95px",
+    },
+  ];
 
   const payrollColumns: STSNColumn<PayrollRow>[] = [
     { title: "Period Range", data: "period", className: "text-stone-800 font-semibold" },
@@ -336,11 +621,18 @@ export default function PayrollManagementPage() {
 
         <div className="flex gap-2">
           <button
+            onClick={handleGeneratePayrollRun}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer shadow flex items-center gap-1.5 transition"
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate Payroll Run
+          </button>
+          <button
             onClick={handleRunPayrollPeriod}
-            className="bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer shadow flex items-center gap-1.5 transition"
+            className="bg-white hover:bg-stone-50 text-stsn-brown border border-stone-200 text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer shadow flex items-center gap-1.5 transition"
           >
             <Banknote className="w-4 h-4 text-stsn-gold-light" />
-            Process Global Payroll
+            Legacy Ledger Run
           </button>
           <button
             onClick={() => { setImportStatus("idle"); setImportRows([]); setImportMessage(""); setIsImportOpen(true); }}
@@ -363,8 +655,8 @@ export default function PayrollManagementPage() {
         {[
           { label: "Scoped Employees", value: filteredEmployees.length, sub: effectiveSchool || "All Schools", icon: Users, tone: "text-stsn-brown" },
           { label: "Monthly Payroll", value: `PHP ${projectedMonthlyPayroll.toLocaleString()}`, sub: "gross projection", icon: DollarSign, tone: "text-emerald-600" },
-          { label: "Pending Payouts", value: pendingRows, sub: "awaiting clearance", icon: AlertCircle, tone: "text-amber-600" },
-          { label: "Paid Payslips", value: paidRows, sub: "cleared records", icon: FileCheck, tone: "text-blue-600" },
+          { label: "Latest Run Net", value: `PHP ${latestRunNetPay.toLocaleString()}`, sub: latestPayrollRun?.status ?? "no computed run", icon: Scale, tone: "text-amber-600" },
+          { label: "Payout Readiness", value: latestRunHasPayout ? "Queued" : latestPayrollRun?.status === "Approved" ? "Ready" : "Locked", sub: latestPayrollPeriod?.label ?? "awaiting run", icon: FileCheck, tone: "text-blue-600" },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -380,6 +672,82 @@ export default function PayrollManagementPage() {
             </div>
           );
         })}
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-stsn-gold font-bold">
+              Payroll Run Workflow
+            </span>
+            <h3 className="text-sm font-display font-bold text-stone-900 mt-1">
+              Periods, computed lines, approval, and payout handoff
+            </h3>
+            <p className="text-xs text-stone-500 mt-1">
+              New payroll processing now uses payroll periods, runs, and lines. Payout batches can only be created after approval.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {latestPayrollRun?.status === "Computed" && (
+              <button
+                onClick={() => handleApprovePayrollRun(latestPayrollRun)}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Approve Latest Run
+              </button>
+            )}
+            {latestPayrollRun?.status === "Approved" && !latestRunHasPayout && (
+              <button
+                onClick={() => handleCreatePayoutBatch(latestPayrollRun)}
+                className="px-3 py-2 bg-stsn-brown hover:bg-stsn-brown-dark text-white rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Create Payout Batch
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="border border-stone-100 rounded-xl overflow-hidden p-1">
+          <div className="px-3 pt-3 pb-2 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] uppercase font-mono text-stone-400">Payroll Exceptions</p>
+              <p className="text-xs text-stone-500">Review blocking and warning conditions before approval or payout.</p>
+            </div>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${payrollExceptionRows.some((row) => row.severity === "Blocking") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+              {payrollExceptionRows.length} issue(s)
+            </span>
+          </div>
+          <STSNDataTable<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>
+            columns={payrollExceptionColumns}
+            rows={payrollExceptionRows}
+            emptyMessage="No payroll exceptions detected."
+            pageLength={5}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="border border-stone-100 rounded-xl overflow-hidden p-1">
+            <STSNDataTable<PayrollRun>
+              columns={payrollRunColumns}
+              rows={scopedPayrollRuns}
+              emptyMessage="No payroll runs yet. Generate a payroll run to start the controlled workflow."
+              pageLength={5}
+            />
+          </div>
+          <div className="border border-stone-100 rounded-xl overflow-hidden p-1">
+            <div className="px-3 pt-3 pb-2">
+              <p className="text-[10px] uppercase font-mono text-stone-400">
+                Latest run lines {latestPayrollRun ? `for ${latestPayrollRun.runNo}` : ""}
+              </p>
+            </div>
+            <STSNDataTable<PayrollLine>
+              columns={payrollLineColumns}
+              rows={latestPayrollRunLines}
+              emptyMessage="No computed payroll lines for the latest run."
+              pageLength={5}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -433,9 +801,12 @@ export default function PayrollManagementPage() {
               );
             })}
             {filteredEmployees.length === 0 && (
-              <div className="py-10 text-center text-xs text-stone-400">
-                No employees match the current search or school scope.
-              </div>
+              <EmptyState
+                icon={Users}
+                title="No Employees Found"
+                description="No employees match the current search or school scope. Adjust your filters or add employee records first."
+                compact
+              />
             )}
           </div>
         </div>

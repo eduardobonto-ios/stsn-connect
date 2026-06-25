@@ -248,10 +248,10 @@ export default function BooksSetupPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Packages" value={totalPackages} icon={Library} color="from-stsn-brown to-stsn-brown-dark" textColor="text-stsn-cream" />
-        <StatCard label="Active Packages" value={activePackages} icon={ToggleRight} color="from-emerald-700 to-emerald-600" textColor="text-emerald-50" />
-        <StatCard label="Grade Levels Covered" value={gradeLevelsCovered} icon={GraduationCap} color="from-amber-600 to-amber-500" textColor="text-amber-50" />
-        <StatCard label="Total Catalog Value" value={`₱${totalCatalogValue.toLocaleString()}`} icon={Coins} color="from-teal-700 to-teal-600" textColor="text-teal-50" />
+        <StatCard label="Total Packages" value={totalPackages} icon={Library} tone="brand" />
+        <StatCard label="Active Packages" value={activePackages} icon={ToggleRight} tone="success" />
+        <StatCard label="Grade Levels Covered" value={gradeLevelsCovered} icon={GraduationCap} tone="warning" />
+        <StatCard label="Total Catalog Value" value={`₱${totalCatalogValue.toLocaleString()}`} icon={Coins} tone="info" />
       </div>
 
       {/* UI Rule Notice */}

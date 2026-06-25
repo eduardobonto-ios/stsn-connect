@@ -17,8 +17,13 @@ import {
   ChevronRight,
   BookOpen,
   UserCheck,
+  Send,
+  ThumbsUp,
+  RotateCcw,
+  FileCheck,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
+import { useAppDialog } from "../../../components/common/useAppDialog";
 import type { UserRole } from "../../../types";
 import type {
   GradeRosterStudent,
@@ -30,6 +35,7 @@ import type {
 import { BASIC_ED_PERIODS, COLLEGE_PERIODS } from "../../../types/grading";
 import { departmentToAcademicUnit } from "../../../config/grading-schemes.config";
 import { getAcademicTerms } from "../../../config/schools.config";
+import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
 import {
   computePeriodGrade,
   computeTermAverage,
@@ -40,8 +46,8 @@ import STSNDataTable, { type STSNColumn } from "../../../components/common/STSND
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-// Principal = SUPER_ADMIN / ADMIN; grading master access also granted to REGISTRAR
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "REGISTRAR"];
+// Principal = SUPER_ADMIN / ADMIN; grading master access also granted to REGISTRAR and TEACHER (own sections only)
+const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "REGISTRAR", "TEACHER", "PRINCIPAL"];
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -112,6 +118,9 @@ interface SectionDetailViewProps {
   selectedPeriodLabel: GradePeriodLabel | "";
   isBasicEd: boolean;
   cacheKey: string;
+  isTeacher?: boolean;
+  teacherDisplayName?: string;
+  onSubmitPeriod?: (periodId: string) => void;
 }
 
 function SectionDetailView({
@@ -122,6 +131,9 @@ function SectionDetailView({
   selectedPeriodLabel,
   isBasicEd,
   cacheKey,
+  isTeacher = false,
+  teacherDisplayName = "",
+  onSubmitPeriod,
 }: SectionDetailViewProps) {
   const rows = useMemo(
     () => buildStudentRows(loadsForSection, scopedPeriods, allStudents, entries, selectedPeriodLabel),
@@ -186,10 +198,71 @@ function SectionDetailView({
   const passing = rows.filter(r => r.isPassing === true).length;
   const failing = rows.filter(r => r.isPassing === false).length;
 
+  // Periods for this specific section (used for teacher grade submission panel)
+  const sectionPeriods = useMemo(
+    () => scopedPeriods.filter(p =>
+      loadsForSection.some(l => l.subjectCode === p.subjectCode && l.sectionId === p.sectionId)
+    ),
+    [scopedPeriods, loadsForSection]
+  );
+
   return (
     <tr>
       <td colSpan={8} className="p-0 border-0">
         <div className={`border-t border-b ${isBasicEd ? "border-stsn-beige bg-stone-50/70" : "border-blue-100 bg-blue-50/40"} px-5 pt-4 pb-5`}>
+
+          {/* ── Teacher grade submission panel ── */}
+          {isTeacher && sectionPeriods.length > 0 && (
+            <div className="mb-4 border border-stone-200 rounded-xl overflow-hidden bg-white">
+              <div className="px-4 py-2.5 bg-stone-50 border-b border-stone-200">
+                <span className="text-[10px] font-mono uppercase font-bold text-stone-500 tracking-wide flex items-center gap-1.5">
+                  <Send className="w-3 h-3" /> Grade Period Submission Status
+                </span>
+              </div>
+              <div className="divide-y divide-stone-100">
+                {sectionPeriods.map(period => {
+                  const status = period.gradeApprovalStatus ?? (period.isFinalized ? "Draft" : undefined);
+                  const canSubmit = period.isFinalized && (!status || status === "Draft" || status === "Returned");
+                  return (
+                    <div key={period.id} className="px-4 py-2.5 flex items-center gap-3">
+                      <span className="text-[10px] font-mono font-bold text-stone-600 w-24 flex-shrink-0">{period.label}</span>
+                      <span className="text-[10px] text-stone-400 flex-1">{period.subjectCode}</span>
+                      {!period.isFinalized && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-stone-50 text-stone-400 border-stone-200">
+                          Not Finalized
+                        </span>
+                      )}
+                      {status === "Submitted" && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5" /> Awaiting Approval
+                        </span>
+                      )}
+                      {status === "Approved" && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
+                          <CheckCircle className="w-2.5 h-2.5" /> Approved
+                        </span>
+                      )}
+                      {status === "Returned" && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200 flex items-center gap-1 mr-1" title={period.returnRemarks}>
+                          <AlertTriangle className="w-2.5 h-2.5" /> Returned
+                        </span>
+                      )}
+                      {canSubmit && onSubmitPeriod && (
+                        <button
+                          onClick={() => onSubmitPeriod(period.id)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold bg-stsn-brown text-white rounded-lg hover:opacity-90 transition cursor-pointer"
+                        >
+                          <Send className="w-2.5 h-2.5" />
+                          {status === "Returned" ? "Re-submit" : "Submit for Approval"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Mini stat strip */}
           <div className="flex items-center gap-4 mb-3">
             <span className="text-[10px] font-mono uppercase font-bold text-stone-400 tracking-wide">
@@ -236,13 +309,28 @@ export default function GradesDirectoryPage() {
     currentUser,
     activeSchool,
     sections: storeSections,
+    teachers,
+    submitGradePeriod,
+    approveGradePeriod,
+    returnGradePeriod,
   } = useSTSNStore();
+
+  const { confirm, prompt, toast } = useAppDialog();
 
   const isBasicEd = academicUnit === "basic-ed";
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
   const periodLabels = isBasicEd ? BASIC_ED_PERIODS : COLLEGE_PERIODS;
 
-  // Role access guard — principal (SUPER_ADMIN/ADMIN) and REGISTRAR only
+  const isTeacher = currentUser?.role === "TEACHER";
+  const isPrincipal = currentUser?.role === "PRINCIPAL" || currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN";
+
+  // Resolve teacher record for TEACHER role
+  const currentTeacher = useMemo(
+    () => isTeacher ? resolveCurrentTeacher(teachers, currentUser, academicUnit) : null,
+    [isTeacher, teachers, currentUser, academicUnit],
+  );
+
+  // Role access guard
   const hasAccess = !currentUser || ALLOWED_ROLES.includes(currentUser.role);
 
   const schoolLabel =
@@ -252,10 +340,14 @@ export default function GradesDirectoryPage() {
         ? "Colegio de Sta. Teresa de Avila"
         : "All Institutions";
 
-  // Class loads scoped to the current academic unit (department = scope boundary)
+  // Class loads scoped to the current academic unit; further narrowed to teacher's own loads when role is TEACHER
   const classLoads = useMemo(
-    () => allClassLoads.filter(l => departmentToAcademicUnit(l.department) === academicUnit),
-    [allClassLoads, academicUnit]
+    () => allClassLoads.filter(
+      l =>
+        departmentToAcademicUnit(l.department) === academicUnit &&
+        (!isTeacher || !currentTeacher || l.teacherId === currentTeacher.id)
+    ),
+    [allClassLoads, academicUnit, isTeacher, currentTeacher]
   );
 
   // Scope grade periods through class loads to prevent cross-unit period mixing.
@@ -375,7 +467,7 @@ export default function GradesDirectoryPage() {
         <ShieldOff className="w-10 h-10 text-stone-200 mx-auto" />
         <h3 className="text-sm font-bold text-stone-700">Access Restricted</h3>
         <p className="text-stone-400 text-xs">
-          The Master Grading Directory is available to principals and registrars only.
+          The Grading Directory is available to principals, registrars, and teachers only.
         </p>
       </div>
     );
@@ -416,10 +508,12 @@ export default function GradesDirectoryPage() {
           </div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <GraduationCap className={`w-5 h-5 ${isBasicEd ? "text-stsn-brown" : "text-blue-600"}`} />
-            Master Grading Directory
+            {isTeacher ? "My Teaching Load" : "Master Grading Directory"}
           </h2>
           <p className="text-stone-500 text-xs mt-1">
-            {schoolLabel} · {overviewStats.totalSections} {terms.groupNoun.toLowerCase()}s · {overviewStats.totalLoads} class loads
+            {isTeacher
+              ? `${currentTeacher?.firstName ?? ""} ${currentTeacher?.lastName ?? ""} · ${overviewStats.totalSections} section${overviewStats.totalSections !== 1 ? "s" : ""} · ${overviewStats.totalLoads} class load${overviewStats.totalLoads !== 1 ? "s" : ""}`
+              : `${schoolLabel} · ${overviewStats.totalSections} ${terms.groupNoun.toLowerCase()}s · ${overviewStats.totalLoads} class loads`}
           </p>
         </div>
         <div className="hidden sm:flex flex-col items-end gap-1">
@@ -492,6 +586,71 @@ export default function GradesDirectoryPage() {
         })}
       </div>
 
+      {/* ── Principal Grade Approval Queue ── */}
+      {isPrincipal && (() => {
+        const submittedPeriods = scopedPeriods.filter(p => p.gradeApprovalStatus === "Submitted");
+        if (submittedPeriods.length === 0) return null;
+        return (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-amber-200 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono uppercase font-bold text-amber-600 tracking-wide">
+                  Pending Grade Approval
+                </span>
+                <h3 className="text-sm font-bold text-stone-900 mt-0.5 flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-amber-600" />
+                  {submittedPeriods.length} Grade Period{submittedPeriods.length !== 1 ? "s" : ""} Awaiting Your Approval
+                </h3>
+              </div>
+            </div>
+            <div className="divide-y divide-amber-100">
+              {submittedPeriods.map(period => {
+                const load = classLoads.find(
+                  l => l.subjectCode === period.subjectCode && l.sectionId === period.sectionId
+                );
+                return (
+                  <div key={period.id} className="px-5 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-stone-800">
+                        {period.label} · {period.subjectCode}
+                        {load && <span className="text-stone-400 font-normal"> — {load.sectionName}</span>}
+                      </p>
+                      <p className="text-[10px] text-stone-500 mt-0.5">
+                        Submitted by {period.submittedBy ?? "Teacher"} · {period.submittedAt?.split(" ")[0] ?? ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={async () => {
+                          const ok = await confirm(`Approve grades for ${period.label} — ${period.subjectCode}? This will finalize the period.`);
+                          if (!ok) return;
+                          approveGradePeriod(period.id, currentUser?.name ?? "Principal");
+                          toast(`${period.label} — ${period.subjectCode} approved and finalized.`);
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition cursor-pointer"
+                      >
+                        <ThumbsUp className="w-3 h-3" /> Approve
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const remarks = await prompt(`Return ${period.label} — ${period.subjectCode} for revision. Provide remarks for the teacher:`, { placeholder: "e.g. Please re-check failing grades in Q2" });
+                          if (!remarks) return;
+                          returnGradePeriod(period.id, currentUser?.name ?? "Principal", remarks);
+                          toast(`${period.label} — ${period.subjectCode} returned for revision.`, { variant: "warning" });
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold bg-white text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-100 transition cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Return
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Master Table ── */}
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
 
@@ -499,13 +658,13 @@ export default function GradesDirectoryPage() {
         <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b ${isBasicEd ? "border-stsn-beige" : "border-blue-100"}`}>
           <div>
             <span className="text-[10px] font-mono uppercase font-bold text-stone-400 block">
-              Principal Overview
+              {isTeacher ? "My Teaching Sections" : "Principal Overview"}
             </span>
             <h3 className="text-sm font-bold text-stone-900 mt-0.5">
               Grade Records by {terms.groupNoun}
             </h3>
             <p className="text-[11px] text-stone-400 mt-0.5">
-              Click a row to expand and view student grades · averages from finalized periods only
+              Click a row to expand and view student grades{isTeacher ? " · submit finalized periods for approval" : " · averages from finalized periods only"}
             </p>
           </div>
 
@@ -720,6 +879,14 @@ export default function GradesDirectoryPage() {
                         selectedPeriodLabel={selectedPeriodLabel}
                         isBasicEd={isBasicEd}
                         cacheKey={`${row.sectionName}-${selectedPeriodLabel}`}
+                        isTeacher={isTeacher}
+                        teacherDisplayName={currentTeacher ? `${currentTeacher.firstName} ${currentTeacher.lastName}` : ""}
+                        onSubmitPeriod={isTeacher ? async (periodId) => {
+                          const ok = await confirm(`Submit grades for ${row.sectionName} — period ${scopedPeriods.find(p => p.id === periodId)?.label ?? ""} for principal approval?`);
+                          if (!ok) return;
+                          submitGradePeriod(periodId, currentTeacher ? `${currentTeacher.firstName} ${currentTeacher.lastName}` : currentUser?.name ?? "Teacher");
+                          toast("Grade period submitted for principal approval.");
+                        } : undefined}
                       />
                     )}
                   </React.Fragment>

@@ -9,7 +9,9 @@ import { getAcademicTerms } from "../../../config/schools.config";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { Student } from "../../../types";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
-import { UsersRound, LayoutDashboard, BookOpen, Receipt, FileText, Search, X } from "lucide-react";
+import AppModal from "../../../components/common/AppModal";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
+import { UsersRound, LayoutDashboard, BookOpen, Receipt, FileText, Search } from "lucide-react";
 import StudentPortal from "../../student-portal/pages/StudentPortalPage";
 
 interface StudentDirectoryPageProps {
@@ -91,21 +93,7 @@ export default function StudentDirectoryPage({ onNavigate: _onNavigate }: Studen
         data: "enrollmentStatus",
         className: "text-center",
         searchable: false,
-        render: (_value, stud) => (
-          <span
-            className={`inline-block text-[9.5px] font-bold leading-none px-2 py-1 rounded-full ${
-              stud.enrollmentStatus === "Enrolled"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : stud.enrollmentStatus === "Approved"
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : stud.enrollmentStatus === "Rejected"
-                    ? "bg-red-50 text-red-700 border border-red-200"
-                    : "bg-amber-50 text-amber-700 border border-amber-200"
-            }`}
-          >
-            {stud.enrollmentStatus}
-          </span>
-        ),
+        render: (_value, stud) => <AppStatusBadge status={stud.enrollmentStatus} />,
       },
       {
         title: "Quick Access",
@@ -197,40 +185,17 @@ export default function StudentDirectoryPage({ onNavigate: _onNavigate }: Studen
       </div>
 
       {modal && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm overflow-y-auto flex items-start justify-center py-8 px-4 animate-fade-in"
-          onClick={() => setModal(null)}
+        <AppModal
+          open
+          title={ACTION_BUTTONS.find((b) => b.subPage === modal.subPage)?.label ?? "Student Record"}
+          icon={ACTION_BUTTONS.find((b) => b.subPage === modal.subPage)?.icon}
+          onClose={() => setModal(null)}
+          maxWidthClass="max-w-6xl"
+          headerClassName="bg-white text-stone-900 border-b border-stone-200"
+          bodyClassName="p-6 bg-stone-100"
         >
-          <div
-            className="bg-stone-100 rounded-2xl shadow-2xl w-full max-w-6xl relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-3 bg-white rounded-t-2xl border-b border-stone-200">
-              <div className="flex items-center gap-2">
-                {(() => {
-                  const btn = ACTION_BUTTONS.find((b) => b.subPage === modal.subPage);
-                  if (!btn) return null;
-                  const Icon = btn.icon;
-                  return (
-                    <>
-                      <Icon className={`w-4 h-4 ${isBasicEd ? "text-stsn-brown" : "text-blue-600"}`} />
-                      <span className="text-sm font-bold text-stone-900">{btn.label}</span>
-                    </>
-                  );
-                })()}
-              </div>
-              <button
-                onClick={() => setModal(null)}
-                className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-100 text-stone-500 cursor-pointer transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-6">
-              <StudentPortal subPage={modal.subPage} initialStudentId={modal.studentId} compact />
-            </div>
-          </div>
-        </div>
+          <StudentPortal subPage={modal.subPage} initialStudentId={modal.studentId} compact />
+        </AppModal>
       )}
     </div>
   );

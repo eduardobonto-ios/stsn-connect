@@ -1,15 +1,68 @@
 # STSN Connect Payroll and School ERP Process Review
 
 Date reviewed: 2026-06-25  
+Last updated: 2026-06-25  
 Scope: Payroll Management, Salary Payouts, Taxes, Benefits, Enrollment, Registrar, Principal, Faculty, Sectioning, Scheduling, Cashiering, Accounting, and role workflows.
+
+## Progress Update
+
+### Completed
+
+- Phase 1 Payroll rendering is complete.
+  - `PAYROLL_MANAGEMENT` now has a render branch in `src/App.tsx`.
+  - Payroll navigation now uses a dedicated `payrollSubPage` state instead of `accountingSubPage`.
+  - A dedicated `src/features/payroll/pages/PayrollModulePage.tsx` shell now renders Payroll Management, Salary Payouts, Taxes, and Benefits.
+  - Payroll-only users are routed to `PAYROLL_MANAGEMENT` after login.
+  - An unavailable-module fallback was added to avoid future blank white screens.
+
+### In Progress
+
+- Phase 2 Payroll workflow alignment is implemented at the foundation level.
+  - Payroll Management can now generate a payroll run using payroll periods, payroll runs, and payroll lines.
+  - Duplicate active payroll runs are blocked for the same school/payroll period.
+  - Computed payroll runs can be approved.
+  - Payout batches can be created only from approved payroll runs.
+  - Payout line records are created with the payout batch.
+  - Releasing a payout batch now updates the payout batch, payout lines, payroll run, and payroll lines to released status.
+
+- Phase 3 Enrollment hardening has started.
+  - Registrar approval/rejection now uses the actual selected enrollment id instead of assuming `enr-{studentId}`.
+  - Student assessment lookup now prefers the enrollment-linked assessment and then scopes by student, school year, semester, and school.
+  - Enrollment workflow statuses now include `For Assessment`, `Assessed`, `For Payment`, `Partially Paid`, `Cancelled`, and `Withdrawn`.
+  - New enrollments start at `For Assessment`.
+  - Accounting approval moves the linked enrollment to `For Payment`.
+  - Cashier payment posting moves the linked enrollment to `Partially Paid` or `Enrolled` based on remaining assessment balance.
+  - Registrar now has an Online Review Queue for Pending Registrar Review, For Completion, Accepted, Rejected, and Cancelled application states.
+
+- Phase 4 Role approval queues have started.
+  - Principal/Admin dashboard now includes an oversight queue for enrollment handoffs, assessment review, payment queue, grade finalization, and sections without advisers.
+  - Faculty portal now includes a grade submission queue for assigned teaching loads.
+  - Accounting assessment approval, discount approval, and Cashier approved-payment queues already existed and are now tied more clearly to enrollment status transitions.
+
+- Phase 5 Philippine statutory payroll configuration is implemented at the foundation level.
+  - Statutory contribution rules are loaded from `statutory_contribution_rules`.
+  - Benefits now displays effective-dated statutory contribution rules instead of static rate cards.
+  - Payroll computation uses configured statutory contribution rules first, then falls back only when no matching rule is configured.
+  - Taxes now displays configured tax tables only; the hardcoded React default tax table was removed.
+  - Starter seed migrations were added for statutory contribution rules and withholding tax brackets.
+  - The configuration rows include notes that official government schedules must be validated before production payroll release.
+
+### Still Pending
+
+- Complete physical relocation of payroll sub-page implementations after compatibility imports are no longer needed.
+- Replace remaining legacy flat payroll-row processing as the primary Payroll Management workflow.
+- Complete enrollment hardening, role approval queues, and Philippine statutory payroll configuration phases.
+- Complete deeper Principal academic exception approvals, formal grade submission/review workflow, receipt void/reversal approvals, and official annual statutory schedule validation.
 
 ## Executive Summary
 
-The Payroll sidebar pages are not missing. The blank white content is caused by routing/render wiring: `PAYROLL_MANAGEMENT` exists in permissions and navigation, but `App.tsx` does not render anything when `activeModule === "PAYROLL_MANAGEMENT"`. The four child pages also reuse payroll/HR sub-page components, but the sidebar currently routes payroll children through the Accounting sub-page state unless the parent module is exactly `HR_MANAGEMENT`.
+The Payroll sidebar pages are no longer blank. The original blank white content was caused by routing/render wiring: `PAYROLL_MANAGEMENT` existed in permissions and navigation, but `App.tsx` did not render anything when `activeModule === "PAYROLL_MANAGEMENT"`. The four child pages also reused payroll/HR sub-page components, but the sidebar routed payroll children through the Accounting sub-page state unless the parent module was exactly `HR_MANAGEMENT`.
+
+That routing issue has been fixed. The next active concern is payroll workflow maturity: Payroll Management is being aligned with payroll periods, payroll runs, payroll lines, approval, and payout handoff, while the old legacy payroll ledger remains visible for compatibility.
 
 The broader school process foundation is already present: student records, online enrollment bridge, Registrar review, document requirements, assessments, Accounting approval, Cashier collection, class sectioning, scheduling, grade encoding, faculty portal, reports, and academic-unit scoping. However, the process is not yet fully "standard school operations ready" because some workflow gates are partial, some approvals are implicit, and some role responsibilities are not fully separated.
 
-Recommended approach: fix the Payroll render wiring first, then standardize each business process around auditable workflow states, role-based approvals, school-year/term scoping, and Philippine statutory/reference tables that can be updated without code changes.
+Recommended approach: continue operational hardening around the implemented workflow foundations, especially formal exception approvals, data backfill from legacy records, and official statutory schedule validation.
 
 ## 1. Payroll Blank Screen Findings
 
@@ -65,7 +118,7 @@ This avoids making Payroll depend on the HR module shell forever.
 
 `npm.cmd run lint` passed with `tsc --noEmit`.
 
-`npm.cmd run build` could not be completed inside the sandbox because Vite/esbuild hit an access-denied error while loading `vite.config.ts`. I requested escalation to rerun the build outside the sandbox, but it was not approved, so production build verification remains pending.
+`npm.cmd run build` initially failed inside the sandbox because Vite/esbuild hit an access-denied error while loading `vite.config.ts`. The build was rerun with approval outside the sandbox and completed successfully. Vite reported only the existing large chunk warning.
 
 ## 2. Payroll Module Maturity Review
 
@@ -287,6 +340,8 @@ Avoid "first record by student id" lookups for assessments, grades, sectioning, 
 
 ### Phase 1: Restore Payroll Rendering
 
+Status: Completed.
+
 - Add a render branch for `PAYROLL_MANAGEMENT`.
 - Add a dedicated `payrollSubPage` state.
 - Route Payroll child clicks to `payrollSubPage`.
@@ -294,32 +349,40 @@ Avoid "first record by student id" lookups for assessments, grades, sectioning, 
 
 ### Phase 2: Payroll Workflow Alignment
 
-- Move payroll pages into `src/features/payroll`.
-- Make Payroll Management use payroll periods, runs, and lines instead of only legacy flat payroll rows.
-- Prevent duplicate payroll per employee per period.
-- Require approved payroll run before payout batch creation.
+Status: Completed foundation.
+
+- Move payroll pages into `src/features/payroll`. Implemented as Payroll-owned sub-page entry files while retaining HR imports for compatibility.
+- Make Payroll Management use payroll periods, runs, and lines instead of only legacy flat payroll rows. Partially implemented: new payroll run generation now creates payroll period/run/line records, while the legacy ledger remains visible.
+- Prevent duplicate payroll per employee per period. Implemented at active-run level with duplicate employee-line exception review for the latest run.
+- Require approved payroll run before payout batch creation. Implemented for the new Payroll Management workflow.
 
 ### Phase 3: Enrollment Hardening
 
-- Replace generated enrollment id assumptions with actual latest enrollment id lookup.
-- Add a Registrar online application review queue.
-- Scope assessment and enrollment actions by school year, semester, and enrollment id.
-- Add explicit "For Assessment" and "For Payment" statuses.
+Status: In progress.
+
+- Replace generated enrollment id assumptions with actual latest enrollment id lookup. Implemented in Registrar approval/rejection.
+- Add a Registrar online application review queue. Implemented.
+- Scope assessment and enrollment actions by school year, semester, and enrollment id. Partially implemented for selected student assessment lookup and status handoffs.
+- Add explicit "For Assessment" and "For Payment" statuses. Implemented with migration `0031_enrollment_workflow_statuses.sql`.
 
 ### Phase 4: Role Approval Queues
 
-- Principal: academic exceptions and grade finalization oversight.
-- Registrar: online application and enrollment completion queue.
-- Accounting: assessment approval and discount approval queue.
-- Cashier: approved payment queue and end-of-day collection report.
-- Faculty: grade submission queue and advisory class monitoring.
+Status: In progress.
+
+- Principal: academic exceptions and grade finalization oversight. Partially implemented as dashboard oversight queue; deeper exception approval actions remain pending.
+- Registrar: online application and enrollment completion queue. Online review queue implemented.
+- Accounting: assessment approval and discount approval queue. Existing queues retained and tied to enrollment status handoff.
+- Cashier: approved payment queue and end-of-day collection report. Existing payment queue retained; void/reversal approval remains pending.
+- Faculty: grade submission queue and advisory class monitoring. Grade submission queue added; advisory monitoring already existed.
 
 ### Phase 5: Philippine Statutory Payroll Configuration
 
-- Create effective-dated tables for SSS, PhilHealth, Pag-IBIG, withholding tax, benefit rules, and deduction rules.
-- Add admin screens for statutory table versioning.
-- Do not hardcode contribution rates in React components.
-- Keep source/effective-date fields so annual updates can be applied without code edits.
+Status: Completed foundation.
+
+- Create effective-dated tables for SSS, PhilHealth, Pag-IBIG, withholding tax, benefit rules, and deduction rules. Implemented foundation: existing statutory contribution and tax tables are now loaded, surfaced, and seeded.
+- Add admin screens for statutory table versioning. Implemented as payroll Benefits/Taxes read surfaces; full CRUD/version management remains an operational enhancement.
+- Do not hardcode contribution rates in React components. Implemented for Benefits and Taxes React pages.
+- Keep source/effective-date fields so annual updates can be applied without code edits. Implemented through effective-year statutory contribution rules and tax tables.
 
 ## Final Recommendation
 
