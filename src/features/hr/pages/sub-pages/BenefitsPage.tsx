@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Award, ToggleLeft, ToggleRight } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import { BenefitPlan } from "../../../../types";
+import { BenefitPlan, StatutoryContributionRule } from "../../../../types";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Statutory: "bg-blue-100 text-blue-700",
@@ -17,30 +17,29 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 function formatShare(type: string, value: number): string {
-  if (type === "Fixed") return `₱${value.toLocaleString()}`;
+  if (type === "Fixed") return `PHP ${value.toLocaleString()}`;
   if (type === "Percentage") return `${value}%`;
   return "Configured";
 }
 
 export default function BenefitsPage() {
-  const { benefitPlans, toggleBenefitPlanActive } = useSTSNStore();
+  const { benefitPlans, statutoryContributionRules, toggleBenefitPlanActive } = useSTSNStore();
   const [filterCategory, setFilterCategory] = useState("All");
 
   const categories = ["All", "Statutory", "Company Benefit", "Allowance", "Deduction"] as const;
-
   const filtered = filterCategory === "All"
     ? benefitPlans
-    : benefitPlans.filter((b) => b.category === filterCategory);
-
-  const activeCount = benefitPlans.filter((b) => b.isActive).length;
+    : benefitPlans.filter((benefit) => benefit.category === filterCategory);
+  const activeCount = benefitPlans.filter((benefit) => benefit.isActive).length;
+  const benefitPlanMap = useMemo(() => new Map(benefitPlans.map((plan) => [plan.id, plan])), [benefitPlans]);
 
   const columns: STSNColumn<BenefitPlan>[] = [
-    { title: "Code", data: "code", render: (v) => <span className="font-mono text-xs font-bold text-stsn-brown">{v}</span>, width: "90px" },
-    { title: "Name", data: "name", render: (v) => <span className="text-xs font-semibold">{v}</span> },
+    { title: "Code", data: "code", render: (value) => <span className="font-mono text-xs font-bold text-stsn-brown">{value}</span>, width: "90px" },
+    { title: "Name", data: "name", render: (value) => <span className="text-xs font-semibold">{value}</span> },
     {
       title: "Category",
       data: "category",
-      render: (v) => <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${CATEGORY_COLORS[v] ?? "bg-gray-100 text-gray-600"}`}>{v}</span>,
+      render: (value) => <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${CATEGORY_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>,
       width: "120px",
     },
     {
@@ -66,24 +65,62 @@ export default function BenefitsPage() {
     {
       title: "Taxable",
       data: "isTaxable",
-      render: (v) => <span className={`text-[10px] font-semibold ${v ? "text-amber-600" : "text-stone-400"}`}>{v ? "Yes" : "No"}</span>,
+      render: (value) => <span className={`text-[10px] font-semibold ${value ? "text-amber-600" : "text-stone-400"}`}>{value ? "Yes" : "No"}</span>,
       width: "65px",
     },
     {
       title: "Status",
       data: "isActive",
-      render: (v, row) => (
+      render: (value, row) => (
         <button
-          onClick={(e) => { e.stopPropagation(); toggleBenefitPlanActive(row.id); }}
+          onClick={(event) => { event.stopPropagation(); toggleBenefitPlanActive(row.id); }}
           className="flex items-center gap-1 cursor-pointer"
         >
-          {v
+          {value
             ? <><ToggleRight className="w-5 h-5 text-emerald-500" /><span className="text-[10px] text-emerald-600 font-semibold">Active</span></>
             : <><ToggleLeft className="w-5 h-5 text-stone-300" /><span className="text-[10px] text-stone-400">Inactive</span></>}
         </button>
       ),
       width: "90px",
     },
+  ];
+
+  const statutoryRuleColumns: STSNColumn<StatutoryContributionRule>[] = [
+    {
+      title: "Plan",
+      render: (_, row) => {
+        const plan = benefitPlanMap.get(row.benefitPlanId);
+        return <span className="text-xs font-semibold text-stone-800">{plan?.name ?? row.benefitPlanId}</span>;
+      },
+    },
+    { title: "Year", data: "effectiveYear", render: (value) => <span className="font-mono text-xs text-stsn-brown">{value}</span>, width: "70px" },
+    {
+      title: "Salary Range",
+      render: (_, row) => (
+        <span className="font-mono text-xs text-stone-600">
+          PHP {row.minSalary.toLocaleString()} - {row.maxSalary != null ? row.maxSalary.toLocaleString() : "above"}
+        </span>
+      ),
+    },
+    {
+      title: "Employee Share",
+      render: (_, row) => (
+        <span className="text-xs text-stone-600">
+          {row.employeeFixed > 0 ? `PHP ${row.employeeFixed.toLocaleString()}` : `${(row.employeeRate * 100).toFixed(2)}%`}
+        </span>
+      ),
+      width: "130px",
+    },
+    {
+      title: "Employer Share",
+      render: (_, row) => (
+        <span className="text-xs text-stone-600">
+          {row.employerFixed > 0 ? `PHP ${row.employerFixed.toLocaleString()}` : `${(row.employerRate * 100).toFixed(2)}%`}
+        </span>
+      ),
+      width: "130px",
+    },
+    { title: "Notes", data: "notes", render: (value) => <span className="text-xs text-stone-400">{value ?? "Effective-dated statutory rule"}</span> },
   ];
 
   return (
@@ -102,15 +139,14 @@ export default function BenefitsPage() {
         </div>
       </div>
 
-      {/* Category filter tabs */}
       <div className="flex gap-1 bg-stone-100 p-1 rounded-xl w-fit flex-wrap">
-        {categories.map((cat) => (
+        {categories.map((category) => (
           <button
-            key={cat}
-            onClick={() => setFilterCategory(cat)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterCategory === cat ? "bg-white text-stsn-brown shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
+            key={category}
+            onClick={() => setFilterCategory(category)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterCategory === category ? "bg-white text-stsn-brown shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
           >
-            {cat} {cat !== "All" && <span className="text-stone-400">({benefitPlans.filter((b) => b.category === cat).length})</span>}
+            {category} {category !== "All" && <span className="text-stone-400">({benefitPlans.filter((benefit) => benefit.category === category).length})</span>}
           </button>
         ))}
       </div>
@@ -124,22 +160,26 @@ export default function BenefitsPage() {
         />
       </div>
 
-      {/* Info block */}
-      <div className="bg-stsn-cream border border-stsn-beige rounded-xl p-4 text-xs text-stone-600">
-        <p className="font-semibold mb-1">Statutory Benefits Reference</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-          {[
-            { name: "SSS", rate: "4.5% employee, 9.5% employer (2024)", cap: "₱30,000 MSC" },
-            { name: "PhilHealth", rate: "2.5% employee, 2.5% employer", cap: "₱100,000 monthly" },
-            { name: "Pag-IBIG", rate: "₱100/month employee", cap: "₱5,000 monthly salary cap" },
-          ].map((b) => (
-            <div key={b.name} className="bg-white rounded-lg p-3 border border-stone-100">
-              <p className="font-bold text-stsn-brown">{b.name}</p>
-              <p className="text-stone-500 mt-0.5">{b.rate}</p>
-              <p className="text-stone-400 text-[10px] mt-0.5">Cap: {b.cap}</p>
-            </div>
-          ))}
+      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+        <div className="px-4 py-3 border-b border-stone-100">
+          <p className="text-sm font-bold text-stone-900">Effective-Dated Statutory Contribution Rules</p>
+          <p className="text-xs text-stone-500 mt-0.5">
+            Payroll computation reads these rules first, then falls back to simplified defaults only when no active configured rule matches.
+          </p>
         </div>
+        <STSNDataTable<StatutoryContributionRule>
+          columns={statutoryRuleColumns}
+          rows={statutoryContributionRules}
+          emptyMessage="No statutory contribution rules configured yet."
+          pageLength={10}
+        />
+      </div>
+
+      <div className="bg-stsn-cream border border-stsn-beige rounded-xl p-4 text-xs text-stone-600">
+        <p className="font-semibold mb-1">Configuration Note</p>
+        <p className="text-stone-500">
+          Keep SSS, PhilHealth, Pag-IBIG, and other statutory contribution changes in effective-dated rule rows. Avoid changing React components for annual government schedule updates.
+        </p>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@
  * Uses semi-monthly payroll frequency (salary / 2 per cut-off).
  */
 
-import type { Employee, PayrollLine, TaxTable } from "../../../types";
+import type { BenefitPlan, Employee, PayrollLine, StatutoryContributionRule, TaxTable } from "../../../types";
 
 export interface AttendanceSummary {
   lateMinutes: number;
@@ -20,6 +20,31 @@ export interface PayrollLineDraft extends Omit<PayrollLine, "id" | "createdAt" |
 }
 
 const PAGIBIG_FIXED = 100;
+
+function findConfiguredContribution(params: {
+  code: string;
+  grossSemiMonthly: number;
+  benefitPlans?: BenefitPlan[];
+  statutoryContributionRules?: StatutoryContributionRule[];
+}): number | undefined {
+  const { code, grossSemiMonthly, benefitPlans = [], statutoryContributionRules = [] } = params;
+  const plan = benefitPlans.find((p) => p.code.toUpperCase() === code.toUpperCase() && p.isActive);
+  if (!plan) return undefined;
+  const monthly = grossSemiMonthly * 2;
+  const currentYear = new Date().getFullYear();
+  const rule = statutoryContributionRules
+    .filter((r) =>
+      r.benefitPlanId === plan.id &&
+      r.effectiveYear <= currentYear &&
+      monthly >= r.minSalary &&
+      (r.maxSalary == null || monthly <= r.maxSalary)
+    )
+    .sort((a, b) => b.effectiveYear - a.effectiveYear || b.minSalary - a.minSalary)[0];
+  if (rule) return Math.round((rule.employeeFixed + monthly * rule.employeeRate) / 2);
+  if (plan.employeeShareType === "Fixed") return Math.round(plan.employeeShareValue / 2);
+  if (plan.employeeShareType === "Percentage") return Math.round((monthly * (plan.employeeShareValue / 100)) / 2);
+  return undefined;
+}
 
 function computeSSSDeduction(grossSemiMonthly: number): number {
   // Simplified table — SSS contribution ~4% employee share, capped
@@ -63,8 +88,10 @@ export function calculatePayrollLine(params: {
   payrollRunId: string;
   attendance?: AttendanceSummary;
   taxTable?: TaxTable;
+  benefitPlans?: BenefitPlan[];
+  statutoryContributionRules?: StatutoryContributionRule[];
 }): PayrollLineDraft {
-  const { employee, payrollRunId, attendance, taxTable } = params;
+  const { employee, payrollRunId, attendance, taxTable, benefitPlans, statutoryContributionRules } = params;
 
   const semiMonthlyRate = employee.salary / 2;
   const dailyRate = employee.salary / 22;
@@ -78,9 +105,9 @@ export function calculatePayrollLine(params: {
 
   const grossPay = semiMonthlyRate + allowances + overtimePay - lateDeduction - undertimeDeduction - absenceDeduction;
 
-  const sssDeduction = computeSSSDeduction(semiMonthlyRate);
-  const philhealthDeduction = computePhilHealthDeduction(semiMonthlyRate);
-  const pagibigDeduction = PAGIBIG_FIXED;
+  const sssDeduction = findConfiguredContribution({ code: "SSS", grossSemiMonthly: semiMonthlyRate, benefitPlans, statutoryContributionRules }) ?? computeSSSDeduction(semiMonthlyRate);
+  const philhealthDeduction = findConfiguredContribution({ code: "PHILHEALTH", grossSemiMonthly: semiMonthlyRate, benefitPlans, statutoryContributionRules }) ?? computePhilHealthDeduction(semiMonthlyRate);
+  const pagibigDeduction = findConfiguredContribution({ code: "PAGIBIG", grossSemiMonthly: semiMonthlyRate, benefitPlans, statutoryContributionRules }) ?? PAGIBIG_FIXED;
 
   const taxableIncome = grossPay - sssDeduction - philhealthDeduction - pagibigDeduction;
   const withholdingTax = computeWithholdingTax(taxableIncome, taxTable);

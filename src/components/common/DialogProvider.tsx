@@ -6,6 +6,7 @@
 import React, { createContext, useCallback, useRef, useState } from "react";
 import AppConfirmDialog, { type ConfirmDialogState } from "./AppConfirmDialog";
 import AppPromptDialog, { type PromptDialogState } from "./AppPromptDialog";
+import AppTypeConfirmDialog, { type TypeConfirmDialogState } from "./AppTypeConfirmDialog";
 import { AppToastContainer, type DialogVariant, type ToastItem } from "./AppToast";
 
 export interface ToastOptions {
@@ -30,11 +31,19 @@ export interface PromptOptions {
   cancelText?: string;
 }
 
+export interface TypeConfirmOptions {
+  title?: string;
+  message?: string;
+  confirmText?: string;
+  cancelText?: string;
+}
+
 export interface AppDialogContextValue {
   toast: (message: string, options?: ToastOptions) => void;
   alert: (message: string, options?: ToastOptions) => void;
   confirm: (message: string, options?: ConfirmOptions) => Promise<boolean>;
   prompt: (message: string, options?: PromptOptions) => Promise<string | null>;
+  typeConfirm: (confirmPhrase: string, options?: TypeConfirmOptions) => Promise<boolean>;
 }
 
 export const AppDialogContext = createContext<AppDialogContextValue | null>(null);
@@ -45,9 +54,11 @@ export default function DialogProvider({ children }: { children: React.ReactNode
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmState, setConfirmState] = useState<ConfirmDialogState | null>(null);
   const [promptState, setPromptState] = useState<PromptDialogState | null>(null);
+  const [typeConfirmState, setTypeConfirmState] = useState<TypeConfirmDialogState | null>(null);
 
   const confirmResolver = useRef<((value: boolean) => void) | null>(null);
   const promptResolver = useRef<((value: string | null) => void) | null>(null);
+  const typeConfirmResolver = useRef<((value: boolean) => void) | null>(null);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -87,6 +98,13 @@ export default function DialogProvider({ children }: { children: React.ReactNode
     });
   }, []);
 
+  const typeConfirm = useCallback((confirmPhrase: string, options?: TypeConfirmOptions): Promise<boolean> => {
+    return new Promise((resolve) => {
+      typeConfirmResolver.current = resolve;
+      setTypeConfirmState({ open: true, confirmPhrase, ...options });
+    });
+  }, []);
+
   const handleConfirmResolve = useCallback((value: boolean) => {
     confirmResolver.current?.(value);
     confirmResolver.current = null;
@@ -99,8 +117,14 @@ export default function DialogProvider({ children }: { children: React.ReactNode
     setPromptState(null);
   }, []);
 
+  const handleTypeConfirmResolve = useCallback((value: boolean) => {
+    typeConfirmResolver.current?.(value);
+    typeConfirmResolver.current = null;
+    setTypeConfirmState(null);
+  }, []);
+
   return (
-    <AppDialogContext.Provider value={{ toast, alert, confirm, prompt }}>
+    <AppDialogContext.Provider value={{ toast, alert, confirm, prompt, typeConfirm }}>
       {children}
       <AppToastContainer toasts={toasts} onDismiss={dismissToast} />
       {confirmState && (
@@ -115,6 +139,13 @@ export default function DialogProvider({ children }: { children: React.ReactNode
           {...promptState}
           onConfirm={(value) => handlePromptResolve(value)}
           onCancel={() => handlePromptResolve(null)}
+        />
+      )}
+      {typeConfirmState && (
+        <AppTypeConfirmDialog
+          {...typeConfirmState}
+          onConfirm={() => handleTypeConfirmResolve(true)}
+          onCancel={() => handleTypeConfirmResolve(false)}
         />
       )}
     </AppDialogContext.Provider>

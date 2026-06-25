@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import SLABadge from "../../../../components/common/SLABadge";
 import { LeaveRequest, LeaveType } from "../../../../types";
 
 const REQUEST_STATUS_COLORS: Record<string, string> = {
@@ -145,6 +146,15 @@ export default function LeaveManagementPage() {
       width: "110px",
     },
     {
+      title: "SLA",
+      orderable: false,
+      searchable: false,
+      render: (_, row) => (row.status === "Submitted" || row.status === "For Approval")
+        ? <SLABadge dateStr={row.createdAt} />
+        : <span className="text-[9px] text-stone-300">—</span>,
+      width: "65px",
+    },
+    {
       title: "Actions",
       orderable: false,
       searchable: false,
@@ -256,6 +266,13 @@ export default function LeaveManagementPage() {
               rows={filteredRequests}
               emptyMessage="No leave requests found."
               pageLength={15}
+              rowColorClass={(req) => {
+                if (req.status === "Rejected" || req.status === "Cancelled") return "bg-red-50";
+                if (req.status === "Approved") return "bg-emerald-50";
+                if (req.status === "Submitted" || req.status === "For Approval") return "bg-amber-50";
+                if (req.status === "Draft") return "bg-blue-50";
+                return undefined;
+              }}
             />
           </div>
         </>

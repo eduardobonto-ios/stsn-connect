@@ -9,10 +9,11 @@ import { Payment, Student, StudentAssessment } from "../../../types";
 import {
   Wallet, Search, Receipt, History, CheckCircle, AlertCircle,
   Banknote, Printer, Package, Info, X, Clock, ListChecks,
-  ChevronLeft, ChevronRight, BarChart3, Download, FileText,
+  ChevronLeft, ChevronRight, BarChart3, Download, FileText, Ban,
 } from "lucide-react";
 import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import EmptyState from "../../../components/common/EmptyState";
 import { getAccountingLabels, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
 import { BookPackage } from "../../../types";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
@@ -197,7 +198,7 @@ function CardPagination({
 }
 
 export default function CashierModule({ subPage, onSubPageChange }: { subPage?: string; onSubPageChange?: (page: string) => void }) {
-  const { students, assessments, payments, currentUser, activeSchool, academicUnit, addPayment, bookPackages, setupData } = useSTSNStore();
+  const { students, assessments, payments, voidRequests, currentUser, activeSchool, academicUnit, addPayment, submitVoidRequest, bookPackages, setupData } = useSTSNStore();
   const [activeTab, setActiveTab] = useState<CashierTab>((subPage as CashierTab) ?? "queue");
 
   useEffect(() => {
@@ -215,6 +216,9 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const [orError, setOrError] = useState<string | null>(null);
 
   const [receipt, setReceipt] = useState<{ payment: Payment; student: Student; assessment?: StudentAssessment } | null>(null);
+
+  const [voidModalPaymentId, setVoidModalPaymentId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
 
   const rowsPerPage = 5;
   const [approvedPage, setApprovedPage] = useState(1);
@@ -353,7 +357,25 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     }
 
     if (selectedReportId === "voided-receipts") {
-      return [];
+      return voidRequests
+        .filter((v) => {
+          const payment = scopedPayments.find((p) => p.id === v.paymentId);
+          if (!payment) return false;
+          if (reportDateFrom && payment.paymentDate < reportDateFrom) return false;
+          if (reportDateTo && payment.paymentDate > reportDateTo) return false;
+          return true;
+        })
+        .map((v) => {
+          const payment = scopedPayments.find((p) => p.id === v.paymentId);
+          return {
+            orNumber: v.orNumber,
+            paymentDate: payment?.paymentDate ?? "",
+            studentName: v.studentName,
+            amount: formatMoney(v.amount),
+            status: v.status,
+          };
+        })
+        .sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate)));
     }
 
     if (selectedReportId === "student-payment-summary") {
@@ -464,6 +486,26 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       title: "OR Number",
       data: "payment.orNumber",
       className: "font-mono font-bold text-stsn-brown",
+      render: (value, row) => {
+        const existingVoid = voidRequests.find((v) => v.paymentId === row.payment.id);
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono font-bold text-stsn-brown">{String(value)}</span>
+            {existingVoid && (
+              <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-md w-fit ${
+                existingVoid.status === "Pending Void Approval"
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : existingVoid.status === "Approved"
+                  ? "bg-red-50 text-red-700 border border-red-200"
+                  : "bg-stone-50 text-stone-500 border border-stone-200"
+              }`}>
+                {existingVoid.status === "Pending Void Approval" ? "VOID PENDING" :
+                 existingVoid.status === "Approved" ? "VOIDED" : "VOID REJECTED"}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Student",
@@ -485,18 +527,33 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       render: (value: number) => `₱${value.toLocaleString()}`,
     },
     {
-      title: "Receipt",
+      title: "Actions",
       className: "text-right",
       orderable: false,
       searchable: false,
-      render: (_value, row) => (
-        <button
-          onClick={() => reprintReceipt(row)}
-          className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-stsn-cream text-stsn-brown border border-stsn-beige hover:bg-stsn-beige cursor-pointer transition"
-        >
-          <Printer className="w-3 h-3" /> View
-        </button>
-      ),
+      render: (_value, row) => {
+        const existingVoid = voidRequests.find((v) => v.paymentId === row.payment.id);
+        const canRequestVoid = !existingVoid || existingVoid.status === "Rejected";
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            <button
+              onClick={() => reprintReceipt(row)}
+              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-stsn-cream text-stsn-brown border border-stsn-beige hover:bg-stsn-beige cursor-pointer transition"
+            >
+              <Printer className="w-3 h-3" /> View
+            </button>
+            {canRequestVoid && (
+              <button
+                onClick={() => { setVoidModalPaymentId(row.payment.id); setVoidReason(""); }}
+                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 cursor-pointer transition"
+                title="Request void / cancellation"
+              >
+                <Ban className="w-3 h-3" /> Void
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -566,7 +623,12 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               Only assessments approved by Accounting and with an outstanding balance appear here.
             </p>
             {queueRows.length === 0 ? (
-              <p className="text-xs text-stone-400 italic p-6 text-center">No approved assessments awaiting payment.</p>
+              <EmptyState
+                icon={Receipt}
+                title="Payment Queue is Empty"
+                description="Assessments approved by Accounting and with an outstanding balance will appear here for collection."
+                compact
+              />
             ) : (
               <div className="space-y-3">
                 {paginatedQueueRows.map(({ assessment, student }) => {
@@ -710,8 +772,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 </h4>
                 <p className="text-xs text-stone-500 mt-1">{selectedReport.desc}</p>
                 {selectedReportId === "voided-receipts" && (
-                  <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2">
-                    Payment records do not currently store cancelled or voided receipt status, so this report is available but will remain empty until void tracking is added.
+                  <p className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 mt-2">
+                    Shows all receipts with an active void request (Pending, Approved, or Rejected). Cashiers can submit void requests from Collection History; Accounting approves via the Approval Queue.
                   </p>
                 )}
               </div>
@@ -898,6 +960,104 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
           </div>
         </PreviewModal>
       )}
+
+      {/* ===================== VOID REQUEST MODAL ===================== */}
+      {voidModalPaymentId && (() => {
+        const voidPayment = scopedPayments.find((p) => p.id === voidModalPaymentId);
+        const voidStudent = voidPayment ? scopedStudents.find((s) => s.id === voidPayment.studentId) : undefined;
+        const handleSubmitVoid = (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!voidPayment || !currentUser) return;
+          const reason = voidReason.trim();
+          if (!reason) return;
+          submitVoidRequest({
+            paymentId: voidPayment.id,
+            orNumber: voidPayment.orNumber,
+            amount: voidPayment.amount,
+            studentId: voidPayment.studentId,
+            studentName: voidStudent ? `${voidStudent.lastName}, ${voidStudent.firstName}` : voidPayment.studentId,
+            requestedBy: currentUser.name,
+            reason,
+            schoolId: voidStudent?.schoolId ?? undefined,
+          });
+          setVoidModalPaymentId(null);
+          setVoidReason("");
+        };
+        return (
+          <PreviewModal isOpen={true} onClose={() => setVoidModalPaymentId(null)} title="Request Receipt Void" hidePrint>
+            <div className="space-y-4 text-xs">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-red-700">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                <span>A void request requires approval from Accounting. The receipt remains active until the request is approved. Per BIR regulations, void requests must state a valid reason.</span>
+              </div>
+
+              {voidPayment && (
+                <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[9px] uppercase font-mono text-stone-400">Official Receipt No.</p>
+                      <p className="font-mono font-bold text-stsn-brown text-base">{voidPayment.orNumber}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] uppercase font-mono text-stone-400">Amount</p>
+                      <p className="font-mono font-bold text-stone-900 text-base">{formatMoney(voidPayment.amount)}</p>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-stone-200 grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[9px] uppercase font-mono text-stone-400">Student</p>
+                      <p className="font-semibold text-stone-800 text-[11px]">
+                        {voidStudent ? `${voidStudent.lastName}, ${voidStudent.firstName}` : voidPayment.studentId}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase font-mono text-stone-400">Payment Date</p>
+                      <p className="font-mono text-stone-700 text-[11px]">{voidPayment.paymentDate}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase font-mono text-stone-400">Method</p>
+                      <p className="text-stone-700 text-[11px]">{voidPayment.paymentMethod}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase font-mono text-stone-400">Term</p>
+                      <p className="text-stone-700 text-[11px]">{voidPayment.term}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitVoid} className="space-y-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">
+                    Reason for Void <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={voidReason}
+                    onChange={(e) => setVoidReason(e.target.value)}
+                    placeholder="e.g. Payment was posted under the wrong student account. OR was not yet issued to payor."
+                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
+                  />
+                  <p className="text-[9.5px] text-stone-400 mt-1">This reason will be included in the void request sent to Accounting for approval.</p>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={() => setVoidModalPaymentId(null)} className="text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!voidReason.trim()}
+                    className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Ban className="w-3.5 h-3.5" /> Submit Void Request
+                  </button>
+                </div>
+              </form>
+            </div>
+          </PreviewModal>
+        );
+      })()}
 
       {/* ===================== RECEIPT PREVIEW ===================== */}
       {receipt && (

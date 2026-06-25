@@ -16,9 +16,10 @@ import type {
   StudentLedgerSummary, LedgerTransaction, FinancialHold, AssessmentBillingSummary, PaymentCollectionSummary,
   EmployeeLifecycleEvent, ShiftTemplate, EmployeeShiftAssignment, EmployeeTimeLog, EmployeeAttendance,
   LeaveType, LeaveRequest, PayrollPeriod, PayrollRun, PayrollLine, SalaryPayoutBatch, SalaryPayoutLine,
-  BenefitPlan, TaxTable, TaxBracket,
+  BenefitPlan, StatutoryContributionRule, TaxTable, TaxBracket,
   JobRequisition, JobApplicant, ApplicantInterview,
   OnboardingTemplate, OnboardingTask, EmployeeOnboardingTask,
+  OnlineEnrollmentApplication,
 } from "../types";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent } from "../types/grading";
 
@@ -35,6 +36,7 @@ export interface LoadedData {
   curriculums: Curriculum[];
   requirements: Requirement[];
   enrollments: Enrollment[];
+  onlineEnrollmentApplications: OnlineEnrollmentApplication[];
   assessments: StudentAssessment[];
   payments: Payment[];
   grades: Grade[];
@@ -82,6 +84,7 @@ export interface LoadedData {
   salaryPayoutBatches: SalaryPayoutBatch[];
   salaryPayoutLines: SalaryPayoutLine[];
   benefitPlans: BenefitPlan[];
+  statutoryContributionRules: StatutoryContributionRule[];
   taxTables: TaxTable[];
   taxBrackets: TaxBracket[];
   jobRequisitions: JobRequisition[];
@@ -117,6 +120,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: userRows } = await supabase.from("users").select("*, schools(code)");
   const users: User[] = (userRows ?? []).map((u: any) => ({
     id: u.id, schoolId: u.schools?.code, email: u.email, name: u.name, role: u.role,
+    designation: u.designation ?? undefined,
     isActive: u.is_active, avatarUrl: u.avatar_url, department: u.department,
   }));
 
@@ -133,6 +137,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: studentRows } = await supabase.from("students").select("*, schools(code)");
   const students: Student[] = (studentRows ?? []).map((s: any) => ({
     id: s.id, schoolId: s.schools?.code, studentNo: s.student_no, lrn: s.lrn, firstName: s.first_name, lastName: s.last_name,
+    createdVia: s.created_via, sourceMetadata: s.source_metadata ?? {},
     middleName: s.middle_name, gender: s.gender, civilStatus: s.civil_status, religion: s.religion,
     nationality: s.nationality, birthday: s.birthday, birthplace: s.birthplace, email: s.email,
     contactNo: s.contact_no, address: s.address, province: s.province, municipality: s.municipality,
@@ -251,7 +256,52 @@ export async function loadAllData(): Promise<LoadedData> {
   const enrollments: Enrollment[] = (enrollmentRows ?? []).map((e: any) => ({
     id: e.id, studentId: e.student_id, schoolYear: e.school_year, semester: e.semester, enrollmentType: e.enrollment_type,
     status: e.status, submittedAt: e.submitted_at, assessmentId: e.assessment_id,
+    enrollmentSource: e.enrollment_source, isOnlineEnrollment: e.is_online_enrollment,
+    onlineApplicationId: e.online_application_id, completionStatus: e.completion_status,
+    missingFields: e.missing_fields ?? [], sourceMetadata: e.source_metadata ?? {},
     subjectCodes: (enrollSubjRows ?? []).filter((es: any) => es.enrollment_id === e.id).map((es: any) => es.subjects?.code).filter(Boolean),
+  }));
+
+  const { data: onlineApplicationRows } = await supabase
+    .from("online_enrollment_applications")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  const onlineEnrollmentApplications: OnlineEnrollmentApplication[] = (onlineApplicationRows ?? []).map((a: any) => ({
+    id: a.id,
+    referenceNo: a.reference_no,
+    studentId: a.student_id,
+    enrollmentId: a.enrollment_id,
+    enrollmentType: a.enrollment_type,
+    lrn: a.lrn,
+    schoolYear: a.school_year,
+    semester: a.semester,
+    gradeLevelApplyingFor: a.grade_level_applying_for,
+    strandOrTrack: a.strand_or_track,
+    previousSchool: a.previous_school,
+    previousSchoolAddress: a.previous_school_address,
+    firstName: a.first_name,
+    lastName: a.last_name,
+    middleName: a.middle_name,
+    birthDate: a.birth_date,
+    gender: a.gender,
+    email: a.email,
+    contactNo: a.contact_no,
+    completeAddress: a.complete_address,
+    barangay: a.barangay,
+    cityMunicipality: a.city_municipality,
+    province: a.province,
+    zipCode: a.zip_code,
+    guardianName: a.guardian_name,
+    guardianRelationship: a.guardian_relationship,
+    guardianContactNo: a.guardian_contact_no,
+    guardianEmail: a.guardian_email,
+    guardianAddress: a.guardian_address,
+    status: a.status,
+    completionStatus: a.completion_status,
+    missingFields: a.missing_fields ?? [],
+    submittedFrom: a.submitted_from,
+    submittedAt: a.submitted_at,
+    payload: a.payload ?? {},
   }));
 
   // ---- Payments ----
@@ -558,6 +608,19 @@ export async function loadAllData(): Promise<LoadedData> {
     isTaxable: r.is_taxable, isActive: r.is_active, createdAt: r.created_at,
   }));
 
+  // ---- HR Phase 4: Statutory Contribution Rules ----
+  const { data: statutoryRuleRows } = await supabase
+    .from("statutory_contribution_rules")
+    .select("*")
+    .order("effective_year", { ascending: false })
+    .order("min_salary", { ascending: true });
+  const statutoryContributionRules: StatutoryContributionRule[] = (statutoryRuleRows ?? []).map((r: any) => ({
+    id: r.id, benefitPlanId: r.benefit_plan_id, effectiveYear: r.effective_year,
+    minSalary: r.min_salary, maxSalary: r.max_salary, employeeRate: r.employee_rate,
+    employerRate: r.employer_rate, employeeFixed: r.employee_fixed,
+    employerFixed: r.employer_fixed, notes: r.notes, createdAt: r.created_at,
+  }));
+
   // ---- HR Phase 4: Tax Tables + Brackets ----
   const { data: taxTableRows } = await supabase.from("tax_tables").select("*").order("effective_year", { ascending: false });
   const { data: taxBracketRows } = await supabase.from("tax_brackets").select("*").order("income_from");
@@ -618,7 +681,7 @@ export async function loadAllData(): Promise<LoadedData> {
   }));
 
   return {
-    schools, users, students, teachers, employees, courses, subjects, curriculums, requirements, enrollments,
+    schools, users, students, teachers, employees, courses, subjects, curriculums, requirements, enrollments, onlineEnrollmentApplications,
     assessments, payments, grades, schedules, announcements, events, payroll, setupData, discountTypes,
     discountRequests, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
     financialHolds, assessmentBillingSummaries, paymentCollectionSummaries, promissoryNotes, bookPackages,
@@ -626,7 +689,7 @@ export async function loadAllData(): Promise<LoadedData> {
     enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians,
     employeeLifecycleEvents, shiftTemplates, employeeShiftAssignments, employeeTimeLogs, employeeAttendance,
     leaveTypes, leaveRequests, payrollPeriods, payrollRuns, payrollLines,
-    salaryPayoutBatches, salaryPayoutLines, benefitPlans, taxTables, taxBrackets,
+    salaryPayoutBatches, salaryPayoutLines, benefitPlans, statutoryContributionRules, taxTables, taxBrackets,
     jobRequisitions, jobApplicants, applicantInterviews, onboardingTemplates, onboardingTasks, employeeOnboardingTasks,
   };
 }
