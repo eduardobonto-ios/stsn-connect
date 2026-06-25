@@ -16,7 +16,7 @@ import type {
   StudentLedgerSummary, LedgerTransaction, FinancialHold, AssessmentBillingSummary, PaymentCollectionSummary,
   EmployeeLifecycleEvent, ShiftTemplate, EmployeeShiftAssignment, EmployeeTimeLog, EmployeeAttendance,
   LeaveType, LeaveRequest, PayrollPeriod, PayrollRun, PayrollLine, SalaryPayoutBatch, SalaryPayoutLine,
-  BenefitPlan, TaxTable, TaxBracket,
+  BenefitPlan, StatutoryContributionRule, TaxTable, TaxBracket,
   JobRequisition, JobApplicant, ApplicantInterview,
   OnboardingTemplate, OnboardingTask, EmployeeOnboardingTask,
   OnlineEnrollmentApplication,
@@ -84,6 +84,7 @@ export interface LoadedData {
   salaryPayoutBatches: SalaryPayoutBatch[];
   salaryPayoutLines: SalaryPayoutLine[];
   benefitPlans: BenefitPlan[];
+  statutoryContributionRules: StatutoryContributionRule[];
   taxTables: TaxTable[];
   taxBrackets: TaxBracket[];
   jobRequisitions: JobRequisition[];
@@ -119,6 +120,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: userRows } = await supabase.from("users").select("*, schools(code)");
   const users: User[] = (userRows ?? []).map((u: any) => ({
     id: u.id, schoolId: u.schools?.code, email: u.email, name: u.name, role: u.role,
+    designation: u.designation ?? undefined,
     isActive: u.is_active, avatarUrl: u.avatar_url, department: u.department,
   }));
 
@@ -606,6 +608,19 @@ export async function loadAllData(): Promise<LoadedData> {
     isTaxable: r.is_taxable, isActive: r.is_active, createdAt: r.created_at,
   }));
 
+  // ---- HR Phase 4: Statutory Contribution Rules ----
+  const { data: statutoryRuleRows } = await supabase
+    .from("statutory_contribution_rules")
+    .select("*")
+    .order("effective_year", { ascending: false })
+    .order("min_salary", { ascending: true });
+  const statutoryContributionRules: StatutoryContributionRule[] = (statutoryRuleRows ?? []).map((r: any) => ({
+    id: r.id, benefitPlanId: r.benefit_plan_id, effectiveYear: r.effective_year,
+    minSalary: r.min_salary, maxSalary: r.max_salary, employeeRate: r.employee_rate,
+    employerRate: r.employer_rate, employeeFixed: r.employee_fixed,
+    employerFixed: r.employer_fixed, notes: r.notes, createdAt: r.created_at,
+  }));
+
   // ---- HR Phase 4: Tax Tables + Brackets ----
   const { data: taxTableRows } = await supabase.from("tax_tables").select("*").order("effective_year", { ascending: false });
   const { data: taxBracketRows } = await supabase.from("tax_brackets").select("*").order("income_from");
@@ -674,7 +689,7 @@ export async function loadAllData(): Promise<LoadedData> {
     enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians,
     employeeLifecycleEvents, shiftTemplates, employeeShiftAssignments, employeeTimeLogs, employeeAttendance,
     leaveTypes, leaveRequests, payrollPeriods, payrollRuns, payrollLines,
-    salaryPayoutBatches, salaryPayoutLines, benefitPlans, taxTables, taxBrackets,
+    salaryPayoutBatches, salaryPayoutLines, benefitPlans, statutoryContributionRules, taxTables, taxBrackets,
     jobRequisitions, jobApplicants, applicantInterviews, onboardingTemplates, onboardingTasks, employeeOnboardingTasks,
   };
 }

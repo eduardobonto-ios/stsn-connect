@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
-import { GraduationCap, LayoutList, PenLine } from "lucide-react";
+import { GraduationCap, LayoutList, PenLine, Send, CheckCircle, RotateCcw, Clock } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
+import { useAppDialog } from "../../../components/common/useAppDialog";
 import {
   GradeItem,
   GradeCategory,
@@ -22,8 +23,10 @@ export default function GradeEncodingPage() {
   const {
     students: storeStudents, teachers, currentUser, academicUnit,
     classLoads: allClassLoads, gradePeriods: periods, studentGradeEntries: entries, demoStudents,
-    saveGradeEntry, addGradeItem, updateGradeCategories, finalizeGradePeriod,
+    saveGradeEntry, addGradeItem, updateGradeCategories, finalizeGradePeriod, submitGradePeriod,
   } = useSTSNStore();
+
+  const { confirm, toast } = useAppDialog();
 
   // ── Identify the current teacher ─────────────────────────────────────────
   const currentTeacher = resolveCurrentTeacher(teachers, currentUser, academicUnit);
@@ -144,6 +147,23 @@ export default function GradeEncodingPage() {
     finalizeGradePeriod(periodId, `${currentTeacher.firstName} ${currentTeacher.lastName}`);
   };
 
+  // ── Active period object (for approval status banner) ─────────────────────
+  const activePeriod = useMemo(
+    () => loadPeriods.find(p => p.id === activePeriodId),
+    [loadPeriods, activePeriodId]
+  );
+
+  // ── Submit-for-approval handler ───────────────────────────────────────────
+  const handleSubmitForApproval = async () => {
+    if (!activePeriod) return;
+    const ok = await confirm(
+      `Submit ${activePeriod.label} — ${activePeriod.subjectCode} for principal approval? Grades will be locked for review.`
+    );
+    if (!ok) return;
+    submitGradePeriod(activePeriod.id, `${currentTeacher.firstName} ${currentTeacher.lastName}`);
+    toast("Grade period submitted for principal approval.");
+  };
+
   if (classLoads.length === 0) {
     return (
       <div className="bg-white p-8 rounded-xl border border-stsn-beige text-center text-stone-400 text-xs italic">
@@ -205,6 +225,78 @@ export default function GradeEncodingPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Grade approval status banner ─────────────────────────────── */}
+      {activePeriod && (() => {
+        const status = activePeriod.gradeApprovalStatus;
+        if (status === "Approved") {
+          return (
+            <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-emerald-800">Period Approved</p>
+                <p className="text-[10px] text-emerald-700">
+                  {activePeriod.label} — {activePeriod.subjectCode} was approved and finalized by {activePeriod.approvedBy ?? "Principal"} on {activePeriod.approvedAt?.split(" ")[0] ?? ""}.
+                </p>
+              </div>
+            </div>
+          );
+        }
+        if (status === "Submitted") {
+          return (
+            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-amber-800">Awaiting Principal Approval</p>
+                <p className="text-[10px] text-amber-700">
+                  {activePeriod.label} — {activePeriod.subjectCode} submitted on {activePeriod.submittedAt?.split(" ")[0] ?? ""}. Grades are locked for review.
+                </p>
+              </div>
+            </div>
+          );
+        }
+        if (status === "Returned") {
+          return (
+            <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+              <RotateCcw className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-red-800">Returned for Revision</p>
+                <p className="text-[10px] text-red-700">
+                  Remarks: {activePeriod.returnRemarks ?? "No remarks provided."}
+                </p>
+              </div>
+              {activePeriod.isFinalized && (
+                <button
+                  onClick={handleSubmitForApproval}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-stsn-brown text-white rounded-lg hover:opacity-90 transition cursor-pointer flex-shrink-0"
+                >
+                  <Send className="w-3 h-3" /> Re-submit
+                </button>
+              )}
+            </div>
+          );
+        }
+        if (activePeriod.isFinalized) {
+          return (
+            <div className="flex items-center gap-3 px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl">
+              <Send className="w-4 h-4 text-stone-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-stone-700">Ready to Submit</p>
+                <p className="text-[10px] text-stone-500">
+                  {activePeriod.label} — {activePeriod.subjectCode} is finalized. Submit for principal approval to complete the grading cycle.
+                </p>
+              </div>
+              <button
+                onClick={handleSubmitForApproval}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-stsn-brown text-white rounded-lg hover:opacity-90 transition cursor-pointer flex-shrink-0"
+              >
+                <Send className="w-3 h-3" /> Submit for Approval
+              </button>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* ── Main content card ─────────────────────────────────────────── */}
       <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm space-y-4">

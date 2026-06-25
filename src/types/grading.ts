@@ -51,6 +51,8 @@ export interface GradeCategory {
   weight: number; // 0–100; all category weights must sum to 100
 }
 
+export type GradeApprovalStatus = "Draft" | "Submitted" | "Approved" | "Returned";
+
 /** Configuration for one grading period (not per-student — structure only) */
 export interface GradePeriod {
   id: string;
@@ -64,6 +66,16 @@ export interface GradePeriod {
   isFinalized: boolean;
   finalizedAt?: string;
   finalizedBy?: string;
+  // Grade approval workflow (P2-F)
+  gradeApprovalStatus?: GradeApprovalStatus;
+  submittedForApproval?: boolean;
+  submittedAt?: string;
+  submittedBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  returnedBy?: string;
+  returnedAt?: string;
+  returnRemarks?: string;
 }
 
 /** A single student's raw score on a single grade item — null = No Record */

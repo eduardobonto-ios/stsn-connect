@@ -14,6 +14,25 @@ import type { STSNModule, Permission } from "./permissions.config";
 export type { STSNModule, Permission };
 export { ROLE_PERMISSIONS, getPermissionsForRole };
 
+export type SidebarMode = "full" | "compact" | "minimal";
+
+export const SIDEBAR_MODE: Record<UserRole, SidebarMode> = {
+  SUPER_ADMIN:  "full",
+  ADMIN:        "full",
+  PRINCIPAL:    "full",
+  REGISTRAR:    "full",
+  ACCOUNTING:   "full",
+  PAYROLL:      "compact",
+  HR:           "compact",
+  TEACHER:      "compact",
+  CASHIER:      "minimal",
+  NURSE:        "minimal",
+  GUIDANCE:     "minimal",
+  STUDENT:      "minimal",
+  EMPLOYEE:     "minimal",
+  GUARDIAN:     "minimal",
+};
+
 export interface NavSubItem {
   id: string;
   label: string;
@@ -42,10 +61,11 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { id: "DASHBOARD", label: "Dashboard", icon: LayoutDashboard, desc: "Admin command center" },
+  { id: "ACTION_CENTER", label: "Action Center", icon: ClipboardList, desc: "Approvals and pending work queue" },
   {
-    id: "DASHBOARD", label: "Admission", icon: LayoutDashboard, desc: "Registrar & academic management",
+    id: "REGISTRAR", label: "Admission", icon: Compass, desc: "Registrar & academic management",
     children: [
-      { id: "dashboard",         label: "Dashboard",         icon: LayoutDashboard, desc: "Live admissions & fees",             targetModule: "DASHBOARD" },
       { id: "students",          label: "Students",          icon: UsersRound,      desc: "All students & quick record access", targetModule: "STUDENT_DIRECTORY" },
       { id: "enrollment",        label: "Enrollment",        icon: Compass,         desc: "Student registrations",             targetModule: "REGISTRAR" },
       { id: "class-sectioning",  label: "Class Sectioning",  icon: Layers,          desc: "Sections, advisers & LRN rosters", targetModule: "CLASS_SECTIONING" },
@@ -59,7 +79,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "ACCOUNTING", label: "Accounting", icon: Coins, desc: "Ledger, discounts & reports",
     children: [
-      { id: "dashboard",         label: "Dashboard",               icon: LayoutDashboard, desc: "KPIs & receivables watchlist" },
+      { id: "accounting-dashboard", label: "Accounting Dashboard", icon: LayoutDashboard, desc: "KPIs & receivables watchlist", targetModule: "ACCOUNTING_DASHBOARD" },
       {
         id: "accounting-student-accounts", label: "Student Accounts", icon: UsersRound, desc: "Ledgers, billing, discounts, and holds",
         children: [
@@ -156,6 +176,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "PAYROLL_MANAGEMENT", label: "Payroll", icon: Banknote, desc: "Payroll, payouts, taxes & benefits",
     children: [
+      { id: "payroll-dashboard", label: "Payroll Dashboard", icon: LayoutDashboard, desc: "Payroll KPIs & analytics", targetModule: "PAYROLL_DASHBOARD" },
       { id: "payroll-management", label: "Payroll Management", icon: Banknote, desc: "Payroll runs & payslips" },
       { id: "salary-payouts",     label: "Salary Payouts",     icon: Wallet,   desc: "Payment batches & release status" },
       { id: "taxes",              label: "Taxes",              icon: Percent,  desc: "Withholding tax setup & reports" },
@@ -185,6 +206,7 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   { id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance" },
+  { id: "GUARDIAN_PORTAL", label: "Parent Portal", icon: UsersRound, desc: "View your child's grades, fees & notices" },
 ];
 
 /**

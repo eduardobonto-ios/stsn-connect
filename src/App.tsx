@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
   School,
+  Search,
 } from "lucide-react";
 
 // Config
@@ -22,18 +23,32 @@ import {
   STSNModule,
   getAllowedModules,
   getNavItemsForRole,
+  SIDEBAR_MODE,
 } from "./config/navigation.config";
 
 // Components
 import LoginOverlay from "./components/LoginOverlay";
 import { useAppDialog } from "./components/common/useAppDialog";
+import NotificationBell, { UrgentAnnouncementBanner } from "./components/common/NotificationBell";
+import GlobalSearch from "./components/common/GlobalSearch";
+import BreadcrumbBar, { type BreadcrumbCrumb } from "./components/common/BreadcrumbBar";
+import MobileBottomNav, { hasMobileBottomNav } from "./components/common/MobileBottomNav";
+import type { NavigateTarget } from "./components/common/ApprovalInbox";
+
+// Hooks
+import { usePendingCounts } from "./hooks/usePendingCounts";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 // Feature Pages
 import Dashboard from "./features/dashboard/pages/DashboardPage";
+import ActionCenterPage from "./features/action-center/pages/ActionCenterPage";
+import PayrollDashboardPage from "./features/payroll/pages/PayrollDashboardPage";
+import AccountingDashboardPage from "./features/accounting/pages/AccountingDashboardPage";
 import RegistrarModule from "./features/registrar/pages/RegistrarModulePage";
 import AccountingModule from "./features/accounting/pages/AccountingModulePage";
 import GradingModule from "./features/grading/pages/GradingModulePage";
 import HRManagement from "./features/hr/pages/HRManagementPage";
+import PayrollModulePage from "./features/payroll/pages/PayrollModulePage";
 import CurriculumManagement from "./features/curriculum/pages/CurriculumManagementPage";
 import AccountsManagement from "./features/accounts/pages/AccountsManagementPage";
 import StudentPortal from "./features/student-portal/pages/StudentPortalPage";
@@ -53,16 +68,32 @@ import GuidanceReportsPage from "./features/reports/pages/GuidanceReportsPage";
 import ClinicReportsPage from "./features/reports/pages/ClinicReportsPage";
 import AdminReportsPage from "./features/reports/pages/AdminReportsPage";
 import StudentDirectoryPage from "./features/student-directory/pages/StudentDirectoryPage";
+import GuardianPortalPage from "./features/guardian/pages/GuardianPortalPage";
+
+function PendingBadge({ count, small = false }: { count: number; small?: boolean }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={`flex-shrink-0 font-mono font-bold rounded-full bg-stsn-gold text-stsn-brown text-center leading-none ${
+        small ? "text-[8px] px-1 py-px min-w-[15px]" : "text-[9px] px-1.5 py-0.5 min-w-[18px]"
+      }`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 export default function App() {
   const { currentUser, login, logout, users, activeSchool, academicUnit, isLoading, initialize } =
     useSTSNStore();
   const { toast } = useAppDialog();
+  const counts = usePendingCounts();
   const [activeModule, setActiveModule] = useState<STSNModule>("DASHBOARD");
   const [accountingSubPage, setAccountingSubPage] = useState("dashboard");
   const [coreSetupSubPage, setCoreSetupSubPage] = useState("academic_categories");
   const [portalSubPage, setPortalSubPage] = useState("overview");
   const [hrSubPage, setHrSubPage] = useState("hr-dashboard");
+  const [payrollSubPage, setPayrollSubPage] = useState("payroll-management");
   const [cashierSubPage, setCashierSubPage] = useState("queue");
   const [portalStudentId, setPortalStudentId] = useState<string | undefined>(undefined);
   const [expandedModule, setExpandedModule] = useState<STSNModule | null>("DASHBOARD");
@@ -70,6 +101,7 @@ export default function App() {
   const [expandedHRGroups, setExpandedHRGroups] = useState<string[]>([]);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   useEffect(() => {
     initialize();
@@ -96,16 +128,89 @@ export default function App() {
     if (currentUser.role === "STUDENT") setActiveModule("STUDENT_PORTAL");
     else if (currentUser.role === "TEACHER" || currentUser.role === "EMPLOYEE")
       setActiveModule("FACULTY_PORTAL");
+    else if (currentUser.role === "REGISTRAR") setActiveModule("REGISTRAR");
+    else if (currentUser.role === "PRINCIPAL") setActiveModule("STUDENT_DIRECTORY");
+    else if (currentUser.role === "HR") setActiveModule("HR_MANAGEMENT");
     else if (currentUser.role === "ACCOUNTING") setActiveModule("ACCOUNTING");
     else if (currentUser.role === "CASHIER") setActiveModule("CASHIER");
+    else if (currentUser.role === "PAYROLL") setActiveModule("PAYROLL_MANAGEMENT");
     else if (currentUser.role === "GUIDANCE") setActiveModule("GUIDANCE");
     else if (currentUser.role === "NURSE") setActiveModule("NURSE_CLINIC");
+    else if (currentUser.role === "GUARDIAN") setActiveModule("GUARDIAN_PORTAL");
     else setActiveModule("DASHBOARD");
   }, [currentUser]);
+
+  // Derive breadcrumb from active module / sub-page state
+  const breadcrumbs = (() => {
+    const crumbs: BreadcrumbCrumb[] = [];
+    const moduleLabel: Partial<Record<string, string>> = {
+      DASHBOARD: "Dashboard",
+      ACTION_CENTER: "Action Center",
+      REGISTRAR: "Enrollment",
+      REGISTRAR_REPORTS: "Registrar Reports",
+      ACCOUNTING: "Accounting",
+      GRADING: "Grades Directory",
+      CURRICULUM: "Curriculum",
+      STUDENT_DIRECTORY: "Student Directory",
+      STUDENT_PORTAL: "Student Portal",
+      FACULTY_ADMIN: "Faculty Admin",
+      FACULTY_PORTAL: "Faculty Portal",
+      HR_MANAGEMENT: "HR Management",
+      PAYROLL_MANAGEMENT: "Payroll Management",
+      ACCOUNTS_SECURITY: "Accounts & Security",
+      CORE_SETUP: "Core Setup",
+      SCHEDULING: "Class Scheduling",
+      CLASS_SECTIONING: "Class Sectioning",
+      ONLINE_LEARNING: "Online Learning",
+      BOOKS_SETUP: "Books & Library",
+      CASHIER: "Cashier",
+      NURSE_CLINIC: "Nurse Clinic",
+      GUIDANCE: "Guidance",
+      GUIDANCE_REPORTS: "Guidance Reports",
+      CLINIC_REPORTS: "Clinic Reports",
+      ADMIN_REPORTS: "Admin Reports",
+      CONSULTATION: "Consultation",
+    };
+    const subPageLabel: Partial<Record<string, string>> = {
+      dashboard: "Dashboard",
+      "accounting-student-accounts": "Student Accounts",
+      billing: "Assessment Billing",
+      discounts: "Discounts",
+      payments: "Payments",
+      "hr-dashboard": "HR Dashboard",
+      "leave-management": "Leave Management",
+      "hr-time-attendance": "Time & Attendance",
+      "employee-management": "Employee Management",
+      "payroll-management": "Payroll Runs",
+      "payroll-settings": "Payroll Settings",
+      queue: "Payment Queue",
+      "cashier-reports": "Cashier Reports",
+    };
+    const modLabel = moduleLabel[activeModule];
+    if (modLabel) crumbs.push({ label: modLabel });
+    const subPage =
+      activeModule === "ACCOUNTING" ? accountingSubPage
+      : activeModule === "HR_MANAGEMENT" ? hrSubPage
+      : activeModule === "PAYROLL_MANAGEMENT" ? payrollSubPage
+      : activeModule === "CASHIER" ? cashierSubPage
+      : null;
+    if (subPage && subPage !== "dashboard" && subPageLabel[subPage]) {
+      crumbs.push({ label: subPageLabel[subPage]! });
+    }
+    return crumbs;
+  })();
+
+  // Keyboard shortcuts — only when logged in
+  useKeyboardShortcuts({
+    "Ctrl+k": () => setGlobalSearchOpen(true),
+    "Meta+k": () => setGlobalSearchOpen(true),
+    "Escape": () => setGlobalSearchOpen(false),
+  });
 
   if (!currentUser) return <LoginOverlay />;
 
   const allowedModules = getAllowedModules(currentUser.role, academicUnit);
+  const sidebarMode = SIDEBAR_MODE[currentUser.role];
 
   const renderedSidebarItems = getNavItemsForRole(
     currentUser.role,
@@ -114,6 +219,108 @@ export default function App() {
 
   const handleRoleQuickSwitch = (email: string) => {
     login(email, "");
+  };
+
+  const getBadgeCount = (moduleId: STSNModule, childId?: string): number => {
+    if (!currentUser) return 0;
+    const role = currentUser.role;
+    if (moduleId === "ACTION_CENTER") return counts.totalForRole;
+    switch (role) {
+      case "ACCOUNTING":
+        if (moduleId !== "ACCOUNTING") return 0;
+        if (!childId) return counts.pendingAssessments + counts.pendingDiscounts;
+        if (childId === "accounting-student-accounts") return counts.pendingAssessments + counts.pendingDiscounts;
+        if (childId === "billing") return counts.pendingAssessments;
+        if (childId === "discounts") return counts.pendingDiscounts;
+        return 0;
+      case "REGISTRAR":
+        if (moduleId !== "REGISTRAR") return 0;
+        if (!childId || childId === "enrollment") return counts.pendingEnrollments + counts.pendingApplications;
+        return 0;
+      case "HR":
+        if (moduleId !== "HR_MANAGEMENT") return 0;
+        if (!childId || childId === "hr-time-attendance" || childId === "leave-management") return counts.pendingLeaves;
+        return 0;
+      case "PAYROLL":
+        if (moduleId !== "PAYROLL_MANAGEMENT") return 0;
+        if (!childId || childId === "payroll-management") return counts.pendingPayrollRuns;
+        return 0;
+      case "PRINCIPAL":
+        if (moduleId !== "REGISTRAR") return 0;
+        if (!childId || childId === "grades-directory") return counts.pendingGrades;
+        return 0;
+      case "SUPER_ADMIN":
+      case "ADMIN":
+        if (moduleId === "ACCOUNTING") {
+          if (!childId) return counts.pendingAssessments + counts.pendingDiscounts;
+          if (childId === "accounting-student-accounts") return counts.pendingAssessments + counts.pendingDiscounts;
+          if (childId === "billing") return counts.pendingAssessments;
+          if (childId === "discounts") return counts.pendingDiscounts;
+        }
+        if (moduleId === "REGISTRAR") {
+          if (!childId) return counts.pendingEnrollments + counts.pendingApplications + counts.pendingGrades;
+          if (childId === "enrollment") return counts.pendingEnrollments + counts.pendingApplications;
+          if (childId === "grades-directory") return counts.pendingGrades;
+        }
+        if (moduleId === "HR_MANAGEMENT") {
+          if (!childId || childId === "hr-time-attendance" || childId === "leave-management") return counts.pendingLeaves;
+        }
+        if (moduleId === "PAYROLL_MANAGEMENT") {
+          if (!childId || childId === "payroll-management") return counts.pendingPayrollRuns;
+        }
+        return 0;
+      default:
+        return 0;
+    }
+  };
+
+  const renderedModuleIds: STSNModule[] = [
+    "DASHBOARD",
+    "ACTION_CENTER",
+    "REGISTRAR",
+    "REGISTRAR_REPORTS",
+    "ACCOUNTING",
+    "GRADING",
+    "CURRICULUM",
+    "STUDENT_DIRECTORY",
+    "STUDENT_PORTAL",
+    "FACULTY_ADMIN",
+    "FACULTY_PORTAL",
+    "HR_MANAGEMENT",
+    "PAYROLL_DASHBOARD",
+    "ACCOUNTING_DASHBOARD",
+    "PAYROLL_MANAGEMENT",
+    "ACCOUNTS_SECURITY",
+    "CORE_SETUP",
+    "SCHEDULING",
+    "CLASS_SECTIONING",
+    "ONLINE_LEARNING",
+    "BOOKS_SETUP",
+    "CASHIER",
+    "NURSE_CLINIC",
+    "GUIDANCE",
+    "GUIDANCE_REPORTS",
+    "CLINIC_REPORTS",
+    "ADMIN_REPORTS",
+    "CONSULTATION",
+    "GUARDIAN_PORTAL",
+  ];
+
+  const handleActionCenterNavigate = (target: NavigateTarget) => {
+    setActiveModule(target.module);
+    if (!target.subPage) return;
+
+    if (target.module === "ACCOUNTING") {
+      setAccountingSubPage(target.subPage);
+    } else if (target.module === "HR_MANAGEMENT") {
+      setHrSubPage(target.subPage);
+    } else if (target.module === "PAYROLL_MANAGEMENT") {
+      setPayrollSubPage(target.subPage);
+    } else if (target.module === "CASHIER") {
+      setCashierSubPage(target.subPage);
+    } else if (target.module === "STUDENT_PORTAL") {
+      setPortalSubPage(target.subPage);
+    }
   };
 
   if (isLoading) {
@@ -130,88 +337,125 @@ export default function App() {
   return (
     <div className="min-h-screen flex bg-stsn-cream text-stsn-text font-sans antialiased overflow-hidden h-screen">
       {/* ============ SIDEBAR ============ */}
-      <aside className="hidden lg:flex flex-col w-[265px] h-full flex-shrink-0 relative sidebar-gradient">
+      <aside className={`hidden lg:flex flex-col h-full flex-shrink-0 relative sidebar-gradient ${sidebarMode === "minimal" ? "w-16" : sidebarMode === "compact" ? "w-[200px]" : "w-[265px]"}`}>
         {/* Top gold accent line */}
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-stsn-brown-dark via-stsn-gold to-stsn-brown-dark opacity-90" />
 
         {/* Brand Header */}
-        <div className="p-5 flex items-center gap-3 border-b border-white/8 mt-[3px]">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-stsn-gold/30 to-stsn-brown border border-stsn-gold/40 flex items-center justify-center shadow-lg">
+        <div className={`border-b border-white/8 mt-[3px] flex items-center gap-3 ${sidebarMode === "minimal" ? "p-3 justify-center" : "p-5"}`}>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-stsn-gold/30 to-stsn-brown border border-stsn-gold/40 flex items-center justify-center shadow-lg flex-shrink-0" title="STSN Connect">
             <Building2 className="w-5 h-5 text-stsn-gold" />
           </div>
-          <div>
-            <h1 className="font-display font-extrabold text-stsn-gold leading-none tracking-tight text-md">
-              Theresian <span className="text-stsn-gold-light">Connect</span>
-            </h1>
-            <span className="text-[9px] text-stone-400 font-mono tracking-widest uppercase mt-0.5 block">
-              Academia Enterprise v2
-            </span>
-          </div>
-        </div>
-
-        {/* School badges */}
-        <div className="px-4 py-2.5 space-y-1.5 border-b border-white/5">
-          <div
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
-              activeSchool === "STSN" || activeSchool === "ALL"
-                ? "bg-white/10 border-stsn-gold/30"
-                : "bg-white/5 border-white/8"
-            }`}
-          >
-            <School className="w-3 h-3 text-stsn-gold flex-shrink-0" />
-            <span className="text-[8.5px] font-mono text-stone-300 truncate flex-1">
-              St. Theresa's School of Novaliches
-            </span>
-            {(activeSchool === "STSN" || activeSchool === "ALL") && (
-              <span className="w-1.5 h-1.5 rounded-full bg-stsn-gold animate-pulse flex-shrink-0" />
-            )}
-          </div>
-          <div
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
-              activeSchool === "CDSTA" || activeSchool === "ALL"
-                ? "bg-blue-500/15 border-blue-400/30"
-                : "bg-white/5 border-white/8"
-            }`}
-          >
-            <GraduationCap className="w-3 h-3 text-blue-400 flex-shrink-0" />
-            <span className="text-[8.5px] font-mono text-blue-300 truncate flex-1">
-              Colegio de Sta. Teresa de Avila
-            </span>
-            {(activeSchool === "CDSTA" || activeSchool === "ALL") && (
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse flex-shrink-0" />
-            )}
-          </div>
-          {activeSchool !== "ALL" && (
-            <div className="px-2.5 py-1 text-center">
-              <span className="text-[8px] font-mono text-stsn-gold/60 uppercase tracking-widest">
-                Viewing: {activeSchool === "STSN" ? "STSN Data" : "CDSTA Data"}
+          {sidebarMode !== "minimal" && (
+            <div>
+              <h1 className="font-display font-extrabold text-stsn-gold leading-none tracking-tight text-md">
+                Theresian <span className="text-stsn-gold-light">Connect</span>
+              </h1>
+              <span className="text-[9px] text-stone-400 font-mono tracking-widest uppercase mt-0.5 block">
+                Academia Enterprise v2
               </span>
             </div>
           )}
         </div>
 
-        {/* Authenticated Staff Card */}
-        <div className="px-4 pt-3 pb-2">
-          <div className="bg-black/20 backdrop-blur border border-white/8 rounded-xl p-3.5">
-            <span className="text-[8px] uppercase font-mono tracking-widest text-stsn-gold/80 block mb-1">
-              Signed Authority
-            </span>
-            <p className="text-xs font-bold text-white truncate leading-tight">
-              {currentUser.name}
-            </p>
-            <p className="text-[9px] font-mono text-stone-400 mt-1 uppercase tracking-wide flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-stsn-gold animate-pulse flex-shrink-0" />
-              {currentUser.role.replace("_", " ")} Clearance
-            </p>
+        {/* School badges — hidden in minimal mode */}
+        {sidebarMode !== "minimal" && (
+          <div className="px-4 py-2.5 space-y-1.5 border-b border-white/5">
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
+                activeSchool === "STSN" || activeSchool === "ALL"
+                  ? "bg-white/10 border-stsn-gold/30"
+                  : "bg-white/5 border-white/8"
+              }`}
+            >
+              <School className="w-3 h-3 text-stsn-gold flex-shrink-0" />
+              <span className="text-[8.5px] font-mono text-stone-300 truncate flex-1">
+                St. Theresa's School of Novaliches
+              </span>
+              {(activeSchool === "STSN" || activeSchool === "ALL") && (
+                <span className="w-1.5 h-1.5 rounded-full bg-stsn-gold animate-pulse flex-shrink-0" />
+              )}
+            </div>
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
+                activeSchool === "CDSTA" || activeSchool === "ALL"
+                  ? "bg-blue-500/15 border-blue-400/30"
+                  : "bg-white/5 border-white/8"
+              }`}
+            >
+              <GraduationCap className="w-3 h-3 text-blue-400 flex-shrink-0" />
+              <span className="text-[8.5px] font-mono text-blue-300 truncate flex-1">
+                Colegio de Sta. Teresa de Avila
+              </span>
+              {(activeSchool === "CDSTA" || activeSchool === "ALL") && (
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse flex-shrink-0" />
+              )}
+            </div>
+            {activeSchool !== "ALL" && (
+              <div className="px-2.5 py-1 text-center">
+                <span className="text-[8px] font-mono text-stsn-gold/60 uppercase tracking-widest">
+                  Viewing: {activeSchool === "STSN" ? "STSN Data" : "CDSTA Data"}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* Authenticated Staff Card */}
+        {sidebarMode === "minimal" ? (
+          <div className="px-2 pt-2 pb-1 flex justify-center">
+            <div className="w-8 h-8 rounded-full bg-stsn-gold/20 border border-stsn-gold/40 flex items-center justify-center" title={`${currentUser.name} — ${currentUser.role}`}>
+              <span className="text-[10px] font-bold text-stsn-gold">{currentUser.name[0]}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="px-4 pt-3 pb-2">
+            <div className="bg-black/20 backdrop-blur border border-white/8 rounded-xl p-3.5">
+              <span className="text-[8px] uppercase font-mono tracking-widest text-stsn-gold/80 block mb-1">
+                Signed Authority
+              </span>
+              <p className="text-xs font-bold text-white truncate leading-tight">
+                {currentUser.name}
+              </p>
+              <p className="text-[9px] font-mono text-stone-400 mt-1 uppercase tracking-wide flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-stsn-gold animate-pulse flex-shrink-0" />
+                {currentUser.role.replace("_", " ")} Clearance
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-0.5 py-3 overflow-y-auto px-3">
+        <nav className={`flex-1 space-y-0.5 py-3 overflow-y-auto ${sidebarMode === "minimal" ? "px-1" : "px-3"}`}>
           {renderedSidebarItems.map((item) => {
             const isSelected = activeModule === item.id;
             const isExpanded = expandedModule === item.id;
             const Icon = item.icon;
+
+            // Minimal mode: icon-only rail, no children expansion
+            if (sidebarMode === "minimal") {
+              const isActive = activeModule === item.id ||
+                (item.children?.some((c) => c.targetModule === activeModule) ?? false);
+              return (
+                <button
+                  key={item.id}
+                  title={item.label}
+                  onClick={() => {
+                    const firstChildModule = item.children?.find((c) => c.targetModule)?.targetModule;
+                    setActiveModule(firstChildModule ?? item.id);
+                    setExpandedModule(null);
+                    setIsMobileOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-center py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                    isActive
+                      ? "sidebar-item-active text-stsn-cream shadow-md"
+                      : "hover:bg-white/8 text-stone-400 opacity-80 hover:opacity-100"
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? "text-stsn-gold" : ""}`} />
+                </button>
+              );
+            }
 
             if (item.children) {
               const isCategoryGroup = item.children.some((c) => c.targetModule);
@@ -244,6 +488,9 @@ export default function App() {
                         {item.desc}
                       </p>
                     </div>
+                    {getBadgeCount(item.id) > 0 && (
+                      <PendingBadge count={getBadgeCount(item.id)} />
+                    )}
                     {isExpandedGroup
                       ? <ChevronDown className="w-3 h-3 flex-shrink-0 mt-1 text-stsn-gold/70" />
                       : <ChevronRight className="w-3 h-3 flex-shrink-0 mt-1 text-stone-500 group-hover:text-stone-300" />
@@ -302,6 +549,9 @@ export default function App() {
                                     {child.desc ?? ""}
                                   </p>
                                 </div>
+                                {getBadgeCount(item.id, child.id) > 0 && (
+                                  <PendingBadge count={getBadgeCount(item.id, child.id)} small />
+                                )}
                                 {isGroupExpanded
                                   ? <ChevronDown className="w-3 h-3 flex-shrink-0 mt-0.5 text-stsn-gold/70" />
                                   : <ChevronRight className="w-3 h-3 flex-shrink-0 mt-0.5 text-stone-500 group-hover:text-stone-300" />}
@@ -334,6 +584,9 @@ export default function App() {
                                             {subChild.desc ?? ""}
                                           </p>
                                         </div>
+                                        {getBadgeCount(item.id, subChild.id) > 0 && (
+                                          <PendingBadge count={getBadgeCount(item.id, subChild.id)} small />
+                                        )}
                                         {isSubChildActive && <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />}
                                       </button>
                                     );
@@ -345,7 +598,7 @@ export default function App() {
                         }
                         const isChildActive = child.targetModule
                           ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
-                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "CASHIER" ? cashierSubPage === child.id : accountingSubPage === child.id);
+                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "PAYROLL_MANAGEMENT" ? payrollSubPage === child.id : item.id === "CASHIER" ? cashierSubPage === child.id : accountingSubPage === child.id);
                         const ChildIcon = child.icon;
                         return (
                           <button
@@ -362,6 +615,8 @@ export default function App() {
                                   setPortalSubPage(child.id);
                                 } else if (item.id === "HR_MANAGEMENT") {
                                   setHrSubPage(child.id);
+                                } else if (item.id === "PAYROLL_MANAGEMENT") {
+                                  setPayrollSubPage(child.id);
                                 } else if (item.id === "CASHIER") {
                                   setCashierSubPage(child.id);
                                 } else {
@@ -383,6 +638,9 @@ export default function App() {
                                 {child.desc ?? ""}
                               </p>
                             </div>
+                            {getBadgeCount(item.id, child.id) > 0 && (
+                              <PendingBadge count={getBadgeCount(item.id, child.id)} small />
+                            )}
                             {isChildActive && <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />}
                           </button>
                         );
@@ -503,6 +761,20 @@ export default function App() {
               </div>
             </div>
 
+            {/* Global Search trigger */}
+            <button
+              onClick={() => setGlobalSearchOpen(true)}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-stone-50 to-white border border-stone-200/70 rounded-xl text-stone-500 hover:border-stsn-gold/40 hover:bg-stsn-cream/60 transition-all shadow-sm cursor-pointer text-xs font-semibold"
+              title="Global Search (Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden md:inline text-stone-400">Search</span>
+              <kbd className="hidden md:inline text-[9px] font-mono px-1.5 py-px rounded bg-stone-100 border border-stone-200 text-stone-400 leading-none">⌘K</kbd>
+            </button>
+
+            {/* Notification Bell */}
+            <NotificationBell />
+
             {/* Clock */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-stone-50 to-white border border-stone-200/60 rounded-xl text-stone-600 shadow-sm">
               <Clock className="w-4 h-4 text-stsn-gold" />
@@ -512,12 +784,18 @@ export default function App() {
             </div>
           </div>
         </header>
+        <BreadcrumbBar crumbs={breadcrumbs} />
+        <UrgentAnnouncementBanner />
 
         {/* MAIN CONTENT */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 bg-gradient-to-br from-stsn-cream via-[#FAF6EE] to-[#F5F0E8]">
           {activeModule === "DASHBOARD" &&
             allowedModules.includes("DASHBOARD") && (
               <Dashboard onViewStudentList={() => setActiveModule("REGISTRAR")} />
+            )}
+          {activeModule === "ACTION_CENTER" &&
+            allowedModules.includes("ACTION_CENTER") && (
+              <ActionCenterPage onNavigate={handleActionCenterNavigate} />
             )}
           {activeModule === "REGISTRAR" &&
             allowedModules.includes("REGISTRAR") && <RegistrarModule />}
@@ -556,6 +834,18 @@ export default function App() {
             allowedModules.includes("HR_MANAGEMENT") && (
               <HRManagement subPage={hrSubPage} onSubPageChange={setHrSubPage} />
             )}
+          {activeModule === "PAYROLL_DASHBOARD" &&
+            allowedModules.includes("PAYROLL_DASHBOARD") && (
+              <PayrollDashboardPage />
+            )}
+          {activeModule === "ACCOUNTING_DASHBOARD" &&
+            allowedModules.includes("ACCOUNTING_DASHBOARD") && (
+              <AccountingDashboardPage />
+            )}
+          {activeModule === "PAYROLL_MANAGEMENT" &&
+            allowedModules.includes("PAYROLL_MANAGEMENT") && (
+              <PayrollModulePage subPage={payrollSubPage} />
+            )}
           {activeModule === "ACCOUNTS_SECURITY" &&
             allowedModules.includes("ACCOUNTS_SECURITY") && (
               <AccountsManagement />
@@ -586,7 +876,36 @@ export default function App() {
             allowedModules.includes("ADMIN_REPORTS") && <AdminReportsPage />}
           {activeModule === "CONSULTATION" &&
             allowedModules.includes("CONSULTATION") && <ConsultationModule />}
+          {activeModule === "GUARDIAN_PORTAL" &&
+            allowedModules.includes("GUARDIAN_PORTAL") && <GuardianPortalPage />}
+          {(!allowedModules.includes(activeModule) || !renderedModuleIds.includes(activeModule)) && (
+            <div className="rounded-xl border border-stone-200 bg-white/80 p-6 shadow-sm">
+              <p className="text-xs font-mono uppercase tracking-widest text-stsn-gold mb-2">
+                Module unavailable
+              </p>
+              <h2 className="text-lg font-display font-bold text-stsn-brown-dark">
+                This page is not available for your current access.
+              </h2>
+              <p className="text-sm text-stone-600 mt-2">
+                Select another module from the sidebar or ask an administrator to review your permissions.
+              </p>
+            </div>
+          )}
         </main>
+        {hasMobileBottomNav(currentUser.role) && (
+          <MobileBottomNav
+            role={currentUser.role}
+            activeModule={activeModule}
+            onNavigate={(module, subPage) => {
+              setActiveModule(module);
+              if (subPage) {
+                if (module === "CASHIER") setCashierSubPage(subPage);
+                else if (module === "HR_MANAGEMENT") setHrSubPage(subPage);
+              }
+              setIsMobileOpen(false);
+            }}
+          />
+        )}
       </div>
 
       {/* MOBILE DRAWER */}
@@ -695,7 +1014,7 @@ export default function App() {
                             }
                             const isChildActive = child.targetModule
                               ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
-                              : isSelected && (item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : accountingSubPage === child.id);
+                              : isSelected && (item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "PAYROLL_MANAGEMENT" ? payrollSubPage === child.id : accountingSubPage === child.id);
                             return (
                               <button
                                 key={child.id}
@@ -709,6 +1028,8 @@ export default function App() {
                                     setActiveModule(item.id);
                                     if (item.id === "HR_MANAGEMENT") {
                                       setHrSubPage(child.id);
+                                    } else if (item.id === "PAYROLL_MANAGEMENT") {
+                                      setPayrollSubPage(child.id);
                                     } else {
                                       setAccountingSubPage(child.id);
                                     }
@@ -755,6 +1076,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <GlobalSearch open={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
     </div>
   );
 }

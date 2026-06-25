@@ -17,6 +17,33 @@
   --color-stsn-text: #2D241E;
 }
 
+:root {
+  --stsn-page-bg: #f8f3ea;
+  --stsn-card-bg: #ffffff;
+  --stsn-card-border: #e5e0d5;
+  --stsn-card-radius: 0.75rem;
+  --stsn-card-shadow: 0 1px 3px rgba(74, 55, 40, 0.08), 0 10px 24px rgba(74, 55, 40, 0.05);
+  --stsn-muted-text: #78716c;
+  --stsn-heading-text: #2d241e;
+  --stsn-focus-ring: rgba(197, 160, 89, 0.28);
+  --stsn-info-bg: #eff6ff;
+  --stsn-success-bg: #ecfdf5;
+  --stsn-warning-bg: #fffbeb;
+  --stsn-danger-bg: #fef2f2;
+  --stsn-purple-bg: #f5f3ff;
+}
+
+.app-page-bg {
+  background: var(--stsn-page-bg);
+}
+
+.app-card {
+  background: var(--stsn-card-bg);
+  border: 1px solid var(--stsn-card-border);
+  border-radius: var(--stsn-card-radius);
+  box-shadow: var(--stsn-card-shadow);
+}
+
 /* =============================================
    GLOBAL TYPOGRAPHY (INTER-FIRST)
    ============================================= */

@@ -50,6 +50,8 @@ import {
   Download,
 } from "lucide-react";
 import { PreviewModal, CORPreview } from "../../../components/ModalPreviews";
+import SLABadge from "../../../components/common/SLABadge";
+import EnrollmentWizard from "../components/EnrollmentWizard";
 import STSNDataTable, {
   type STSNColumn,
 } from "../../../components/common/STSNDataTable";
@@ -208,6 +210,8 @@ export default function RegistrarModule() {
     submitNewEnrollment,
     approveEnrollment,
     rejectEnrollment,
+    updateEnrollmentStatus,
+    updateOnlineEnrollmentApplicationStatus,
     assignStudentsToSection,
     updateAssessment,
     uploadRequirementFile,
@@ -267,7 +271,7 @@ export default function RegistrarModule() {
   const [detailTab, setDetailTab] = useState<DetailTab>("info");
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
   const [isCorModalOpen, setIsCorModalOpen] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<"directory" | "bulk_import">(
+  const [activeSubTab, setActiveSubTab] = useState<"directory" | "online_queue" | "bulk_import">(
     "directory",
   );
 
@@ -403,13 +407,26 @@ export default function RegistrarModule() {
     if (selectedStudent) ensureStudentRequirements(selectedStudent.id);
   }, [selectedStudent?.id, ensureStudentRequirements]);
 
-  const studentAssessment = useMemo(
-    () =>
-      selectedStudent
-        ? assessments.find((a) => a.studentId === selectedStudent.id)
-        : undefined,
-    [selectedStudent, assessments],
-  );
+  const studentAssessment = useMemo(() => {
+    if (!selectedStudent) return undefined;
+    if (selectedEnrollment?.assessmentId) {
+      const linkedAssessment = assessments.find((a) => a.id === selectedEnrollment.assessmentId);
+      if (linkedAssessment) return linkedAssessment;
+    }
+    const scopedMatches = assessments
+      .filter((a) =>
+        a.studentId === selectedStudent.id &&
+        (!selectedEnrollment?.schoolYear || a.schoolYear === selectedEnrollment.schoolYear) &&
+        (!selectedEnrollment?.semester || a.semester === selectedEnrollment.semester) &&
+        (!selectedStudent.schoolId || !a.schoolId || a.schoolId === selectedStudent.schoolId)
+      )
+      .sort((a, b) => {
+        const aSubmitted = a.submittedDate ?? "";
+        const bSubmitted = b.submittedDate ?? "";
+        return bSubmitted.localeCompare(aSubmitted);
+      });
+    return scopedMatches[0];
+  }, [assessments, selectedEnrollment, selectedStudent]);
 
   const isFeesPaid = useMemo(() => {
     if (!studentAssessment) return false;
@@ -447,7 +464,11 @@ export default function RegistrarModule() {
 
   const handleClearAndEnroll = () => {
     if (!selectedStudent || !selectedSection) return;
-    approveEnrollment(`enr-${selectedStudent.id}`, selectedSection.name);
+    if (!selectedEnrollment) {
+      toast("No enrollment record found for this student.", { variant: "warning" });
+      return;
+    }
+    approveEnrollment(selectedEnrollment.id, selectedSection.name);
     assignStudentsToSection(selectedSection.id, [selectedStudent.id]);
     setSelectedStudent({
       ...selectedStudent,
@@ -458,10 +479,139 @@ export default function RegistrarModule() {
   };
 
   const handleRejectEnrollment = () => {
-    if (!selectedStudent) return;
-    rejectEnrollment(`enr-${selectedStudent.id}`);
+    if (!selectedStudent || !selectedEnrollment) return;
+    rejectEnrollment(selectedEnrollment.id);
     setSelectedStudent({ ...selectedStudent, enrollmentStatus: "Rejected" });
     toast("Marked as incomplete.");
+  };
+
+  const onlineApplicationQueue = useMemo(() => {
+    return [...onlineEnrollmentApplications].sort((a, b) => (b.submittedAt ?? "").localeCompare(a.submittedAt ?? ""));
+  }, [onlineEnrollmentApplications]);
+
+  const onlineApplicationQueueColumns: STSNColumn<OnlineEnrollmentApplication>[] = useMemo(
+    () => [
+      {
+        title: "Reference",
+        data: "referenceNo",
+        render: (value, row) => (
+          <div>
+            <p className="font-mono text-xs font-bold text-stsn-brown">{value}</p>
+            <p className="text-[10px] text-stone-400">{row.submittedAt?.split("T")[0] ?? "No date"}</p>
+          </div>
+        ),
+      },
+      {
+        title: "Applicant",
+        render: (_, row) => (
+          <div>
+            <p className="text-xs font-semibold text-stone-800">{[row.lastName, row.firstName].filter(Boolean).join(", ") || "Name pending"}</p>
+            <p className="text-[10px] text-stone-400">{row.lrn ? `LRN ${row.lrn}` : row.enrollmentType}</p>
+          </div>
+        ),
+      },
+      {
+        title: "Placement",
+        render: (_, row) => <span className="text-xs text-stone-600">{row.gradeLevelApplyingFor || row.strandOrTrack || row.schoolYear}</span>,
+      },
+      {
+        title: "Status",
+        data: "status",
+        render: (value) => {
+          const tone =
+            value === "Accepted" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+            value === "For Completion" ? "bg-amber-50 text-amber-700 border-amber-200" :
+            value === "Rejected" || value === "Cancelled" ? "bg-red-50 text-red-700 border-red-200" :
+            "bg-blue-50 text-blue-700 border-blue-200";
+          return <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${tone}`}>{value}</span>;
+        },
+      },
+      {
+        title: "SLA",
+        orderable: false,
+        searchable: false,
+        render: (_, row) => row.status === "Pending Registrar Review"
+          ? <SLABadge dateStr={row.submittedAt} />
+          : <span className="text-[9px] text-stone-300">—</span>,
+        width: "65px",
+      },
+      {
+        title: "Actions",
+        orderable: false,
+        searchable: false,
+        render: (_, row) => (
+          <div className="flex flex-wrap gap-1 justify-end">
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                updateOnlineEnrollmentApplicationStatus(row.id, "For Completion");
+                if (row.enrollmentId) updateEnrollmentStatus(row.enrollmentId, "Pending");
+                toast(`${row.referenceNo} marked for completion.`);
+              }}
+              className="px-2 py-1 text-[10px] bg-amber-100 text-amber-700 rounded font-bold cursor-pointer"
+            >
+              For Completion
+            </button>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                updateOnlineEnrollmentApplicationStatus(row.id, "Accepted");
+                if (row.enrollmentId) updateEnrollmentStatus(row.enrollmentId, "For Assessment");
+                toast(`${row.referenceNo} accepted for assessment.`);
+              }}
+              className="px-2 py-1 text-[10px] bg-emerald-600 text-white rounded font-bold cursor-pointer"
+            >
+              Accept
+            </button>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                updateOnlineEnrollmentApplicationStatus(row.id, "Rejected");
+                if (row.enrollmentId) updateEnrollmentStatus(row.enrollmentId, "Rejected");
+                toast(`${row.referenceNo} rejected.`);
+              }}
+              className="px-2 py-1 text-[10px] bg-red-100 text-red-700 rounded font-bold cursor-pointer"
+            >
+              Reject
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [toast, updateEnrollmentStatus, updateOnlineEnrollmentApplicationStatus],
+  );
+
+  // Pending online applications for bulk actions
+  const pendingOnlineApps = useMemo(
+    () => onlineApplicationQueue.filter((a) => a.status === "Pending Registrar Review"),
+    [onlineApplicationQueue],
+  );
+
+  const handleBulkAcceptApps = async () => {
+    if (pendingOnlineApps.length === 0) return;
+    const ok = await confirm(
+      `Accept all ${pendingOnlineApps.length} pending application${pendingOnlineApps.length !== 1 ? "s" : ""} for assessment? Each will move to For Assessment status.`,
+    );
+    if (!ok) return;
+    for (const app of pendingOnlineApps) {
+      updateOnlineEnrollmentApplicationStatus(app.id, "Accepted");
+      if (app.enrollmentId) updateEnrollmentStatus(app.enrollmentId, "For Assessment");
+    }
+    toast(`${pendingOnlineApps.length} application${pendingOnlineApps.length !== 1 ? "s" : ""} accepted for assessment.`);
+  };
+
+  const handleBulkRejectApps = async () => {
+    if (pendingOnlineApps.length === 0) return;
+    const ok = await confirm(
+      `Reject all ${pendingOnlineApps.length} pending application${pendingOnlineApps.length !== 1 ? "s" : ""}? This is auditable and cannot be undone.`,
+      { variant: "danger" },
+    );
+    if (!ok) return;
+    for (const app of pendingOnlineApps) {
+      updateOnlineEnrollmentApplicationStatus(app.id, "Rejected");
+      if (app.enrollmentId) updateEnrollmentStatus(app.enrollmentId, "Rejected");
+    }
+    toast(`${pendingOnlineApps.length} application${pendingOnlineApps.length !== 1 ? "s" : ""} rejected.`, { variant: "warning" });
   };
 
   // Fallback mock assessment when no stored assessment exists for the selected student
@@ -1186,6 +1336,21 @@ export default function RegistrarModule() {
         </button>
         <button
           onClick={() => {
+            setActiveSubTab("online_queue");
+            setBulkImportSuccess("");
+          }}
+          className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${activeSubTab === "online_queue" ? "btn-primary-gradient text-white shadow-sm" : "text-stone-500 hover:text-stone-800 hover:bg-stone-50"}`}
+        >
+          <Clock className="w-4 h-4" />
+          Online Review Queue
+          {onlineApplicationQueue.filter((application) => application.status === "Pending Registrar Review" || application.status === "For Completion").length > 0 && (
+            <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+              {onlineApplicationQueue.filter((application) => application.status === "Pending Registrar Review" || application.status === "For Completion").length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => {
             setActiveSubTab("bulk_import");
             resetImportPreview();
           }}
@@ -1251,6 +1416,13 @@ export default function RegistrarModule() {
               onRowClick={(stud) => {
                 setSelectedStudent(stud);
                 setDetailTab("info");
+              }}
+              rowColorClass={(stud) => {
+                if (stud.enrollmentStatus === "Rejected" || stud.enrollmentStatus === "Cancelled" || stud.enrollmentStatus === "Withdrawn") return "bg-red-50";
+                if (stud.enrollmentStatus === "Enrolled") return "bg-emerald-50";
+                if (stud.enrollmentStatus === "Pending" || stud.enrollmentStatus === "For Assessment") return "bg-amber-50";
+                if (stud.enrollmentStatus === "Draft") return "bg-blue-50";
+                return undefined;
               }}
             />
           </div>
@@ -1773,9 +1945,12 @@ export default function RegistrarModule() {
                               {assessmentStatus === "Draft" ? (
                                 <button
                                   onClick={() =>
-                                    setAssessmentStatus(
-                                      "Pending Accounting Approval",
-                                    )
+                                    {
+                                      setAssessmentStatus(
+                                        "Pending Accounting Approval",
+                                      );
+                                      if (selectedEnrollment) updateEnrollmentStatus(selectedEnrollment.id, "For Assessment");
+                                    }
                                   }
                                   className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-2 bg-stsn-brown hover:bg-stsn-brown/90 text-white rounded-lg cursor-pointer transition"
                                 >
@@ -1874,6 +2049,7 @@ export default function RegistrarModule() {
                                   },
                                 ],
                               });
+                              if (selectedEnrollment) updateEnrollmentStatus(selectedEnrollment.id, "For Assessment");
                             };
 
                             return (
@@ -2845,6 +3021,86 @@ export default function RegistrarModule() {
         </div>
       )}
 
+      {activeSubTab === "online_queue" && (
+        <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4 animate-fade-in">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-stsn-gold font-bold">
+                Registrar Application Review
+              </span>
+              <h3 className="text-base font-display font-bold text-stone-900 mt-1">
+                Online Enrollment Queue
+              </h3>
+              <p className="text-xs text-stone-500 mt-1">
+                Review submitted online applications, request completion, accept for assessment, or reject with an auditable status.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
+              {(["Pending Registrar Review", "For Completion", "Accepted", "Rejected", "Cancelled"] as const).map((status) => (
+                <div key={status} className="px-3 py-2 rounded-lg border border-stone-100 bg-stone-50">
+                  <p className="text-lg font-display font-black text-stone-800">
+                    {onlineApplicationQueue.filter((application) => application.status === status).length}
+                  </p>
+                  <p className="text-[9px] text-stone-400 font-mono uppercase">{status}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bulk action bar — only shown when there are pending applications */}
+          {pendingOnlineApps.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span className="text-xs font-bold text-blue-800">
+                  {pendingOnlineApps.length} pending application{pendingOnlineApps.length !== 1 ? "s" : ""} awaiting review
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBulkAcceptApps}
+                  className="px-3 py-1.5 text-[11px] font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition cursor-pointer"
+                >
+                  Accept All Pending
+                </button>
+                <button
+                  onClick={handleBulkRejectApps}
+                  className="px-3 py-1.5 text-[11px] font-bold bg-red-100 text-red-700 border border-red-200 rounded-lg hover:bg-red-200 transition cursor-pointer"
+                >
+                  Reject All Pending
+                </button>
+              </div>
+            </div>
+          )}
+
+          <STSNDataTable<OnlineEnrollmentApplication>
+            columns={onlineApplicationQueueColumns}
+            rows={onlineApplicationQueue}
+            emptyMessage="No online applications found."
+            pageLength={15}
+            rowColorClass={(app) => {
+              if (app.status === "Rejected" || app.status === "Cancelled") return "bg-red-50";
+              if (app.status === "Accepted") return "bg-emerald-50";
+              if (app.status === "Pending Registrar Review") return "bg-amber-50";
+              if (app.status === "For Completion") return "bg-blue-50";
+              return undefined;
+            }}
+            onRowClick={(application) => {
+              const linkedStudent = application.studentId
+                ? contextStudents.find((student) => student.id === application.studentId)
+                : undefined;
+              if (linkedStudent) {
+                setSelectedStudent(linkedStudent);
+                setDetailTab("enrollment");
+                setActiveSubTab("directory");
+              } else {
+                toast("This application is not linked to a student record yet.", { variant: "warning" });
+              }
+            }}
+          />
+        </div>
+      )}
+
       {/* ===================== BULK IMPORT TAB ===================== */}
       {activeSubTab === "bulk_import" && (
         <div className="bg-white p-6 border border-stsn-beige rounded-xl shadow-sm space-y-6 animate-fade-in">
@@ -3152,36 +3408,40 @@ export default function RegistrarModule() {
               </button>
             </div>
 
-            {/* Step indicators */}
-            <div className="flex justify-between items-center px-6 py-3 bg-stone-50 border-b border-stone-100">
-              {["Basic Details", "Academic Setup", "Subject Setup"].map(
-                (step, idx) => (
-                  <React.Fragment key={step}>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold">
-                      <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${formStep >= idx + 1 ? (schoolContext === "BASIC_ED" ? "bg-stsn-brown text-white" : "bg-blue-600 text-white") : "bg-stone-200 text-stone-500"}`}
-                      >
-                        {idx + 1}
-                      </span>
-                      <span
-                        className={
-                          formStep >= idx + 1
-                            ? "text-stone-900 font-bold"
-                            : "text-stone-400"
-                        }
-                      >
-                        {step}
-                      </span>
-                    </div>
-                    {idx < 2 && (
-                      <div className="flex-1 h-px bg-stone-200 mx-2" />
-                    )}
-                  </React.Fragment>
-                ),
-              )}
-            </div>
+            <EnrollmentWizard
+              schoolContext={schoolContext}
+              onCancel={() => setIsNewStudentModalOpen(false)}
+              onSubmit={({ firstName, lastName, middleName, gender, dept, yearLevel, trackOrCourse, subjectCodes, enrollmentType }) => {
+                const baseNewStudent = addStudent({
+                  firstName, lastName, middleName, gender,
+                  civilStatus: "Single", religion: "Catholic", nationality: "Filipino",
+                  birthday: "2008-01-01", birthplace: "Quezon City",
+                  email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@stsn.edu.ph`,
+                  contactNo: "+639170000000",
+                  address: dept === "College" ? "Novaliches, QC" : "Zabarte Subdivision",
+                  province: "Metro Manila", municipality: "Quezon City", zipCode: "1123",
+                  department: dept, yearLevel, trackOrCourse, section: "",
+                  enrollmentStatus: "Pending",
+                });
+                submitNewEnrollment({
+                  studentId: baseNewStudent.id,
+                  schoolYear: "2026-2027",
+                  semester: dept === "College" ? "First Semester" : "N/A",
+                  enrollmentType,
+                  subjectCodes,
+                  status: "Pending",
+                  submittedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
+                });
+                setIsNewStudentModalOpen(false);
+                setFormStep(1);
+                setFirstName(""); setLastName(""); setMiddleName("");
+                setSelectedSubjectCodes([]);
+                setSelectedStudent(baseNewStudent);
+              }}
+            />
 
-            <div className="p-6 bg-stsn-cream flex-1 overflow-y-auto space-y-4">
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {(false as boolean) && <div className="p-6 bg-stsn-cream flex-1 overflow-y-auto space-y-4">
               {/* STEP 1 */}
               {formStep === 1 && (
                 <div className="space-y-4 bg-white p-5 rounded-xl border border-stsn-beige animate-fade-in">
@@ -3502,7 +3762,7 @@ export default function RegistrarModule() {
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
           </div>
         </div>
       )}
