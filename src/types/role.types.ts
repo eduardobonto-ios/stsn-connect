@@ -20,7 +20,8 @@ export type CanonicalRole =
   | "cashier"
   | "guidance"
   | "nurse"
-  | "payroll";
+  | "payroll"
+  | "guardian";
 
 /** Maps the legacy/account-level UserRole values onto canonical roles. */
 export const ROLE_TO_CANONICAL: Record<UserRole, CanonicalRole> = {
@@ -37,6 +38,7 @@ export const ROLE_TO_CANONICAL: Record<UserRole, CanonicalRole> = {
   GUIDANCE: "guidance",
   NURSE: "nurse",
   PAYROLL: "payroll",
+  GUARDIAN: "guardian",
 };
 
 export function toCanonicalRole(role: UserRole): CanonicalRole {

@@ -102,7 +102,7 @@ const FACULTY_REPORT_COLUMNS: Record<FacultyReportId, ReportColumn[]> = {
 };
 
 export default function FacultyPortal() {
-  const { teachers, currentUser, students, announcements, grades, subjects, classSchedules, activeSchool, academicUnit, activityLogs, employees } = useSTSNStore();
+  const { teachers, currentUser, students, announcements, grades, subjects, classSchedules, activeSchool, academicUnit, activityLogs, employees, gradePeriods, studentGradeEntries } = useSTSNStore();
   const scopedData = React.useMemo(
     () =>
       getAcademicScopedData({
@@ -153,6 +153,38 @@ export default function FacultyPortal() {
     () => scopedClassSchedules.filter((s) => s.teacherId === currentTeacher.id && s.isActive),
     [currentTeacher.id, scopedClassSchedules],
   );
+  const gradeSubmissionQueue = React.useMemo(() => {
+    return teacherSchedules.map((schedule) => {
+      const classStudents = scopedStudents.filter((student) => student.section === schedule.section);
+      const periods = gradePeriods.filter((period) =>
+        period.teacherId === currentTeacher.id &&
+        period.subjectCode === schedule.subjectCode &&
+        period.schoolYear === schedule.schoolYear
+      );
+      const requiredEntries = periods.reduce((sum, period) => sum + period.items.length * classStudents.length, 0);
+      const encodedEntries = periods.reduce((sum, period) => {
+        const itemIds = new Set(period.items.map((item) => item.id));
+        return sum + studentGradeEntries.filter((entry) => itemIds.has(entry.gradeItemId) && entry.score !== null).length;
+      }, 0);
+      const finalizedPeriods = periods.filter((period) => period.isFinalized).length;
+      return {
+        key: `${schedule.id}-${schedule.subjectCode}`,
+        subject: schedule.subjectName || schedule.subjectCode,
+        section: schedule.section,
+        encodedEntries,
+        requiredEntries,
+        finalizedPeriods,
+        totalPeriods: periods.length,
+        status: periods.length === 0
+          ? "Setup Needed"
+          : finalizedPeriods === periods.length
+            ? "Finalized"
+            : requiredEntries > 0 && encodedEntries >= requiredEntries
+              ? "Ready for Review"
+              : "Encoding",
+      };
+    });
+  }, [currentTeacher.id, gradePeriods, scopedStudents, studentGradeEntries, teacherSchedules]);
   const selectedReport = FACULTY_REPORT_OPTIONS.find((report) => report.id === selectedReportId) ?? FACULTY_REPORT_OPTIONS[0];
   const reportColumns = FACULTY_REPORT_COLUMNS[selectedReportId];
 
@@ -406,6 +438,51 @@ export default function FacultyPortal() {
             
             {/* Left side: Advisory Class List */}
             <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
+                <div className="flex justify-between items-center pb-2 border-b border-stone-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-stone-900 uppercase">Grade Submission Queue</h3>
+                    <p className="text-stone-400 text-[11px]">Class-level encoding and finalization status for assigned teaching loads</p>
+                  </div>
+                  <span className="text-[10px] font-mono bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
+                    {gradeSubmissionQueue.filter((item) => item.status !== "Finalized").length} open
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {gradeSubmissionQueue.slice(0, 4).map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => setActiveTab("grading")}
+                      className="text-left p-4 rounded-xl border border-stone-100 hover:border-stsn-gold hover:bg-stsn-cream/50 transition cursor-pointer"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-bold text-stone-900">{item.subject}</p>
+                          <p className="text-[10px] text-stone-400">{item.section}</p>
+                        </div>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                          item.status === "Finalized" ? "bg-emerald-50 text-emerald-700" :
+                          item.status === "Ready for Review" ? "bg-blue-50 text-blue-700" :
+                          item.status === "Setup Needed" ? "bg-red-50 text-red-700" :
+                          "bg-amber-50 text-amber-700"
+                        }`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex justify-between text-[10px] text-stone-500">
+                        <span>{item.encodedEntries}/{item.requiredEntries || 0} scores</span>
+                        <span>{item.finalizedPeriods}/{item.totalPeriods || 0} periods finalized</span>
+                      </div>
+                    </button>
+                  ))}
+                  {gradeSubmissionQueue.length === 0 && (
+                    <div className="md:col-span-2 p-6 text-center text-xs text-stone-400 border border-dashed border-stone-200 rounded-xl">
+                      No active teaching loads are assigned.
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-stone-100">
                   <div>

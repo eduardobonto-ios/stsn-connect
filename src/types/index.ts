@@ -18,9 +18,17 @@ export type UserRole =
   | "CASHIER"
   | "GUIDANCE"
   | "NURSE"
-  | "PAYROLL";
+  | "PAYROLL"
+  | "GUARDIAN";  // Parent/guardian — read-only access scoped to linked student(s)
 
 export type SchoolId = "STSN" | "CDSTA";
+
+export type UserDesignation =
+  | "HEAD"           // Department head — L2 approver
+  | "OFFICER"        // Line officer — L1 approver
+  | "STAFF"          // General staff — submitter only
+  | "PRINCIPAL"      // School principal
+  | "ASST_PRINCIPAL"; // Assistant principal
 
 export interface User {
   id: string;
@@ -28,6 +36,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  designation?: UserDesignation;  // drives L1/L2 approval gating
   isActive: boolean;
   avatarUrl?: string;
   department?: "Basic Education" | "College" | "Administration" | "Support";
@@ -38,6 +47,8 @@ export interface Student {
   schoolId?: SchoolId;
   studentNo: string;
   lrn?: string;
+  createdVia?: "erp" | "online" | "import";
+  sourceMetadata?: Record<string, unknown>;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -60,7 +71,8 @@ export interface Student {
   yearLevel: string; // e.g., "Grade 11", "1st Year"
   trackOrCourse: string; // STEM, HUMSS, BSIT, etc.
   section: string;
-  enrollmentStatus: "Pending" | "Enrolled" | "Approved" | "Draft" | "Rejected";
+  enrollmentStatus: "Pending" | "For Assessment" | "Assessed" | "For Payment" | "Partially Paid" | "Enrolled" | "Approved" | "Draft" | "Rejected" | "Cancelled" | "Withdrawn";
+  linkedGuardianIds?: string[];  // User.id values of linked parent/guardian accounts
 }
 
 export interface Teacher {
@@ -162,10 +174,54 @@ export interface Enrollment {
   schoolYear: string; // e.g., "2026-2027"
   semester: string; // "First Semester", "Second Semester" or "N/A"
   enrollmentType: "New Student" | "Old Student" | "Transferee" | "Returnee";
-  status: "Pending" | "Enrolled" | "Approved" | "Rejected";
+  status: "Pending" | "For Assessment" | "Assessed" | "For Payment" | "Partially Paid" | "Enrolled" | "Approved" | "Rejected" | "Cancelled" | "Withdrawn";
   submittedAt: string;
   subjectCodes: string[];
   assessmentId?: string;
+  enrollmentSource?: "ERP" | "Online" | "Walk-in" | "Import";
+  isOnlineEnrollment?: boolean;
+  onlineApplicationId?: string;
+  completionStatus?: "Complete" | "Incomplete";
+  missingFields?: string[];
+  sourceMetadata?: Record<string, unknown>;
+}
+
+export interface OnlineEnrollmentApplication {
+  id: string;
+  referenceNo: string;
+  studentId?: string;
+  enrollmentId?: string;
+  enrollmentType: string;
+  lrn?: string;
+  schoolYear: string;
+  semester?: string;
+  gradeLevelApplyingFor?: string;
+  strandOrTrack?: string;
+  previousSchool?: string;
+  previousSchoolAddress?: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  birthDate?: string;
+  gender?: string;
+  email?: string;
+  contactNo?: string;
+  completeAddress?: string;
+  barangay?: string;
+  cityMunicipality?: string;
+  province?: string;
+  zipCode?: string;
+  guardianName?: string;
+  guardianRelationship?: string;
+  guardianContactNo?: string;
+  guardianEmail?: string;
+  guardianAddress?: string;
+  status: "Pending Registrar Review" | "For Completion" | "Accepted" | "Rejected" | "Cancelled";
+  completionStatus: "Complete" | "Incomplete";
+  missingFields: string[];
+  submittedFrom: string;
+  submittedAt: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface AssessmentFee {
@@ -330,6 +386,11 @@ export interface Announcement {
   date: string;
   category: "Academic" | "Event" | "Billing" | "General";
   author: string;
+  // P3-G: role-targeted announcement fields (all optional for backward compat)
+  targetRoles?: UserRole[];   // undefined = visible to all roles
+  targetSchool?: SchoolId;   // undefined = visible to both schools
+  priority?: "normal" | "urgent"; // urgent = pinned banner
+  expiresAt?: string;         // ISO date — auto-archive after this date
 }
 
 export interface SchoolEvent {
@@ -404,6 +465,47 @@ export interface AuditEntry {
   performedBy: string;
   performedAt: string;
   details?: string;
+}
+
+export interface VoidRequest {
+  id: string;
+  schoolId?: SchoolId;
+  paymentId: string;
+  orNumber: string;
+  amount: number;
+  studentId: string;
+  studentName: string;
+  requestedBy: string;
+  requestedAt: string;
+  reason: string;
+  status: "Pending Void Approval" | "Approved" | "Rejected";
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewRemarks?: string;
+}
+
+export type NotificationEntityType =
+  | "assessment"
+  | "discount"
+  | "enrollment"
+  | "leave"
+  | "payroll"
+  | "void"
+  | "grade";
+
+export type NotificationType = "approval" | "rejection" | "return" | "reminder" | "info";
+
+export interface STSNNotification {
+  id: string;
+  schoolId?: SchoolId;
+  title: string;
+  body: string;
+  type: NotificationType;
+  entityType: NotificationEntityType;
+  entityId: string;
+  targetRoles: UserRole[];
+  createdAt: string;
+  readBy: string[];
 }
 
 export interface DiscountRequest {
@@ -818,6 +920,20 @@ export interface BenefitPlan {
   createdAt: string;
 }
 
+export interface StatutoryContributionRule {
+  id: string;
+  benefitPlanId: string;
+  effectiveYear: number;
+  minSalary: number;
+  maxSalary?: number;
+  employeeRate: number;
+  employerRate: number;
+  employeeFixed: number;
+  employerFixed: number;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface TaxTable {
   id: string;
   effectiveYear: number;
@@ -915,4 +1031,51 @@ export interface EmployeeOnboardingTask {
   completedBy?: string;
   notes?: string;
   createdAt: string;
+}
+
+// ── Central Immutable Audit Log (P4-F) ────────────────────────────────────────
+
+export type AuditEntityType =
+  | "enrollment" | "assessment" | "payment" | "grade"
+  | "employee" | "leave" | "void" | "user" | "discount"
+  | "payroll" | "delegation";
+
+export type AuditAction =
+  | "created" | "updated" | "approved" | "rejected"
+  | "returned" | "deleted" | "finalized" | "submitted"
+  | "voided" | "delegated";
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;             // ISO 8601
+  actorId: string;
+  actorRole: UserRole;
+  actorName: string;
+  schoolId?: SchoolId;
+  entityType: AuditEntityType;
+  entityId: string;
+  action: AuditAction;
+  previousValue?: Record<string, unknown>;
+  newValue?: Record<string, unknown>;
+  remarks?: string;
+  ipAddress?: string;
+}
+
+// ── Approval Delegation (P4-D) ────────────────────────────────────────────────
+
+export type DelegationScope = "ASSESSMENT" | "LEAVE" | "GRADE" | "VOID" | "ALL";
+
+export interface ApprovalDelegation {
+  id: string;
+  schoolId?: SchoolId;
+  delegatorId: string;           // user transferring authority
+  delegatorRole: UserRole;
+  delegateId: string;            // user receiving authority
+  delegateRole: UserRole;
+  scope: DelegationScope;
+  startDate: string;             // ISO date YYYY-MM-DD
+  endDate: string;               // ISO date YYYY-MM-DD
+  reason: string;
+  createdAt: string;
+  isActive: boolean;
 }

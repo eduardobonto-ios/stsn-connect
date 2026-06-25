@@ -13,10 +13,11 @@ import {
   Percent, Calendar, Scale, ChevronDown, BarChart3, ArrowUpRight,
   Download, Users, BookOpen, Wallet, Paperclip, X, ChevronRight,
   RefreshCw, Info, Lock, Unlock, ClipboardList, Banknote, Printer, UserCircle2,
-  RotateCcw, History, GraduationCap
+  RotateCcw, History, GraduationCap, AlertTriangle
 } from "lucide-react";
 import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import SLABadge from "../../../components/common/SLABadge";
 import { Payment, StudentAssessment, Student } from "../../../types";
 import { getAccountingLabels, FINANCIAL_HOLD_STATUS_CONFIG, DISCOUNT_STATUS_CONFIG, BLOCKED_PROCESS_LABELS, DEFAULT_HOLD_CATEGORY, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
 import { FinancialHold, AssessmentBillingSummary, BookPackage } from "../../../types";
@@ -1810,11 +1811,19 @@ function AssessmentApproval() {
     rejectAssessment,
     bookPackages,
   } = useSTSNStore();
+  const { confirm, prompt, toast: dialogToast } = useAppDialog();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionModal, setActionModal] = useState<ApprovalAction | null>(null);
   const [remarks, setRemarks] = useState("");
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+
+  // L2 approval gate — HEAD designation (or unset) can approve; STAFF/OFFICER cannot
+  const canFinalApprove =
+    currentUser?.role === "SUPER_ADMIN" ||
+    (currentUser?.role === "ACCOUNTING" &&
+      (!currentUser.designation || currentUser.designation === "HEAD"));
 
   const rows = useMemo(() => {
     return assessments
@@ -1838,6 +1847,32 @@ function AssessmentApproval() {
   const selected = rows.find((r) => r.assessment.id === selectedId);
 
   const closeDetail = () => { setSelectedId(null); setActionModal(null); setRemarks(""); };
+
+  const pendingRows = rows.filter((r) => r.status === "Pending Accounting Approval");
+  const allPendingSelected = pendingRows.length > 0 && pendingRows.every((r) => bulkSelected.has(r.assessment.id));
+  const toggleBulk = (id: string) => setBulkSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleSelectAll = () => {
+    if (allPendingSelected) { setBulkSelected(new Set()); }
+    else { setBulkSelected(new Set(pendingRows.map((r) => r.assessment.id))); }
+  };
+  const handleBulkApprove = async () => {
+    if (bulkSelected.size === 0) return;
+    const ok = await confirm(`Approve ${bulkSelected.size} selected assessment${bulkSelected.size > 1 ? "s" : ""} for payment?`, { title: "Bulk Approve Assessments", confirmText: "Approve All", variant: "success" });
+    if (!ok) return;
+    const by = currentUser?.name || "Accounting Office";
+    bulkSelected.forEach((id) => approveAssessment(id, by, "Bulk approved."));
+    setBulkSelected(new Set());
+    dialogToast(`${bulkSelected.size} assessments approved.`, { variant: "success" });
+  };
+  const handleBulkReturn = async () => {
+    if (bulkSelected.size === 0) return;
+    const r = await prompt(`Return ${bulkSelected.size} selected assessment${bulkSelected.size > 1 ? "s" : ""} to Registrar. Enter remarks:`, { title: "Bulk Return to Registrar", placeholder: "Remarks for all selected...", confirmText: "Return All" });
+    if (r === null) return;
+    const by = currentUser?.name || "Accounting Office";
+    bulkSelected.forEach((id) => returnAssessmentToRegistrar(id, by, r || "Returned for correction."));
+    setBulkSelected(new Set());
+    dialogToast(`${bulkSelected.size} assessments returned to Registrar.`, { variant: "warning" });
+  };
 
   const handleConfirmAction = () => {
     if (!selected || !actionModal) return;
@@ -1872,15 +1907,48 @@ function AssessmentApproval() {
         </div>
       </div>
 
+      {/* Bulk action bar — shown when items are selected */}
+      {bulkSelected.size > 0 && (
+        <div className="bg-stsn-brown text-stsn-cream rounded-xl px-4 py-3 flex items-center justify-between gap-3 shadow-md animate-fade-in">
+          <div className="flex items-center gap-2">
+            <input type="checkbox" checked={allPendingSelected} onChange={toggleSelectAll} className="w-4 h-4 rounded accent-stsn-gold cursor-pointer" />
+            <span className="text-xs font-bold">{bulkSelected.size} assessment{bulkSelected.size > 1 ? "s" : ""} selected</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleBulkApprove} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
+              <CheckCircle className="w-3.5 h-3.5" /> Approve All
+            </button>
+            <button onClick={handleBulkReturn} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
+              <RotateCcw className="w-3.5 h-3.5" /> Return All
+            </button>
+            <button onClick={() => setBulkSelected(new Set())} className="text-xs font-bold px-2 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition">
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Approval Cards */}
       <div className="space-y-3">
         {rows.map(({ assessment, student, status, unit, academicLine }) => {
           const statusCfg = ASSESSMENT_APPROVAL_STATUS_CONFIG[status];
           const books = getBookPackageInfo(assessment, bookPackages);
           const netPayable = Math.max(0, assessment.totalAmount - assessment.discountAmount);
+          const isPendingApproval = status === "Pending Accounting Approval";
+          const isChecked = bulkSelected.has(assessment.id);
           return (
-            <div key={assessment.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
+            <div key={assessment.id} className={`border rounded-xl p-4 space-y-3 transition ${isChecked ? "bg-stsn-gold/5 border-stsn-gold/40" : "bg-stone-50 border-stone-200"}`}>
               <div className="flex flex-col sm:flex-row justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  {isPendingApproval && (
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleBulk(assessment.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1 w-4 h-4 rounded accent-stsn-brown cursor-pointer flex-shrink-0"
+                    />
+                  )}
                 <div>
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${unit === "basic-ed" ? "text-blue-700 bg-blue-50 border-blue-200" : "text-purple-700 bg-purple-50 border-purple-200"}`}>
@@ -1892,6 +1960,7 @@ function AssessmentApproval() {
                   <p className="text-sm font-bold text-stone-900">{student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}</p>
                   <p className="text-[10px] font-mono text-stone-400">{student?.studentNo}</p>
                   <p className="text-[10px] text-stone-500 mt-0.5">{academicLine} • {assessment.schoolYear}</p>
+                </div>
                 </div>
                 <div className="text-right">
                   <p className="text-[9px] uppercase font-mono text-stone-400">Assessment Total</p>
@@ -1913,8 +1982,13 @@ function AssessmentApproval() {
                   <p className="text-[9px] uppercase font-mono text-stone-400">Payment Term</p>
                   <p className="text-xs font-bold text-stone-700 mt-0.5">{assessment.paymentTerm}</p>
                 </div>
-                <div className="bg-white border border-stone-200 rounded-lg p-2">
-                  <p className="text-[9px] uppercase font-mono text-stone-400">Submitted</p>
+                <div className={`border rounded-lg p-2 ${status === "Pending Accounting Approval" ? "bg-white border-stone-200" : "bg-white border-stone-200"}`}>
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-[9px] uppercase font-mono text-stone-400">Waiting</p>
+                    {status === "Pending Accounting Approval" && (
+                      <SLABadge dateStr={assessment.submittedDate} />
+                    )}
+                  </div>
                   <p className="text-xs font-bold text-stone-700 mt-0.5">{assessment.submittedDate || "—"}</p>
                   <p className="text-[9px] text-stone-400 truncate">{assessment.submittedBy || "—"}</p>
                 </div>
@@ -1945,6 +2019,7 @@ function AssessmentApproval() {
             student={selected.student}
             status={selected.status}
             academicLine={selected.academicLine}
+            canFinalApprove={canFinalApprove}
             onApprove={() => setActionModal("approve")}
             onReturn={() => setActionModal("return")}
             onReject={() => setActionModal("reject")}
@@ -1994,12 +2069,13 @@ function AssessmentApproval() {
 
 /** Assessment Approval detail panel — fee breakdown, books, discount, payment schedule, remarks, audit timeline. */
 function AssessmentApprovalDetail({
-  assessment, student, status, academicLine, onApprove, onReturn, onReject,
+  assessment, student, status, academicLine, canFinalApprove = true, onApprove, onReturn, onReject,
 }: {
   assessment: StudentAssessment;
   student: Student | undefined;
   status: NonNullable<StudentAssessment["approvalStatus"]>;
   academicLine: string;
+  canFinalApprove?: boolean;
   onApprove: () => void;
   onReturn: () => void;
   onReject: () => void;
@@ -2156,13 +2232,19 @@ function AssessmentApprovalDetail({
       {/* Actions */}
       {isPending ? (
         <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-200">
-          <button onClick={onApprove} className="flex items-center gap-1.5 bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer hover:bg-emerald-700 transition">
+          {!canFinalApprove && (
+            <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2 text-[11px] text-amber-700">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              Approval authority requires Accounting Head designation. Contact your supervisor.
+            </div>
+          )}
+          <button onClick={onApprove} disabled={!canFinalApprove} className="flex items-center gap-1.5 bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
             <CheckCircle className="w-4 h-4" /> Approve Assessment
           </button>
-          <button onClick={onReturn} className="flex items-center gap-1.5 bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer hover:bg-orange-700 transition">
+          <button onClick={onReturn} disabled={!canFinalApprove} className="flex items-center gap-1.5 bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer hover:bg-orange-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
             <RotateCcw className="w-4 h-4" /> Return to Registrar
           </button>
-          <button onClick={onReject} className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer hover:bg-red-700 transition">
+          <button onClick={onReject} disabled={!canFinalApprove} className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer hover:bg-red-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
             <XCircle className="w-4 h-4" /> Reject Assessment
           </button>
           {books.included && (
