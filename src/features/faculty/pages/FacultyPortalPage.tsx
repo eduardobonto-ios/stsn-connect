@@ -32,6 +32,7 @@ import {
   Printer,
 } from "lucide-react";
 import GradeEncodingPage from "../../grading/pages/GradeEncodingPage";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { ClassSchedule } from "../../../types";
@@ -323,25 +324,18 @@ export default function FacultyPortal() {
   return (
     <div className="space-y-6 animate-fade-in font-sans">
       
-      {/* 1. TEACHER HERO BANNER BILLBOARD */}
-      <div className="bg-gradient-to-r from-stsn-brown-dark to-stsn-brown text-stsn-cream p-6 rounded-2xl border border-stsn-brown/30 shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <span className="bg-stsn-gold/20 border border-stsn-gold/30 text-stsn-gold-light text-[10px] font-mono uppercase px-2.5 py-1 rounded-full font-bold">
-            Licensed Academic Faculty Cockpit
-          </span>
-          <h2 className="text-2xl font-display font-medium mt-2 text-white">
-            Welcome, {currentTeacher.firstName} {currentTeacher.lastName}, LPT
-          </h2>
-          <p className="text-stone-300 text-xs mt-1">
-            Department: <strong>{currentTeacher.department} Academics</strong> • Advisory Section: <strong className="text-stsn-gold-light">{advisorySectionName || "Not Assigned"}</strong>
-          </p>
-        </div>
-
-        <div className="bg-white/10 border border-white/10 rounded-xl px-4 py-2 text-center flex flex-col justify-center">
-          <span className="text-[9px] text-stsn-gold-light uppercase block font-mono">License Code</span>
-          <span className="text-xs font-mono font-bold text-white">LPT-{currentTeacher.id.split("-").pop() || "7881A"}-PH</span>
-        </div>
-      </div>
+      <ModulePageHeader
+        badge="Licensed Academic Faculty Cockpit"
+        badgeIcon={GraduationCap}
+        title={`Welcome, ${currentTeacher.firstName} ${currentTeacher.lastName}, LPT`}
+        subtitle={`Department: ${currentTeacher.department} Academics · Advisory Section: ${advisorySectionName || "Not Assigned"}`}
+        actions={
+          <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-center">
+            <span className="text-[9px] text-[#C5A059] uppercase block font-mono">License Code</span>
+            <span className="text-xs font-mono font-bold text-white">LPT-{currentTeacher.id.split("-").pop() || "7881A"}-PH</span>
+          </div>
+        }
+      />
 
       {/* 2. DEDICATED TEACHER TABBED ERP CONTROLLER */}
       <div className="flex border-b border-stsn-beige/70 gap-2 overflow-x-auto pb-1">
@@ -448,12 +442,43 @@ export default function FacultyPortal() {
                     {gradeSubmissionQueue.filter((item) => item.status !== "Finalized").length} open
                   </span>
                 </div>
+                {/* Missing Grade Alerts — surface urgent Setup Needed / stalled encoding items */}
+                {gradeSubmissionQueue.some((item) => item.status === "Setup Needed" || (item.requiredEntries > 0 && item.encodedEntries === 0)) && (
+                  <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-red-800">Action Required — Missing Grade Setup</p>
+                      <p className="text-[10px] text-red-700 mt-0.5">
+                        {gradeSubmissionQueue.filter((item) => item.status === "Setup Needed").length > 0 && (
+                          <>
+                            {gradeSubmissionQueue.filter((item) => item.status === "Setup Needed").length} subject{gradeSubmissionQueue.filter((item) => item.status === "Setup Needed").length !== 1 ? "s" : ""} need grading period setup.{" "}
+                          </>
+                        )}
+                        {gradeSubmissionQueue.filter((item) => item.requiredEntries > 0 && item.encodedEntries === 0).length > 0 && (
+                          <>
+                            {gradeSubmissionQueue.filter((item) => item.requiredEntries > 0 && item.encodedEntries === 0).length} subject{gradeSubmissionQueue.filter((item) => item.requiredEntries > 0 && item.encodedEntries === 0).length !== 1 ? "s" : ""} have no scores encoded yet.
+                          </>
+                        )}
+                      </p>
+                      <button
+                        onClick={() => setActiveTab("grading")}
+                        className="mt-1.5 text-[10px] font-bold text-red-700 underline underline-offset-2 cursor-pointer hover:text-red-900 transition"
+                      >
+                        Go to Grades Encoding →
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {gradeSubmissionQueue.slice(0, 4).map((item) => (
                     <button
                       key={item.key}
                       onClick={() => setActiveTab("grading")}
-                      className="text-left p-4 rounded-xl border border-stone-100 hover:border-stsn-gold hover:bg-stsn-cream/50 transition cursor-pointer"
+                      className={`text-left p-4 rounded-xl border transition cursor-pointer ${
+                        item.status === "Setup Needed"
+                          ? "border-red-200 bg-red-50/40 hover:bg-red-50"
+                          : "border-stone-100 hover:border-stsn-gold hover:bg-stsn-cream/50"
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -463,15 +488,25 @@ export default function FacultyPortal() {
                         <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
                           item.status === "Finalized" ? "bg-emerald-50 text-emerald-700" :
                           item.status === "Ready for Review" ? "bg-blue-50 text-blue-700" :
-                          item.status === "Setup Needed" ? "bg-red-50 text-red-700" :
+                          item.status === "Setup Needed" ? "bg-red-50 text-red-700 border border-red-200" :
                           "bg-amber-50 text-amber-700"
                         }`}>
                           {item.status}
                         </span>
                       </div>
-                      <div className="mt-3 flex justify-between text-[10px] text-stone-500">
-                        <span>{item.encodedEntries}/{item.requiredEntries || 0} scores</span>
-                        <span>{item.finalizedPeriods}/{item.totalPeriods || 0} periods finalized</span>
+                      <div className="mt-3">
+                        <div className="flex justify-between text-[10px] text-stone-500 mb-1">
+                          <span>{item.encodedEntries}/{item.requiredEntries || 0} scores</span>
+                          <span>{item.finalizedPeriods}/{item.totalPeriods || 0} periods finalized</span>
+                        </div>
+                        {item.requiredEntries > 0 && (
+                          <div className="w-full h-1 bg-stone-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${item.encodedEntries >= item.requiredEntries ? "bg-emerald-500" : "bg-amber-400"}`}
+                              style={{ width: `${Math.min(100, Math.round((item.encodedEntries / item.requiredEntries) * 100))}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -524,38 +559,56 @@ export default function FacultyPortal() {
                 </div>
               </div>
 
-              {/* Teaching Load Summary detailed modules */}
+              {/* Teaching Load Summary — dynamic from gradeSubmissionQueue */}
               <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
                 <h3 className="text-sm font-bold text-stone-900 uppercase pb-2 border-b border-stone-100 flex items-center gap-1.5">
                   <FileCheck className="w-4.5 h-4.5 text-stsn-gold" />
                   Teaching Load Summary & Milestones
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-stone-50 rounded-xl border border-stone-200/50 space-y-2">
-                    <h4 className="text-xs font-bold text-stone-900">Senior High Gen Math</h4>
-                    <div className="flex justify-between text-[11px] text-stone-400">
-                      <span>Coursework Prep Status:</span>
-                      <span className="font-bold text-green-600">85% Complete</span>
-                    </div>
-                    <div className="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-stsn-brown h-full" style={{ width: "85%" }} />
-                    </div>
-                    <span className="text-[10px] text-stone-400 font-mono block">3 hours lecturing • MWF</span>
+                {gradeSubmissionQueue.length === 0 ? (
+                  <p className="text-xs text-stone-400 italic text-center py-4">No teaching loads assigned yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {gradeSubmissionQueue.map((item) => {
+                      const pct = item.requiredEntries > 0
+                        ? Math.min(100, Math.round((item.encodedEntries / item.requiredEntries) * 100))
+                        : 0;
+                      const schedInfo = teacherSchedules.find((s) => s.subjectCode === item.key.split("-")[1] || item.key.includes(s.id));
+                      return (
+                        <div key={item.key} className="p-4 bg-stone-50 rounded-xl border border-stone-200/50 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-xs font-bold text-stone-900 truncate flex-1">{item.subject}</h4>
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                              item.status === "Finalized" ? "bg-emerald-50 text-emerald-700" :
+                              item.status === "Ready for Review" ? "bg-blue-50 text-blue-700" :
+                              item.status === "Setup Needed" ? "bg-red-50 text-red-700 border border-red-200" :
+                              "bg-amber-50 text-amber-700"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-stone-500 font-mono">{item.section}</p>
+                          <div className="flex justify-between text-[11px] text-stone-400">
+                            <span>Encoding progress:</span>
+                            <span className={`font-bold ${pct >= 100 ? "text-emerald-600" : pct > 0 ? "text-amber-600" : "text-stone-400"}`}>
+                              {pct}% ({item.encodedEntries}/{item.requiredEntries} scores)
+                            </span>
+                          </div>
+                          <div className="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-emerald-500" : "bg-stsn-brown"}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-stone-400 font-mono block">
+                            {item.finalizedPeriods}/{item.totalPeriods} periods finalized
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  <div className="p-4 bg-stone-50 rounded-xl border border-stone-200/50 space-y-2">
-                    <h4 className="text-xs font-bold text-stone-900">Pre-Calculus Core 1</h4>
-                    <div className="flex justify-between text-[11px] text-stone-400">
-                      <span>Coursework Prep Status:</span>
-                      <span className="font-bold text-green-600">92% Complete</span>
-                    </div>
-                    <div className="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-stsn-brown h-full" style={{ width: "92%" }} />
-                    </div>
-                    <span className="text-[10px] text-stone-400 font-mono block">3 hours lecturing • MWF</span>
-                  </div>
-                </div>
+                )}
               </div>
 
             </div>

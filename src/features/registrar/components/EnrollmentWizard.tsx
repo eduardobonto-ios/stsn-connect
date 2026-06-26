@@ -154,12 +154,14 @@ export default function EnrollmentWizard({ schoolContext, onSubmit, onCancel }: 
     setYearLevel(firstLevel);
     const strands = BE_STRANDS_BY_LEVEL[firstLevel] || [];
     setCourseCode(strands[0] || "N/A");
+    setSelectedSubjectCodes([]);
   };
 
   const handleBeYearChange = (lvl: string) => {
     setYearLevel(lvl);
     const strands = BE_STRANDS_BY_LEVEL[lvl] || [];
     setCourseCode(strands[0] || "N/A");
+    setSelectedSubjectCodes([]);
   };
 
   // Step 3: Subject Load
@@ -384,7 +386,7 @@ export default function EnrollmentWizard({ schoolContext, onSubmit, onCancel }: 
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">College Program</label>
                   <select
-                    value={collegeCourse} onChange={(e) => setCollegeCourse(e.target.value)}
+                    value={collegeCourse} onChange={(e) => { setCollegeCourse(e.target.value); setSelectedSubjectCodes([]); }}
                     className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {courses.filter((c) => c.department === "College").map((c) => (
@@ -395,7 +397,7 @@ export default function EnrollmentWizard({ schoolContext, onSubmit, onCancel }: 
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Year Level</label>
                   <select
-                    value={collegeYear} onChange={(e) => setCollegeYear(e.target.value)}
+                    value={collegeYear} onChange={(e) => { setCollegeYear(e.target.value); setSelectedSubjectCodes([]); }}
                     className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {["1st Year", "2nd Year", "3rd Year", "4th Year"].map((y) => <option key={y}>{y}</option>)}

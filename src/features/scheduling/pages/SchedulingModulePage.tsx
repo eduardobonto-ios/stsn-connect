@@ -16,6 +16,7 @@ import {
   LayoutGrid, GraduationCap, MapPin, RefreshCw
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 /** Inverse of academicUnitToDepartment — used to derive terminology from a teacher's department. */
 function departmentToAcademicUnit(dept: "Basic Education" | "College"): AcademicUnit {
@@ -631,34 +632,28 @@ export default function SchedulingModule() {
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-              <CalendarDays className="w-5 h-5 text-stsn-brown" />
-              Class Scheduling & Room Assignment
-            </h2>
-            <p className="text-stone-500 text-xs mt-1">
-              Manage class schedules, assign rooms, detect conflicts, and monitor faculty &amp; {terms.groupNoun.toLowerCase()} loads.
-            </p>
-          </div>
+      <ModulePageHeader
+        badge="Class Management"
+        badgeIcon={CalendarDays}
+        title="Class Scheduling & Room Assignment"
+        subtitle={`Manage class schedules, assign rooms, detect conflicts, and monitor faculty & ${terms.groupNoun.toLowerCase()} loads.`}
+        actions={
           <div className="flex items-center gap-2">
             {conflictIds.size > 0 && (
               <button
                 onClick={() => setShowConflictsOnly((p) => !p)}
-                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border cursor-pointer transition ${showConflictsOnly ? "bg-red-600 text-white border-red-600" : "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"}`}
+                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border cursor-pointer transition ${showConflictsOnly ? "bg-red-600 text-white border-red-600" : "bg-white/10 text-white border-white/25 hover:bg-white/20"}`}
               >
                 <AlertTriangle className="w-4 h-4" />
                 {conflictIds.size / 2} Conflict{conflictIds.size / 2 !== 1 ? "s" : ""}
               </button>
             )}
-            <button onClick={openCreate} className="flex items-center gap-1.5 bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer transition">
+            <button onClick={openCreate} className="inline-flex items-center gap-1.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg cursor-pointer transition">
               <Plus className="w-4 h-4" /> New Schedule
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

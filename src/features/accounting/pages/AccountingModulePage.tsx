@@ -31,6 +31,7 @@ import PurchaseInvoicesPage from "./sub-pages/PurchaseInvoicesPage";
 import ARAgingPage from "./sub-pages/ARAgingPage";
 import APAgingPage from "./sub-pages/APAgingPage";
 import FinancialStatementsPage from "./sub-pages/FinancialStatementsPage";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 type AccountingTab = "dashboard" | "ledger" | "discounts" | "billing" | "holds";
 
@@ -194,6 +195,14 @@ function AccountingDashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <ModulePageHeader
+        badge="Finance & Accounting"
+        badgeIcon={Coins}
+        title="Accounting Office"
+        subtitle="Financial management — billing, collections, discounts, and ledger"
+        meta="Fiscal Year"
+      />
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => {
@@ -411,7 +420,7 @@ function StudentLedger() {
   const semesterOptions = setupData.semesters ?? [];
   const txTypeOptions = ["All", ...(setupData.transaction_types ?? []).map((t) => t.name)];
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
+  const [selectedStudentId, setSelectedStudentId] = useState<string>(students[0]?.id ?? "");
   const [filterYear, setFilterYear] = useState("2026-2027");
   const [filterSemester, setFilterSemester] = useState("All");
   const [filterTxType, setFilterTxType] = useState("All");
@@ -1002,35 +1011,26 @@ function StudentLedger() {
 // ============================================================
 // DISCOUNT MANAGEMENT TAB
 // ============================================================
-function DiscountManagement() {
+// ============================================================
+// DISCOUNT TYPES SETUP PAGE — accessible from Accounting Setup nav
+// ============================================================
+function DiscountTypesSetupPage() {
   const {
-    discountTypes, discountRequests, students, assessments, currentUser,
-    addDiscountType, updateDiscountType, deleteDiscountType, toggleDiscountTypeActive,
-    addDiscountRequest, approveDiscountRequest, rejectDiscountRequest, setupData
+    discountTypes, addDiscountType, updateDiscountType, deleteDiscountType, toggleDiscountTypeActive, setupData
   } = useSTSNStore();
   const { confirm } = useAppDialog();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
 
   const [searchTypes, setSearchTypes] = useState("");
-  const [searchRequests, setSearchRequests] = useState("");
-  const [filterStatus, setFilterStatus] = useState("All");
   const [filterSource, setFilterSource] = useState("All");
-
-  // Discount Type Form
   const [isTypeFormOpen, setIsTypeFormOpen] = useState(false);
   const [editingType, setEditingType] = useState<DiscountType | null>(null);
   const [typeForm, setTypeForm] = useState(DEFAULT_TYPE_FORM);
 
-  // New Request Form
-  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
-  const [requestForm, setRequestForm] = useState({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" });
-
-  // Approval Modal
-  const [approvalModal, setApprovalModal] = useState<{ req: DiscountRequest; action: "approve" | "reject"; level: 1 | 2 } | null>(null);
-  const [approvalRemarks, setApprovalRemarks] = useState("");
-
-  // View Audit Trail
-  const [viewAudit, setViewAudit] = useState<DiscountRequest | null>(null);
+  const SOURCES = useMemo(
+    () => ["All", ...(setupData.discount_sources ?? []).map((s) => s.name)],
+    [setupData.discount_sources],
+  );
 
   const filteredTypes = useMemo(() => {
     const q = searchTypes.toLowerCase();
@@ -1040,15 +1040,6 @@ function DiscountManagement() {
       return matchSearch && matchSource;
     });
   }, [discountTypes, filterSource, searchTypes]);
-
-  const filteredRequests = useMemo(() => {
-    const q = searchRequests.toLowerCase();
-    return discountRequests.filter((req) => {
-      const matchSearch = req.studentName.toLowerCase().includes(q) || req.referenceNo.toLowerCase().includes(q) || req.discountTypeName.toLowerCase().includes(q);
-      const matchStatus = filterStatus === "All" || getRequestWorkflowStatus(req).label === filterStatus;
-      return matchSearch && matchStatus;
-    });
-  }, [discountRequests, filterStatus, searchRequests]);
 
   const handleSaveType = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1061,44 +1052,6 @@ function DiscountManagement() {
     setEditingType(null);
     setTypeForm(DEFAULT_TYPE_FORM);
   };
-
-  const handleSubmitRequest = (e: React.FormEvent) => {
-    e.preventDefault();
-    const discountType = discountTypes.find((dt) => dt.id === requestForm.discountTypeId);
-    const student = students.find((s) => s.id === requestForm.studentId);
-    if (!discountType || !student) return;
-    addDiscountRequest({
-      studentId: student.id,
-      studentName: `${student.firstName} ${student.lastName}`,
-      studentNo: student.studentNo,
-      discountTypeId: discountType.id,
-      discountTypeName: discountType.name,
-      discountPercent: discountType.discountPercent,
-      requestedBy: currentUser?.name || "System",
-      siblingNames: requestForm.siblingNames ? requestForm.siblingNames.split(",").map((s) => s.trim()) : [],
-      remarks: requestForm.remarks,
-      attachmentNames: requestForm.attachmentNames ? requestForm.attachmentNames.split(",").map((s) => s.trim()) : [],
-      status: "Pending"
-    });
-    setIsRequestFormOpen(false);
-    setRequestForm({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" });
-  };
-
-  const handleApproval = () => {
-    if (!approvalModal) return;
-    if (approvalModal.action === "approve") {
-      approveDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
-    } else {
-      rejectDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
-    }
-    setApprovalModal(null);
-    setApprovalRemarks("");
-  };
-
-  const SOURCES = useMemo(
-    () => ["All", ...(setupData.discount_sources ?? []).map((s) => s.name)],
-    [setupData.discount_sources],
-  );
 
   const discountTypeColumns: STSNColumn<DiscountType>[] = useMemo(() => [
     {
@@ -1202,165 +1155,33 @@ function DiscountManagement() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden p-4">
-        <p className="text-xs font-mono uppercase tracking-wider text-stone-400">Discounts</p>
-        <p className="text-sm text-stone-500 mt-1">
-          Discount Types and Approval Requests are shown together to keep the page focused and avoid table remount flicker.
-        </p>
-      </div>
-
-      {/* Discount Types */}
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        {/* ---- DISCOUNT TYPES ---- */}
-        {true && (
-          <div className="p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3 justify-between">
-              <div className="flex items-stretch gap-2 flex-1">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input type="text" placeholder="Search discount types..." value={searchTypes} onChange={(e) => setSearchTypes(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
-                </div>
-                <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="h-9 min-w-[108px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
-                  {SOURCES.map((s) => <option key={s}>{s}</option>)}
-                </select>
+        <div className="p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 justify-between">
+            <div className="flex items-stretch gap-2 flex-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <input type="text" placeholder="Search discount types..." value={searchTypes} onChange={(e) => setSearchTypes(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
               </div>
-              <button
-                onClick={() => { setEditingType(null); setTypeForm(DEFAULT_TYPE_FORM); setIsTypeFormOpen(true); }}
-                className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
-              >
-                <Plus className="w-4 h-4" /> Add Discount Type
-              </button>
+              <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="h-9 min-w-[108px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
+                {SOURCES.map((s) => <option key={s}>{s}</option>)}
+              </select>
             </div>
-
-            <STSNDataTable<DiscountType>
-              columns={discountTypeColumns}
-              rows={filteredTypes}
-              emptyMessage="No discount types found."
-              searchable={false}
-            />
+            <button
+              onClick={() => { setEditingType(null); setTypeForm(DEFAULT_TYPE_FORM); setIsTypeFormOpen(true); }}
+              className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
+            >
+              <Plus className="w-4 h-4" /> Add Discount Type
+            </button>
           </div>
-        )}
 
-        {/* ---- APPROVAL REQUESTS ---- */}
-        {true && (
-          <div className="p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3 justify-between">
-              <div className="flex items-stretch gap-2 flex-1">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input type="text" placeholder="Search by student or reference..." value={searchRequests} onChange={(e) => setSearchRequests(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
-                </div>
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 min-w-[168px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
-                  {REQUEST_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <button
-                onClick={() => { setRequestForm({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" }); setIsRequestFormOpen(true); }}
-                className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
-              >
-                <Plus className="w-4 h-4" /> New Request
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {filteredRequests.map((req) => {
-                const reqStudent = students.find((s) => s.id === req.studentId);
-                const reqAssessment = assessments.find((a) => a.studentId === req.studentId);
-                const workflowStatus = getRequestWorkflowStatus(req);
-                return (
-                <div key={req.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
-                  <div className="flex flex-col sm:flex-row justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-mono font-bold text-stsn-gold">{req.referenceNo}</span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${workflowStatus.badgeClass}`}>{workflowStatus.label}</span>
-                      </div>
-                      <p className="text-sm font-bold text-stone-900">{req.studentName}</p>
-                      <p className="text-[10px] text-stone-500">{req.studentNo} • {getRequestAcademicLine(reqStudent, reqAssessment)}</p>
-                      <p className="text-[10px] text-stone-500">Requested by {req.requestedBy} on {req.requestedAt}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-semibold text-stone-700">{req.discountTypeName}</p>
-                      <p className="text-lg font-display font-black text-emerald-700">{req.discountPercent}% off</p>
-                    </div>
-                  </div>
-
-                  {/* Level Approval Status */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {[{ level: 1, status: req.level1Status, by: req.level1ApprovedBy, at: req.level1ApprovedAt },
-                      { level: 2, status: req.level2Status, by: req.level2ApprovedBy, at: req.level2ApprovedAt }].map((lvl) => (
-                      <div key={lvl.level} className="bg-white border border-stone-200 rounded-lg p-2.5">
-                        <p className="text-[9px] uppercase font-mono text-stone-400 mb-1">Level {lvl.level} Review</p>
-                        <div className="flex items-center gap-1.5">
-                          {lvl.status === "Approved" && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
-                          {lvl.status === "Rejected" && <XCircle className="w-3.5 h-3.5 text-red-600" />}
-                          {lvl.status === "Pending" && <Clock className="w-3.5 h-3.5 text-amber-500" />}
-                          <span className={`text-[10px] font-bold ${lvl.status === "Approved" ? "text-emerald-700" : lvl.status === "Rejected" ? "text-red-700" : "text-amber-700"}`}>{lvl.status}</span>
-                        </div>
-                        {lvl.by && <p className="text-[9px] text-stone-400 mt-0.5">{lvl.by} • {lvl.at}</p>}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Siblings */}
-                  {req.siblingNames && req.siblingNames.length > 0 && (
-                    <div className="text-xs text-stone-600">
-                      <span className="font-semibold">Sibling(s): </span>{req.siblingNames.join(", ")}
-                    </div>
-                  )}
-
-                  {/* Supporting Documents */}
-                  {req.attachmentNames && req.attachmentNames.length > 0 ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Paperclip className="w-3.5 h-3.5 text-stone-400" />
-                      <span className="text-[9px] uppercase font-mono text-stone-400">Supporting Documents:</span>
-                      {req.attachmentNames.map((att, i) => (
-                        <span key={i} className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 rounded-full font-mono">{att}</span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-[9px] uppercase font-mono text-stone-400">
-                      <Paperclip className="w-3.5 h-3.5 text-stone-300" /> No Supporting Documents Uploaded
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-stone-200">
-                    {req.status !== "Approved" && req.status !== "Rejected" && (
-                      <>
-                        {req.level1Status === "Pending" && (
-                          <>
-                            <button onClick={() => setApprovalModal({ req, action: "approve", level: 1 })} className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-700 transition">
-                              <CheckCircle className="w-3.5 h-3.5" /> L1 Approve
-                            </button>
-                            <button onClick={() => setApprovalModal({ req, action: "reject", level: 1 })} className="flex items-center gap-1 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-red-700 transition">
-                              <XCircle className="w-3.5 h-3.5" /> L1 Reject
-                            </button>
-                          </>
-                        )}
-                        {req.level1Status === "Approved" && req.level2Status === "Pending" && (
-                          <>
-                            <button onClick={() => setApprovalModal({ req, action: "approve", level: 2 })} className="flex items-center gap-1 bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-800 transition">
-                              <CheckCircle className="w-3.5 h-3.5" /> L2 Final Approve
-                            </button>
-                            <button onClick={() => setApprovalModal({ req, action: "reject", level: 2 })} className="flex items-center gap-1 bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-red-800 transition">
-                              <XCircle className="w-3.5 h-3.5" /> L2 Reject
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
-                    <button onClick={() => setViewAudit(req)} className="flex items-center gap-1 bg-stone-100 text-stone-600 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-stone-200 transition ml-auto">
-                      <Eye className="w-3.5 h-3.5" /> Audit Trail
-                    </button>
-                  </div>
-                </div>
-                );
-              })}
-              {filteredRequests.length === 0 && <p className="text-center text-xs text-stone-400 py-10">No discount requests found.</p>}
-            </div>
-          </div>
-        )}
+          <STSNDataTable<DiscountType>
+            columns={discountTypeColumns}
+            rows={filteredTypes}
+            emptyMessage="No discount types found."
+            searchable={false}
+          />
+        </div>
       </div>
 
       {/* DISCOUNT TYPE FORM MODAL */}
@@ -1482,6 +1303,194 @@ function DiscountManagement() {
           </form>
         </div>
       )}
+    </div>
+  );
+}
+
+function DiscountManagement() {
+  const {
+    discountTypes, discountRequests, students, assessments, currentUser,
+    addDiscountRequest, approveDiscountRequest, rejectDiscountRequest,
+  } = useSTSNStore();
+
+  const [searchRequests, setSearchRequests] = useState("");
+  const [filterStatus, setFilterStatus] = useState("All");
+
+  // New Request Form
+  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
+  const [requestForm, setRequestForm] = useState({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" });
+
+  // Approval Modal
+  const [approvalModal, setApprovalModal] = useState<{ req: DiscountRequest; action: "approve" | "reject"; level: 1 | 2 } | null>(null);
+  const [approvalRemarks, setApprovalRemarks] = useState("");
+
+  // View Audit Trail
+  const [viewAudit, setViewAudit] = useState<DiscountRequest | null>(null);
+
+  const filteredRequests = useMemo(() => {
+    const q = searchRequests.toLowerCase();
+    return discountRequests.filter((req) => {
+      const matchSearch = req.studentName.toLowerCase().includes(q) || req.referenceNo.toLowerCase().includes(q) || req.discountTypeName.toLowerCase().includes(q);
+      const matchStatus = filterStatus === "All" || getRequestWorkflowStatus(req).label === filterStatus;
+      return matchSearch && matchStatus;
+    });
+  }, [discountRequests, filterStatus, searchRequests]);
+
+  const handleSubmitRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    const discountType = discountTypes.find((dt) => dt.id === requestForm.discountTypeId);
+    const student = students.find((s) => s.id === requestForm.studentId);
+    if (!discountType || !student) return;
+    addDiscountRequest({
+      studentId: student.id,
+      studentName: `${student.firstName} ${student.lastName}`,
+      studentNo: student.studentNo,
+      discountTypeId: discountType.id,
+      discountTypeName: discountType.name,
+      discountPercent: discountType.discountPercent,
+      requestedBy: currentUser?.name || "System",
+      siblingNames: requestForm.siblingNames ? requestForm.siblingNames.split(",").map((s) => s.trim()) : [],
+      remarks: requestForm.remarks,
+      attachmentNames: requestForm.attachmentNames ? requestForm.attachmentNames.split(",").map((s) => s.trim()) : [],
+      status: "Pending"
+    });
+    setIsRequestFormOpen(false);
+    setRequestForm({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" });
+  };
+
+  const handleApproval = () => {
+    if (!approvalModal) return;
+    if (approvalModal.action === "approve") {
+      approveDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
+    } else {
+      rejectDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
+    }
+    setApprovalModal(null);
+    setApprovalRemarks("");
+  };
+
+  return (
+    <div className="space-y-4 animate-fade-in">
+      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+        {/* ---- APPROVAL REQUESTS ---- */}
+        <div className="p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3 justify-between">
+              <div className="flex items-stretch gap-2 flex-1">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                  <input type="text" placeholder="Search by student or reference..." value={searchRequests} onChange={(e) => setSearchRequests(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
+                </div>
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 min-w-[168px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
+                  {REQUEST_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <button
+                onClick={() => { setRequestForm({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" }); setIsRequestFormOpen(true); }}
+                className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
+              >
+                <Plus className="w-4 h-4" /> New Request
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {filteredRequests.map((req) => {
+                const reqStudent = students.find((s) => s.id === req.studentId);
+                const reqAssessment = assessments.find((a) => a.studentId === req.studentId);
+                const workflowStatus = getRequestWorkflowStatus(req);
+                return (
+                <div key={req.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-mono font-bold text-stsn-gold">{req.referenceNo}</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${workflowStatus.badgeClass}`}>{workflowStatus.label}</span>
+                      </div>
+                      <p className="text-sm font-bold text-stone-900">{req.studentName}</p>
+                      <p className="text-[10px] text-stone-500">{req.studentNo} • {getRequestAcademicLine(reqStudent, reqAssessment)}</p>
+                      <p className="text-[10px] text-stone-500">Requested by {req.requestedBy} on {req.requestedAt}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-stone-700">{req.discountTypeName}</p>
+                      <p className="text-lg font-display font-black text-emerald-700">{req.discountPercent}% off</p>
+                    </div>
+                  </div>
+
+                  {/* Level Approval Status */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {[{ level: 1, status: req.level1Status, by: req.level1ApprovedBy, at: req.level1ApprovedAt },
+                      { level: 2, status: req.level2Status, by: req.level2ApprovedBy, at: req.level2ApprovedAt }].map((lvl) => (
+                      <div key={lvl.level} className="bg-white border border-stone-200 rounded-lg p-2.5">
+                        <p className="text-[9px] uppercase font-mono text-stone-400 mb-1">Level {lvl.level} Review</p>
+                        <div className="flex items-center gap-1.5">
+                          {lvl.status === "Approved" && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                          {lvl.status === "Rejected" && <XCircle className="w-3.5 h-3.5 text-red-600" />}
+                          {lvl.status === "Pending" && <Clock className="w-3.5 h-3.5 text-amber-500" />}
+                          <span className={`text-[10px] font-bold ${lvl.status === "Approved" ? "text-emerald-700" : lvl.status === "Rejected" ? "text-red-700" : "text-amber-700"}`}>{lvl.status}</span>
+                        </div>
+                        {lvl.by && <p className="text-[9px] text-stone-400 mt-0.5">{lvl.by} • {lvl.at}</p>}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Siblings */}
+                  {req.siblingNames && req.siblingNames.length > 0 && (
+                    <div className="text-xs text-stone-600">
+                      <span className="font-semibold">Sibling(s): </span>{req.siblingNames.join(", ")}
+                    </div>
+                  )}
+
+                  {/* Supporting Documents */}
+                  {req.attachmentNames && req.attachmentNames.length > 0 ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Paperclip className="w-3.5 h-3.5 text-stone-400" />
+                      <span className="text-[9px] uppercase font-mono text-stone-400">Supporting Documents:</span>
+                      {req.attachmentNames.map((att, i) => (
+                        <span key={i} className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 rounded-full font-mono">{att}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-[9px] uppercase font-mono text-stone-400">
+                      <Paperclip className="w-3.5 h-3.5 text-stone-300" /> No Supporting Documents Uploaded
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-stone-200">
+                    {req.status !== "Approved" && req.status !== "Rejected" && (
+                      <>
+                        {req.level1Status === "Pending" && (
+                          <>
+                            <button onClick={() => setApprovalModal({ req, action: "approve", level: 1 })} className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-700 transition">
+                              <CheckCircle className="w-3.5 h-3.5" /> L1 Approve
+                            </button>
+                            <button onClick={() => setApprovalModal({ req, action: "reject", level: 1 })} className="flex items-center gap-1 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-red-700 transition">
+                              <XCircle className="w-3.5 h-3.5" /> L1 Reject
+                            </button>
+                          </>
+                        )}
+                        {req.level1Status === "Approved" && req.level2Status === "Pending" && (
+                          <>
+                            <button onClick={() => setApprovalModal({ req, action: "approve", level: 2 })} className="flex items-center gap-1 bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-800 transition">
+                              <CheckCircle className="w-3.5 h-3.5" /> L2 Final Approve
+                            </button>
+                            <button onClick={() => setApprovalModal({ req, action: "reject", level: 2 })} className="flex items-center gap-1 bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-red-800 transition">
+                              <XCircle className="w-3.5 h-3.5" /> L2 Reject
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                    <button onClick={() => setViewAudit(req)} className="flex items-center gap-1 bg-stone-100 text-stone-600 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-stone-200 transition ml-auto">
+                      <Eye className="w-3.5 h-3.5" /> Audit Trail
+                    </button>
+                  </div>
+                </div>
+                );
+              })}
+              {filteredRequests.length === 0 && <p className="text-center text-xs text-stone-400 py-10">No discount requests found.</p>}
+            </div>
+          </div>
+      </div>
 
       {/* NEW REQUEST FORM MODAL */}
       {isRequestFormOpen && (
@@ -1801,6 +1810,25 @@ function buildPaymentSchedulePreview(assessment: StudentAssessment): { label: st
   }
 }
 
+type ApprovalQueueRow = {
+  id: string;
+  studentName: string;
+  studentNo: string;
+  unit: string;
+  academicLine: string;
+  schoolYear: string;
+  status: NonNullable<StudentAssessment["approvalStatus"]>;
+  totalAmount: number;
+  netPayable: number;
+  discountLabel: string;
+  paymentTerm: string;
+  booksIncluded: boolean;
+  submittedDate: string;
+  submittedBy: string;
+  assessment: StudentAssessment;
+  student: Student | undefined;
+};
+
 function AssessmentApproval() {
   const {
     students,
@@ -1817,7 +1845,7 @@ function AssessmentApproval() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionModal, setActionModal] = useState<ApprovalAction | null>(null);
   const [remarks, setRemarks] = useState("");
-  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [selectedQueueRows, setSelectedQueueRows] = useState<ApprovalQueueRow[]>([]);
 
   // L2 approval gate — HEAD designation (or unset) can approve; STAFF/OFFICER cannot
   const canFinalApprove =
@@ -1830,48 +1858,65 @@ function AssessmentApproval() {
       .filter((a) => !!a.approvalStatus)
       .map((a) => {
         const student = students.find((s) => s.id === a.studentId);
-        const status = a.approvalStatus || DEFAULT_ASSESSMENT_APPROVAL_STATUS;
+        const status = (a.approvalStatus || DEFAULT_ASSESSMENT_APPROVAL_STATUS) as NonNullable<StudentAssessment["approvalStatus"]>;
         const { unit, line } = getApprovalAcademicLine(student, a);
-        return { assessment: a, student, status, unit, academicLine: line };
+        const books = getBookPackageInfo(a, bookPackages);
+        const netPayable = Math.max(0, a.totalAmount - a.discountAmount);
+        const discountLabel = a.discountPercentage > 0
+          ? `${a.discountPercentage}% (₱${a.discountAmount.toLocaleString()})`
+          : "None";
+        return {
+          id: a.id,
+          studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+          studentNo: student?.studentNo || "—",
+          unit,
+          academicLine: line,
+          schoolYear: a.schoolYear,
+          status,
+          totalAmount: a.totalAmount,
+          netPayable,
+          discountLabel,
+          paymentTerm: a.paymentTerm,
+          booksIncluded: books.included,
+          submittedDate: a.submittedDate || "—",
+          submittedBy: a.submittedBy || "—",
+          assessment: a,
+          student,
+        } as ApprovalQueueRow;
       })
-      .filter(({ assessment, student, status }) => {
+      .filter(({ studentName, studentNo, status }) => {
         const q = searchQuery.toLowerCase();
         const matchSearch = !q
-          || (student?.firstName + " " + student?.lastName).toLowerCase().includes(q)
-          || (student?.studentNo || "").toLowerCase().includes(q);
+          || studentName.toLowerCase().includes(q)
+          || studentNo.toLowerCase().includes(q);
         const matchStatus = filterStatus === "All" || status === filterStatus;
         return matchSearch && matchStatus;
       });
-  }, [assessments, students, searchQuery, filterStatus]);
+  }, [assessments, students, bookPackages, searchQuery, filterStatus]);
 
-  const selected = rows.find((r) => r.assessment.id === selectedId);
+  const selected = rows.find((r) => r.id === selectedId);
 
   const closeDetail = () => { setSelectedId(null); setActionModal(null); setRemarks(""); };
 
-  const pendingRows = rows.filter((r) => r.status === "Pending Accounting Approval");
-  const allPendingSelected = pendingRows.length > 0 && pendingRows.every((r) => bulkSelected.has(r.assessment.id));
-  const toggleBulk = (id: string) => setBulkSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
-  const toggleSelectAll = () => {
-    if (allPendingSelected) { setBulkSelected(new Set()); }
-    else { setBulkSelected(new Set(pendingRows.map((r) => r.assessment.id))); }
-  };
   const handleBulkApprove = async () => {
-    if (bulkSelected.size === 0) return;
-    const ok = await confirm(`Approve ${bulkSelected.size} selected assessment${bulkSelected.size > 1 ? "s" : ""} for payment?`, { title: "Bulk Approve Assessments", confirmText: "Approve All", variant: "success" });
+    if (selectedQueueRows.length === 0) return;
+    const count = selectedQueueRows.length;
+    const ok = await confirm(`Approve ${count} selected assessment${count > 1 ? "s" : ""} for payment?`, { title: "Bulk Approve Assessments", confirmText: "Approve All", variant: "success" });
     if (!ok) return;
     const by = currentUser?.name || "Accounting Office";
-    bulkSelected.forEach((id) => approveAssessment(id, by, "Bulk approved."));
-    setBulkSelected(new Set());
-    dialogToast(`${bulkSelected.size} assessments approved.`, { variant: "success" });
+    selectedQueueRows.forEach((row) => approveAssessment(row.id, by, "Bulk approved."));
+    setSelectedQueueRows([]);
+    dialogToast(`${count} assessments approved.`, { variant: "success" });
   };
   const handleBulkReturn = async () => {
-    if (bulkSelected.size === 0) return;
-    const r = await prompt(`Return ${bulkSelected.size} selected assessment${bulkSelected.size > 1 ? "s" : ""} to Registrar. Enter remarks:`, { title: "Bulk Return to Registrar", placeholder: "Remarks for all selected...", confirmText: "Return All" });
+    if (selectedQueueRows.length === 0) return;
+    const count = selectedQueueRows.length;
+    const r = await prompt(`Return ${count} selected assessment${count > 1 ? "s" : ""} to Registrar. Enter remarks:`, { title: "Bulk Return to Registrar", placeholder: "Remarks for all selected...", confirmText: "Return All" });
     if (r === null) return;
     const by = currentUser?.name || "Accounting Office";
-    bulkSelected.forEach((id) => returnAssessmentToRegistrar(id, by, r || "Returned for correction."));
-    setBulkSelected(new Set());
-    dialogToast(`${bulkSelected.size} assessments returned to Registrar.`, { variant: "warning" });
+    selectedQueueRows.forEach((row) => returnAssessmentToRegistrar(row.id, by, r || "Returned for correction."));
+    setSelectedQueueRows([]);
+    dialogToast(`${count} assessments returned to Registrar.`, { variant: "warning" });
   };
 
   const handleConfirmAction = () => {
@@ -1883,6 +1928,100 @@ function AssessmentApproval() {
     setActionModal(null);
     setRemarks("");
   };
+
+  const approvalColumns: STSNColumn<ApprovalQueueRow>[] = useMemo(() => [
+    {
+      title: "Student",
+      data: "studentName",
+      render: (_value, row) => (
+        <>
+          <p className="font-bold text-stone-900">{row.studentName}</p>
+          <p className="font-mono text-[9px] text-stone-400">{row.studentNo}</p>
+        </>
+      ),
+    },
+    {
+      title: "Academic",
+      data: "unit",
+      render: (_value, row) => (
+        <div className="space-y-0.5">
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${row.unit === "basic-ed" ? "text-blue-700 bg-blue-50 border-blue-200" : "text-purple-700 bg-purple-50 border-purple-200"}`}>
+            {row.unit === "basic-ed" ? "Basic Ed" : "College"}
+          </span>
+          <p className="text-[10px] text-stone-500">{row.academicLine}</p>
+          <p className="text-[9px] font-mono text-stone-400">{row.schoolYear}</p>
+        </div>
+      ),
+    },
+    {
+      title: "Total",
+      data: "totalAmount",
+      className: "text-right",
+      render: (value: number) => <span className="font-mono font-bold text-stone-900">₱{value.toLocaleString()}</span>,
+    },
+    {
+      title: "Net Payable",
+      data: "netPayable",
+      className: "text-right",
+      render: (value: number) => <span className="font-mono font-bold text-stone-700">₱{value.toLocaleString()}</span>,
+    },
+    {
+      title: "Discount",
+      data: "discountLabel",
+      render: (value) => <span className="text-xs text-stone-600">{value}</span>,
+    },
+    {
+      title: "Payment Term",
+      data: "paymentTerm",
+      render: (value) => <span className="text-xs text-stone-600">{value}</span>,
+    },
+    {
+      title: "Books",
+      data: "booksIncluded",
+      searchable: false,
+      render: (value: boolean) => (
+        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${value ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-stone-500 bg-stone-50 border-stone-200"}`}>
+          {value ? "Included" : "No"}
+        </span>
+      ),
+    },
+    {
+      title: "Status",
+      data: "status",
+      searchable: false,
+      render: (value: string) => {
+        const statusCfg = ASSESSMENT_APPROVAL_STATUS_CONFIG[value as keyof typeof ASSESSMENT_APPROVAL_STATUS_CONFIG];
+        return <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${statusCfg?.badgeClass ?? ""}`}>{statusCfg?.label ?? value}</span>;
+      },
+    },
+    {
+      title: "Waiting",
+      data: "submittedDate",
+      render: (_value, row) => (
+        <>
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-semibold text-stone-700">{row.submittedDate}</span>
+            {row.status === "Pending Accounting Approval" && <SLABadge dateStr={row.submittedDate} />}
+          </div>
+          <p className="text-[9px] text-stone-400 truncate">{row.submittedBy}</p>
+        </>
+      ),
+    },
+    {
+      title: "Actions",
+      data: "id",
+      orderable: false,
+      searchable: false,
+      render: (_value, row) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); setSelectedId(row.id); }}
+          className="flex items-center gap-1 bg-stsn-brown text-stsn-cream text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-stsn-brown-dark transition"
+        >
+          <Eye className="w-3.5 h-3.5" /> Review
+        </button>
+      ),
+    },
+  ], []);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -1907,13 +2046,10 @@ function AssessmentApproval() {
         </div>
       </div>
 
-      {/* Bulk action bar — shown when items are selected */}
-      {bulkSelected.size > 0 && (
+      {/* Bulk action bar — shown when rows are selected */}
+      {selectedQueueRows.length > 0 && (
         <div className="bg-stsn-brown text-stsn-cream rounded-xl px-4 py-3 flex items-center justify-between gap-3 shadow-md animate-fade-in">
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={allPendingSelected} onChange={toggleSelectAll} className="w-4 h-4 rounded accent-stsn-gold cursor-pointer" />
-            <span className="text-xs font-bold">{bulkSelected.size} assessment{bulkSelected.size > 1 ? "s" : ""} selected</span>
-          </div>
+          <span className="text-xs font-bold">{selectedQueueRows.length} assessment{selectedQueueRows.length > 1 ? "s" : ""} selected</span>
           <div className="flex gap-2">
             <button onClick={handleBulkApprove} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
               <CheckCircle className="w-3.5 h-3.5" /> Approve All
@@ -1921,94 +2057,26 @@ function AssessmentApproval() {
             <button onClick={handleBulkReturn} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
               <RotateCcw className="w-3.5 h-3.5" /> Return All
             </button>
-            <button onClick={() => setBulkSelected(new Set())} className="text-xs font-bold px-2 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition">
+            <button onClick={() => setSelectedQueueRows([])} className="text-xs font-bold px-2 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition">
               Clear
             </button>
           </div>
         </div>
       )}
 
-      {/* Approval Cards */}
-      <div className="space-y-3">
-        {rows.map(({ assessment, student, status, unit, academicLine }) => {
-          const statusCfg = ASSESSMENT_APPROVAL_STATUS_CONFIG[status];
-          const books = getBookPackageInfo(assessment, bookPackages);
-          const netPayable = Math.max(0, assessment.totalAmount - assessment.discountAmount);
-          const isPendingApproval = status === "Pending Accounting Approval";
-          const isChecked = bulkSelected.has(assessment.id);
-          return (
-            <div key={assessment.id} className={`border rounded-xl p-4 space-y-3 transition ${isChecked ? "bg-stsn-gold/5 border-stsn-gold/40" : "bg-stone-50 border-stone-200"}`}>
-              <div className="flex flex-col sm:flex-row justify-between gap-2">
-                <div className="flex items-start gap-2">
-                  {isPendingApproval && (
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleBulk(assessment.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-1 w-4 h-4 rounded accent-stsn-brown cursor-pointer flex-shrink-0"
-                    />
-                  )}
-                <div>
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${unit === "basic-ed" ? "text-blue-700 bg-blue-50 border-blue-200" : "text-purple-700 bg-purple-50 border-purple-200"}`}>
-                      {unit === "basic-ed" ? "Basic Education" : "College"}
-                    </span>
-                    <span className="text-[9px] font-mono text-stone-400">{student?.schoolId || "—"}</span>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusCfg.badgeClass}`}>{statusCfg.label}</span>
-                  </div>
-                  <p className="text-sm font-bold text-stone-900">{student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}</p>
-                  <p className="text-[10px] font-mono text-stone-400">{student?.studentNo}</p>
-                  <p className="text-[10px] text-stone-500 mt-0.5">{academicLine} • {assessment.schoolYear}</p>
-                </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[9px] uppercase font-mono text-stone-400">Assessment Total</p>
-                  <p className="text-lg font-display font-black text-stone-900">₱{assessment.totalAmount.toLocaleString()}</p>
-                  <p className="text-[10px] text-stone-500">Net Payable: ₱{netPayable.toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="bg-white border border-stone-200 rounded-lg p-2">
-                  <p className="text-[9px] uppercase font-mono text-stone-400">Books Included</p>
-                  <p className={`text-xs font-bold mt-0.5 ${books.included ? "text-emerald-700" : "text-stone-600"}`}>{books.included ? "Yes" : "No"}</p>
-                </div>
-                <div className="bg-white border border-stone-200 rounded-lg p-2">
-                  <p className="text-[9px] uppercase font-mono text-stone-400">Discount Applied</p>
-                  <p className="text-xs font-bold text-stone-700 mt-0.5">{assessment.discountPercentage > 0 ? `${assessment.discountPercentage}% (₱${assessment.discountAmount.toLocaleString()})` : "None"}</p>
-                </div>
-                <div className="bg-white border border-stone-200 rounded-lg p-2">
-                  <p className="text-[9px] uppercase font-mono text-stone-400">Payment Term</p>
-                  <p className="text-xs font-bold text-stone-700 mt-0.5">{assessment.paymentTerm}</p>
-                </div>
-                <div className={`border rounded-lg p-2 ${status === "Pending Accounting Approval" ? "bg-white border-stone-200" : "bg-white border-stone-200"}`}>
-                  <div className="flex items-center justify-between gap-1">
-                    <p className="text-[9px] uppercase font-mono text-stone-400">Waiting</p>
-                    {status === "Pending Accounting Approval" && (
-                      <SLABadge dateStr={assessment.submittedDate} />
-                    )}
-                  </div>
-                  <p className="text-xs font-bold text-stone-700 mt-0.5">{assessment.submittedDate || "—"}</p>
-                  <p className="text-[9px] text-stone-400 truncate">{assessment.submittedBy || "—"}</p>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-1 border-t border-stone-200">
-                <button onClick={() => setSelectedId(assessment.id)} className="flex items-center gap-1 bg-stsn-brown text-stsn-cream text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-stsn-brown-dark transition">
-                  <Eye className="w-3.5 h-3.5" /> Review Assessment
-                </button>
-              </div>
-            </div>
-          );
-        })}
-        {rows.length === 0 && (
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-10 text-center">
-            <ClipboardList className="w-8 h-8 text-stone-300 mx-auto mb-2" />
-            <p className="text-sm font-bold text-stone-700">No Assessments Found</p>
-            <p className="text-xs text-stone-400 mt-1">No submitted assessments match the selected filters.</p>
-          </div>
-        )}
+      {/* Approval Queue Table */}
+      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+        <STSNDataTable<ApprovalQueueRow>
+          columns={approvalColumns}
+          rows={rows}
+          emptyMessage="No submitted assessments match the selected filters."
+          bulkSelectable
+          onBulkSelect={setSelectedQueueRows}
+          onRowClick={(row) => setSelectedId(row.id)}
+          selectedId={selectedId ?? undefined}
+          pageLength={10}
+          searchable={false}
+        />
       </div>
 
       {/* DETAIL PANEL MODAL */}
@@ -2290,7 +2358,7 @@ type AssessmentBillingRow = AssessmentBillingSummary & {
   units: string;
 };
 
-function AssessmentBilling() {
+const AssessmentBilling = React.memo(function AssessmentBilling() {
   const {
     students,
     assessments,
@@ -2405,7 +2473,7 @@ function AssessmentBilling() {
       </div>
     </div>
   );
-}
+});
 
 function AssessmentAndBilling() {
   return (
@@ -2444,6 +2512,7 @@ function AccountingSubPageRouter({ subPage }: { subPage: string }) {
     case "journal-entries":    return <JournalEntriesPage />;
     case "suppliers":          return <SupplierManagementPage />;
     case "items":              return <ItemProductManagementPage />;
+    case "discount-types":     return <DiscountTypesSetupPage />;
     case "sales-invoices":     return <SalesInvoicesPage />;
     case "purchase-invoices":  return <PurchaseInvoicesPage />;
     case "ar-aging":           return <ARAgingPage />;

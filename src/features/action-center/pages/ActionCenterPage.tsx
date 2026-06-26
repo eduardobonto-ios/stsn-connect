@@ -7,6 +7,7 @@ import React from "react";
 import { AlertTriangle, CheckCircle, ClipboardList, Clock } from "lucide-react";
 import ApprovalInbox, { type NavigateTarget } from "../../../components/common/ApprovalInbox";
 import { usePendingCounts } from "../../../hooks/usePendingCounts";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 interface ActionCenterPageProps {
   onNavigate: (target: NavigateTarget) => void;
@@ -48,29 +49,12 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <section className="bg-white border border-stsn-beige rounded-2xl shadow-sm p-6">
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-          <div>
-            <p className="text-[9px] font-mono uppercase tracking-widest text-stsn-gold font-bold">
-              Work Queue
-            </p>
-            <h2 className="text-2xl font-display font-black text-stsn-brown-dark mt-1">
-              Action Center
-            </h2>
-            <p className="text-sm text-stone-500 mt-1 max-w-2xl">
-              Centralized approval queue for items that need review. Dashboards stay focused on analytics, while operational decisions live here.
-            </p>
-          </div>
-          <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-stone-400 block">
-              Queue Status
-            </span>
-            <span className="text-sm font-bold text-stone-800">
-              {counts.totalForRole > 0 ? `${counts.totalForRole} pending item${counts.totalForRole > 1 ? "s" : ""}` : "All caught up"}
-            </span>
-          </div>
-        </div>
-      </section>
+      <ModulePageHeader
+        badge="Work Queue"
+        title="Action Center"
+        subtitle="Centralized approval queue for items that need review. Dashboards stay focused on analytics, while operational decisions live here."
+        meta={counts.totalForRole > 0 ? `${counts.totalForRole} pending item${counts.totalForRole > 1 ? "s" : ""}` : undefined}
+      />
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((card) => {

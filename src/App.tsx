@@ -70,6 +70,8 @@ import AdminReportsPage from "./features/reports/pages/AdminReportsPage";
 import StudentDirectoryPage from "./features/student-directory/pages/StudentDirectoryPage";
 import GuardianPortalPage from "./features/guardian/pages/GuardianPortalPage";
 
+const APP_SIDEBAR_WIDTH_CLASS = "w-[265px] min-w-[265px] max-w-[265px]";
+
 function PendingBadge({ count, small = false }: { count: number; small?: boolean }) {
   if (count <= 0) return null;
   return (
@@ -95,6 +97,7 @@ export default function App() {
   const [hrSubPage, setHrSubPage] = useState("hr-dashboard");
   const [payrollSubPage, setPayrollSubPage] = useState("payroll-management");
   const [cashierSubPage, setCashierSubPage] = useState("queue");
+  const [accountsSubPage, setAccountsSubPage] = useState<"user-security" | "delegation-management" | "audit-log">("user-security");
   const [portalStudentId, setPortalStudentId] = useState<string | undefined>(undefined);
   const [expandedModule, setExpandedModule] = useState<STSNModule | null>("DASHBOARD");
   const [expandedAccountingGroups, setExpandedAccountingGroups] = useState<string[]>([]);
@@ -133,7 +136,7 @@ export default function App() {
     else if (currentUser.role === "HR") setActiveModule("HR_MANAGEMENT");
     else if (currentUser.role === "ACCOUNTING") setActiveModule("ACCOUNTING");
     else if (currentUser.role === "CASHIER") setActiveModule("CASHIER");
-    else if (currentUser.role === "PAYROLL") setActiveModule("PAYROLL_MANAGEMENT");
+    else if (currentUser.role === "PAYROLL") setActiveModule("PAYROLL_DASHBOARD");
     else if (currentUser.role === "GUIDANCE") setActiveModule("GUIDANCE");
     else if (currentUser.role === "NURSE") setActiveModule("NURSE_CLINIC");
     else if (currentUser.role === "GUARDIAN") setActiveModule("GUARDIAN_PORTAL");
@@ -156,6 +159,7 @@ export default function App() {
       FACULTY_ADMIN: "Faculty Admin",
       FACULTY_PORTAL: "Faculty Portal",
       HR_MANAGEMENT: "HR Management",
+      PAYROLL_DASHBOARD: "Payroll Dashboard",
       PAYROLL_MANAGEMENT: "Payroll Management",
       ACCOUNTS_SECURITY: "Accounts & Security",
       CORE_SETUP: "Core Setup",
@@ -185,6 +189,9 @@ export default function App() {
       "payroll-settings": "Payroll Settings",
       queue: "Payment Queue",
       "cashier-reports": "Cashier Reports",
+      "user-security": "User Security",
+      "delegation-management": "Delegation Management",
+      "audit-log": "Audit Log",
     };
     const modLabel = moduleLabel[activeModule];
     if (modLabel) crumbs.push({ label: modLabel });
@@ -193,6 +200,7 @@ export default function App() {
       : activeModule === "HR_MANAGEMENT" ? hrSubPage
       : activeModule === "PAYROLL_MANAGEMENT" ? payrollSubPage
       : activeModule === "CASHIER" ? cashierSubPage
+      : activeModule === "ACCOUNTS_SECURITY" ? accountsSubPage
       : null;
     if (subPage && subPage !== "dashboard" && subPageLabel[subPage]) {
       crumbs.push({ label: subPageLabel[subPage]! });
@@ -320,6 +328,8 @@ export default function App() {
       setCashierSubPage(target.subPage);
     } else if (target.module === "STUDENT_PORTAL") {
       setPortalSubPage(target.subPage);
+    } else if (target.module === "ACCOUNTS_SECURITY") {
+      setAccountsSubPage(target.subPage as "user-security" | "delegation-management" | "audit-log");
     }
   };
 
@@ -337,7 +347,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex bg-stsn-cream text-stsn-text font-sans antialiased overflow-hidden h-screen">
       {/* ============ SIDEBAR ============ */}
-      <aside className={`hidden lg:flex flex-col h-full flex-shrink-0 relative sidebar-gradient ${sidebarMode === "minimal" ? "w-16" : sidebarMode === "compact" ? "w-[200px]" : "w-[265px]"}`}>
+      <aside className={`hidden lg:flex flex-col h-full flex-shrink-0 relative sidebar-gradient ${APP_SIDEBAR_WIDTH_CLASS}`}>
         {/* Top gold accent line */}
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-stsn-brown-dark via-stsn-gold to-stsn-brown-dark opacity-90" />
 
@@ -598,7 +608,7 @@ export default function App() {
                         }
                         const isChildActive = child.targetModule
                           ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
-                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "PAYROLL_MANAGEMENT" ? payrollSubPage === child.id : item.id === "CASHIER" ? cashierSubPage === child.id : accountingSubPage === child.id);
+                          : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "PAYROLL_MANAGEMENT" ? payrollSubPage === child.id : item.id === "CASHIER" ? cashierSubPage === child.id : item.id === "ACCOUNTS_SECURITY" ? accountsSubPage === child.id : accountingSubPage === child.id);
                         const ChildIcon = child.icon;
                         return (
                           <button
@@ -619,6 +629,8 @@ export default function App() {
                                   setPayrollSubPage(child.id);
                                 } else if (item.id === "CASHIER") {
                                   setCashierSubPage(child.id);
+                                } else if (item.id === "ACCOUNTS_SECURITY") {
+                                  setAccountsSubPage(child.id as "user-security" | "delegation-management" | "audit-log");
                                 } else {
                                   setAccountingSubPage(child.id);
                                 }
@@ -848,7 +860,7 @@ export default function App() {
             )}
           {activeModule === "ACCOUNTS_SECURITY" &&
             allowedModules.includes("ACCOUNTS_SECURITY") && (
-              <AccountsManagement />
+              <AccountsManagement subPage={accountsSubPage} onSubPageChange={setAccountsSubPage} />
             )}
           {activeModule === "CORE_SETUP" &&
             allowedModules.includes("CORE_SETUP") && <CoreSetupModule initialCategoryKey={coreSetupSubPage} />}
@@ -896,11 +908,20 @@ export default function App() {
           <MobileBottomNav
             role={currentUser.role}
             activeModule={activeModule}
+            activeSubPage={
+              activeModule === "STUDENT_PORTAL" ? portalSubPage
+              : activeModule === "CASHIER" ? cashierSubPage
+              : activeModule === "PAYROLL_MANAGEMENT" ? payrollSubPage
+              : activeModule === "HR_MANAGEMENT" ? hrSubPage
+              : null
+            }
             onNavigate={(module, subPage) => {
               setActiveModule(module);
               if (subPage) {
                 if (module === "CASHIER") setCashierSubPage(subPage);
                 else if (module === "HR_MANAGEMENT") setHrSubPage(subPage);
+                else if (module === "STUDENT_PORTAL") setPortalSubPage(subPage);
+                else if (module === "PAYROLL_MANAGEMENT") setPayrollSubPage(subPage);
               }
               setIsMobileOpen(false);
             }}
@@ -1014,7 +1035,7 @@ export default function App() {
                             }
                             const isChildActive = child.targetModule
                               ? activeModule === child.targetModule && (child.targetModule !== "CORE_SETUP" || coreSetupSubPage === child.id)
-                              : isSelected && (item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "PAYROLL_MANAGEMENT" ? payrollSubPage === child.id : accountingSubPage === child.id);
+                              : isSelected && (item.id === "STUDENT_PORTAL" ? portalSubPage === child.id : item.id === "HR_MANAGEMENT" ? hrSubPage === child.id : item.id === "PAYROLL_MANAGEMENT" ? payrollSubPage === child.id : item.id === "CASHIER" ? cashierSubPage === child.id : item.id === "ACCOUNTS_SECURITY" ? accountsSubPage === child.id : accountingSubPage === child.id);
                             return (
                               <button
                                 key={child.id}
@@ -1026,10 +1047,16 @@ export default function App() {
                                     }
                                   } else {
                                     setActiveModule(item.id);
-                                    if (item.id === "HR_MANAGEMENT") {
+                                    if (item.id === "STUDENT_PORTAL") {
+                                      setPortalSubPage(child.id);
+                                    } else if (item.id === "HR_MANAGEMENT") {
                                       setHrSubPage(child.id);
                                     } else if (item.id === "PAYROLL_MANAGEMENT") {
                                       setPayrollSubPage(child.id);
+                                    } else if (item.id === "CASHIER") {
+                                      setCashierSubPage(child.id);
+                                    } else if (item.id === "ACCOUNTS_SECURITY") {
+                                      setAccountsSubPage(child.id as "user-security" | "delegation-management" | "audit-log");
                                     } else {
                                       setAccountingSubPage(child.id);
                                     }

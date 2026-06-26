@@ -43,7 +43,7 @@ export default function EmptyState({
         <Icon className={`text-stone-400 ${compact ? "w-5 h-5" : "w-7 h-7"}`} />
       </div>
       <p
-        className={`font-display font-bold text-stone-600 leading-tight ${
+        className={`font-sans font-bold text-stone-600 leading-tight ${
           compact ? "text-sm" : "text-base"
         }`}
       >

@@ -6,7 +6,9 @@
 import React, { useMemo, useState } from "react";
 import { Shield, Search, Download } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
-import type { AuditEntityType, AuditAction } from "../../../types";
+import type { AuditEntityType, AuditAction, AuditLogEntry } from "../../../types";
+import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
 
 const ACTION_BADGE: Record<AuditAction, string> = {
   created:   "bg-blue-50 text-blue-700 border-blue-200",
@@ -27,13 +29,20 @@ const ALL_ENTITY_TYPES: AuditEntityType[] = [
   "payroll", "delegation",
 ];
 
+function ActionBadge({ action }: { action: AuditAction }) {
+  return (
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize ${ACTION_BADGE[action] ?? "bg-stone-100 text-stone-600 border-stone-200"}`}>
+      {action}
+    </span>
+  );
+}
+
 export default function AuditLogPage() {
   const { auditLog } = useSTSNStore();
   const [search, setSearch] = useState("");
   const [filterEntity, setFilterEntity] = useState<AuditEntityType | "">("");
   const [filterAction, setFilterAction] = useState<AuditAction | "">("");
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 25;
+  const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -44,9 +53,6 @@ export default function AuditLogPage() {
       return true;
     });
   }, [auditLog, search, filterEntity, filterAction]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleExport = () => {
     const headers = ["Timestamp", "Actor", "Role", "School", "Entity Type", "Entity ID", "Action", "Remarks"];
@@ -62,6 +68,50 @@ export default function AuditLogPage() {
     a.click(); URL.revokeObjectURL(url);
   };
 
+  const columns: STSNColumn<AuditLogEntry>[] = [
+    {
+      title: "Timestamp",
+      data: "timestamp",
+      render: (v: string) => (
+        <span className="font-mono text-[10px] text-stone-400">
+          {v.replace("T", " ").substring(0, 16)}
+        </span>
+      ),
+    },
+    {
+      title: "Actor",
+      data: "actorName",
+      className: "font-semibold text-stone-700",
+    },
+    {
+      title: "Role",
+      data: "actorRole",
+      render: (v: string) => (
+        <span className="text-[10px] font-mono text-stone-500">{v}</span>
+      ),
+    },
+    {
+      title: "Entity Type",
+      data: "entityType",
+      render: (v: string) => (
+        <span className="text-[10px] capitalize text-stone-500">{v}</span>
+      ),
+    },
+    {
+      title: "Action",
+      data: "action",
+      render: (v: AuditAction) => <ActionBadge action={v} />,
+    },
+    {
+      title: "Remarks",
+      data: "remarks",
+      orderable: false,
+      render: (v: string | undefined) => (
+        <span className="text-[10px] text-stone-400 truncate max-w-[160px] block">{v ?? "—"}</span>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -72,7 +122,7 @@ export default function AuditLogPage() {
           </div>
           <div>
             <h2 className="text-sm font-display font-bold text-stsn-brown-dark">Central Audit Log</h2>
-            <p className="text-[10px] text-stone-400 mt-0.5">Immutable record of all approval-sensitive actions</p>
+            <p className="text-[10px] text-stone-400 mt-0.5">Immutable record of all approval-sensitive actions — click a row to inspect details</p>
           </div>
         </div>
         <button
@@ -88,14 +138,14 @@ export default function AuditLogPage() {
         <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5">
           <Search className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
           <input
-            value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search actor, entity ID, remarks…"
             className="flex-1 text-xs outline-none bg-transparent text-stone-700 placeholder-stone-400"
           />
         </div>
         <select
           value={filterEntity}
-          onChange={(e) => { setFilterEntity(e.target.value as AuditEntityType | ""); setPage(1); }}
+          onChange={(e) => setFilterEntity(e.target.value as AuditEntityType | "")}
           className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
         >
           <option value="">All Entity Types</option>
@@ -103,7 +153,7 @@ export default function AuditLogPage() {
         </select>
         <select
           value={filterAction}
-          onChange={(e) => { setFilterAction(e.target.value as AuditAction | ""); setPage(1); }}
+          onChange={(e) => setFilterAction(e.target.value as AuditAction | "")}
           className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
         >
           <option value="">All Actions</option>
@@ -114,55 +164,92 @@ export default function AuditLogPage() {
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        {/* Column headers */}
-        <div className="hidden md:grid grid-cols-[160px_1fr_80px_100px_100px_80px_1fr] gap-3 px-4 py-2 bg-stone-50 border-b border-stone-100">
-          {["Timestamp", "Actor", "Role", "Entity Type", "Entity ID", "Action", "Remarks"].map((h) => (
-            <span key={h} className="text-[8.5px] font-mono font-bold uppercase tracking-widest text-stone-400">{h}</span>
-          ))}
-        </div>
-
-        {pageRows.length === 0 ? (
-          <div className="flex flex-col items-center py-12 gap-2 text-center">
-            <Shield className="w-8 h-8 text-stone-200" />
-            <p className="text-xs font-semibold text-stone-400">No audit entries match your filters</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-stone-50">
-            {pageRows.map((entry) => (
-              <div key={entry.id} className="grid grid-cols-1 md:grid-cols-[160px_1fr_80px_100px_100px_80px_1fr] gap-1 md:gap-3 px-4 py-2.5 hover:bg-stone-50/60 transition text-xs">
-                <span className="font-mono text-[10px] text-stone-400">{entry.timestamp.replace("T", " ").substring(0, 16)}</span>
-                <span className="font-semibold text-stone-700 truncate">{entry.actorName}</span>
-                <span className="text-[10px] font-mono text-stone-500">{entry.actorRole}</span>
-                <span className="text-[10px] text-stone-500 capitalize">{entry.entityType}</span>
-                <span className="font-mono text-[10px] text-stone-400 truncate">{entry.entityId.substring(0, 8)}…</span>
-                <span>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize ${ACTION_BADGE[entry.action] ?? "bg-stone-100 text-stone-600 border-stone-200"}`}>
-                    {entry.action}
-                  </span>
-                </span>
-                <span className="text-[10px] text-stone-400 truncate">{entry.remarks ?? "—"}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-2.5 border-t border-stone-100 bg-stone-50/40">
-            <span className="text-[10px] text-stone-400 font-mono">Page {page} of {totalPages}</span>
-            <div className="flex gap-1.5">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                className="text-[10px] px-2 py-1 rounded border border-stone-200 bg-white text-stone-600 hover:bg-stsn-cream disabled:opacity-40 cursor-pointer transition">
-                ← Prev
-              </button>
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="text-[10px] px-2 py-1 rounded border border-stone-200 bg-white text-stone-600 hover:bg-stsn-cream disabled:opacity-40 cursor-pointer transition">
-                Next →
-              </button>
-            </div>
-          </div>
-        )}
+        <STSNDataTable<AuditLogEntry>
+          columns={columns}
+          rows={filtered}
+          searchable={false}
+          pageLength={25}
+          onRowClick={(row) => setSelectedEntry(row)}
+          emptyMessage="No audit entries match your filters."
+          tableId="audit-log"
+        />
       </div>
+
+      {/* Drilldown Drawer */}
+      <DrilldownDrawer
+        open={!!selectedEntry}
+        onClose={() => setSelectedEntry(null)}
+        title="Audit Entry Detail"
+        subtitle={selectedEntry ? `${selectedEntry.actorName} · ${selectedEntry.action}` : ""}
+        width="md"
+      >
+        {selectedEntry && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
+                <div>
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Timestamp</dt>
+                  <dd className="font-mono text-stone-700">{selectedEntry.timestamp.replace("T", " ").substring(0, 19)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">School</dt>
+                  <dd className="font-semibold text-stone-700">{selectedEntry.schoolId ?? "ALL"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Actor</dt>
+                  <dd className="font-semibold text-stone-700">{selectedEntry.actorName}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Role</dt>
+                  <dd className="font-mono text-stone-600">{selectedEntry.actorRole}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Entity Type</dt>
+                  <dd className="capitalize text-stone-700">{selectedEntry.entityType}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Entity ID</dt>
+                  <dd className="font-mono text-[10px] text-stone-500 break-all">{selectedEntry.entityId}</dd>
+                </div>
+              </dl>
+              <div className="pt-1">
+                <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1.5">Action</dt>
+                <dd><ActionBadge action={selectedEntry.action} /></dd>
+              </div>
+              {selectedEntry.remarks && (
+                <div className="pt-1">
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1">Remarks</dt>
+                  <dd className="text-xs text-stone-700 leading-relaxed bg-stone-50 rounded-lg p-2.5 border border-stone-100">{selectedEntry.remarks}</dd>
+                </div>
+              )}
+              {selectedEntry.ipAddress && (
+                <div className="pt-1">
+                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1">IP Address</dt>
+                  <dd className="font-mono text-xs text-stone-500">{selectedEntry.ipAddress}</dd>
+                </div>
+              )}
+            </div>
+
+            {selectedEntry.previousValue && Object.keys(selectedEntry.previousValue).length > 0 && (
+              <div className="bg-white rounded-xl border border-stone-200 p-4">
+                <h3 className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-2">Previous Value</h3>
+                <pre className="text-[10px] font-mono text-stone-600 whitespace-pre-wrap break-all bg-stone-50 rounded-lg p-3 border border-stone-100 overflow-x-auto">
+                  {JSON.stringify(selectedEntry.previousValue, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {selectedEntry.newValue && Object.keys(selectedEntry.newValue).length > 0 && (
+              <div className="bg-white rounded-xl border border-stone-200 p-4">
+                <h3 className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-2">New Value</h3>
+                <pre className="text-[10px] font-mono text-stone-600 whitespace-pre-wrap break-all bg-stone-50 rounded-lg p-3 border border-stone-100 overflow-x-auto">
+                  {JSON.stringify(selectedEntry.newValue, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </DrilldownDrawer>
     </div>
   );
 }

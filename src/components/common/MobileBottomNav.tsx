@@ -7,7 +7,7 @@ import React from "react";
 import {
   ClipboardList, CalendarDays, Bell, User,
   Wallet, BarChart3, GraduationCap, DollarSign,
-  Stethoscope, BookOpen, Receipt,
+  Stethoscope, BookOpen, Receipt, NotebookPen, FileText,
 } from "lucide-react";
 import type { UserRole } from "../../types";
 import type { STSNModule } from "../../config/navigation.config";
@@ -22,15 +22,14 @@ interface BottomNavTab {
 const ROLE_TABS: Partial<Record<UserRole, BottomNavTab[]>> = {
   TEACHER: [
     { label: "Grades", icon: ClipboardList, module: "FACULTY_PORTAL" },
-    { label: "Schedule", icon: CalendarDays, module: "SCHEDULING" },
-    { label: "Notices", icon: Bell, module: "DASHBOARD" },
+    { label: "Classes", icon: CalendarDays, module: "FACULTY_PORTAL" },
+    { label: "Learning", icon: Bell, module: "ONLINE_LEARNING" },
     { label: "Profile", icon: User, module: "FACULTY_PORTAL" },
   ],
   CASHIER: [
     { label: "Queue", icon: Receipt, module: "CASHIER", subPage: "queue" },
     { label: "History", icon: BarChart3, module: "CASHIER", subPage: "history" },
     { label: "Reports", icon: BarChart3, module: "CASHIER", subPage: "reports" },
-    { label: "Profile", icon: User, module: "DASHBOARD" },
   ],
   NURSE: [
     { label: "Clinic", icon: Stethoscope, module: "NURSE_CLINIC" },
@@ -38,10 +37,14 @@ const ROLE_TABS: Partial<Record<UserRole, BottomNavTab[]>> = {
     { label: "Profile", icon: User, module: "DASHBOARD" },
   ],
   STUDENT: [
-    { label: "Grades", icon: GraduationCap, module: "STUDENT_PORTAL" },
-    { label: "Fees", icon: DollarSign, module: "STUDENT_PORTAL" },
-    { label: "Books", icon: BookOpen, module: "STUDENT_PORTAL" },
-    { label: "Notices", icon: Bell, module: "DASHBOARD" },
+    { label: "Home", icon: BookOpen, module: "STUDENT_PORTAL", subPage: "overview" },
+    { label: "Grades", icon: GraduationCap, module: "STUDENT_PORTAL", subPage: "grades" },
+    { label: "Fees", icon: DollarSign, module: "STUDENT_PORTAL", subPage: "ledger" },
+    { label: "Profile", icon: User, module: "STUDENT_PORTAL", subPage: "profile" },
+  ],
+  GUIDANCE: [
+    { label: "Office", icon: NotebookPen, module: "GUIDANCE" },
+    { label: "Reports", icon: FileText, module: "GUIDANCE_REPORTS" },
   ],
   EMPLOYEE: [
     { label: "Payslip", icon: Wallet, module: "FACULTY_PORTAL" },
@@ -54,10 +57,11 @@ const ROLE_TABS: Partial<Record<UserRole, BottomNavTab[]>> = {
 interface MobileBottomNavProps {
   role: UserRole;
   activeModule: STSNModule;
+  activeSubPage?: string | null;
   onNavigate: (module: STSNModule, subPage?: string) => void;
 }
 
-export default function MobileBottomNav({ role, activeModule, onNavigate }: MobileBottomNavProps) {
+export default function MobileBottomNav({ role, activeModule, activeSubPage, onNavigate }: MobileBottomNavProps) {
   const tabs = ROLE_TABS[role];
   if (!tabs) return null;
 
@@ -66,7 +70,7 @@ export default function MobileBottomNav({ role, activeModule, onNavigate }: Mobi
       <div className="flex items-stretch">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeModule === tab.module;
+          const isActive = activeModule === tab.module && (!tab.subPage || activeSubPage === tab.subPage);
           return (
             <button
               key={`${tab.module}-${tab.label}`}

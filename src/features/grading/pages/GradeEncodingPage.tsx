@@ -22,7 +22,7 @@ type ViewMode = "summary" | "input";
 export default function GradeEncodingPage() {
   const {
     students: storeStudents, teachers, currentUser, academicUnit,
-    classLoads: allClassLoads, gradePeriods: periods, studentGradeEntries: entries, demoStudents,
+    classLoads: allClassLoads, gradePeriods: periods, studentGradeEntries: entries,
     saveGradeEntry, addGradeItem, updateGradeCategories, finalizeGradePeriod, submitGradePeriod,
   } = useSTSNStore();
 
@@ -60,7 +60,7 @@ export default function GradeEncodingPage() {
   // ── Active class load ─────────────────────────────────────────────────────
   const activeLoad = classLoads.find((l) => l.id === activeLoadId) ?? classLoads[0];
 
-  // ── Student roster (store students + demo students) ───────────────────────
+  // ── Student roster from persisted student records only ─────────────────────
   const allStudents: GradeRosterStudent[] = useMemo(() => {
     const storeConverted: GradeRosterStudent[] = storeStudents.map((s) => ({
       id: s.id,
@@ -72,8 +72,8 @@ export default function GradeEncodingPage() {
       trackOrCourse: s.trackOrCourse,
       department: s.department,
     }));
-    return [...storeConverted, ...demoStudents];
-  }, [storeStudents, demoStudents]);
+    return storeConverted;
+  }, [storeStudents]);
 
   const classStudents: GradeRosterStudent[] = useMemo(() => {
     if (!activeLoad) return [];
@@ -176,16 +176,21 @@ export default function GradeEncodingPage() {
     <div className="space-y-5 animate-fade-in font-sans">
       {/* ── Header card with subject/class selector ─────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
-        <div>
-          <h2 className="text-lg font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-stsn-brown" />
-            Grade Encoding — {activeLoad?.subjectName}
-          </h2>
-          <p className="text-stone-400 text-[11px] mt-0.5">
-            Section:{" "}
-            <strong className="text-stsn-brown">{activeLoad?.sectionName}</strong> ·
-            SY {activeLoad?.schoolYear} · {activeLoad?.semester}
-          </p>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-stsn-cream text-stsn-brown border border-stsn-beige flex-shrink-0">
+            <GraduationCap className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-stone-400 font-bold">Grade Encoding</p>
+            <h2 className="text-xl font-black text-stsn-brown truncate">
+              {activeLoad?.subjectName ?? "No subject selected"}
+            </h2>
+            <p className="text-stone-500 text-[11px] mt-0.5">
+              Section:{" "}
+              <strong className="text-stsn-brown">{activeLoad?.sectionName}</strong> ·
+              SY {activeLoad?.schoolYear} · {activeLoad?.semester}
+            </p>
+          </div>
         </div>
 
         {/* Subject / class load selector */}

@@ -11,7 +11,7 @@ export default function PageHeader({ icon: Icon, title, description, children }:
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
       <div>
-        <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
+        <h2 className="text-xl font-sans font-semibold text-stsn-brown-dark tracking-tight flex items-center gap-2">
           <Icon className="w-5 h-5 text-stsn-brown" />
           {title}
         </h2>

@@ -13,33 +13,23 @@ import {
   FileText,
   UserPlus,
   Compass,
-  ArrowRight,
-  Printer,
   Search,
   BookOpen,
   Layers,
   Grid,
-  Filter,
   UploadCloud,
   FileSpreadsheet,
   UserCheck,
   Cpu,
-  GraduationCap,
-  Building2,
   School,
-  Plus,
-  Trash2,
   Users,
-  ChevronDown,
   Info,
   Upload,
   ShieldCheck,
   Package,
-  DollarSign,
   Calendar,
   CreditCard,
   AlertCircle,
-  RefreshCw,
   CheckSquare,
   Clock,
   X,
@@ -51,7 +41,11 @@ import {
 } from "lucide-react";
 import { PreviewModal, CORPreview } from "../../../components/ModalPreviews";
 import SLABadge from "../../../components/common/SLABadge";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
+import AppModal from "../../../components/common/AppModal";
 import EnrollmentWizard from "../components/EnrollmentWizard";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import STSNDataTable, {
   type STSNColumn,
 } from "../../../components/common/STSNDataTable";
@@ -267,6 +261,7 @@ export default function RegistrarModule() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"All" | "Online" | "Walk-in/ERP">("All");
+  const [statusFilter, setStatusFilter] = useState<"All" | "Enrolled" | "Pending" | "For Assessment" | "Rejected">("All");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("info");
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
@@ -373,11 +368,15 @@ export default function RegistrarModule() {
         sourceFilter === "All" ||
         (sourceFilter === "Online" && sourceLabel === "Online") ||
         (sourceFilter === "Walk-in/ERP" && sourceLabel !== "Online");
-      return matchesSource && (
+      const matchesStatus =
+        statusFilter === "All" ||
+        s.enrollmentStatus === statusFilter ||
+        (statusFilter === "Pending" && s.enrollmentStatus === "For Assessment");
+      return matchesSource && matchesStatus && (
         fullName.includes(query) || s.studentNo.toLowerCase().includes(query)
       );
     });
-  }, [contextStudents, latestEnrollmentByStudentId, searchQuery, sourceFilter]);
+  }, [contextStudents, latestEnrollmentByStudentId, searchQuery, sourceFilter, statusFilter]);
 
   const selectedEnrollment = useMemo(
     () => selectedStudent ? latestEnrollmentByStudentId.get(selectedStudent.id) : undefined,
@@ -517,14 +516,7 @@ export default function RegistrarModule() {
       {
         title: "Status",
         data: "status",
-        render: (value) => {
-          const tone =
-            value === "Accepted" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-            value === "For Completion" ? "bg-amber-50 text-amber-700 border-amber-200" :
-            value === "Rejected" || value === "Cancelled" ? "bg-red-50 text-red-700 border-red-200" :
-            "bg-blue-50 text-blue-700 border-blue-200";
-          return <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${tone}`}>{value}</span>;
-        },
+        render: (value) => <AppStatusBadge status={value} />,
       },
       {
         title: "SLA",
@@ -582,6 +574,13 @@ export default function RegistrarModule() {
   );
 
   // Pending online applications for bulk actions
+  const enrollmentKpis = useMemo(() => {
+    const enrolled = contextStudents.filter((s) => s.enrollmentStatus === "Enrolled").length;
+    const pending = contextStudents.filter((s) => s.enrollmentStatus === "Pending" || s.enrollmentStatus === "For Assessment").length;
+    const pendingApps = onlineApplicationQueue.filter((a) => a.status === "Pending Registrar Review").length;
+    return { total: contextStudents.length, enrolled, pending, pendingApps };
+  }, [contextStudents, onlineApplicationQueue]);
+
   const pendingOnlineApps = useMemo(
     () => onlineApplicationQueue.filter((a) => a.status === "Pending Registrar Review"),
     [onlineApplicationQueue],
@@ -1153,23 +1152,35 @@ export default function RegistrarModule() {
         render: (value) => value,
       },
       {
-        title: "Full Name",
+        title: "Student",
         data: "lastName",
         render: (_value, stud) => {
+          const initials = `${stud.firstName.charAt(0)}${stud.lastName.charAt(0)}`.toUpperCase();
           return (
             <div
               onClick={() => {
                 setSelectedStudent(stud);
                 setDetailTab("info");
               }}
-              className="cursor-pointer transition-all"
+              className="cursor-pointer flex items-center gap-2.5 py-0.5"
             >
-              <div className="font-semibold text-stone-900">
-                {stud.lastName}, {stud.firstName}
+              <div
+                className={`w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-[11px] font-black ${
+                  schoolContext === "BASIC_ED"
+                    ? "bg-stsn-cream text-stsn-brown border border-stsn-beige"
+                    : "bg-blue-50 text-blue-700 border border-blue-100"
+                }`}
+              >
+                {initials}
               </div>
-              <span className="text-[10px] text-stone-400 block">
-                {stud.section ? `Section: ${stud.section}` : "No section"}
-              </span>
+              <div className="min-w-0">
+                <div className="font-semibold text-stone-900 text-xs leading-tight truncate">
+                  {stud.lastName}, {stud.firstName}
+                </div>
+                <span className="text-[10px] text-stone-400 font-mono block leading-tight">
+                  {stud.section || "No section"}
+                </span>
+              </div>
             </div>
           );
         },
@@ -1246,6 +1257,9 @@ export default function RegistrarModule() {
         searchable: false,
         render: (_value, stud) => {
           const isEnrolled = stud.enrollmentStatus === "Enrolled";
+          const disabledReason = isEnrolled
+            ? undefined
+            : `COR unavailable — status: ${stud.enrollmentStatus}. Complete enrollment first.`;
           return (
             <button
               onClick={() => {
@@ -1256,7 +1270,10 @@ export default function RegistrarModule() {
                     `Status: ${stud.enrollmentStatus}. Complete enrollment first.`,
                   );
               }}
-              className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition ${isEnrolled ? (schoolContext === "BASIC_ED" ? "btn-primary-gradient text-white" : "bg-blue-600 hover:bg-blue-700 text-white") : "bg-stone-100 text-stone-400 cursor-not-allowed"}`}
+              title={disabledReason ?? "View / print Certificate of Registration"}
+              aria-label={isEnrolled ? `Open COR for ${stud.firstName} ${stud.lastName}` : disabledReason}
+              aria-disabled={!isEnrolled}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition ${isEnrolled ? (schoolContext === "BASIC_ED" ? "btn-primary-gradient text-white cursor-pointer" : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer") : "bg-stone-100 text-stone-400 cursor-not-allowed opacity-60"}`}
             >
               COR
             </button>
@@ -1276,134 +1293,232 @@ export default function RegistrarModule() {
     ],
   );
 
-  return (
-    <div className="space-y-6 animate-fade-in font-sans">
-      {/* MODULE HEADER — no manual school switcher, auto-detected */}
-      <div
-        className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 rounded-xl shadow-sm gap-4 ${schoolContext === "BASIC_ED" ? "bg-white border border-stsn-beige shadow-sm" : "bg-blue-50 border border-blue-200"}`}
-      >
-        <div>
-          <div
-            className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-full border inline-block mb-1.5 ${schoolBadgeClass}`}
-          >
-            {schoolContext === "BASIC_ED"
-              ? "K-12 Basic Education"
-              : "Tertiary / College Division"}
-          </div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <Compass
-              className={`w-5 h-5 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`}
-            />
-            {schoolContext === "BASIC_ED"
-              ? "Basic Education Admissions & Enrollment"
-              : "College Admissions & Enrollment"}
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            {schoolLabel} • {contextStudents.length} students enrolled •{" "}
-            {terms.studentIdLabel} & {terms.trackNoun}
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setDept(
-              schoolContext === "BASIC_ED" ? "Basic Education" : "College",
-            );
-            setBeProgramCategory("Senior High School");
-            setYearLvl(schoolContext === "BASIC_ED" ? "Grade 11" : "1st Year");
-            setCourseCode(schoolContext === "BASIC_ED" ? "STEM" : "BSIT");
-            setCollegeCourse("BSIT");
-            setCollegeYear("1st Year");
-            setIsNewStudentModalOpen(true);
-          }}
-          className={`text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer shadow flex items-center gap-2 transition ${schoolContext === "BASIC_ED" ? "btn-primary-gradient" : "bg-blue-600 hover:bg-blue-700"}`}
-        >
-          <UserPlus className="w-4 h-4" />
-          Enroll New Candidate
-        </button>
-      </div>
+  const pendingQueueCount = onlineApplicationQueue.filter(
+    (application) =>
+      application.status === "Pending Registrar Review" ||
+      application.status === "For Completion",
+  ).length;
 
-      {/* SUB-TAB SELECTOR */}
-      <div className="flex border-b border-stone-200 bg-white p-2 rounded-xl border border-stsn-beige gap-2">
-        <button
-          onClick={() => {
-            setActiveSubTab("directory");
-            setBulkImportSuccess("");
-          }}
-          className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${activeSubTab === "directory" ? "btn-primary-gradient text-white shadow-sm" : "text-stone-500 hover:text-stone-800 hover:bg-stone-50"}`}
-        >
-          <Grid className="w-4 h-4" />
-          Admissions & Enrollment Directory
-        </button>
-        <button
-          onClick={() => {
-            setActiveSubTab("online_queue");
-            setBulkImportSuccess("");
-          }}
-          className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${activeSubTab === "online_queue" ? "btn-primary-gradient text-white shadow-sm" : "text-stone-500 hover:text-stone-800 hover:bg-stone-50"}`}
-        >
-          <Clock className="w-4 h-4" />
-          Online Review Queue
-          {onlineApplicationQueue.filter((application) => application.status === "Pending Registrar Review" || application.status === "For Completion").length > 0 && (
-            <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-              {onlineApplicationQueue.filter((application) => application.status === "Pending Registrar Review" || application.status === "For Completion").length}
+  return (
+    <div className="space-y-5 animate-fade-in font-sans">
+      <ModulePageHeader
+        variant={schoolContext === "BASIC_ED" ? "default" : "college"}
+        badge={schoolContext === "BASIC_ED" ? "K-12 Basic Education" : "Tertiary / College Division"}
+        badgeIcon={BookOpen}
+        title={schoolContext === "BASIC_ED" ? "Admissions & Enrollment" : "College Admissions & Enrollment"}
+        subtitle={`${schoolLabel} · ${contextStudents.length} ${contextStudents.length === 1 ? "student" : "students"} on record`}
+        meta="S.Y. 2026–2027"
+        actions={
+          <div className="flex flex-col sm:items-end gap-1.5">
+            <button
+              onClick={() => {
+                setDept(schoolContext === "BASIC_ED" ? "Basic Education" : "College");
+                setBeProgramCategory("Senior High School");
+                setYearLvl(schoolContext === "BASIC_ED" ? "Grade 11" : "1st Year");
+                setCourseCode(schoolContext === "BASIC_ED" ? "STEM" : "BSIT");
+                setCollegeCourse("BSIT");
+                setCollegeYear("1st Year");
+                setIsNewStudentModalOpen(true);
+              }}
+              className={`inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer ${
+                schoolContext === "BASIC_ED"
+                  ? "bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512]"
+                  : "bg-blue-400 hover:bg-blue-300 text-blue-950"
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              Enroll New Candidate
+            </button>
+            <span className="text-[10px] text-white/25 font-mono hidden sm:block">
+              {terms.studentIdLabel} &amp; {terms.trackNoun}
             </span>
-          )}
-        </button>
-        <button
-          onClick={() => {
-            setActiveSubTab("bulk_import");
-            resetImportPreview();
-          }}
-          className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${activeSubTab === "bulk_import" ? "btn-primary-gradient text-white shadow-sm" : "text-stone-500 hover:text-stone-800 hover:bg-stone-50"}`}
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          {terms.bulkImportLabel}
-        </button>
+          </div>
+        }
+      />
+
+      {/* SUB-TAB SELECTOR — tall segmented cards */}
+      <div className="grid grid-cols-3 gap-3">
+        {(
+          [
+            {
+              id: "directory" as const,
+              icon: Grid,
+              label: "Admissions & Directory",
+              sub: `${filteredStudents.length} student${filteredStudents.length !== 1 ? "s" : ""}`,
+              badge: 0,
+              onClick: () => { setActiveSubTab("directory"); setBulkImportSuccess(""); },
+            },
+            {
+              id: "online_queue" as const,
+              icon: Clock,
+              label: "Online Queue",
+              sub: pendingQueueCount > 0 ? `${pendingQueueCount} pending review` : "Applications inbox",
+              badge: pendingQueueCount,
+              onClick: () => { setActiveSubTab("online_queue"); setBulkImportSuccess(""); },
+            },
+            {
+              id: "bulk_import" as const,
+              icon: FileSpreadsheet,
+              label: terms.bulkImportLabel || "Bulk Import",
+              sub: "CSV / masterlist upload",
+              badge: 0,
+              onClick: () => { setActiveSubTab("bulk_import"); resetImportPreview(); },
+            },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={tab.onClick}
+            aria-selected={activeSubTab === tab.id}
+            className={`relative flex flex-col items-start gap-2.5 px-4 py-4 rounded-xl border transition-all cursor-pointer text-left group ${
+              activeSubTab === tab.id
+                ? schoolContext === "BASIC_ED"
+                  ? "bg-stsn-cream border-stsn-beige border-l-[3px] border-l-stsn-brown shadow-sm"
+                  : "bg-blue-50 border-blue-100 border-l-[3px] border-l-blue-600 shadow-sm"
+                : "bg-white border-stone-100 hover:border-stone-200 hover:shadow-sm"
+            }`}
+          >
+            <div
+              className={`p-2 rounded-lg transition-colors ${
+                activeSubTab === tab.id
+                  ? schoolContext === "BASIC_ED" ? "bg-stsn-brown/10" : "bg-blue-100"
+                  : "bg-stone-100 group-hover:bg-stone-150"
+              }`}
+            >
+              <tab.icon
+                className={`w-4 h-4 ${
+                  activeSubTab === tab.id
+                    ? schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"
+                    : "text-stone-500"
+                }`}
+              />
+            </div>
+            <div className="min-w-0 w-full">
+              <span
+                className={`text-xs font-bold block leading-tight ${
+                  activeSubTab === tab.id
+                    ? schoolContext === "BASIC_ED" ? "text-stsn-brown-dark" : "text-blue-900"
+                    : "text-stone-700"
+                }`}
+              >
+                {tab.label}
+              </span>
+              <span className="text-[10px] font-mono text-stone-400 block mt-0.5 truncate">{tab.sub}</span>
+            </div>
+            {tab.badge > 0 && (
+              <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center leading-none shadow-sm">
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* ===================== DIRECTORY TAB ===================== */}
       {activeSubTab === "directory" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-          {/* Left: Students Table */}
-          <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm lg:col-span-2 space-y-4">
-            <div className="flex justify-between items-center bg-stone-50 p-2.5 rounded-lg border border-stone-200">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-2.5 top-2.5 text-stone-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder={`Search ${schoolContext === "BASIC_ED" ? "learners" : "college students"} by name or ID...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none font-medium"
-                />
+        <>
+        {/* Enrollment Pipeline — divided metric bar */}
+        <div className="bg-white border border-stsn-beige rounded-xl overflow-hidden shadow-sm animate-fade-in">
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-stone-100">
+            {[
+              { label: "Total Students", value: enrollmentKpis.total, icon: Users, numColor: "text-stone-900", iconColor: "text-stone-300", bgClass: "", dotColor: "bg-stone-400", hint: "All statuses" },
+              { label: "Enrolled", value: enrollmentKpis.enrolled, icon: CheckCircle, numColor: "text-emerald-700", iconColor: "text-emerald-200", bgClass: "bg-emerald-50/60", dotColor: "bg-emerald-500", hint: "Cleared & enrolled" },
+              { label: "Pending / For Assessment", value: enrollmentKpis.pending, icon: Clock, numColor: "text-amber-700", iconColor: "text-amber-200", bgClass: "bg-amber-50/60", dotColor: "bg-amber-500", hint: "Requires action" },
+              { label: "Pending Online Apps", value: enrollmentKpis.pendingApps, icon: UserCheck, numColor: "text-blue-700", iconColor: "text-blue-200", bgClass: "bg-blue-50/60", dotColor: "bg-blue-500", hint: "In review queue" },
+            ].map((kpi) => (
+              <div key={kpi.label} className={`px-5 py-5 ${kpi.bgClass}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${kpi.dotColor}`} />
+                      <span className="text-[9px] font-mono font-bold text-stone-400 uppercase tracking-wider truncate">{kpi.label}</span>
+                    </div>
+                    <p className={`text-3xl font-black leading-none ${kpi.numColor}`}>{kpi.value}</p>
+                    <p className="text-[10px] text-stone-400 mt-2">{kpi.hint}</p>
+                  </div>
+                  <kpi.icon className={`w-6 h-6 flex-shrink-0 mt-0.5 ${kpi.iconColor}`} />
+                </div>
               </div>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fade-in">
+          {/* Left: Students Table */}
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm lg:col-span-2 overflow-hidden">
+            {/* Search & Filter Bar */}
+            <div className="px-4 py-3 border-b border-stone-100 space-y-2.5">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-md p-1">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder={`Search ${schoolContext === "BASIC_ED" ? "learners" : "students"} by name or ID…`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search students"
+                    className={`w-full h-10 bg-stone-50 border border-stone-200 rounded-xl py-0 pl-10 pr-10 text-sm focus:ring-2 focus:outline-none ${schoolContext === "BASIC_ED" ? "focus:ring-stsn-brown/20 focus:border-stsn-brown" : "focus:ring-blue-500/20 focus:border-blue-500"}`}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      aria-label="Clear search"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                  aria-label="Filter by enrollment status"
+                  className={`h-10 bg-white border border-stone-200 rounded-xl px-3 text-xs font-semibold focus:outline-none focus:ring-2 cursor-pointer ${schoolContext === "BASIC_ED" ? "focus:ring-stsn-brown/20 focus:border-stsn-brown" : "focus:ring-blue-500/20 focus:border-blue-500"}`}
+                >
+                  <option value="All">All Status</option>
+                  <option value="Enrolled">Enrolled</option>
+                  <option value="Pending">Pending / For Assessment</option>
+                  <option value="For Assessment">For Assessment</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {(["All", "Online", "Walk-in/ERP"] as const).map((filter) => (
                     <button
                       key={filter}
                       type="button"
                       onClick={() => setSourceFilter(filter)}
-                      className={`px-2 py-1 rounded text-[9.5px] font-bold transition ${
+                      className={`h-7 px-3 rounded-full text-[11px] font-bold border transition cursor-pointer ${
                         sourceFilter === filter
                           ? schoolContext === "BASIC_ED"
-                            ? "bg-stsn-brown text-white"
-                            : "bg-blue-600 text-white"
-                          : "text-stone-500 hover:bg-stone-50"
+                            ? "bg-stsn-brown text-white border-stsn-brown shadow-sm"
+                            : "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:bg-stone-50"
                       }`}
                     >
                       {filter}
                     </button>
                   ))}
+                  {(sourceFilter !== "All" || statusFilter !== "All" || searchQuery) && (
+                    <button
+                      type="button"
+                      onClick={() => { setSourceFilter("All"); setStatusFilter("All"); setSearchQuery(""); }}
+                      className="h-7 px-2.5 rounded-full text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-0.5 border border-red-100 bg-red-50 hover:bg-red-100 transition cursor-pointer"
+                    >
+                      <X className="w-3 h-3" /> Clear filters
+                    </button>
+                  )}
                 </div>
-                <span
-                  className={`text-[9px] font-mono px-2 py-0.5 rounded border font-bold ${schoolBadgeClass}`}
-                >
-                  {schoolContext === "BASIC_ED" ? "Basic Ed" : "College"}
-                </span>
-                <span className="text-[10px] text-stone-400 font-mono">
-                  Found: {filteredStudents.length}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${schoolBadgeClass}`}>
+                    {schoolContext === "BASIC_ED" ? "Basic Ed" : "College"}
+                  </span>
+                  <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">
+                    {filteredStudents.length} result{filteredStudents.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1413,6 +1528,7 @@ export default function RegistrarModule() {
               emptyMessage="No students found."
               searchable={false}
               selectedId={selectedStudent?.id}
+              className="px-3 pb-3"
               onRowClick={(stud) => {
                 setSelectedStudent(stud);
                 setDetailTab("info");
@@ -1428,47 +1544,87 @@ export default function RegistrarModule() {
           </div>
 
           {/* Right: Student Detail Panel */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {selectedStudent ? (
-              <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
-                {/* Header */}
+              <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in lg:sticky lg:top-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+                {/* Profile Header — Identity Card */}
                 <div
-                  className={`p-4 ${schoolContext === "BASIC_ED" ? "bg-gradient-to-r from-stsn-brown-dark to-stsn-brown" : "bg-gradient-to-r from-blue-800 to-blue-600"} text-white`}
+                  className={`relative px-5 pt-5 pb-4 ${
+                    schoolContext === "BASIC_ED"
+                      ? "bg-gradient-to-br from-[#1C1512] via-[#2a1a10] to-[#3a2418]"
+                      : "bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#1d4ed8]"
+                  }`}
                 >
-                  <span className="text-[9px] font-mono uppercase tracking-widest text-white/70 block">
-                    Admissions Desk — {schoolLabel}
-                  </span>
-                  <h3 className="text-base font-display font-bold text-white mt-1">
-                    {selectedStudent.lastName}, {selectedStudent.firstName}
-                  </h3>
-                  <p className="text-xs text-white/70 mt-0.5">
-                    {selectedStudent.studentNo} •{" "}
-                    {selectedStudent.trackOrCourse}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/15 border border-white/20">
-                      {selectedSourceLabel}
-                    </span>
-                    {selectedEnrollment?.completionStatus === "Incomplete" && (
-                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-200/90 text-amber-950">
-                        Incomplete
-                      </span>
-                    )}
+                  <div className="flex items-start gap-3.5">
+                    {/* Avatar circle */}
+                    <div
+                      className={`w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-base font-black border ${
+                        schoolContext === "BASIC_ED"
+                          ? "bg-[#C5A059]/20 border-[#C5A059]/30 text-[#C5A059]"
+                          : "bg-blue-400/20 border-blue-400/30 text-blue-300"
+                      }`}
+                    >
+                      {`${selectedStudent.firstName.charAt(0)}${selectedStudent.lastName.charAt(0)}`.toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[9px] font-mono uppercase tracking-widest text-white/40 leading-none mb-1">
+                        Admissions Desk · {schoolLabel}
+                      </p>
+                      <h3 className="text-[15px] font-black text-white leading-tight">
+                        {selectedStudent.lastName}, {selectedStudent.firstName}
+                        {selectedStudent.middleName ? ` ${selectedStudent.middleName.charAt(0)}.` : ""}
+                      </h3>
+                      <p className="text-white/50 text-[10px] font-mono mt-0.5">
+                        {selectedStudent.studentNo}
+                        {selectedStudent.yearLevel ? ` · ${selectedStudent.yearLevel}` : ""}
+                        {selectedStudent.trackOrCourse ? ` · ${selectedStudent.trackOrCourse}` : ""}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <span
+                          className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                            selectedStudent.enrollmentStatus === "Enrolled"
+                              ? "bg-emerald-400/20 border-emerald-300/50 text-emerald-100"
+                              : selectedStudent.enrollmentStatus === "Rejected"
+                                ? "bg-red-400/20 border-red-300/50 text-red-100"
+                                : "bg-amber-400/20 border-amber-300/50 text-amber-100"
+                          }`}
+                        >
+                          {selectedStudent.enrollmentStatus}
+                        </span>
+                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-white/80">
+                          {selectedSourceLabel}
+                        </span>
+                        {selectedEnrollment?.completionStatus === "Incomplete" && (
+                          <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-300/80 text-amber-950">
+                            Incomplete
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
+                  {/* Gold accent line */}
+                  <div
+                    className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+                      schoolContext === "BASIC_ED"
+                        ? "bg-gradient-to-r from-[#C5A059]/0 via-[#C5A059] to-[#C5A059]/0"
+                        : "bg-gradient-to-r from-blue-400/0 via-blue-400 to-blue-400/0"
+                    }`}
+                  />
                 </div>
 
-                {/* Detail Tabs */}
-                <div className="flex gap-0.5 bg-stone-50 p-1 border-b border-stone-100 overflow-x-auto">
+                {/* Detail Tabs — underline style */}
+                <div className="flex gap-0 bg-white border-b border-stone-100 overflow-x-auto scrollbar-hide">
                   {getDetailTabs().map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setDetailTab(tab.id)}
-                      className={`px-2 py-1.5 text-[10px] font-bold rounded-md whitespace-nowrap transition ${
+                      aria-selected={detailTab === tab.id}
+                      className={`px-3 py-2.5 text-[10px] font-bold whitespace-nowrap transition-all focus:outline-none flex-shrink-0 ${
                         detailTab === tab.id
                           ? schoolContext === "BASIC_ED"
-                            ? "bg-stsn-brown text-white"
-                            : "bg-blue-600 text-white"
-                          : "text-stone-500 hover:bg-stone-100"
+                            ? "text-stsn-brown border-b-2 border-stsn-brown -mb-px bg-stsn-cream/40"
+                            : "text-blue-600 border-b-2 border-blue-600 -mb-px bg-blue-50/40"
+                          : "text-stone-400 hover:text-stone-700 hover:bg-stone-50 border-b-2 border-transparent"
                       }`}
                     >
                       {tab.label}
@@ -1483,41 +1639,38 @@ export default function RegistrarModule() {
                       <h4 className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-widest">
                         Personal Information
                       </h4>
-                      {[
+                      {([
                         [
                           "Full Name",
-                          `${selectedStudent.lastName}, ${selectedStudent.firstName} ${selectedStudent.middleName}`,
+                          `${selectedStudent.lastName}, ${selectedStudent.firstName}${selectedStudent.middleName ? ` ${selectedStudent.middleName}` : ""}`,
                         ],
                         ["Student No.", selectedStudent.studentNo],
+                        ["LRN", selectedStudent.lrn],
                         ["Gender", selectedStudent.gender],
-                        [
-                          "Contact",
-                          selectedStudent.contactNo || "+63 917 000 0000",
-                        ],
+                        ["Birthday", selectedStudent.birthday],
+                        ["Contact", selectedStudent.contactNo],
                         ["Email", selectedStudent.email],
-                        ["Address", selectedStudent.address || "N/A"],
-                        [
-                          "Municipality",
-                          selectedStudent.municipality || "Quezon City",
-                        ],
-                        [
-                          "Province",
-                          selectedStudent.province || "Metro Manila",
-                        ],
-                      ].map(([label, val]) => (
+                        ["Address", selectedStudent.address],
+                        ["Municipality", selectedStudent.municipality],
+                        ["Province", selectedStudent.province],
+                      ] as [string, string | undefined][]).map(([label, val]) => (
                         <div
                           key={label}
-                          className="flex justify-between items-start gap-2 py-1.5 border-b border-stone-50"
+                          className="flex justify-between items-start gap-2 py-1.5 border-b border-stone-50 last:border-0"
                         >
-                          <span className="text-stone-400 font-mono text-[10px] uppercase flex-shrink-0">
-                            {label}:
+                          <span className="text-stone-400 font-mono text-[9px] uppercase flex-shrink-0">
+                            {label}
                           </span>
-                          <span
-                            className="font-semibold text-stone-800 text-right max-w-[160px] truncate"
-                            title={val}
-                          >
-                            {val}
-                          </span>
+                          {val ? (
+                            <span
+                              className="font-semibold text-stone-800 text-right max-w-[170px] break-words"
+                              title={val}
+                            >
+                              {val}
+                            </span>
+                          ) : (
+                            <span className="text-stone-300 italic text-[10px]">—</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1529,32 +1682,69 @@ export default function RegistrarModule() {
                       <h4 className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-widest">
                         Guardian / Parent Information
                       </h4>
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[10.5px] flex items-start gap-2">
-                        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                        <span>
-                          Guardian information is required for all Basic
-                          Education learners (DepEd mandate).
-                        </span>
-                      </div>
-                      {[
-                        ["Guardian / Parent Name", "Mr./Mrs. Guardian Name"],
-                        ["Relationship", "Parent / Guardian"],
-                        ["Contact No.", "+63 917 000 0000"],
-                        ["Home Address", selectedStudent.address || "N/A"],
-                        ["Email (optional)", "guardian@email.com"],
-                      ].map(([label, val]) => (
-                        <div
-                          key={label}
-                          className="py-1.5 border-b border-stone-50"
-                        >
-                          <span className="text-stone-400 font-mono text-[9px] uppercase block">
-                            {label}
-                          </span>
-                          <span className="font-semibold text-stone-800">
-                            {val}
-                          </span>
+                      {selectedOnlineApplication?.guardianName ? (
+                        <>
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[10.5px] flex items-start gap-2">
+                            <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                            <span>
+                              Guardian information is required for all Basic
+                              Education learners (DepEd mandate). Data sourced
+                              from online enrollment application.
+                            </span>
+                          </div>
+                          {([
+                            ["Guardian / Parent Name", selectedOnlineApplication.guardianName],
+                            ["Relationship", selectedOnlineApplication.guardianRelationship],
+                            ["Contact No.", selectedOnlineApplication.guardianContactNo],
+                            ["Home Address", selectedOnlineApplication.completeAddress || selectedStudent.address],
+                            ["Email", selectedOnlineApplication.guardianEmail],
+                          ] as [string, string | undefined][]).map(([label, val]) => (
+                            <div
+                              key={label}
+                              className="flex justify-between items-start gap-2 py-1.5 border-b border-stone-50 last:border-0"
+                            >
+                              <span className="text-stone-400 font-mono text-[9px] uppercase flex-shrink-0">
+                                {label}
+                              </span>
+                              <span className="font-semibold text-stone-800 text-right max-w-[180px] break-words">
+                                {val || <span className="text-stone-300 italic font-normal">Not provided</span>}
+                              </span>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[10.5px] flex items-start gap-2">
+                            <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                            <span>
+                              Guardian information is required for all Basic
+                              Education learners (DepEd mandate).
+                            </span>
+                          </div>
+                          <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl text-center">
+                            <Users className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                            <p className="text-[11px] font-semibold text-stone-600">
+                              Guardian info not yet captured
+                            </p>
+                            <p className="text-[10px] text-stone-400 mt-1">
+                              This student was enrolled via walk-in or ERP. Guardian
+                              details are collected through the online enrollment form.
+                            </p>
+                          </div>
+                          {selectedStudent.address && (
+                            <div className="py-1.5 border-b border-stone-50">
+                              <span className="text-stone-400 font-mono text-[9px] uppercase block">
+                                Student Address (on file)
+                              </span>
+                              <span className="font-semibold text-stone-800">
+                                {selectedStudent.address}
+                                {selectedStudent.municipality ? `, ${selectedStudent.municipality}` : ""}
+                                {selectedStudent.province ? `, ${selectedStudent.province}` : ""}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
 
@@ -3009,43 +3199,101 @@ export default function RegistrarModule() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white p-12 rounded-xl border border-stsn-beige shadow-sm text-center">
-                <FileCheck className="w-10 h-10 text-stone-300 mx-auto" />
-                <p className="text-xs text-stone-400 mt-2 font-medium">
-                  Select a student from the directory to view their admissions
-                  detail.
-                </p>
+              <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+                <div
+                  className={`h-1.5 ${schoolContext === "BASIC_ED" ? "btn-primary-gradient" : "bg-blue-600"}`}
+                />
+                <div className="p-10 text-center">
+                  <div
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${schoolContext === "BASIC_ED" ? "bg-stsn-cream border border-stsn-beige" : "bg-blue-50 border border-blue-100"}`}
+                  >
+                    <FileCheck
+                      className={`w-8 h-8 ${schoolContext === "BASIC_ED" ? "text-stsn-brown/40" : "text-blue-400"}`}
+                    />
+                  </div>
+                  <h4 className="text-sm font-display font-semibold text-stone-700">
+                    No student selected
+                  </h4>
+                  <p className="text-[11px] text-stone-400 mt-1.5 max-w-[200px] mx-auto leading-relaxed">
+                    Select a student from the directory to review their
+                    admissions profile and take action.
+                  </p>
+                  <div className="mt-5 flex flex-col gap-2 text-[10px] text-stone-400">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                      <span>{enrollmentKpis.enrolled} enrolled</span>
+                      <span className="mx-1 text-stone-300">·</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                      <span>{enrollmentKpis.pending} pending</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
+        </>
       )}
 
       {activeSubTab === "online_queue" && (
-        <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4 animate-fade-in">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-stsn-gold font-bold">
-                Registrar Application Review
-              </span>
-              <h3 className="text-base font-display font-bold text-stone-900 mt-1">
-                Online Enrollment Queue
-              </h3>
-              <p className="text-xs text-stone-500 mt-1">
-                Review submitted online applications, request completion, accept for assessment, or reject with an auditable status.
-              </p>
+        <div className="rounded-2xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
+          {/* Queue header bar */}
+          <div
+            className={`px-6 pt-5 pb-5 ${
+              schoolContext === "BASIC_ED"
+                ? "bg-gradient-to-br from-[#1C1512] via-[#2a1a10] to-[#3a2418]"
+                : "bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#1d4ed8]"
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
+              <div>
+                <span
+                  className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
+                    schoolContext === "BASIC_ED" ? "text-[#C5A059]" : "text-blue-300"
+                  }`}
+                >
+                  Registrar Application Review
+                </span>
+                <h3 className="text-xl font-black text-white mt-1 leading-tight">Online Enrollment Queue</h3>
+                <p className="text-white/50 text-xs mt-1.5">
+                  Review submitted applications, request completion, accept for assessment, or reject with an auditable status.
+                </p>
+              </div>
+              <div className="text-white/40 text-[10px] font-mono whitespace-nowrap">
+                {onlineApplicationQueue.length} total application{onlineApplicationQueue.length !== 1 ? "s" : ""}
+              </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
-              {(["Pending Registrar Review", "For Completion", "Accepted", "Rejected", "Cancelled"] as const).map((status) => (
-                <div key={status} className="px-3 py-2 rounded-lg border border-stone-100 bg-stone-50">
-                  <p className="text-lg font-display font-black text-stone-800">
+          </div>
+          <div
+            className={`h-0.5 ${
+              schoolContext === "BASIC_ED"
+                ? "bg-gradient-to-r from-[#C5A059]/0 via-[#C5A059] to-[#C5A059]/0"
+                : "bg-gradient-to-r from-blue-400/0 via-blue-400 to-blue-400/0"
+            }`}
+          />
+          <div className="bg-white p-6 space-y-4">
+            {/* Status pipeline breakdown */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {(
+                [
+                  { status: "Pending Registrar Review" as const, bg: "bg-amber-50", border: "border-amber-200", numColor: "text-amber-700", dotColor: "bg-amber-500", shortLabel: "Pending Review" },
+                  { status: "For Completion" as const, bg: "bg-blue-50", border: "border-blue-200", numColor: "text-blue-700", dotColor: "bg-blue-500", shortLabel: "For Completion" },
+                  { status: "Accepted" as const, bg: "bg-emerald-50", border: "border-emerald-200", numColor: "text-emerald-700", dotColor: "bg-emerald-500", shortLabel: "Accepted" },
+                  { status: "Rejected" as const, bg: "bg-red-50", border: "border-red-200", numColor: "text-red-700", dotColor: "bg-red-500", shortLabel: "Rejected" },
+                  { status: "Cancelled" as const, bg: "bg-stone-50", border: "border-stone-200", numColor: "text-stone-600", dotColor: "bg-stone-400", shortLabel: "Cancelled" },
+                ] as const
+              ).map(({ status, bg, border, numColor, dotColor, shortLabel }) => (
+                <div key={status} className={`px-3 py-3 rounded-xl border ${bg} ${border}`}>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
+                    <span className="text-[9px] font-mono text-stone-400 uppercase truncate">{shortLabel}</span>
+                  </div>
+                  <p className={`text-2xl font-black leading-none ${numColor}`}>
                     {onlineApplicationQueue.filter((application) => application.status === status).length}
                   </p>
-                  <p className="text-[9px] text-stone-400 font-mono uppercase">{status}</p>
                 </div>
               ))}
             </div>
-          </div>
 
           {/* Bulk action bar — only shown when there are pending applications */}
           {pendingOnlineApps.length > 0 && (
@@ -3098,35 +3346,61 @@ export default function RegistrarModule() {
               }
             }}
           />
+          </div>
         </div>
       )}
 
       {/* ===================== BULK IMPORT TAB ===================== */}
       {activeSubTab === "bulk_import" && (
-        <div className="bg-white p-6 border border-stsn-beige rounded-xl shadow-sm space-y-6 animate-fade-in">
-          <div className="border-b border-stone-100 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h3 className="text-base font-display font-bold text-stone-900 flex items-center gap-2">
-                <FileSpreadsheet
-                  className={`w-5 h-5 ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"}`}
-                />
-                {schoolContext === "BASIC_ED"
-                  ? "DepEd Learner Excel Upload Portal"
-                  : "CHEd College Student Masterlist Upload"}
-              </h3>
-              <p className="text-[11px] text-stone-500 mt-1">
-                Use the official template so LRN, Grade 11/12 strand, guardian, requirement, and enrollment markers line up with staging.
-              </p>
+        <div className="rounded-2xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
+          {/* Import header bar */}
+          <div
+            className={`px-6 pt-5 pb-5 ${
+              schoolContext === "BASIC_ED"
+                ? "bg-gradient-to-br from-[#1C1512] via-[#2a1a10] to-[#3a2418]"
+                : "bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#1d4ed8]"
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
+              <div>
+                <span
+                  className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
+                    schoolContext === "BASIC_ED" ? "text-[#C5A059]" : "text-blue-300"
+                  }`}
+                >
+                  Batch Data Entry
+                </span>
+                <h3 className="text-xl font-black text-white mt-1 leading-tight">
+                  {schoolContext === "BASIC_ED"
+                    ? "DepEd Learner Excel Upload Portal"
+                    : "CHEd College Student Masterlist Upload"}
+                </h3>
+                <p className="text-white/50 text-xs mt-1.5">
+                  Use the official template so LRN, Grade 11/12 strand, guardian, requirement, and enrollment markers line up with staging.
+                </p>
+              </div>
+              <a
+                href="/templates/registrar-student-masterlist-template.csv"
+                download
+                className={`inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border transition flex-shrink-0 ${
+                  schoolContext === "BASIC_ED"
+                    ? "border-[#C5A059]/40 text-[#C5A059] hover:bg-[#C5A059]/10"
+                    : "border-blue-400/40 text-blue-300 hover:bg-blue-400/10"
+                }`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download CSV Template
+              </a>
             </div>
-            <a
-              href="/templates/registrar-student-masterlist-template.csv"
-              download
-              className={`inline-flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg border transition ${schoolContext === "BASIC_ED" ? "border-stsn-beige text-stsn-brown hover:bg-stsn-cream" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
-            >
-              <Download className="w-3.5 h-3.5" />
-              Download CSV Template
-            </a>
           </div>
+          <div
+            className={`h-0.5 ${
+              schoolContext === "BASIC_ED"
+                ? "bg-gradient-to-r from-[#C5A059]/0 via-[#C5A059] to-[#C5A059]/0"
+                : "bg-gradient-to-r from-blue-400/0 via-blue-400 to-blue-400/0"
+            }`}
+          />
+          <div className="bg-white p-6 space-y-6">
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {(["masterlist", "roster"] as const).map((type) => (
@@ -3385,387 +3659,51 @@ export default function RegistrarModule() {
               )}
             </div>
           )}
+          </div>
         </div>
       )}
 
       {/* ===================== ENROLLMENT FORM MODAL ===================== */}
-      {isNewStudentModalOpen && (
-        <div className="app-modal-backdrop z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div
-              className={`text-white p-4 flex items-center justify-between ${schoolContext === "BASIC_ED" ? "modal-header-gradient" : "bg-gradient-to-r from-blue-800 to-blue-600"}`}
-            >
-              <h3 className="font-display font-semibold text-base flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-stsn-gold" />
-                {schoolContext === "BASIC_ED" ? "Basic Ed" : "College"} Student
-                Enrollment Form
-              </h3>
-              <button
-                onClick={() => setIsNewStudentModalOpen(false)}
-                className="p-1 hover:bg-white/10 rounded-lg cursor-pointer"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-
-            <EnrollmentWizard
-              schoolContext={schoolContext}
-              onCancel={() => setIsNewStudentModalOpen(false)}
-              onSubmit={({ firstName, lastName, middleName, gender, dept, yearLevel, trackOrCourse, subjectCodes, enrollmentType }) => {
-                const baseNewStudent = addStudent({
-                  firstName, lastName, middleName, gender,
-                  civilStatus: "Single", religion: "Catholic", nationality: "Filipino",
-                  birthday: "2008-01-01", birthplace: "Quezon City",
-                  email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@stsn.edu.ph`,
-                  contactNo: "+639170000000",
-                  address: dept === "College" ? "Novaliches, QC" : "Zabarte Subdivision",
-                  province: "Metro Manila", municipality: "Quezon City", zipCode: "1123",
-                  department: dept, yearLevel, trackOrCourse, section: "",
-                  enrollmentStatus: "Pending",
-                });
-                submitNewEnrollment({
-                  studentId: baseNewStudent.id,
-                  schoolYear: "2026-2027",
-                  semester: dept === "College" ? "First Semester" : "N/A",
-                  enrollmentType,
-                  subjectCodes,
-                  status: "Pending",
-                  submittedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
-                });
-                setIsNewStudentModalOpen(false);
-                setFormStep(1);
-                setFirstName(""); setLastName(""); setMiddleName("");
-                setSelectedSubjectCodes([]);
-                setSelectedStudent(baseNewStudent);
-              }}
-            />
-
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {(false as boolean) && <div className="p-6 bg-stsn-cream flex-1 overflow-y-auto space-y-4">
-              {/* STEP 1 */}
-              {formStep === 1 && (
-                <div className="space-y-4 bg-white p-5 rounded-xl border border-stsn-beige animate-fade-in">
-                  <h4 className="text-xs font-bold text-stsn-brown uppercase">
-                    Student Biometrics
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                        Last Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Dela Cruz"
-                        className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                        First Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="Maria"
-                        className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                        Middle Name
-                      </label>
-                      <input
-                        type="text"
-                        value={middleName}
-                        onChange={(e) => setMiddleName(e.target.value)}
-                        placeholder="Santos"
-                        className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                        Gender *
-                      </label>
-                      <select
-                        value={gender}
-                        onChange={(e: any) => setGender(e.target.value)}
-                        className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold"
-                      >
-                        <option>Male</option>
-                        <option>Female</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end pt-2">
-                    <button
-                      disabled={!firstName || !lastName}
-                      onClick={() => setFormStep(2)}
-                      className={`disabled:bg-stone-300 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 ${schoolContext === "BASIC_ED" ? "btn-primary-gradient" : "bg-blue-600 hover:bg-blue-700"}`}
-                    >
-                      Continue <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 2 */}
-              {formStep === 2 && (
-                <div className="space-y-4 bg-white p-5 rounded-xl border border-stsn-beige animate-fade-in">
-                  <h4 className="text-xs font-bold text-stsn-brown uppercase">
-                    Academic Program Setup
-                  </h4>
-                  {schoolContext === "BASIC_ED" ? (
-                    <>
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                          Program Category
-                        </label>
-                        <select
-                          value={beProgramCategory}
-                          onChange={(e) =>
-                            handleBeCategoryChange(e.target.value)
-                          }
-                          className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold"
-                        >
-                          {Object.keys(BE_PROGRAM_CATEGORIES).map((cat) => (
-                            <option key={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                          Year Level / Grade
-                        </label>
-                        <select
-                          value={yearLvl}
-                          onChange={(e) => handleBeYearChange(e.target.value)}
-                          className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold"
-                        >
-                          {(BE_PROGRAM_CATEGORIES[beProgramCategory] || []).map(
-                            (lvl) => (
-                              <option key={lvl}>{lvl}</option>
-                            ),
-                          )}
-                        </select>
-                      </div>
-                      {(BE_STRANDS_BY_LEVEL[yearLvl] || []).length > 1 && (
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                            Strand / Track
-                          </label>
-                          <select
-                            value={courseCode}
-                            onChange={(e) => setCourseCode(e.target.value)}
-                            className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-stsn-gold"
-                          >
-                            {(BE_STRANDS_BY_LEVEL[yearLvl] || []).map((s) => (
-                              <option key={s}>{s}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                          College Program
-                        </label>
-                        <select
-                          value={collegeCourse}
-                          onChange={(e) => setCollegeCourse(e.target.value)}
-                          className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          {courses
-                            .filter((c) => c.department === "College")
-                            .map((c) => (
-                              <option key={c.id} value={c.code}>
-                                {c.code} — {c.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">
-                          Year Level
-                        </label>
-                        <select
-                          value={collegeYear}
-                          onChange={(e) => setCollegeYear(e.target.value)}
-                          className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-2.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          {["1st Year", "2nd Year", "3rd Year", "4th Year"].map(
-                            (y) => (
-                              <option key={y}>{y}</option>
-                            ),
-                          )}
-                        </select>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex justify-between pt-2">
-                    <button
-                      onClick={() => setFormStep(1)}
-                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer"
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={() => {
-                        const defaults = subjects
-                          .filter((s) => {
-                            if (schoolContext === "COLLEGE")
-                              return (
-                                s.department === "College" &&
-                                s.trackOrCourse === collegeCourse
-                              );
-                            return (
-                              s.department === "Basic Education" &&
-                              s.trackOrCourse === courseCode &&
-                              s.yearLevel === yearLvl
-                            );
-                          })
-                          .map((s) => s.code);
-                        setSelectedSubjectCodes(defaults);
-                        setFormStep(3);
-                      }}
-                      className={`text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 ${schoolContext === "BASIC_ED" ? "btn-primary-gradient" : "bg-blue-600 hover:bg-blue-700"}`}
-                    >
-                      Subject Setup <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 3 */}
-              {formStep === 3 && (
-                <div className="space-y-4 bg-white p-5 rounded-xl border border-stsn-beige animate-fade-in">
-                  <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-                    <h4 className="text-xs font-bold text-stsn-brown uppercase">
-                      Subject Load Setup
-                    </h4>
-                    {schoolContext === "COLLEGE" && (
-                      <button
-                        onClick={() => setIsIrregular(!isIrregular)}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer ${isIrregular ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-stone-50 border-stone-200 text-stone-500"}`}
-                      >
-                        {isIrregular
-                          ? "✓ Irregular Student"
-                          : "Mark as Irregular"}
-                      </button>
-                    )}
-                  </div>
-                  <div className="border border-stone-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr
-                          className={`text-[10px] font-bold uppercase text-white ${schoolContext === "BASIC_ED" ? "bg-stsn-brown" : "bg-blue-600"}`}
-                        >
-                          <th className="p-2.5">Code</th>
-                          <th className="p-2.5">Subject</th>
-                          <th className="p-2.5 text-center">
-                            {schoolContext === "COLLEGE" ? "Units" : "Type"}
-                          </th>
-                          <th className="p-2.5 text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-stone-100">
-                        {currentAvailableSubjects.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={4}
-                              className="p-4 text-center text-stone-400 italic"
-                            >
-                              No subjects available for this level.
-                            </td>
-                          </tr>
-                        ) : (
-                          currentAvailableSubjects.map((sub) => {
-                            const isSel = selectedSubjectCodes.includes(
-                              sub.code,
-                            );
-                            return (
-                              <tr
-                                key={sub.id}
-                                className={`hover:bg-stone-50 ${isSel ? "bg-stsn-cream/30" : ""}`}
-                              >
-                                <td
-                                  className={`p-2.5 font-mono font-bold text-[11px] ${schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-700"}`}
-                                >
-                                  {sub.code}
-                                </td>
-                                <td className="p-2.5 text-stone-700 font-medium">
-                                  {sub.name}
-                                </td>
-                                <td className="p-2.5 text-center font-bold font-mono">
-                                  {schoolContext === "COLLEGE"
-                                    ? sub.units || "—"
-                                    : "K-12"}
-                                </td>
-                                <td className="p-2.5 text-center">
-                                  <button
-                                    onClick={() =>
-                                      isSel
-                                        ? setSelectedSubjectCodes(
-                                            selectedSubjectCodes.filter(
-                                              (c) => c !== sub.code,
-                                            ),
-                                          )
-                                        : setSelectedSubjectCodes([
-                                            ...selectedSubjectCodes,
-                                            sub.code,
-                                          ])
-                                    }
-                                    className={`text-[9px] font-bold px-2 py-0.5 rounded border cursor-pointer transition ${isSel ? "bg-red-50 border-red-200 text-red-600" : "bg-green-50 border-green-200 text-green-700"}`}
-                                  >
-                                    {isSel ? "Remove" : "Add"}
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div
-                    className={`p-3 rounded-lg border text-xs font-mono flex justify-between items-center ${schoolContext === "BASIC_ED" ? "bg-stsn-cream border-stsn-beige text-stsn-brown" : "bg-blue-50 border-blue-100 text-blue-800"}`}
-                  >
-                    <span>
-                      Total Subjects:{" "}
-                      <strong>{selectedSubjectCodes.length}</strong>
-                    </span>
-                    {schoolContext === "COLLEGE" && (
-                      <span>
-                        Total Units: <strong>{totalUnits}</strong>
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <button
-                      onClick={() => setFormStep(2)}
-                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer"
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={handleCreateStudent}
-                      className={`text-white text-xs font-bold px-5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer ${schoolContext === "BASIC_ED" ? "btn-gold-gradient" : "bg-green-600 hover:bg-green-700"}`}
-                    >
-                      <CheckCircle className="w-4 h-4" /> Finalize Registration
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>}
-          </div>
-        </div>
-      )}
+      <AppModal
+        open={isNewStudentModalOpen}
+        title={`${schoolContext === "BASIC_ED" ? "Basic Ed" : "College"} Student Enrollment Form`}
+        icon={UserPlus}
+        onClose={() => setIsNewStudentModalOpen(false)}
+        maxWidthClass="max-w-xl"
+        bodyClassName="p-0 overflow-hidden"
+      >
+        <EnrollmentWizard
+          schoolContext={schoolContext}
+          onCancel={() => setIsNewStudentModalOpen(false)}
+          onSubmit={({ firstName, lastName, middleName, gender, dept, yearLevel, trackOrCourse, subjectCodes, enrollmentType }) => {
+            const baseNewStudent = addStudent({
+              firstName, lastName, middleName, gender,
+              civilStatus: "Single", religion: "Catholic", nationality: "Filipino",
+              birthday: "2008-01-01", birthplace: "Quezon City",
+              email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@stsn.edu.ph`,
+              contactNo: "+639170000000",
+              address: dept === "College" ? "Novaliches, QC" : "Zabarte Subdivision",
+              province: "Metro Manila", municipality: "Quezon City", zipCode: "1123",
+              department: dept, yearLevel, trackOrCourse, section: "",
+              enrollmentStatus: "Pending",
+            });
+            submitNewEnrollment({
+              studentId: baseNewStudent.id,
+              schoolYear: "2026-2027",
+              semester: dept === "College" ? "First Semester" : "N/A",
+              enrollmentType,
+              subjectCodes,
+              status: "Pending",
+              submittedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
+            });
+            setIsNewStudentModalOpen(false);
+            setFormStep(1);
+            setFirstName(""); setLastName(""); setMiddleName("");
+            setSelectedSubjectCodes([]);
+            setSelectedStudent(baseNewStudent);
+          }}
+        />
+      </AppModal>
 
       {/* COR MODAL — dynamic logo based on school context */}
       <PreviewModal

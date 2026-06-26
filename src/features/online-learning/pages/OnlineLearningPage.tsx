@@ -30,6 +30,7 @@ import {
   Monitor,
   FileIcon
 } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 type LMSTab = "browse" | "manage" | "upload";
 
@@ -398,31 +399,24 @@ export default function OnlineLearning() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-stsn-brown to-stsn-gold flex items-center justify-center">
-              <Monitor className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-display font-black text-stsn-brown leading-none">Online Learning</h1>
-              <p className="text-[10px] font-mono text-stone-400 uppercase tracking-widest">LMS — Digital Classroom</p>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isTeacher && (
+      <ModulePageHeader
+        badge="LMS"
+        badgeIcon={Monitor}
+        title="Online Learning"
+        subtitle="Digital classroom — browse, manage, and upload course materials"
+        meta="Digital Classroom"
+        actions={
+          isTeacher ? (
             <button
               onClick={() => handleOpenUpload()}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-stsn-brown to-stsn-brown-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#C5A059] hover:bg-[#b8924a] text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Upload Material
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -164,7 +164,7 @@ export default function ConsultationModule() {
     return tea ? `${tea.lastName}, ${tea.firstName}` : "Unknown";
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.requestedBy.trim() || !form.purpose.trim()) {
       toast("Please fill in Requested By and Purpose fields.");
       return;
@@ -183,8 +183,7 @@ export default function ConsultationModule() {
       status: "Pending",
       remarks: form.remarks || undefined,
     };
-    setAppointments((prev) => [newAppt, ...prev]);
-    dbInsert("consultation_appointments", {
+    const error = await dbInsert("consultation_appointments", {
       id,
       studentId: form.studentId || null,
       teacherId: form.teacherId || null,
@@ -197,14 +196,24 @@ export default function ConsultationModule() {
       status: "Pending",
       remarks: form.remarks || null,
     });
+    if (error) {
+      toast("Unable to submit consultation request. Please try again.");
+      return;
+    }
+    setAppointments((prev) => [newAppt, ...prev]);
     setShowForm(false);
     setForm(DEFAULT_FORM);
     toast("Consultation request submitted.");
   };
 
-  const updateStatus = (id: string, status: AppointmentStatus, notes?: string) => {
+  const updateStatus = async (id: string, status: AppointmentStatus, notes?: string) => {
+    const error = await dbUpdate("consultation_appointments", id, { status, ...(notes !== undefined && { teacherNotes: notes }) });
+    if (error) {
+      toast("Unable to update consultation status. Please try again.");
+      return false;
+    }
     setAppointments((prev) => prev.map((a) => a.id === id ? { ...a, status, ...(notes !== undefined && { teacherNotes: notes }) } : a));
-    dbUpdate("consultation_appointments", id, { status, ...(notes !== undefined && { teacherNotes: notes }) });
+    return true;
   };
 
   const columns: STSNColumn<ConsultationAppointment & { studentLabel: string; teacherLabel: string }>[] = [
@@ -342,7 +351,9 @@ export default function ConsultationModule() {
                                 Confirm
                               </button>
                               <button
-                                onClick={() => updateStatus(a.id, "Cancelled")}
+                                onClick={async () => {
+                                  if (await updateStatus(a.id, "Cancelled")) toast("Consultation request declined.");
+                                }}
                                 className="text-xs font-bold bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 py-1.5 rounded-lg cursor-pointer transition"
                               >
                                 Decline
@@ -411,7 +422,13 @@ export default function ConsultationModule() {
               <p className="text-xs text-stone-600">Add notes or a venue for this consultation appointment.</p>
               <textarea rows={3} value={teacherNotes} onChange={(e) => setTeacherNotes(e.target.value)} placeholder="e.g. Confirmed for June 10, 2026 at 2:00 PM — Room 14…" className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none resize-none" />
               <button
-                onClick={() => { updateStatus(confirmingId, "Confirmed", teacherNotes); setConfirmingId(null); setTeacherNotes(""); toast("Appointment confirmed."); }}
+                onClick={async () => {
+                  if (await updateStatus(confirmingId, "Confirmed", teacherNotes)) {
+                    setConfirmingId(null);
+                    setTeacherNotes("");
+                    toast("Appointment confirmed.");
+                  }
+                }}
                 className="w-full bg-stsn-brown hover:bg-stsn-brown-dark text-white font-bold text-xs py-2.5 rounded-xl shadow cursor-pointer transition"
               >
                 Confirm Appointment
@@ -552,7 +569,12 @@ export default function ConsultationModule() {
                 )}
                 {detailItem.status === "Confirmed" && (
                   <button
-                    onClick={() => { updateStatus(detailItem.id, "Completed"); setDetailItem(null); toast("Consultation marked as completed."); }}
+                    onClick={async () => {
+                      if (await updateStatus(detailItem.id, "Completed")) {
+                        setDetailItem(null);
+                        toast("Consultation marked as completed.");
+                      }
+                    }}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl shadow cursor-pointer transition"
                   >
                     Mark as Completed
