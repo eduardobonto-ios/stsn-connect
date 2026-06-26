@@ -48,6 +48,7 @@ function buildHtmlTable({ title, columns, rows }: ExportPayload) {
       `<tr>${columns.map((column) => `<td>${escapeHtml(cellValue(row, column.key))}</td>`).join("")}</tr>`
     ))
     .join("");
+  const logoSrc = `${window.location.origin}/stsn-crest.png`;
 
   return `<!doctype html>
 <html>
@@ -56,16 +57,27 @@ function buildHtmlTable({ title, columns, rows }: ExportPayload) {
   <title>${escapeHtml(title)}</title>
   <style>
     body { font-family: Arial, sans-serif; color: #292524; padding: 24px; }
-    h1 { font-size: 20px; margin: 0 0 4px; }
-    p { font-size: 11px; color: #78716c; margin: 0 0 16px; }
+    .school-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; border-bottom: 2px solid #d6c7ae; padding-bottom: 12px; }
+    .school-header img { width: 64px; height: 64px; object-fit: contain; }
+    .school-info h1 { font-size: 18px; font-weight: 900; margin: 0 0 2px; color: #5b3517; }
+    .school-info p { font-size: 11px; color: #78716c; margin: 0; }
+    .report-title { font-size: 14px; font-weight: 700; margin: 12px 0 4px; color: #292524; }
+    .report-meta { font-size: 11px; color: #78716c; margin: 0 0 16px; }
     table { width: 100%; border-collapse: collapse; font-size: 11px; }
     th { text-align: left; background: #f5f0e8; color: #5b3517; }
     th, td { border: 1px solid #d6c7ae; padding: 7px; }
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(title)}</h1>
-  <p>Generated ${new Date().toLocaleString()}</p>
+  <div class="school-header">
+    <img src="${logoSrc}" alt="STSN Crest" onerror="this.style.display='none'" />
+    <div class="school-info">
+      <h1>St. Theresa&#x27;s School of Novaliches</h1>
+      <p>#7 Kingfisher Street, Zabarte Subdivision Novaliches Quezon City 1124, Philippines</p>
+    </div>
+  </div>
+  <p class="report-title">${escapeHtml(title)}</p>
+  <p class="report-meta">Generated ${new Date().toLocaleString()}</p>
   <table>
     <thead><tr>${header}</tr></thead>
     <tbody>${body}</tbody>

@@ -3,6 +3,7 @@ import {
   Users, Search, Filter, Download, Loader2, X, Eye,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { dbSelectAll } from "../../../../services/supabaseCrud";
 
 type InvoiceStatus = "Draft" | "Posted" | "Paid" | "Void";
@@ -247,16 +248,12 @@ export default function ARAgingPage() {
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm">
-        <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-          <Users className="w-5 h-5 text-stsn-brown" />
-          AR Summary with Aging
-        </h2>
-        <p className="text-stone-500 text-xs mt-1">
-          Outstanding accounts receivable aged by 30 / 60 / 90 / 120+ day buckets. Showing Posted invoices only.
-        </p>
-      </div>
+      <ModulePageHeader
+        badge="Accounts Receivable"
+        badgeIcon={Users}
+        title="AR Summary with Aging"
+        subtitle="Outstanding accounts receivable aged by 30 / 60 / 90 / 120+ day buckets. Showing Posted invoices only."
+      />
 
       {/* Aging Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">

@@ -3,6 +3,7 @@ import {
   Activity, Banknote, Download, Eye, Filter, Loader2, PieChart, Search, Scale, X,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { dbSelectAll } from "../../../../services/supabaseCrud";
 
 type ReportKind = "trial-balance" | "balance-sheet" | "income-statement" | "cash-flow";
@@ -143,26 +144,30 @@ function inferCashFlowCategory(accountsByCode: Map<string, ChartAccount>, entryL
   return "Operating";
 }
 
-const REPORT_CONFIG: Record<ReportKind, { title: string; desc: string; icon: React.ElementType }> = {
+const REPORT_CONFIG: Record<ReportKind, { title: string; desc: string; icon: React.ElementType; badge: string }> = {
   "trial-balance": {
     title: "Trial Balance Report",
     desc: "Debit and credit totals by GL account, derived from posted journal entries.",
     icon: Scale,
+    badge: "General Ledger",
   },
   "balance-sheet": {
     title: "Balance Sheet Report",
     desc: "Assets, liabilities, and equity snapshot from posted journal balances.",
     icon: PieChart,
+    badge: "Financial Statements",
   },
   "income-statement": {
     title: "Income Statement",
     desc: "Revenue less expenses for the selected period.",
     icon: Activity,
+    badge: "Financial Statements",
   },
   "cash-flow": {
     title: "Cash Flow Report",
     desc: "Cash movements grouped into operating, investing, and financing activity.",
     icon: Banknote,
+    badge: "Financial Statements",
   },
 };
 
@@ -414,19 +419,18 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <Icon className="w-5 h-5 text-stsn-brown" />
-            {config.title}
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">{config.desc}</p>
-        </div>
-        <button className="flex items-center gap-1.5 px-3 py-2 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
-          <Download className="w-3.5 h-3.5" />
-          Export
-        </button>
-      </div>
+      <ModulePageHeader
+        badge={config.badge}
+        badgeIcon={Icon}
+        title={config.title}
+        subtitle={config.desc}
+        actions={
+          <button className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer bg-white/10 border border-white/20 text-white hover:bg-white/20">
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         {report === "trial-balance" && (

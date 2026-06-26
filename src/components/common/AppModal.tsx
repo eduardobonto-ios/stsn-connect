@@ -48,11 +48,11 @@ export default function AppModal({
         {Icon && <Icon className="w-5 h-5 text-stsn-gold flex-shrink-0" />}
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-[9px] font-mono uppercase tracking-widest opacity-75">
+            <p className="text-[11px] font-mono uppercase tracking-widest opacity-90">
               {eyebrow}
             </p>
           )}
-          <h3 className="text-sm font-bold truncate">{title}</h3>
+          <h3 className="text-[15px] font-bold tracking-tight truncate">{title}</h3>
         </div>
       </div>
       <button

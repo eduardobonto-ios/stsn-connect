@@ -8,7 +8,7 @@ import { useSTSNStore } from "../../../services/store";
 import {
   TrendingUp, TrendingDown, ReceiptText, Wallet,
 } from "lucide-react";
-import AnalyticsDashboardShell from "../../../components/common/analytics/AnalyticsDashboardShell";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { CHART_THEME } from "../../../config/chart-theme.config";
 
 // ── SVG smooth line chart helper ──────────────────────────────────────────
@@ -84,14 +84,11 @@ export default function AccountingDashboardPage() {
       const m = new Date(p.date ?? Date.now()).getMonth();
       byMonth[m] += p.amount;
     });
-    const base = totalRevenue / 12 || 40000;
-    return byMonth.map((v, i) =>
-      v > 0 ? v : Math.round(base * (0.7 + Math.sin(i * 0.9 + 1) * 0.3)),
-    );
-  }, [scopedPayments, totalRevenue]);
+    return byMonth;
+  }, [scopedPayments]);
 
   const monthlyExpenses = useMemo(
-    () => monthlyRevenue.map((v) => Math.round(v * (0.55 + Math.random() * 0.15))),
+    () => monthlyRevenue.map((v) => Math.round(v * 0.62)),
     [monthlyRevenue],
   );
 
@@ -150,17 +147,18 @@ export default function AccountingDashboardPage() {
   const margin = totalRevenue > 0 ? Math.round((netIncome / totalRevenue) * 100) : 0;
 
   return (
-    <AnalyticsDashboardShell
-      title="Accounting Analytics Dashboard"
+    <div className="space-y-6 animate-fade-in">
+    <ModulePageHeader
       badge="Admin Only"
+      title="Accounting Analytics Dashboard"
       subtitle="Financial performance, revenue vs expenses, and accounts receivable / payable overview."
-      meta={
-        <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-center min-w-[108px]">
-          <span className="text-[9px] text-stone-400 uppercase block font-mono tracking-wider">Academic Year</span>
-          <span className="text-sm font-bold text-stone-900 mt-0.5 block">2026–2027</span>
+      actions={
+        <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[108px]">
+          <span className="text-[9px] text-white/50 uppercase block font-mono tracking-wider">Academic Year</span>
+          <span className="text-sm font-bold text-white mt-0.5 block">2026–2027</span>
         </div>
       }
-    >
+    />
       {/* ── KPI Row ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
@@ -292,6 +290,6 @@ export default function AccountingDashboardPage() {
           </div>
         </div>
       </div>
-    </AnalyticsDashboardShell>
+    </div>
   );
 }

@@ -3,6 +3,7 @@ import {
   Truck, Search, Filter, Download, Loader2, X, Eye,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { dbSelectAll } from "../../../../services/supabaseCrud";
 
 type InvoiceStatus = "Draft" | "Posted" | "Paid" | "Void";
@@ -361,33 +362,28 @@ export default function APAgingPage() {
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <Truck className="w-5 h-5 text-stsn-brown" />
-            AP Summary with Aging
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            Outstanding accounts payable aged by vendor and due date. Showing Posted invoices only.
-          </p>
-        </div>
-        {/* View Toggle */}
-        <div className="flex items-center bg-stone-100 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
-          <button
-            onClick={() => setViewMode("by-invoice")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${viewMode === "by-invoice" ? "bg-white shadow text-stone-800" : "text-stone-500 hover:text-stone-700"}`}
-          >
-            By Invoice
-          </button>
-          <button
-            onClick={() => setViewMode("by-vendor")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${viewMode === "by-vendor" ? "bg-white shadow text-stone-800" : "text-stone-500 hover:text-stone-700"}`}
-          >
-            By Vendor
-          </button>
-        </div>
-      </div>
+      <ModulePageHeader
+        badge="Accounts Payable"
+        badgeIcon={Truck}
+        title="AP Summary with Aging"
+        subtitle="Outstanding accounts payable aged by vendor and due date. Showing Posted invoices only."
+        actions={
+          <div className="flex items-center bg-white/10 border border-white/20 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+            <button
+              onClick={() => setViewMode("by-invoice")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${viewMode === "by-invoice" ? "bg-white shadow text-stone-800" : "text-white/70 hover:text-white"}`}
+            >
+              By Invoice
+            </button>
+            <button
+              onClick={() => setViewMode("by-vendor")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${viewMode === "by-vendor" ? "bg-white shadow text-stone-800" : "text-white/70 hover:text-white"}`}
+            >
+              By Vendor
+            </button>
+          </div>
+        }
+      />
 
       {/* Aging Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">

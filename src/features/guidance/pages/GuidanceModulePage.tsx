@@ -8,6 +8,8 @@ import {
   NotebookPen, Plus, Search, Eye, X, Calendar, User,
   MessageSquare, CheckCircle, Clock, AlertCircle, Filter, Lock,
 } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
@@ -189,7 +191,7 @@ export default function GuidanceModule() {
     return stu ? `${stu.lastName}, ${stu.firstName}` : "Unknown";
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = async () => {
     if (!anecForm.studentId || !anecForm.description.trim()) {
       toast("Please fill in required fields.");
       return;
@@ -202,14 +204,18 @@ export default function GuidanceModule() {
       followUpDate: anecForm.followUpDate || undefined, followUpDone: false,
       isConfidential: anecForm.isConfidential,
     };
+    const error = await dbInsert("anecdotal_records", { id, studentId: anecForm.studentId, recordDate: anecForm.recordDate, incidentType: anecForm.incidentType, description: anecForm.description, actionTaken: anecForm.actionTaken || null, reportedBy: newRec.reportedBy, followUpDate: anecForm.followUpDate || null, followUpDone: false, isConfidential: anecForm.isConfidential });
+    if (error) {
+      toast("Unable to save anecdotal record. Please try again.");
+      return;
+    }
     setRecords((prev) => [newRec, ...prev]);
-    dbInsert("anecdotal_records", { id, studentId: anecForm.studentId, recordDate: anecForm.recordDate, incidentType: anecForm.incidentType, description: anecForm.description, actionTaken: anecForm.actionTaken || null, reportedBy: newRec.reportedBy, followUpDate: anecForm.followUpDate || null, followUpDone: false, isConfidential: anecForm.isConfidential });
     setShowAnecForm(false);
     setAnecForm(DEFAULT_ANEC_FORM);
     toast("Anecdotal record saved.");
   };
 
-  const handleSaveSession = () => {
+  const handleSaveSession = async () => {
     if (!sessionForm.studentId || !sessionForm.summary.trim()) {
       toast("Please fill in required fields.");
       return;
@@ -223,19 +229,37 @@ export default function GuidanceModule() {
       counselorName: sessionForm.counselorName || currentUser?.name || "",
       isConfidential: sessionForm.isConfidential, status: sessionForm.status,
     };
+    const error = await dbInsert("guidance_sessions", { id, studentId: sessionForm.studentId, sessionDate: sessionForm.sessionDate, sessionType: sessionForm.sessionType, concernArea: sessionForm.concernArea, summary: sessionForm.summary, recommendations: sessionForm.recommendations || null, nextSession: sessionForm.nextSession || null, counselorName: newSes.counselorName, isConfidential: sessionForm.isConfidential, status: sessionForm.status });
+    if (error) {
+      toast("Unable to save guidance session. Please try again.");
+      return;
+    }
     setSessions((prev) => [newSes, ...prev]);
-    dbInsert("guidance_sessions", { id, studentId: sessionForm.studentId, sessionDate: sessionForm.sessionDate, sessionType: sessionForm.sessionType, concernArea: sessionForm.concernArea, summary: sessionForm.summary, recommendations: sessionForm.recommendations || null, nextSession: sessionForm.nextSession || null, counselorName: newSes.counselorName, isConfidential: sessionForm.isConfidential, status: sessionForm.status });
     setShowSessionForm(false);
     setSessionForm(DEFAULT_SESSION_FORM);
     toast("Guidance session saved.");
   };
 
   const anecColumns: STSNColumn<AnecdotalRecord & { studentName: string }>[] = [
-    { title: "Student", data: "studentName", className: "font-semibold text-stone-800" },
+    {
+      title: "Student",
+      data: "studentName",
+      render: (_value, row) => {
+        const stu = scopedStudents.find((s) => s.id === row.studentId);
+        if (!stu) return <span className="font-semibold text-stone-500">{row.studentName}</span>;
+        return <PersonIdentityCell firstName={stu.firstName} lastName={stu.lastName} secondary={stu.section || undefined} />;
+      },
+    },
     { title: "Date", data: "recordDate", width: "90px", className: "font-mono text-xs" },
     {
-      title: "Type", data: "incidentType", width: "120px",
-      render: (v: IncidentType) => <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${INCIDENT_TYPE_CONFIG[v].badgeClass}`}>{v}</span>,
+      title: "Type", data: "incidentType", width: "140px",
+      render: (v: IncidentType, row: any) => (
+        <div className="flex items-center gap-1.5">
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${INCIDENT_TYPE_CONFIG[v].badgeClass}`}>{v}</span>
+          {row.isConfidential && <Lock className="w-3 h-3 text-stone-400 flex-shrink-0" title="Confidential" />}
+          {!row.followUpDone && row.followUpDate && <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0" title="Pending follow-up" />}
+        </div>
+      ),
     },
     { title: "Description", data: "description", className: "text-xs text-stone-600" },
     { title: "By", data: "reportedBy", width: "110px", className: "text-xs text-stone-400" },
@@ -248,7 +272,15 @@ export default function GuidanceModule() {
   ];
 
   const sessionColumns: STSNColumn<GuidanceSession & { studentName: string }>[] = [
-    { title: "Student", data: "studentName", className: "font-semibold text-stone-800" },
+    {
+      title: "Student",
+      data: "studentName",
+      render: (_value, row) => {
+        const stu = scopedStudents.find((s) => s.id === row.studentId);
+        if (!stu) return <span className="font-semibold text-stone-500">{row.studentName}</span>;
+        return <PersonIdentityCell firstName={stu.firstName} lastName={stu.lastName} secondary={stu.section || undefined} />;
+      },
+    },
     { title: "Date", data: "sessionDate", width: "90px", className: "font-mono text-xs" },
     { title: "Type", data: "sessionType", width: "100px", className: "text-xs font-semibold" },
     { title: "Concern", data: "concernArea", className: "text-xs text-stone-600" },
@@ -266,41 +298,58 @@ export default function GuidanceModule() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <NotebookPen className="w-5 h-5 text-stsn-brown" /> Guidance Office
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            Anecdotal records, behavioral incident tracking, and individual counseling session logs.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => { setShowAnecForm(true); setAnecForm(DEFAULT_ANEC_FORM); }} className="flex items-center gap-1.5 bg-stsn-brown hover:bg-stsn-brown-dark text-white text-xs font-bold px-3 py-2 rounded-xl shadow cursor-pointer transition">
-            <Plus className="w-3.5 h-3.5" /> Record
-          </button>
-          <button onClick={() => { setShowSessionForm(true); setSessionForm(DEFAULT_SESSION_FORM); }} className="flex items-center gap-1.5 bg-stone-700 hover:bg-stone-800 text-white text-xs font-bold px-3 py-2 rounded-xl shadow cursor-pointer transition">
-            <MessageSquare className="w-3.5 h-3.5" /> Session
-          </button>
-        </div>
-      </div>
+      <ModulePageHeader
+        badge="Guidance Office"
+        badgeIcon={NotebookPen}
+        title="Guidance Office"
+        subtitle="Anecdotal records, behavioral incident tracking, and individual counseling session logs."
+        actions={
+          <div className="flex gap-2">
+            <button onClick={() => { setShowAnecForm(true); setAnecForm(DEFAULT_ANEC_FORM); }} className="inline-flex items-center gap-1.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg transition cursor-pointer">
+              <Plus className="w-3.5 h-3.5" /> Record
+            </button>
+            <button onClick={() => { setShowSessionForm(true); setSessionForm(DEFAULT_SESSION_FORM); }} className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/25 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer">
+              <MessageSquare className="w-3.5 h-3.5" /> Session
+            </button>
+          </div>
+        }
+      />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <div key={kpi.label} className={`border rounded-xl shadow-sm p-4 ${kpi.bg}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={`w-4 h-4 ${kpi.color}`} />
-                <p className="text-[10px] uppercase font-mono tracking-wider text-stone-500">{kpi.label}</p>
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map((i) => <div key={i} className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 h-20 animate-pulse" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpis.map((kpi) => {
+            const Icon = kpi.icon;
+            return (
+              <div key={kpi.label} className={`border rounded-xl shadow-sm p-4 ${kpi.bg}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className={`w-4 h-4 ${kpi.color}`} />
+                  <p className="text-[10px] uppercase font-mono tracking-wider text-stone-500">{kpi.label}</p>
+                </div>
+                <p className="text-2xl font-display font-black text-stone-800">{kpi.value}</p>
               </div>
-              <p className="text-2xl font-display font-black text-stone-800">{kpi.value}</p>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pending Follow-up Reminder Strip */}
+      {!loading && scopedRecords.filter((r) => !r.followUpDone && r.followUpDate).length > 0 && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-amber-800">Pending Follow-ups</p>
+            <p className="text-[10px] text-amber-700 mt-0.5">
+              {scopedRecords.filter((r) => !r.followUpDone && r.followUpDate).length} anecdotal record{scopedRecords.filter((r) => !r.followUpDone && r.followUpDate).length !== 1 ? "s" : ""} require a follow-up action.
+              {" "}Review the <strong>Anecdotal Records</strong> tab and mark them done.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden">
