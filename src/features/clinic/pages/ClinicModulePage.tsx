@@ -8,11 +8,14 @@ import {
   Stethoscope, Plus, Search, Eye, X, Calendar, User,
   Heart, AlertCircle, CheckCircle, Clock, Download, Filter,
 } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import ExportMenu from "../../../components/common/ExportMenu";
+import { reportExportService } from "../../../services/reportExportService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +115,7 @@ export default function ClinicModule() {
   const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [profileSearch, setProfileSearch] = useState("");
   const [filterDisposition, setFilterDisposition] = useState("All");
 
   const [showForm, setShowForm] = useState(false);
@@ -157,6 +161,45 @@ export default function ClinicModule() {
       return matchSearch && matchDisp;
     });
   }, [scopedVisits, scopedStudents, searchQuery, filterDisposition]);
+
+  const followUpVisits = useMemo(
+    () => scopedVisits.filter((v) => v.disposition === "For Follow-up"),
+    [scopedVisits],
+  );
+
+  const filteredProfiles = useMemo(() => {
+    const q = profileSearch.toLowerCase();
+    if (!q) return scopedProfiles;
+    return scopedProfiles.filter((p) => {
+      const stu = scopedStudents.find((s) => s.id === p.studentId);
+      const name = stu ? `${stu.firstName} ${stu.lastName}`.toLowerCase() : "";
+      return name.includes(q) || (p.bloodType ?? "").toLowerCase().includes(q);
+    });
+  }, [scopedProfiles, scopedStudents, profileSearch]);
+
+  const exportVisitHistory = (format: "pdf" | "print" | "csv" | "excel") => {
+    const columns = [
+      { key: "studentName", label: "Student" },
+      { key: "visitDate", label: "Date" },
+      { key: "visitTime", label: "Time" },
+      { key: "chiefComplaint", label: "Chief Complaint" },
+      { key: "disposition", label: "Disposition" },
+      { key: "recordedBy", label: "Recorded By" },
+    ];
+    const rows = visitRows.map((v) => ({
+      studentName: v.studentName,
+      visitDate: v.visitDate,
+      visitTime: v.visitTime || "—",
+      chiefComplaint: v.chiefComplaint,
+      disposition: DISPOSITION_CONFIG[v.disposition]?.label ?? v.disposition,
+      recordedBy: v.recordedBy || "—",
+    }));
+    const payload = { title: "Clinic Visit History", columns, rows };
+    if (format === "print") reportExportService.print(payload);
+    else if (format === "csv") reportExportService.exportCsv(payload);
+    else if (format === "excel") reportExportService.exportExcel(payload);
+    else reportExportService.exportPdf(payload);
+  };
 
   const kpis = [
     { label: "Total Visits (All Time)", value: scopedVisits.length, icon: Stethoscope, color: "text-stsn-brown", bg: "bg-amber-50 border-amber-200" },
@@ -212,8 +255,7 @@ export default function ClinicModule() {
       recordedBy: form.recordedBy || currentUser?.name || "Clinic Staff",
       notes: form.notes,
     };
-    setVisits((prev) => [newVisit, ...prev]);
-    dbInsert("clinic_visits", {
+    const error = await dbInsert("clinic_visits", {
       id,
       studentId: form.studentId,
       visitDate: form.visitDate,
@@ -225,6 +267,11 @@ export default function ClinicModule() {
       recordedBy: newVisit.recordedBy,
       notes: form.notes || null,
     });
+    if (error) {
+      toast("Unable to save clinic visit. Please try again.");
+      return;
+    }
+    setVisits((prev) => [newVisit, ...prev]);
     setShowForm(false);
     setForm(DEFAULT_VISIT_FORM);
     toast("Clinic visit logged successfully.");
@@ -232,23 +279,20 @@ export default function ClinicModule() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <Stethoscope className="w-5 h-5 text-stsn-brown" /> Nurse / Clinic Office
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            Student health visit logs, health profiles, and clinical records management.
-          </p>
-        </div>
-        <button
-          onClick={() => { setShowForm(true); setForm(DEFAULT_VISIT_FORM); }}
-          className="flex items-center gap-2 bg-stsn-brown hover:bg-stsn-brown-dark text-white text-xs font-bold px-4 py-2 rounded-xl shadow cursor-pointer transition"
-        >
-          <Plus className="w-4 h-4" /> Log Visit
-        </button>
-      </div>
+      <ModulePageHeader
+        badge="Clinic Office"
+        badgeIcon={Stethoscope}
+        title="Nurse / Clinic Office"
+        subtitle="Student health visit logs, health profiles, and clinical records management."
+        actions={
+          <button
+            onClick={() => { setShowForm(true); setForm(DEFAULT_VISIT_FORM); }}
+            className="inline-flex items-center gap-2 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Log Visit
+          </button>
+        }
+      />
 
       {/* KPI Cards */}
       {loading ? (
@@ -298,6 +342,19 @@ export default function ClinicModule() {
                   {todaysVisits.length} visit{todaysVisits.length !== 1 ? "s" : ""}
                 </span>
               </div>
+
+              {/* Follow-up reminder strip */}
+              {followUpVisits.length > 0 && (
+                <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-200 rounded-xl p-3">
+                  <AlertCircle className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-purple-800">Follow-up Required</p>
+                    <p className="text-[10px] text-purple-700 mt-0.5">
+                      {followUpVisits.length} student{followUpVisits.length !== 1 ? "s" : ""} from previous visits are marked <strong>For Follow-up</strong>. Check Visit History for details.
+                    </p>
+                  </div>
+                </div>
+              )}
               {todaysVisits.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle className="w-10 h-10 text-stone-200 mx-auto mb-3" />
@@ -356,6 +413,7 @@ export default function ClinicModule() {
                     {Object.keys(DISPOSITION_CONFIG).map((d) => <option key={d} value={d}>{DISPOSITION_CONFIG[d as Disposition].label}</option>)}
                   </select>
                 </div>
+                <ExportMenu onExport={exportVisitHistory} label="Export" />
               </div>
               <STSNDataTable
                 columns={visitColumns}
@@ -370,15 +428,25 @@ export default function ClinicModule() {
           {/* HEALTH PROFILES */}
           {activeTab === "profiles" && (
             <div className="space-y-4">
-              <p className="text-xs text-stone-500">Student health profiles with blood type, allergies, chronic conditions, and emergency contacts.</p>
-              {scopedProfiles.length === 0 ? (
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                <p className="text-xs text-stone-500">Student health profiles with blood type, allergies, chronic conditions, and emergency contacts.</p>
+                <div className="relative flex-shrink-0 w-full sm:w-56">
+                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
+                  <input
+                    type="text" placeholder="Search student…"
+                    value={profileSearch} onChange={(e) => setProfileSearch(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40"
+                  />
+                </div>
+              </div>
+              {filteredProfiles.length === 0 ? (
                 <div className="text-center py-12">
                   <Heart className="w-10 h-10 text-stone-200 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-stone-600">No health profiles on record.</p>
+                  <p className="text-sm font-bold text-stone-600">{scopedProfiles.length === 0 ? "No health profiles on record." : "No profiles match your search."}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {scopedProfiles.map((p) => {
+                  {filteredProfiles.map((p) => {
                     const stu = scopedStudents.find((s) => s.id === p.studentId);
                     return (
                       <div key={p.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-2">

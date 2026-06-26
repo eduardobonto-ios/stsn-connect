@@ -22,6 +22,7 @@ import {
   RotateCcw,
   FileCheck,
 } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useSTSNStore } from "../../../services/store";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import type { UserRole } from "../../../types";
@@ -304,7 +305,6 @@ export default function GradesDirectoryPage() {
     classLoads: allClassLoads,
     gradePeriods: periods,
     studentGradeEntries: entries,
-    demoStudents,
     academicUnit,
     currentUser,
     activeSchool,
@@ -372,7 +372,7 @@ export default function GradesDirectoryPage() {
     totalPeriods: scopedPeriods.length,
   }), [classLoads, scopedPeriods, sectionNames]);
 
-  // All students (store + demo roster)
+  // All students from persisted student records only
   const allStudents = useMemo<GradeRosterStudent[]>(() => {
     const converted: GradeRosterStudent[] = storeStudents.map(s => ({
       id: s.id,
@@ -384,8 +384,8 @@ export default function GradesDirectoryPage() {
       trackOrCourse: s.trackOrCourse,
       department: s.department,
     }));
-    return [...converted, ...demoStudents];
-  }, [storeStudents, demoStudents]);
+    return converted;
+  }, [storeStudents]);
 
   // Period label filter — empty means "all finalized periods"
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<GradePeriodLabel | "">("");
@@ -492,45 +492,18 @@ export default function GradesDirectoryPage() {
   return (
     <div className="space-y-5 animate-fade-in font-sans">
 
-      {/* ── Module Header ── */}
-      <div
-        className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 rounded-xl shadow-sm gap-4 ${
-          isBasicEd ? "bg-white border border-stsn-beige" : "bg-blue-50 border border-blue-200"
-        }`}
-      >
-        <div>
-          <div
-            className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-full border inline-block mb-1.5 ${
-              isBasicEd ? "badge-basic-ed" : "badge-college"
-            }`}
-          >
-            {isBasicEd ? "K-12 Basic Education" : "Tertiary / College Division"}
-          </div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <GraduationCap className={`w-5 h-5 ${isBasicEd ? "text-stsn-brown" : "text-blue-600"}`} />
-            {isTeacher ? "My Teaching Load" : "Master Grading Directory"}
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            {isTeacher
-              ? `${currentTeacher?.firstName ?? ""} ${currentTeacher?.lastName ?? ""} · ${overviewStats.totalSections} section${overviewStats.totalSections !== 1 ? "s" : ""} · ${overviewStats.totalLoads} class load${overviewStats.totalLoads !== 1 ? "s" : ""}`
-              : `${schoolLabel} · ${overviewStats.totalSections} ${terms.groupNoun.toLowerCase()}s · ${overviewStats.totalLoads} class loads`}
-          </p>
-        </div>
-        <div className="hidden sm:flex flex-col items-end gap-1">
-          <span
-            className={`text-[10px] font-mono font-bold px-3 py-1.5 rounded-lg border ${
-              isBasicEd
-                ? "bg-stsn-cream text-stsn-brown-dark border-stsn-beige"
-                : "bg-blue-100 text-blue-700 border-blue-200"
-            }`}
-          >
-            {isBasicEd ? "Quarter-Based Grading (K-12)" : "Prelim / Midterm / Final"}
-          </span>
-          <p className="text-[10px] text-stone-400 font-mono">
-            {overviewStats.finalizedPeriods}/{overviewStats.totalPeriods} periods finalized
-          </p>
-        </div>
-      </div>
+      <ModulePageHeader
+        variant={isBasicEd ? "default" : "college"}
+        badge={isBasicEd ? "K-12 Basic Education" : "Tertiary / College Division"}
+        badgeIcon={GraduationCap}
+        title={isTeacher ? "My Teaching Load" : "Master Grading Directory"}
+        subtitle={
+          isTeacher
+            ? `${currentTeacher?.firstName ?? ""} ${currentTeacher?.lastName ?? ""} · ${overviewStats.totalSections} section${overviewStats.totalSections !== 1 ? "s" : ""} · ${overviewStats.totalLoads} class load${overviewStats.totalLoads !== 1 ? "s" : ""}`
+            : `${schoolLabel} · ${overviewStats.totalSections} ${terms.groupNoun.toLowerCase()}s · ${overviewStats.totalLoads} class loads`
+        }
+        meta={`${overviewStats.finalizedPeriods}/${overviewStats.totalPeriods} periods finalized`}
+      />
 
       {/* ── Overview Quick Stats ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

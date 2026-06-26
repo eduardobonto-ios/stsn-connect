@@ -28,6 +28,7 @@ import {
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 // ── SVG smooth line chart ────────────────────────────────────────────────
 function buildLine(values: number[], w: number, h: number, pad = 20): string {
@@ -719,6 +720,15 @@ export default function Dashboard({
   // ── Main dashboard JSX ────────────────────────────────────
   return (
     <div className="space-y-5 animate-fade-in">
+
+      <ModulePageHeader
+        variant={isBasicEdUnit ? "default" : "college"}
+        badge={isBasicEdUnit ? "Basic Education" : "College Division"}
+        badgeIcon={BarChart3}
+        title="School Dashboard"
+        subtitle={`${contextDept} — real-time overview of enrollment, staff, and operations`}
+        meta="S.Y. 2026–2027"
+      />
 
       {/* ── Row 1: KPI Cards + Promo ───────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

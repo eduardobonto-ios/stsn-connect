@@ -37,11 +37,17 @@ const report = (label: string) => (error: unknown) => {
 };
 
 export function dbInsert(table: string, row: Record<string, any>) {
-  return supabase.from(table).insert(toSnake(row)).then(({ error }) => report(`insert ${table}`)(error));
+  return supabase.from(table).insert(toSnake(row)).then(({ error }) => {
+    report(`insert ${table}`)(error);
+    return error;
+  });
 }
 
 export function dbUpdate(table: string, id: string, updates: Record<string, any>) {
-  supabase.from(table).update(toSnake(updates)).eq("id", id).then(({ error }) => report(`update ${table}`)(error));
+  return supabase.from(table).update(toSnake(updates)).eq("id", id).then(({ error }) => {
+    report(`update ${table}`)(error);
+    return error;
+  });
 }
 
 export function dbDelete(table: string, id: string) {

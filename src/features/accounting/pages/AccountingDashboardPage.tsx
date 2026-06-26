@@ -84,14 +84,11 @@ export default function AccountingDashboardPage() {
       const m = new Date(p.date ?? Date.now()).getMonth();
       byMonth[m] += p.amount;
     });
-    const base = totalRevenue / 12 || 40000;
-    return byMonth.map((v, i) =>
-      v > 0 ? v : Math.round(base * (0.7 + Math.sin(i * 0.9 + 1) * 0.3)),
-    );
-  }, [scopedPayments, totalRevenue]);
+    return byMonth;
+  }, [scopedPayments]);
 
   const monthlyExpenses = useMemo(
-    () => monthlyRevenue.map((v) => Math.round(v * (0.55 + Math.random() * 0.15))),
+    () => monthlyRevenue.map((v) => Math.round(v * 0.62)),
     [monthlyRevenue],
   );
 

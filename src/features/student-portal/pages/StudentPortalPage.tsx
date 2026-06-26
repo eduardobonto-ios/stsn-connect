@@ -43,6 +43,7 @@ import {
   Tag
 } from "lucide-react";
 import { PreviewModal, CORPreview, IDCardPreview } from "../../../components/ModalPreviews";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import {
   computeMockAssessment,
   generatePaymentSchedule,
@@ -384,49 +385,41 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
 
       {!compact && (
         <>
-          {/* HERO HEADER */}
-          <div className="bg-white p-6 rounded-2xl border border-stsn-beige shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <span className="bg-stsn-gold/20 border border-stsn-gold/30 text-stsn-brown text-[10px] font-mono uppercase px-2.5 py-1 rounded-full font-bold">
-                {isRecordsView ? "Registrar Access — Student Records" : "Academic Registrar Verified Access"}
-              </span>
-              <h2 className="text-2xl font-display font-medium mt-2 text-stone-900">
-                {isRecordsView ? `Student Record: ${student.lastName}, ${student.firstName}` : `Mabuhay, ${firstName}!`}
-              </h2>
-              <p className="text-stone-500 text-xs mt-1">
-                {terms.studentIdLabel}: <strong className="text-stsn-brown">{student.studentNo}</strong>
-                {" "}• {terms.trackNoun}: <strong className="text-stsn-brown">{student.trackOrCourse || "—"}</strong>
-                {" "}• {terms.unitNounSingular}: <strong className="text-stsn-brown">{student.yearLevel}</strong>
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-              {isRecordsView && (
-                <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-                  <input
-                    type="text"
-                    list="student-portal-records-list"
-                    value={studentSearchInput}
-                    onChange={(e) => handleStudentSearchChange(e.target.value)}
-                    placeholder="Search student by name or student number…"
-                    className="w-full bg-stone-50 border border-stone-200 text-stone-900 placeholder-stone-400 text-xs font-semibold rounded-xl pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold"
-                  />
-                  <datalist id="student-portal-records-list">
-                    {recordsViewStudents.map((s) => (
-                      <option key={s.id} value={getStudentOptionLabel(s)} />
-                    ))}
-                  </datalist>
-                </div>
-              )}
-              <button
-                onClick={() => setIsCorModalOpen(true)}
-                className="btn-gold-gradient border border-stsn-gold/50 text-white text-xs font-semibold px-4 py-2 rounded-xl cursor-pointer shadow-md flex items-center gap-1.5 transition whitespace-nowrap"
-              >
-                <Award className="w-4 h-4" />
-                Official COR PDF
-              </button>
-            </div>
-          </div>
+          <ModulePageHeader
+            badge={isRecordsView ? "Registrar Access — Student Records" : "Student Portal"}
+            badgeIcon={UserCheck}
+            title={isRecordsView ? `Student Record: ${student.lastName}, ${student.firstName}` : `Mabuhay, ${firstName}!`}
+            subtitle={`${terms.studentIdLabel}: ${student.studentNo} · ${terms.trackNoun}: ${student.trackOrCourse || "—"} · ${terms.unitNounSingular}: ${student.yearLevel}`}
+            actions={
+              <div className="flex flex-col sm:items-end gap-2">
+                {isRecordsView && (
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
+                    <input
+                      type="text"
+                      list="student-portal-records-list"
+                      value={studentSearchInput}
+                      onChange={(e) => handleStudentSearchChange(e.target.value)}
+                      placeholder="Search student…"
+                      className="w-full bg-white/10 border border-white/20 text-white placeholder-white/40 text-xs font-semibold rounded-xl pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#C5A059]"
+                    />
+                    <datalist id="student-portal-records-list">
+                      {recordsViewStudents.map((s) => (
+                        <option key={s.id} value={getStudentOptionLabel(s)} />
+                      ))}
+                    </datalist>
+                  </div>
+                )}
+                <button
+                  onClick={() => setIsCorModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg transition cursor-pointer whitespace-nowrap"
+                >
+                  <Award className="w-4 h-4" />
+                  Official COR PDF
+                </button>
+              </div>
+            }
+          />
 
           {/* ENROLLMENT STEPPER BAR */}
           <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm">
@@ -840,17 +833,28 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
             </div>
           </div>
 
-          {/* Materials Grid — show ALL published for demo */}
+          {/* Materials Grid - published materials scoped to the student's enrolled subjects/profile */}
           {(() => {
-            const allPublished = scopedLearningMaterials.filter((m) => {
+            const enrolledSubjectCodes = new Set(loadedSubjects.map((subject) => subject.code));
+            const enrolledSubjectNames = new Set(loadedSubjects.map((subject) => subject.name));
+            const publishedMaterials = scopedLearningMaterials.filter((m) => {
               if (m.publishStatus !== "Published") return false;
+              const matchSubject =
+                enrolledSubjectCodes.size === 0 ||
+                enrolledSubjectCodes.has(m.subjectCode) ||
+                enrolledSubjectNames.has(m.subjectName);
+              const matchProfile =
+                !m.section ||
+                m.section === student.section ||
+                m.yearLevel === student.yearLevel ||
+                m.trackOrCourse === student.trackOrCourse;
               const q = lmsSearch.toLowerCase();
               const matchSearch = !q || m.title.toLowerCase().includes(q) || m.subjectName.toLowerCase().includes(q) || m.teacherName.toLowerCase().includes(q);
               const matchType = lmsType === "All" || m.learningType === lmsType;
-              return matchSearch && matchType;
+              return matchSubject && matchProfile && matchSearch && matchType;
             });
 
-            if (allPublished.length === 0) {
+            if (publishedMaterials.length === 0) {
               return (
                 <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
                   <Monitor className="w-10 h-10 text-stone-300 mx-auto mb-3" />
@@ -862,7 +866,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
 
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {allPublished.map((m) => {
+                {publishedMaterials.map((m) => {
                   const isVideo = m.learningType === "Video";
                   const thumb = m.thumbnailUrl || undefined;
                   return (

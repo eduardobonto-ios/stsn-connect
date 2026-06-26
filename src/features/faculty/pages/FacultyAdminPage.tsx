@@ -11,6 +11,8 @@ import type { Teacher } from "../../../types";
 import GradingModule from "../../grading/pages/GradingModulePage";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import {
   Users,
   Eye,
@@ -632,6 +634,13 @@ export default function FacultyAdminPage() {
     [scopedTeachers, searchQ],
   );
 
+  const kpiStats = useMemo(() => ({
+    total: scopedTeachers.length,
+    basicEd: scopedTeachers.filter((t) => t.department === "Basic Education").length,
+    college: scopedTeachers.filter((t) => t.department === "College").length,
+    withAdvisory: scopedTeachers.filter((t) => !!t.advisorySection).length,
+  }), [scopedTeachers]);
+
   const openModal = useCallback((teacher: Teacher, type: ModalType) =>
     setActiveModal({ teacher, type }), []);
   const closeModal = useCallback(() => setActiveModal(null), []);
@@ -698,23 +707,20 @@ export default function FacultyAdminPage() {
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-              <Users className="w-5 h-5 text-stsn-brown" />
-              Faculty Management
-            </h2>
-            <p className="text-stone-500 text-xs mt-1">
-              Overview of all teaching staff with direct access to their
-              academic modules.
-            </p>
-          </div>
-          <span className="text-[10px] font-mono text-stone-400 uppercase tracking-widest">
-            {filtered.length} teacher{filtered.length !== 1 ? "s" : ""}
-          </span>
-        </div>
+      <ModulePageHeader
+        badge="Human Resources"
+        badgeIcon={Users}
+        title="Faculty Management"
+        subtitle="Overview of all teaching staff with direct access to their academic modules."
+        meta={`${filtered.length} teacher${filtered.length !== 1 ? "s" : ""}`}
+      />
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <AppKpiCard label="Total Faculty" value={kpiStats.total} icon={Users} tone="neutral" hint="All teaching staff" />
+        <AppKpiCard label="Basic Ed" value={kpiStats.basicEd} icon={GraduationCap} tone="brand" hint="K-12 department" />
+        <AppKpiCard label="College" value={kpiStats.college} icon={CheckCircle} tone="info" hint="Tertiary department" />
+        <AppKpiCard label="With Advisory" value={kpiStats.withAdvisory} icon={UserCheck} tone="success" hint="Section advisers" />
       </div>
 
       {/* Search */}
@@ -739,91 +745,6 @@ export default function FacultyAdminPage() {
           searchable={false}
           emptyMessage="No teachers found."
         />
-        <div className="hidden">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-100 text-stone-500 text-[10px] uppercase font-bold">
-                <th className="px-4 py-3 text-left">Teacher</th>
-                <th className="px-4 py-3 text-left">Department</th>
-                <th className="px-4 py-3 text-left">Specialization</th>
-                <th className="px-4 py-3 text-left">Advisory Section</th>
-                <th className="px-4 py-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-stone-400 italic"
-                  >
-                    No teachers found.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((teacher) => (
-                  <tr
-                    key={teacher.id}
-                    className="hover:bg-stone-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <p className="font-bold text-stone-900">
-                        {teacher.lastName}, {teacher.firstName}
-                      </p>
-                      <p className="text-[10px] text-stone-400 font-mono mt-0.5">
-                        {teacher.email}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded border bg-stsn-cream text-stsn-brown border-stsn-beige">
-                        {teacher.department === "Basic Education" ? "Basic Ed" : "College"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-stone-600">
-                      {teacher.specialization || "—"}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-stone-700">
-                      {teacher.advisorySection || "—"}
-                    </td>
-
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => openModal(teacher, "dashboard")}
-                          title="Overview & Advisory"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openModal(teacher, "schedule")}
-                          title="Class Schedule & Subjects"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition"
-                        >
-                          <Calendar className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openModal(teacher, "attendance")}
-                          title="Attendance Monitoring"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openModal(teacher, "grading")}
-                          title="Student Grades Encoding"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-stsn-cream border border-stsn-beige text-stsn-brown hover:bg-stsn-beige cursor-pointer transition"
-                        >
-                          <GraduationCap className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
       </div>
 
       {/* Modals */}

@@ -11,6 +11,7 @@ import {
   Banknote, Printer, Package, Info, X, Clock, ListChecks,
   ChevronLeft, ChevronRight, BarChart3, Download, FileText, Ban,
 } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import EmptyState from "../../../components/common/EmptyState";
@@ -219,6 +220,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
   const [voidModalPaymentId, setVoidModalPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [voidConfirmInput, setVoidConfirmInput] = useState("");
 
   const rowsPerPage = 5;
   const [approvedPage, setApprovedPage] = useState(1);
@@ -559,17 +561,12 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm">
-        <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-stsn-brown" />
-          Cashiering Office
-        </h2>
-        <p className="text-stone-500 text-xs mt-1">
-          Collect payments on assessments approved by Accounting, preview official receipts, and review collection history.
-          Cashier cannot edit fees, discounts, books, or assessment approval status.
-        </p>
-      </div>
+      <ModulePageHeader
+        badge="Collection Window"
+        badgeIcon={Wallet}
+        title="Cashiering Office"
+        subtitle="Collect payments on approved assessments, preview official receipts, and review collection history."
+      />
 
       {/* Tab Navigation */}
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
@@ -982,9 +979,10 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
           });
           setVoidModalPaymentId(null);
           setVoidReason("");
+          setVoidConfirmInput("");
         };
         return (
-          <PreviewModal isOpen={true} onClose={() => setVoidModalPaymentId(null)} title="Request Receipt Void" hidePrint>
+          <PreviewModal isOpen={true} onClose={() => { setVoidModalPaymentId(null); setVoidReason(""); setVoidConfirmInput(""); }} title="Request Receipt Void" hidePrint>
             <div className="space-y-4 text-xs">
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-red-700">
                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
@@ -1041,13 +1039,33 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                   />
                   <p className="text-[9.5px] text-stone-400 mt-1">This reason will be included in the void request sent to Accounting for approval.</p>
                 </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-red-600 mb-1.5">
+                    Type the OR Number to confirm <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={voidConfirmInput}
+                    onChange={(e) => setVoidConfirmInput(e.target.value)}
+                    placeholder={voidPayment?.orNumber ?? "OR Number"}
+                    className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-mono font-bold focus:outline-none focus:ring-1 transition ${
+                      voidConfirmInput === voidPayment?.orNumber
+                        ? "border-red-400 focus:ring-red-400 text-red-700"
+                        : "border-stone-200 focus:ring-stone-300 text-stone-700"
+                    }`}
+                  />
+                  {voidConfirmInput.length > 0 && voidConfirmInput !== voidPayment?.orNumber && (
+                    <p className="text-[9.5px] text-red-500 mt-1">OR number does not match. Type exactly: <strong>{voidPayment?.orNumber}</strong></p>
+                  )}
+                </div>
                 <div className="flex justify-end gap-2 pt-1">
-                  <button type="button" onClick={() => setVoidModalPaymentId(null)} className="text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
+                  <button type="button" onClick={() => { setVoidModalPaymentId(null); setVoidReason(""); setVoidConfirmInput(""); }} className="text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={!voidReason.trim()}
+                    disabled={!voidReason.trim() || voidConfirmInput !== voidPayment?.orNumber}
                     className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Ban className="w-3.5 h-3.5" /> Submit Void Request

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -7,30 +7,52 @@
   --font-mono: "JetBrains Mono", monospace;
 
   /* Custom STSN Academic Palette */
-  --color-stsn-brown: #5C4533;
-  --color-stsn-brown-dark: #4A3728;
+  --color-stsn-brown: #5c4533;
+  --color-stsn-brown-dark: #4a3728;
   --color-stsn-brown-light: #634935;
-  --color-stsn-cream: #FFFDF5;
-  --color-stsn-beige: #E5E0D5;
-  --color-stsn-gold: #C5A059;
-  --color-stsn-gold-light: #D6CFB5;
-  --color-stsn-text: #2D241E;
+  --color-stsn-brown-deep: #2e1c10;
+  --color-stsn-cream: #fffdf5;
+  --color-stsn-beige: #e5e0d5;
+  --color-stsn-gold: #c5a059;
+  --color-stsn-gold-light: #d6cfb5;
+  --color-stsn-text: #2d241e;
 }
 
 :root {
+  /* Layout */
   --stsn-page-bg: #f8f3ea;
   --stsn-card-bg: #ffffff;
   --stsn-card-border: #e5e0d5;
   --stsn-card-radius: 0.75rem;
-  --stsn-card-shadow: 0 1px 3px rgba(74, 55, 40, 0.08), 0 10px 24px rgba(74, 55, 40, 0.05);
+  --stsn-card-shadow:
+    0 1px 3px rgba(74, 55, 40, 0.08), 0 10px 24px rgba(74, 55, 40, 0.05);
+
+  /* Text */
   --stsn-muted-text: #78716c;
   --stsn-heading-text: #2d241e;
+  --stsn-secondary-text: #6b5e54;
+
+  /* Focus */
   --stsn-focus-ring: rgba(197, 160, 89, 0.28);
+
+  /* Status backgrounds */
   --stsn-info-bg: #eff6ff;
   --stsn-success-bg: #ecfdf5;
   --stsn-warning-bg: #fffbeb;
   --stsn-danger-bg: #fef2f2;
   --stsn-purple-bg: #f5f3ff;
+
+  /* Module/Workspace Banner — dark, closest to sidebar color */
+  --stsn-banner-bg: linear-gradient(
+    135deg,
+    #502d15 0%,
+    #532e14 40%,
+    #4a3728 100%
+  );
+  --stsn-banner-text: #fffdf5;
+  --stsn-banner-border: rgba(197, 160, 89, 0.22);
+  --stsn-banner-eyebrow: rgba(197, 160, 89, 0.85);
+  --stsn-banner-subtitle: rgba(255, 253, 245, 0.68);
 }
 
 .app-page-bg {
@@ -73,88 +95,202 @@ h3,
 }
 
 /* =============================================
+   TYPOGRAPHY SCALE — STSN STANDARD
+   (Use these on module pages instead of ad-hoc inline classes)
+   ============================================= */
+
+/* Module/workspace banner title (white text, used on dark banner) */
+.stsn-page-title {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--stsn-banner-text);
+  line-height: 1.2;
+}
+
+/* Eyebrow label above the page title on banners */
+.stsn-page-eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--stsn-banner-eyebrow);
+}
+
+/* Subtitle/context line on banners */
+.stsn-page-subtitle {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--stsn-banner-subtitle);
+  line-height: 1.4;
+}
+
+/* Section heading within page content (brown, on light bg) */
+.stsn-section-title {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--stsn-heading-text);
+  line-height: 1.3;
+}
+
+/* Form field labels */
+.stsn-form-label {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #4a3728;
+  text-transform: uppercase;
+}
+
+/* Helper / hint text under form fields or within cards */
+.stsn-helper-text {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--stsn-muted-text);
+  line-height: 1.4;
+}
+
+/* Table column headers (standalone, outside stsn-datatable) */
+.stsn-table-header {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #fffdf5;
+}
+
+/* =============================================
    SIDEBAR GRADIENT THEME
    ============================================= */
 .sidebar-gradient {
-  background: linear-gradient(180deg, #2E1C10 0%, #3D2B1F 25%, #4A3728 60%, #5C4533 100%);
+  background: linear-gradient(
+    180deg,
+    #2e1c10 0%,
+    #3d2b1f 25%,
+    #4a3728 60%,
+    #5c4533 100%
+  );
 }
 
 .sidebar-item-active {
-  background: linear-gradient(135deg, rgba(197,160,89,0.2) 0%, rgba(92,69,51,0.6) 100%);
-  border-left: 3px solid #C5A059;
+  background: linear-gradient(
+    135deg,
+    rgba(197, 160, 89, 0.2) 0%,
+    rgba(92, 69, 51, 0.6) 100%
+  );
+  border-left: 3px solid #c5a059;
 }
 
 /* =============================================
    HEADER GRADIENT
    ============================================= */
 .header-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #FFFDF5 60%, #FAF6EE 100%);
-  border-bottom: 1px solid rgba(197,160,89,0.15);
+  background: linear-gradient(135deg, #ffffff 0%, #fffdf5 60%, #faf6ee 100%);
+  border-bottom: 1px solid rgba(197, 160, 89, 0.15);
 }
 
 /* =============================================
    BUTTON GRADIENTS
    ============================================= */
 .btn-primary-gradient {
-  background: linear-gradient(135deg, #5C4533 0%, #4A3728 50%, #3D2B1F 100%);
-  box-shadow: 0 2px 8px rgba(74,55,40,0.35);
+  background: linear-gradient(135deg, #5c4533 0%, #4a3728 50%, #3d2b1f 100%);
+  box-shadow: 0 2px 8px rgba(74, 55, 40, 0.35);
   transition: all 0.2s ease;
 }
 .btn-primary-gradient:hover {
-  background: linear-gradient(135deg, #6B5242 0%, #5C4533 50%, #4A3728 100%);
-  box-shadow: 0 4px 12px rgba(74,55,40,0.45);
+  background: linear-gradient(135deg, #6b5242 0%, #5c4533 50%, #4a3728 100%);
+  box-shadow: 0 4px 12px rgba(74, 55, 40, 0.45);
   transform: translateY(-1px);
 }
 
 .btn-gold-gradient {
-  background: linear-gradient(135deg, #C5A059 0%, #A37B3E 100%);
-  box-shadow: 0 2px 8px rgba(197,160,89,0.3);
+  background: linear-gradient(135deg, #c5a059 0%, #a37b3e 100%);
+  box-shadow: 0 2px 8px rgba(197, 160, 89, 0.3);
 }
 .btn-gold-gradient:hover {
-  background: linear-gradient(135deg, #D4AF6A 0%, #C5A059 100%);
+  background: linear-gradient(135deg, #d4af6a 0%, #c5a059 100%);
 }
 
 /* =============================================
    CARD GRADIENTS
    ============================================= */
 .card-hero-gradient {
-  background: linear-gradient(135deg, #2E1C10 0%, #4A3728 40%, #5C4533 80%, #6B5242 100%);
+  background: linear-gradient(
+    135deg,
+    #2e1c10 0%,
+    #4a3728 40%,
+    #5c4533 80%,
+    #6b5242 100%
+  );
 }
 
 .card-stat-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #FFFDF5 100%);
-  border: 1px solid rgba(197,160,89,0.2);
+  background: linear-gradient(135deg, #ffffff 0%, #fffdf5 100%);
+  border: 1px solid rgba(197, 160, 89, 0.2);
 }
 
 .card-gold-accent {
-  background: linear-gradient(135deg, rgba(197,160,89,0.08) 0%, rgba(255,253,245,1) 50%);
-  border: 1px solid rgba(197,160,89,0.25);
+  background: linear-gradient(
+    135deg,
+    rgba(197, 160, 89, 0.08) 0%,
+    rgba(255, 253, 245, 1) 50%
+  );
+  border: 1px solid rgba(197, 160, 89, 0.25);
 }
 
 /* =============================================
    DASHBOARD WIDGET GRADIENTS
    ============================================= */
 .widget-brown {
-  background: linear-gradient(135deg, #4A3728 0%, #5C4533 100%);
+  background: linear-gradient(135deg, #4a3728 0%, #5c4533 100%);
 }
 .widget-gold {
-  background: linear-gradient(135deg, #C5A059 0%, #A37B3E 100%);
+  background: linear-gradient(135deg, #c5a059 0%, #a37b3e 100%);
 }
 .widget-cream {
-  background: linear-gradient(135deg, #FFFDF5 0%, #F5F0E8 100%);
+  background: linear-gradient(135deg, #fffdf5 0%, #f5f0e8 100%);
 }
 
 /* =============================================
    SECTION HEADER GRADIENTS
    ============================================= */
 .section-header-gradient {
-  background: linear-gradient(135deg, #2E1C10 0%, #5C4533 100%);
-  color: #FFFDF5;
+  background: linear-gradient(135deg, #2e1c10 0%, #5c4533 100%);
+  color: #fffdf5;
 }
 
 .section-header-light {
-  background: linear-gradient(135deg, #FFFDF5 0%, #F0EAE0 100%);
-  border-bottom: 2px solid rgba(197,160,89,0.3);
+  background: linear-gradient(135deg, #fffdf5 0%, #f0eae0 100%);
+  border-bottom: 2px solid rgba(197, 160, 89, 0.3);
+}
+
+/* =============================================
+   MODULE PAGE BANNER — workspace header (dark, closest to sidebar)
+   ============================================= */
+.module-page-banner {
+  background: linear-gradient(135deg, #2e1c10 0%, #3d2b1f 40%, #4a3728 100%);
+}
+
+.module-page-banner-college {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1d4ed8 100%);
+}
+
+.module-page-banner-accent {
+  height: 2px;
+  background: linear-gradient(90deg, rgba(197, 160, 89, 0) 0%, #c5a059 50%, rgba(197, 160, 89, 0) 100%);
+}
+
+.module-page-banner-accent-college {
+  height: 2px;
+  background: linear-gradient(90deg, rgba(96, 165, 250, 0) 0%, #60a5fa 50%, rgba(96, 165, 250, 0) 100%);
 }
 
 /* =============================================
@@ -195,7 +331,17 @@ h3,
    MODAL GRADIENT HEADERS
    ============================================= */
 .modal-header-gradient {
-  background: linear-gradient(135deg, #2E1C10 0%, #4A3728 50%, #5C4533 100%);
+  background: linear-gradient(135deg, #2e1c10 0%, #4a3728 50%, #5c4533 100%);
+}
+
+.modal-header-gradient h3 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.modal-header-gradient p {
+  opacity: 0.9;
 }
 
 .app-modal-backdrop {
@@ -223,17 +369,21 @@ h3,
    TAB ACTIVE GRADIENT
    ============================================= */
 .tab-active-gradient {
-  background: linear-gradient(135deg, #4A3728 0%, #5C4533 100%);
-  color: #FFFDF5;
-  border-top: 2px solid #C5A059;
+  background: linear-gradient(135deg, #4a3728 0%, #5c4533 100%);
+  color: #fffdf5;
+  border-top: 2px solid #c5a059;
 }
 
 /* =============================================
    TABLE ROW SELECTED STATE
    ============================================= */
 .row-selected {
-  background: linear-gradient(90deg, rgba(197,160,89,0.12) 0%, rgba(255,253,245,0.5) 100%) !important;
-  border-left: 4px solid #C5A059 !important;
+  background: linear-gradient(
+    90deg,
+    rgba(197, 160, 89, 0.12) 0%,
+    rgba(255, 253, 245, 0.5) 100%
+  ) !important;
+  border-left: 4px solid #c5a059 !important;
 }
 
 .row-selected td:first-child {
@@ -244,14 +394,22 @@ h3,
    BASIC ED vs COLLEGE SCHOOL BADGES
    ============================================= */
 .badge-basic-ed {
-  background: linear-gradient(135deg, rgba(74,55,40,0.15) 0%, rgba(197,160,89,0.15) 100%);
-  border: 1px solid rgba(74,55,40,0.3);
-  color: #4A3728;
+  background: linear-gradient(
+    135deg,
+    rgba(74, 55, 40, 0.15) 0%,
+    rgba(197, 160, 89, 0.15) 100%
+  );
+  border: 1px solid rgba(74, 55, 40, 0.3);
+  color: #4a3728;
 }
 
 .badge-college {
-  background: linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(59,130,246,0.1) 100%);
-  border: 1px solid rgba(59,130,246,0.3);
+  background: linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.1) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.3);
   color: #1d4ed8;
 }
 
@@ -259,9 +417,9 @@ h3,
    STEPPER GRADIENT
    ============================================= */
 .stepper-active {
-  background: linear-gradient(135deg, #4A3728 0%, #5C4533 100%);
-  color: #FFFDF5;
-  border: 2px solid #C5A059;
+  background: linear-gradient(135deg, #4a3728 0%, #5c4533 100%);
+  color: #fffdf5;
+  border: 2px solid #c5a059;
 }
 
 /* =============================================
@@ -275,29 +433,43 @@ h3,
   background: var(--color-stsn-cream);
 }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #C5A059 0%, #A37B3E 100%);
+  background: linear-gradient(180deg, #c5a059 0%, #a37b3e 100%);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #D4AF6A 0%, #C5A059 100%);
+  background: linear-gradient(180deg, #d4af6a 0%, #c5a059 100%);
 }
 
 /* =============================================
    ANIMATIONS
    ============================================= */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-16px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 .animate-fade-in {
@@ -316,7 +488,7 @@ h3,
 }
 .smooth-hover:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(74,55,40,0.12);
+  box-shadow: 0 4px 16px rgba(74, 55, 40, 0.12);
 }
 
 /* =============================================
@@ -337,15 +509,15 @@ h3,
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.75rem;
-  border: 1px solid #E5E0D5;
+  border: 1px solid #e5e0d5;
   border-radius: 0.75rem;
   overflow: hidden;
 }
 
 .stsn-datatable table.dataTable thead th {
   display: table-cell !important; /* override DataTables 2.x flex layout to prevent left-side sort indicator excess */
-  background: linear-gradient(135deg, #4A3728 0%, #5C4533 100%);
-  color: #FFFDF5;
+  background: linear-gradient(135deg, #4a3728 0%, #5c4533 100%);
+  color: #fffdf5;
   font-family: "JetBrains Mono", monospace;
   font-weight: 700;
   text-transform: uppercase;
@@ -369,8 +541,8 @@ h3,
 
 .stsn-datatable table.dataTable tbody td {
   padding: 0.6rem 0.9rem;
-  border-bottom: 1px solid #F0EAE0;
-  color: #2D241E;
+  border-bottom: 1px solid #f0eae0;
+  color: #2d241e;
 }
 
 .stsn-datatable table.dataTable tbody tr:hover {
@@ -390,28 +562,28 @@ h3,
 }
 
 .stsn-datatable .dt-search input {
-  border: 1px solid #E5E0D5;
+  border: 1px solid #e5e0d5;
   border-radius: 0.5rem;
   padding: 0.35rem 0.75rem;
   font-size: 0.75rem;
-  background: #FFFDF5;
-  color: #2D241E;
+  background: #fffdf5;
+  color: #2d241e;
   margin-left: 0.5rem;
 }
 
 .stsn-datatable .dt-search input:focus {
   outline: none;
-  border-color: #C5A059;
+  border-color: #c5a059;
   box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.2);
 }
 
 .stsn-datatable .dt-length select {
-  border: 1px solid #E5E0D5;
+  border: 1px solid #e5e0d5;
   border-radius: 0.5rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
-  background: #FFFDF5;
-  color: #2D241E;
+  background: #fffdf5;
+  color: #2d241e;
 }
 
 .stsn-datatable .dt-paging .dt-paging-button {
@@ -419,15 +591,15 @@ h3,
   margin: 0 0.15rem;
   padding: 0.3rem 0.65rem;
   font-size: 0.75rem;
-  border: 1px solid #E5E0D5;
-  color: #5C4533;
-  background: #FFFDF5;
+  border: 1px solid #e5e0d5;
+  color: #5c4533;
+  background: #fffdf5;
 }
 
 .stsn-datatable .dt-paging .dt-paging-button.current {
-  background: linear-gradient(135deg, #C5A059 0%, #A37B3E 100%);
-  color: #FFFDF5;
-  border-color: #A37B3E;
+  background: linear-gradient(135deg, #c5a059 0%, #a37b3e 100%);
+  color: #fffdf5;
+  border-color: #a37b3e;
 }
 
 .stsn-datatable .dt-paging .dt-paging-button:not(.disabled):hover {
@@ -446,6 +618,50 @@ h3,
 
 .stsn-datatable .dt-layout-row {
   margin-bottom: 0.75rem;
+}
+
+.payroll-workflow-table-card {
+  position: relative;
+}
+
+.payroll-workflow-table {
+  min-height: 22rem;
+  contain: layout paint;
+}
+
+.payroll-workflow-table .dt-layout-row:first-child {
+  min-height: 3.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
+.payroll-workflow-table .dt-layout-row:first-child .dt-layout-cell {
+  width: auto;
+}
+
+.payroll-workflow-table .dt-layout-row:first-child .dt-layout-cell:first-child {
+  flex: 1 1 auto;
+}
+
+.payroll-workflow-table .dt-search {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.payroll-workflow-table table.dataTable {
+  table-layout: auto;
+}
+
+.stsn-datatable table.dataTable th.payroll-money-cell,
+.stsn-datatable table.dataTable td.payroll-money-cell,
+.stsn-datatable .payroll-money-cell {
+  min-width: 7.5rem;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* =============================================
@@ -474,7 +690,9 @@ h3,
    ============================================= */
 @media print {
   /* Isolate print output: hide everything, then reveal only the print-card */
-  body * { visibility: hidden; }
+  body * {
+    visibility: hidden;
+  }
 
   .print-card {
     visibility: visible !important;
@@ -491,9 +709,15 @@ h3,
     z-index: 9999 !important;
   }
 
-  .print-card * { visibility: visible !important; }
+  .print-card * {
+    visibility: visible !important;
+  }
 
   /* Utility helpers preserved */
-  .no-print { display: none !important; }
-  .print-only { display: block !important; }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
 }
