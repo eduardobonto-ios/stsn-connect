@@ -4,13 +4,13 @@
  */
 
 /**
- * Cashier capability catalog (Phase 1 — permission preparation only).
- * These are action-level capabilities *within* the CASHIER module
+ * Cashier capability catalog.
+ * These are action-level capabilities within the CASHIER module
  * (see permissions.config.ts for module-level access).
  *
- * Not yet consumed by any UI — the Cashier module page is a future phase.
- * Listed here so the capability set is defined ahead of implementation and
- * can be imported once the Cashier module is built.
+ * Cashier may submit void requests, but final void/reversal remains an
+ * Accounting/authorized-approver workflow until a durable business record and
+ * transactional reversal service are implemented.
  */
 export type CashierCapability =
   | "VIEW_APPROVED_ASSESSMENTS"
@@ -35,9 +35,9 @@ export const CASHIER_CAPABILITIES: CashierCapability[] = [
 ];
 
 /**
- * Capabilities explicitly withheld from the Cashier role — these remain
- * Accounting/Registrar-only actions. Documented here for reference so the
- * Cashier module never grows them by accident.
+ * Capabilities explicitly withheld from the Cashier role. These remain
+ * Accounting/Registrar-only actions and are documented here so the Cashier
+ * module does not grow them by accident.
  */
 export const CASHIER_RESTRICTED_ACTIONS = [
   "EDIT_ASSESSMENT",
@@ -50,11 +50,11 @@ export const CASHIER_RESTRICTED_ACTIONS = [
 
 /**
  * Reprinting a receipt is allowed unconditionally.
- * Voiding a payment is gated separately: it requires the payment to carry an
- * `approvalStatus: "Pending Approval"` placeholder (i.e. the void itself must
- * be routed back to Accounting for approval). No such placeholder exists on
- * `Payment` yet — `VOID_PAYMENT` is reserved for that future workflow and must
- * not be wired to an unconditional void action.
+ * Voiding is request-only for Cashiers: the UI may submit a void request into
+ * the approval workflow, but final void/reversal must stay with Accounting or
+ * an authorized approver. Until a durable `payment_void_requests` business table
+ * and transactional reversal service exist, this capability must not be wired
+ * to an unconditional payment deletion or direct reversal action.
  */
 export function canCashier(capability: CashierCapability): boolean {
   return CASHIER_CAPABILITIES.includes(capability);

@@ -15,14 +15,12 @@ interface AppFormFieldProps {
 export default function AppFormField({ label, children, hint, error }: AppFormFieldProps) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-wide text-stone-500">
-        {label}
-      </span>
+      <span className="stsn-form-label">{label}</span>
       {children}
       {error ? (
         <span className="block text-[10px] font-semibold text-red-600">{error}</span>
       ) : hint ? (
-        <span className="block text-[10px] text-stone-400">{hint}</span>
+        <span className="stsn-helper-text block">{hint}</span>
       ) : null}
     </label>
   );

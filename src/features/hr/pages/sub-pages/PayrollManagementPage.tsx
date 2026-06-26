@@ -405,14 +405,23 @@ export default function PayrollManagementPage() {
     toast(`Payroll run ${run.runNo} computed for ${payableEmployees.length} employee(s).`);
   };
 
-  const handleApprovePayrollRun = (run: PayrollRun) => {
+  const handleSubmitPayrollRunForReview = (run: PayrollRun) => {
     const runLines = payrollLines.filter((line) => line.payrollRunId === run.id);
     if (runLines.length === 0) {
-      toast("Cannot approve this payroll run because it has no payroll lines.", { variant: "warning" });
+      toast("Cannot submit this payroll run because it has no payroll lines.", { variant: "warning" });
       return;
     }
     if (run.id === latestPayrollRun?.id && payrollExceptionRows.some((row) => row.severity === "Blocking")) {
-      toast("Resolve blocking payroll exceptions before approval.", { variant: "warning" });
+      toast("Resolve blocking payroll exceptions before submitting for review.", { variant: "warning" });
+      return;
+    }
+    updatePayrollRunStatus(run.id, "For Review", currentUser?.name ?? "Payroll Staff");
+    toast(`Payroll run ${run.runNo} submitted for review.`);
+  };
+
+  const handleApprovePayrollRun = (run: PayrollRun) => {
+    if (run.status !== "For Review") {
+      toast("Payroll run must be submitted for review before it can be approved.", { variant: "warning" });
       return;
     }
     updatePayrollRunStatus(run.id, "Approved", currentUser?.name ?? "Payroll Approver");
@@ -462,7 +471,7 @@ export default function PayrollManagementPage() {
     toast("Legacy bi-weekly payroll ledger processed. Use Generate Payroll Run for the approved payout workflow.");
   };
 
-  const payrollRunColumns: STSNColumn<PayrollRun>[] = [
+  const payrollRunColumns = useMemo<STSNColumn<PayrollRun>[]>(() => [
     { title: "Run #", data: "runNo", render: (value) => <span className="font-mono text-xs font-bold text-stsn-brown">{value}</span> },
     {
       title: "Period",
@@ -481,9 +490,10 @@ export default function PayrollManagementPage() {
       title: "Net Pay",
       render: (_, row) => {
         const total = payrollLines.filter((line) => line.payrollRunId === row.id).reduce((sum, line) => sum + line.netPay, 0);
-        return <span className="font-mono text-xs font-bold text-emerald-700">PHP {total.toLocaleString()}</span>;
+        return <span className="payroll-money-cell font-mono text-xs font-bold text-stsn-brown">PHP {total.toLocaleString()}</span>;
       },
-      width: "110px",
+      className: "payroll-money-cell",
+      width: "130px",
     },
     {
       title: "Actions",
@@ -494,7 +504,12 @@ export default function PayrollManagementPage() {
         return (
           <div className="flex gap-1 justify-end">
             {row.status === "Computed" && (
-              <button onClick={() => handleApprovePayrollRun(row)} className="px-2 py-1 text-[10px] bg-emerald-600 text-white rounded font-bold cursor-pointer">
+              <button onClick={() => handleSubmitPayrollRunForReview(row)} className="px-2 py-1 text-[10px] bg-amber-600 text-white rounded font-bold cursor-pointer">
+                Submit for Review
+              </button>
+            )}
+            {row.status === "For Review" && (
+              <button onClick={() => handleApprovePayrollRun(row)} className="px-2 py-1 text-[10px] bg-stsn-brown text-stsn-cream rounded font-bold cursor-pointer">
                 Approve
               </button>
             )}
@@ -508,9 +523,9 @@ export default function PayrollManagementPage() {
         );
       },
     },
-  ];
+  ], [payrollLines, payrollPeriods, salaryPayoutBatches]);
 
-  const payrollLineColumns: STSNColumn<PayrollLine>[] = [
+  const payrollLineColumns = useMemo<STSNColumn<PayrollLine>[]>(() => [
     {
       title: "Employee",
       render: (_, row) => {
@@ -518,13 +533,30 @@ export default function PayrollManagementPage() {
         return <span className="text-xs font-semibold text-stone-800">{employee ? `${employee.lastName}, ${employee.firstName}` : row.employeeId}</span>;
       },
     },
-    { title: "Gross", data: "grossPay", render: (value) => <span className="font-mono text-xs">PHP {Number(value).toLocaleString()}</span>, width: "100px" },
-    { title: "Deductions", render: (_, row) => <span className="font-mono text-xs text-red-600">PHP {(row.sssDeduction + row.philhealthDeduction + row.pagibigDeduction + row.withholdingTax + row.otherDeductions).toLocaleString()}</span>, width: "110px" },
-    { title: "Net Pay", data: "netPay", render: (value) => <span className="font-mono text-xs font-bold text-emerald-700">PHP {Number(value).toLocaleString()}</span>, width: "105px" },
+    {
+      title: "Gross",
+      data: "grossPay",
+      className: "payroll-money-cell",
+      render: (value) => <span className="payroll-money-cell font-mono text-xs">PHP {Number(value).toLocaleString()}</span>,
+      width: "120px",
+    },
+    {
+      title: "Deductions",
+      className: "payroll-money-cell",
+      render: (_, row) => <span className="payroll-money-cell font-mono text-xs text-red-600">PHP {(row.sssDeduction + row.philhealthDeduction + row.pagibigDeduction + row.withholdingTax + row.otherDeductions).toLocaleString()}</span>,
+      width: "130px",
+    },
+    {
+      title: "Net Pay",
+      data: "netPay",
+      className: "payroll-money-cell",
+      render: (value) => <span className="payroll-money-cell font-mono text-xs font-bold text-stsn-brown">PHP {Number(value).toLocaleString()}</span>,
+      width: "120px",
+    },
     { title: "Status", data: "status", render: (value) => <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-semibold">{value}</span>, width: "90px" },
-  ];
+  ], [employeeMap]);
 
-  const payrollExceptionColumns: STSNColumn<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>[] = [
+  const payrollExceptionColumns = useMemo<STSNColumn<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>[]>(() => [
     { title: "Issue", data: "issue", render: (value) => <span className="text-xs font-bold text-stone-800">{value}</span> },
     { title: "Detail", data: "detail", render: (value) => <span className="text-xs text-stone-500">{value}</span> },
     {
@@ -537,19 +569,19 @@ export default function PayrollManagementPage() {
       ),
       width: "95px",
     },
-  ];
+  ], []);
 
-  const payrollColumns: STSNColumn<PayrollRow>[] = [
+  const payrollColumns = useMemo<STSNColumn<PayrollRow>[]>(() => [
     { title: "Period Range", data: "period", className: "text-stone-800 font-semibold" },
     {
       title: "Gross Pay",
       data: "basicSalary",
-      className: "text-center font-mono text-stone-600",
+      className: "payroll-money-cell font-mono text-stone-600",
       render: (value: number) => `₱${value.toLocaleString()}`,
     },
     {
       title: "Deduction",
-      className: "text-center font-mono text-red-500",
+      className: "payroll-money-cell font-mono text-red-500",
       orderable: false,
       render: (_value, row) => {
         const totalDeducts = row.sssDeduction + row.philhealthDeduction + row.pagibigDeduction + row.taxDeduction;
@@ -559,7 +591,7 @@ export default function PayrollManagementPage() {
     {
       title: "Net takehome",
       data: "netPay",
-      className: "text-center font-mono font-bold text-stsn-brown-dark",
+      className: "payroll-money-cell font-mono font-bold text-stsn-brown-dark",
       render: (value: number) => `₱${value.toLocaleString()}`,
     },
     {
@@ -599,7 +631,7 @@ export default function PayrollManagementPage() {
         </button>
       ),
     },
-  ];
+  ], [markPaidPayroll, toast]);
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
@@ -622,7 +654,7 @@ export default function PayrollManagementPage() {
         <div className="flex gap-2">
           <button
             onClick={handleGeneratePayrollRun}
-            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer shadow flex items-center gap-1.5 transition"
+            className="bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer shadow flex items-center gap-1.5 transition"
           >
             <Sparkles className="w-4 h-4" />
             Generate Payroll Run
@@ -636,7 +668,7 @@ export default function PayrollManagementPage() {
           </button>
           <button
             onClick={() => { setImportStatus("idle"); setImportRows([]); setImportMessage(""); setIsImportOpen(true); }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition shadow"
+            className="bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition shadow"
           >
             <Upload className="w-4 h-4" />
             Upload Employee
@@ -653,15 +685,47 @@ export default function PayrollManagementPage() {
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {[
-          { label: "Scoped Employees", value: filteredEmployees.length, sub: effectiveSchool || "All Schools", icon: Users, tone: "text-stsn-brown" },
-          { label: "Monthly Payroll", value: `PHP ${projectedMonthlyPayroll.toLocaleString()}`, sub: "gross projection", icon: DollarSign, tone: "text-emerald-600" },
-          { label: "Latest Run Net", value: `PHP ${latestRunNetPay.toLocaleString()}`, sub: latestPayrollRun?.status ?? "no computed run", icon: Scale, tone: "text-amber-600" },
-          { label: "Payout Readiness", value: latestRunHasPayout ? "Queued" : latestPayrollRun?.status === "Approved" ? "Ready" : "Locked", sub: latestPayrollPeriod?.label ?? "awaiting run", icon: FileCheck, tone: "text-blue-600" },
+          {
+            label: "Scoped Employees",
+            value: filteredEmployees.length,
+            sub: effectiveSchool || "All Schools",
+            icon: Users,
+            tone: "text-stsn-brown",
+            tile: "bg-gradient-to-br from-white to-stsn-cream border-stsn-beige",
+            iconTile: "bg-stsn-cream border-stsn-beige",
+          },
+          {
+            label: "Monthly Payroll",
+            value: `PHP ${projectedMonthlyPayroll.toLocaleString()}`,
+            sub: "gross projection",
+            icon: DollarSign,
+            tone: "text-stsn-gold",
+            tile: "bg-gradient-to-br from-white to-amber-50 border-stsn-gold/40",
+            iconTile: "bg-amber-50 border-stsn-gold/30",
+          },
+          {
+            label: "Latest Run Net",
+            value: `PHP ${latestRunNetPay.toLocaleString()}`,
+            sub: latestPayrollRun?.status ?? "no computed run",
+            icon: Scale,
+            tone: "text-stsn-brown",
+            tile: "bg-gradient-to-br from-white to-stone-50 border-stsn-brown/20",
+            iconTile: "bg-stone-50 border-stsn-brown/15",
+          },
+          {
+            label: "Payout Readiness",
+            value: latestRunHasPayout ? "Queued" : latestPayrollRun?.status === "Approved" ? "Ready" : "Locked",
+            sub: latestPayrollPeriod?.label ?? "awaiting run",
+            icon: FileCheck,
+            tone: "text-stsn-gold",
+            tile: "bg-gradient-to-br from-white to-stsn-cream border-stsn-gold/30",
+            iconTile: "bg-white/80 border-stsn-gold/30",
+          },
         ].map((item) => {
           const Icon = item.icon;
           return (
-            <div key={item.label} className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-stone-50 border border-stone-100 flex items-center justify-center">
+            <div key={item.label} className={`${item.tile} rounded-xl border shadow-sm p-4 flex items-center gap-3`}>
+              <div className={`${item.iconTile} w-10 h-10 rounded-lg border flex items-center justify-center`}>
                 <Icon className={`w-5 h-5 ${item.tone}`} />
               </div>
               <div className="min-w-0">
@@ -690,8 +754,16 @@ export default function PayrollManagementPage() {
           <div className="flex flex-wrap gap-2">
             {latestPayrollRun?.status === "Computed" && (
               <button
+                onClick={() => handleSubmitPayrollRunForReview(latestPayrollRun)}
+                className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Submit for Review
+              </button>
+            )}
+            {latestPayrollRun?.status === "For Review" && (
+              <button
                 onClick={() => handleApprovePayrollRun(latestPayrollRun)}
-                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                className="px-3 py-2 bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream rounded-lg text-xs font-bold cursor-pointer"
               >
                 Approve Latest Run
               </button>
@@ -713,7 +785,7 @@ export default function PayrollManagementPage() {
               <p className="text-[10px] uppercase font-mono text-stone-400">Payroll Exceptions</p>
               <p className="text-xs text-stone-500">Review blocking and warning conditions before approval or payout.</p>
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${payrollExceptionRows.some((row) => row.severity === "Blocking") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${payrollExceptionRows.some((row) => row.severity === "Blocking") ? "bg-red-50 text-red-700" : "bg-stsn-cream text-stsn-brown"}`}>
               {payrollExceptionRows.length} issue(s)
             </span>
           </div>
@@ -725,17 +797,23 @@ export default function PayrollManagementPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="border border-stone-100 rounded-xl overflow-hidden p-1">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+          <div className="payroll-workflow-table-card border border-stone-100 rounded-xl overflow-hidden p-1 flex flex-col min-h-[420px]">
+            <div className="absolute left-4 top-4 z-10 pointer-events-none">
+              <p className="text-[10px] uppercase font-mono text-stone-400">
+                Payroll runs
+              </p>
+            </div>
             <STSNDataTable<PayrollRun>
               columns={payrollRunColumns}
               rows={scopedPayrollRuns}
               emptyMessage="No payroll runs yet. Generate a payroll run to start the controlled workflow."
               pageLength={5}
+              className="payroll-workflow-table"
             />
           </div>
-          <div className="border border-stone-100 rounded-xl overflow-hidden p-1">
-            <div className="px-3 pt-3 pb-2">
+          <div className="payroll-workflow-table-card border border-stone-100 rounded-xl overflow-hidden p-1 flex flex-col min-h-[420px]">
+            <div className="absolute left-4 top-4 z-10 pointer-events-none">
               <p className="text-[10px] uppercase font-mono text-stone-400">
                 Latest run lines {latestPayrollRun ? `for ${latestPayrollRun.runNo}` : ""}
               </p>
@@ -745,6 +823,7 @@ export default function PayrollManagementPage() {
               rows={latestPayrollRunLines}
               emptyMessage="No computed payroll lines for the latest run."
               pageLength={5}
+              className="payroll-workflow-table"
             />
           </div>
         </div>

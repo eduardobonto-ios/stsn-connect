@@ -450,6 +450,15 @@ export async function loadAllData(): Promise<LoadedData> {
   const gradePeriods: GradePeriod[] = (gpRows ?? []).map((g: any) => ({
     id: g.id, label: g.label, subjectCode: g.subjects?.code ?? "", sectionId: g.section_id, schoolYear: g.school_year,
     teacherId: g.teacher_id, isFinalized: g.is_finalized, finalizedAt: g.finalized_at, finalizedBy: g.finalized_by,
+    gradeApprovalStatus: g.grade_approval_status ?? undefined,
+    submittedForApproval: g.submitted_for_approval ?? undefined,
+    submittedAt: g.submitted_at ?? undefined,
+    submittedBy: g.submitted_by ?? undefined,
+    approvedBy: g.approved_by ?? undefined,
+    approvedAt: g.approved_at ?? undefined,
+    returnedBy: g.returned_by ?? undefined,
+    returnedAt: g.returned_at ?? undefined,
+    returnRemarks: g.return_remarks ?? undefined,
     categories: (gcRows ?? []).filter((c: any) => c.grade_period_id === g.id).map((c: any) => ({ name: c.name, weight: c.weight })),
     items: (giRows ?? []).filter((it: any) => it.grade_period_id === g.id).map((it: any) => ({
       id: it.id, label: it.label, category: it.category, maxScore: it.max_score, order: it.sort_order, dueDate: it.due_date,

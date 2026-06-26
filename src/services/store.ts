@@ -5,6 +5,16 @@
 
 import { create } from "zustand";
 import {
+  createApprovalRequest,
+  submitApprovalRequest,
+  approveStep as awApproveStep,
+  returnRequest as awReturnRequest,
+  rejectRequest as awRejectRequest,
+  cancelRequest as awCancelRequest,
+  findApprovalRequestByEntity,
+  type WorkflowType,
+} from "./approvalWorkflowService";
+import {
   User,
   Student,
   Teacher,
@@ -430,6 +440,83 @@ const sanitizeStorageName = (value: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 120) || "document";
 
+// ── Approval workflow persistence helpers (fire-and-forget) ──────────────────
+// These call the centralized approval service to write to approval_requests,
+// approval_steps, and approval_actions tables without blocking the synchronous
+// local state update that the UI already relies on.
+
+type ApprovalActor = Pick<User, "id" | "role" | "designation" | "schoolId" | "isActive" | "name">;
+
+async function awFindOrCreate(
+  entityId: string,
+  wfType: WorkflowType,
+  actor: ApprovalActor,
+  titleFallback: string,
+  schoolId?: string,
+): Promise<string> {
+  const existing = await findApprovalRequestByEntity(entityId, wfType);
+  if (existing) return existing.id;
+  const id = await createApprovalRequest({
+    workflowType: wfType,
+    entityType: wfType,
+    entityId,
+    schoolId,
+    requestedBy: actor.id,
+    requestedRole: actor.role,
+    requestTitle: titleFallback,
+  });
+  await submitApprovalRequest(id, actor);
+  return id;
+}
+
+async function awActApprove(
+  entityId: string,
+  wfType: WorkflowType,
+  actor: ApprovalActor,
+  titleFallback: string,
+  schoolId?: string,
+  remarks?: string,
+): Promise<void> {
+  try {
+    const requestId = await awFindOrCreate(entityId, wfType, actor, titleFallback, schoolId);
+    await awApproveStep(requestId, actor, remarks);
+  } catch (e) {
+    console.error(`[approvalWorkflow] awActApprove(${wfType}/${entityId}) failed:`, e);
+  }
+}
+
+async function awActReturn(
+  entityId: string,
+  wfType: WorkflowType,
+  actor: ApprovalActor,
+  titleFallback: string,
+  remarks: string,
+  schoolId?: string,
+): Promise<void> {
+  try {
+    const requestId = await awFindOrCreate(entityId, wfType, actor, titleFallback, schoolId);
+    await awReturnRequest(requestId, actor, remarks);
+  } catch (e) {
+    console.error(`[approvalWorkflow] awActReturn(${wfType}/${entityId}) failed:`, e);
+  }
+}
+
+async function awActReject(
+  entityId: string,
+  wfType: WorkflowType,
+  actor: ApprovalActor,
+  titleFallback: string,
+  remarks: string,
+  schoolId?: string,
+): Promise<void> {
+  try {
+    const requestId = await awFindOrCreate(entityId, wfType, actor, titleFallback, schoolId);
+    await awRejectRequest(requestId, actor, remarks);
+  } catch (e) {
+    console.error(`[approvalWorkflow] awActReject(${wfType}/${entityId}) failed:`, e);
+  }
+}
+
 export const useSTSNStore = create<STSNState>((set, get) => ({
   isLoading: true,
   currentUser: null,
@@ -810,6 +897,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       dbUpdate("students", linkedEnrollment.studentId, { enrollmentStatus: "For Payment" });
     }
     dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+    const actor = get().currentUser;
+    if (actor) awActApprove(assessmentId, "assessment", actor, `Assessment — ${assessment?.studentId ?? assessmentId}`, assessment?.schoolId as string | undefined, remarks);
     const asmtStudent = get().students.find((s) => s.id === assessment?.studentId);
     get().addNotification({ title: "Assessment Approved for Payment", body: `Assessment for ${asmtStudent ? `${asmtStudent.firstName} ${asmtStudent.lastName}` : "student"} approved. Student may now proceed to Cashier.`, type: "approval", entityType: "assessment", entityId: assessmentId, targetRoles: ["CASHIER", "REGISTRAR", "SUPER_ADMIN", "ADMIN"], schoolId: assessment?.schoolId as any });
   },
@@ -824,6 +913,9 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     }));
     dbUpdate("assessments", assessmentId, { approvalStatus: "Returned to Registrar", accountingRemarks: remarks });
     dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+    const actorRet = get().currentUser;
+    const asmtRet = get().assessments.find((a) => a.id === assessmentId);
+    if (actorRet) awActReturn(assessmentId, "assessment", actorRet, `Assessment — ${assessmentId}`, remarks, asmtRet?.schoolId as string | undefined);
     get().addNotification({ title: "Assessment Returned to Registrar", body: `An assessment was returned for correction: ${remarks}`, type: "return", entityType: "assessment", entityId: assessmentId, targetRoles: ["REGISTRAR", "SUPER_ADMIN", "ADMIN"] });
   },
 
@@ -837,6 +929,9 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     }));
     dbUpdate("assessments", assessmentId, { approvalStatus: "Rejected", accountingRemarks: remarks });
     dbInsert("assessment_audit_trail", { id: entry.id, assessment_id: assessmentId, action: entry.action, performed_by: entry.performedBy, performed_at: entry.performedAt, details: entry.details });
+    const actorRej = get().currentUser;
+    const asmtRej = get().assessments.find((a) => a.id === assessmentId);
+    if (actorRej) awActReject(assessmentId, "assessment", actorRej, `Assessment — ${assessmentId}`, remarks, asmtRej?.schoolId as string | undefined);
   },
 
   addPayment: (paymentData) => {
@@ -1173,6 +1268,19 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     set((state) => ({ discountRequests: [newReq, ...state.discountRequests] }));
     dbInsert("discount_requests", { id: newReqId, referenceNo: newReq.referenceNo, studentId: reqData.studentId, discountTypeId: reqData.discountTypeId, requestedBy: reqData.requestedBy, requestedAt: newReq.requestedAt, status: "Pending", siblingNames: reqData.siblingNames, level1Status: "Pending", level2Status: "Pending", remarks: reqData.remarks, attachmentNames: reqData.attachmentNames });
     dbInsert("discount_request_audit_trail", { id: auditEntry.id, discountRequestId: newReqId, action: auditEntry.action, performedBy: auditEntry.performedBy, performedAt: auditEntry.performedAt, details: auditEntry.details });
+    // Create + submit in approval engine (fire-and-forget)
+    const actorADR = get().currentUser;
+    if (actorADR) {
+      createApprovalRequest({
+        workflowType: "discount",
+        entityType: "discount_request",
+        entityId: newReqId,
+        requestedBy: actorADR.id,
+        requestedRole: actorADR.role,
+        requestTitle: `Discount — ${reqData.discountTypeName} for ${reqData.studentName ?? reqData.studentId}`,
+      }).then((reqId) => submitApprovalRequest(reqId, actorADR))
+        .catch((e) => console.error("[approvalWorkflow] addDiscountRequest failed:", e));
+    }
     return newReq;
   },
 
@@ -1204,6 +1312,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         get().updateAssessment(assessment.id, { discountPercentage: req.discountPercent, discountAmount: discountAmt, scholarshipName: req.discountTypeName, balance: Math.max(0, assessment.totalAmount - discountAmt) });
       }
     }
+    const actorApprDisc = get().currentUser;
+    if (actorApprDisc && req) awActApprove(id, "discount", actorApprDisc, `Discount — ${req.referenceNo}`);
   },
 
   rejectDiscountRequest: (id, level, approvedBy, remarks) => {
@@ -1219,12 +1329,29 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const levelKey = level === 1 ? "level1" : "level2";
     dbUpdate("discount_requests", id, { [`${levelKey}Status`]: "Rejected", [`${levelKey}ApprovedBy`]: approvedBy, [`${levelKey}ApprovedAt`]: now, status: "Rejected" });
     dbInsert("discount_request_audit_trail", { id: auditEntry.id, discountRequestId: id, action: auditEntry.action, performedBy: auditEntry.performedBy, performedAt: auditEntry.performedAt, details: auditEntry.details });
+    const actorRejDisc = get().currentUser;
+    const discReq = get().discountRequests.find((r) => r.id === id);
+    if (actorRejDisc && discReq) awActReject(id, "discount", actorRejDisc, `Discount — ${discReq.referenceNo}`, remarks || "Rejected");
   },
 
   // ---- Payment Void Approval Actions ----
   submitVoidRequest: (reqData) => {
     const newReq: VoidRequest = { ...reqData, id: newId(), requestedAt: nowStamp(), status: "Pending Void Approval" };
     set((state) => ({ voidRequests: [newReq, ...state.voidRequests] }));
+    const actorSVR = get().currentUser;
+    if (actorSVR) {
+      createApprovalRequest({
+        workflowType: "payment_void",
+        entityType: "void_request",
+        entityId: newReq.id,
+        schoolId: reqData.schoolId as string | undefined,
+        requestedBy: actorSVR.id,
+        requestedRole: actorSVR.role,
+        requestTitle: `Void — OR ${reqData.orNumber} for ${reqData.studentName}`,
+        priority: "High",
+      }).then((reqId) => submitApprovalRequest(reqId, actorSVR))
+        .catch((e) => console.error("[approvalWorkflow] submitVoidRequest failed:", e));
+    }
     return newReq;
   },
 
@@ -1236,6 +1363,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         r.id !== id ? r : { ...r, status: "Approved", reviewedBy, reviewedAt: now, reviewRemarks: remarks }
       ),
     }));
+    const actorAVR = get().currentUser;
+    if (actorAVR && req) awActApprove(id, "payment_void", actorAVR, `Void — OR ${req.orNumber}`, req.schoolId as string | undefined, remarks);
     if (req) get().addNotification({ title: "Void Request Approved", body: `OR No. ${req.orNumber} for ${req.studentName} has been approved for voiding.`, type: "approval", entityType: "void", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: req.schoolId });
   },
 
@@ -1247,6 +1376,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         r.id !== id ? r : { ...r, status: "Rejected", reviewedBy, reviewedAt: now, reviewRemarks: remarks }
       ),
     }));
+    const actorRVR = get().currentUser;
+    if (actorRVR && req) awActReject(id, "payment_void", actorRVR, `Void — OR ${req.orNumber}`, remarks, req.schoolId as string | undefined);
     if (req) get().addNotification({ title: "Void Request Rejected", body: `Void request for OR No. ${req.orNumber} was rejected: ${remarks}`, type: "rejection", entityType: "void", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: req.schoolId });
   },
 
@@ -1277,6 +1408,25 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         p.id !== periodId ? p : { ...p, submittedForApproval: true, submittedAt: now, submittedBy, gradeApprovalStatus: "Submitted" as const }
       ),
     }));
+    dbUpdate("grade_periods", periodId, {
+      submittedForApproval: true,
+      submittedAt: now,
+      submittedBy,
+      gradeApprovalStatus: "Submitted",
+    });
+    // Persist to approval engine
+    const actorSGP = get().currentUser;
+    if (actorSGP && period) {
+      createApprovalRequest({
+        workflowType: "grade_period",
+        entityType: "grade_period",
+        entityId: periodId,
+        requestedBy: actorSGP.id,
+        requestedRole: actorSGP.role,
+        requestTitle: `Grade Period — ${period.label} ${period.subjectCode}`,
+      }).then((id) => submitApprovalRequest(id, actorSGP))
+        .catch((e) => console.error("[approvalWorkflow] submitGradePeriod failed:", e));
+    }
     if (period) get().addNotification({ title: "Grade Period Submitted for Approval", body: `${period.label} — ${period.subjectCode} submitted by ${submittedBy} and awaiting Principal approval.`, type: "reminder", entityType: "grade", entityId: periodId, targetRoles: ["PRINCIPAL", "SUPER_ADMIN", "ADMIN"] });
   },
 
@@ -1288,6 +1438,17 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         p.id !== periodId ? p : { ...p, isFinalized: true, finalizedAt: now, finalizedBy: approvedBy, gradeApprovalStatus: "Approved" as const, approvedAt: now, approvedBy }
       ),
     }));
+    dbUpdate("grade_periods", periodId, {
+      isFinalized: true,
+      finalizedAt: now,
+      finalizedBy: approvedBy,
+      submittedForApproval: false,
+      gradeApprovalStatus: "Approved",
+      approvedAt: now,
+      approvedBy,
+    });
+    const actorAGP = get().currentUser;
+    if (actorAGP && period) awActApprove(periodId, "grade_period", actorAGP, `Grade Period — ${period.label} ${period.subjectCode}`);
     if (period) get().addNotification({ title: "Grade Period Approved", body: `${period.label} — ${period.subjectCode} has been approved and finalized by ${approvedBy}.`, type: "approval", entityType: "grade", entityId: periodId, targetRoles: ["TEACHER", "REGISTRAR", "SUPER_ADMIN", "ADMIN"] });
   },
 
@@ -1299,6 +1460,15 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         p.id !== periodId ? p : { ...p, submittedForApproval: false, gradeApprovalStatus: "Returned" as const, returnRemarks: remarks, returnedAt: now, returnedBy }
       ),
     }));
+    dbUpdate("grade_periods", periodId, {
+      submittedForApproval: false,
+      gradeApprovalStatus: "Returned",
+      returnRemarks: remarks,
+      returnedAt: now,
+      returnedBy,
+    });
+    const actorRGP = get().currentUser;
+    if (actorRGP && period) awActReturn(periodId, "grade_period", actorRGP, `Grade Period — ${period.label} ${period.subjectCode}`, remarks);
     if (period) get().addNotification({ title: "Grade Period Returned", body: `${period.label} — ${period.subjectCode} was returned for revision: ${remarks}`, type: "return", entityType: "grade", entityId: periodId, targetRoles: ["TEACHER", "SUPER_ADMIN", "ADMIN"] });
   },
 
@@ -1517,6 +1687,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       leaveRequests: state.leaveRequests.map((r) => r.id === id ? { ...r, status: "Approved", approvedBy, approvedAt: now, remarks: remarks ?? r.remarks } : r)
     }));
     dbUpdate("leave_requests", id, { status: "Approved", approved_by: approvedBy, approved_at: now, remarks });
+    const actorALR = get().currentUser;
+    if (actorALR && req) awActApprove(id, "leave_request", actorALR, `Leave Request — ${req.employeeId}`, undefined, remarks);
     if (req) get().addNotification({ title: "Leave Request Approved", body: `Leave request for ${emp ? `${emp.firstName} ${emp.lastName}` : "employee"} (${req.startDate} – ${req.endDate}) has been approved.`, type: "approval", entityType: "leave", entityId: id, targetRoles: ["HR", "SUPER_ADMIN", "ADMIN"] });
   },
 
@@ -1528,6 +1700,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       leaveRequests: state.leaveRequests.map((r) => r.id === id ? { ...r, status: "Rejected", approvedBy, approvedAt: now, remarks } : r)
     }));
     dbUpdate("leave_requests", id, { status: "Rejected", approved_by: approvedBy, approved_at: now, remarks });
+    const actorRLR = get().currentUser;
+    if (actorRLR && req) awActReject(id, "leave_request", actorRLR, `Leave Request — ${req.employeeId}`, remarks ?? "");
     if (req) get().addNotification({ title: "Leave Request Rejected", body: `Leave request for ${emp ? `${emp.firstName} ${emp.lastName}` : "employee"} was rejected: ${remarks}`, type: "rejection", entityType: "leave", entityId: id, targetRoles: ["HR", "SUPER_ADMIN", "ADMIN"] });
   },
 

@@ -23,6 +23,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useSTSNStore } from "../../../services/store";
 import HRDashboardPage from "./sub-pages/HRDashboardPage";
 import EmployeeLifecyclePage from "./sub-pages/EmployeeLifecyclePage";
@@ -329,42 +330,34 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <section className="overflow-hidden rounded-xl border border-stsn-beige bg-white shadow-sm">
-        <div className="relative p-6 sm:p-7">
-          <div className="absolute inset-x-0 top-0 h-1 bg-stsn-brown" />
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-stsn-beige bg-stsn-cream px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-stsn-brown">
-                <Sparkles className="h-3.5 w-3.5" />
-                Human Resource Department Dashboard
-              </div>
-              <h2 className="font-display text-2xl font-semibold tracking-tight text-stone-900">
-                HR command center for workforce, time, payroll, and talent decisions
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
-                Jump into the highest-impact HR workflow, monitor operational risk, and keep people operations moving from one interactive workspace.
-              </p>
-            </div>
+      <ModulePageHeader
+        badge="Human Resource Department"
+        badgeIcon={Sparkles}
+        title="HR Command Center"
+        subtitle="Workforce, time, payroll, and talent decisions from one interactive workspace."
+        meta={`${activeEmployees} staff · ${pendingLeave + pendingTimeLogs} pending approvals`}
+      />
 
-            <div className="grid min-w-full grid-cols-2 gap-3 sm:min-w-[430px]">
-              {[
-                { label: "Readiness", value: `${readinessScore}%`, icon: TrendingUp },
-                { label: "Active Staff", value: activeEmployees, icon: Users },
-                { label: "Approvals", value: pendingLeave + pendingTimeLogs, icon: CheckCircle2 },
-                { label: "Coverage", value: employeeShiftAssignments.length, icon: CalendarCheck },
-              ].map(({ label, value, icon: Icon }) => (
-                <div key={label} className="rounded-lg border border-stsn-beige bg-stsn-cream p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500">{label}</span>
-                    <Icon className="h-3.5 w-3.5 text-stsn-brown" />
-                  </div>
-                  <p className="mt-1 font-display text-xl font-bold text-stone-900">{value}</p>
+      <section className="overflow-hidden rounded-xl border border-stsn-beige bg-white shadow-sm">
+        <div className="p-5 sm:p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            {[
+              { label: "Readiness", value: `${readinessScore}%`, icon: TrendingUp },
+              { label: "Active Staff", value: activeEmployees, icon: Users },
+              { label: "Approvals", value: pendingLeave + pendingTimeLogs, icon: CheckCircle2 },
+              { label: "Coverage", value: employeeShiftAssignments.length, icon: CalendarCheck },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-lg border border-stsn-beige bg-stsn-cream p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500">{label}</span>
+                  <Icon className="h-3.5 w-3.5 text-stsn-brown" />
                 </div>
-              ))}
-            </div>
+                <p className="mt-1 font-display text-xl font-bold text-stone-900">{value}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+          <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
             <div className="rounded-lg border border-stsn-beige bg-stsn-cream p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="relative flex-1">

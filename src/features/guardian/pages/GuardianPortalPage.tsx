@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from "react";
-import { GraduationCap, DollarSign, BookOpen, Bell, User, FileText } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import {
+  GraduationCap, DollarSign, BookOpen, Bell, User, FileText,
+  ChevronRight, MessageSquare, AlertCircle, CheckCircle,
+} from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
 import EmptyState from "../../../components/common/EmptyState";
 
@@ -15,6 +18,9 @@ export default function GuardianPortalPage() {
     () => students.filter((s) => s.linkedGuardianIds?.includes(currentUser?.id ?? "")),
     [students, currentUser],
   );
+
+  const [selectedStudentId, setSelectedStudentId] = useState<string>(() => linkedStudents[0]?.id ?? "");
+  const [consultRequested, setConsultRequested] = useState(false);
 
   const activeAnnouncements = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -35,16 +41,23 @@ export default function GuardianPortalPage() {
     );
   }
 
+  const selectedStudent = linkedStudents.find((s) => s.id === selectedStudentId) ?? linkedStudents[0];
+  const studentAssessments = assessments.filter((a) => a.studentId === selectedStudent.id);
+  const latestAssessment = studentAssessments[studentAssessments.length - 1];
+  const studentGrades = grades.filter((g) => g.studentId === selectedStudent.id);
+  const passedCount = studentGrades.filter((g) => g.finalGrade && g.finalGrade >= 75).length;
+  const failedCount = studentGrades.filter((g) => g.finalGrade && g.finalGrade < 75).length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-stsn-gold/10 border border-stsn-gold/20 flex items-center justify-center">
+        <div className="w-9 h-9 rounded-xl bg-stsn-gold/10 border border-stsn-gold/20 flex items-center justify-center flex-shrink-0">
           <User className="w-4 h-4 text-stsn-gold" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-display font-bold text-stsn-brown-dark">Guardian Portal</h2>
-          <p className="text-[10px] text-stone-400 mt-0.5">Welcome, {currentUser?.name}. Read-only view of your linked student(s).</p>
+          <p className="text-[10px] text-stone-400 mt-0.5 truncate">Welcome, {currentUser?.name}. Read-only view of your linked student(s).</p>
         </div>
       </div>
 
@@ -58,119 +71,195 @@ export default function GuardianPortalPage() {
           <div className="space-y-2">
             {activeAnnouncements.slice(0, 3).map((a) => (
               <div key={a.id} className={`rounded-lg px-3 py-2 border ${a.priority === "urgent" ? "bg-red-50 border-red-200" : "bg-white border-amber-100"}`}>
-                <p className="text-[11px] font-bold text-stone-700">{a.title}</p>
-                <p className="text-[10px] text-stone-500 mt-0.5">{a.body}</p>
+                <div className="flex items-start gap-2">
+                  {a.priority === "urgent" && <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />}
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-stone-700">{a.title}</p>
+                    <p className="text-[10px] text-stone-500 mt-0.5">{a.body}</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Student cards */}
-      {linkedStudents.map((student) => {
-        const studentAssessments = assessments.filter((a) => a.studentId === student.id);
-        const latestAssessment = studentAssessments[studentAssessments.length - 1];
-        const studentGrades = grades.filter((g) => g.studentId === student.id);
-
-        return (
-          <div key={student.id} className="bg-white rounded-2xl border border-stsn-beige shadow-sm overflow-hidden">
-            {/* Student header */}
-            <div className="px-5 py-4 bg-gradient-to-r from-stsn-cream to-white border-b border-stone-100 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-stsn-gold/15 border border-stsn-gold/30 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-bold text-stsn-brown">{student.firstName[0]}{student.lastName[0]}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-stsn-brown-dark truncate">
-                  {student.lastName}, {student.firstName} {student.middleName}
-                </p>
-                <p className="text-[10px] text-stone-500 mt-0.5">
-                  {student.studentNo} · {student.yearLevel} {student.trackOrCourse} · Section {student.section}
-                </p>
-              </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${
-                student.enrollmentStatus === "Enrolled"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                  : student.enrollmentStatus === "Pending" || student.enrollmentStatus === "For Assessment"
-                  ? "bg-amber-50 text-amber-700 border-amber-100"
-                  : "bg-stone-100 text-stone-600 border-stone-200"
-              }`}>
-                {student.enrollmentStatus}
+      {/* Student Switcher — shown only when more than one student is linked */}
+      {linkedStudents.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {linkedStudents.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => { setSelectedStudentId(s.id); setConsultRequested(false); }}
+              className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition whitespace-nowrap ${
+                selectedStudentId === s.id
+                  ? "bg-stsn-brown text-white border-stsn-brown shadow-sm"
+                  : "bg-white text-stone-600 border-stone-200 hover:border-stsn-brown hover:text-stsn-brown"
+              }`}
+            >
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${selectedStudentId === s.id ? "bg-white/20 text-white" : "bg-stsn-cream text-stsn-brown"}`}>
+                {s.firstName[0]}{s.lastName[0]}
               </span>
-            </div>
+              {s.firstName} {s.lastName}
+            </button>
+          ))}
+        </div>
+      )}
 
-            {/* Tabs row — Grade Summary & Fee Statement */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-stone-100">
-              {/* Grade Summary */}
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <GraduationCap className="w-3.5 h-3.5 text-stsn-brown" />
-                  <span className="text-xs font-bold text-stone-700">Grade Summary</span>
+      {/* Selected Student Card */}
+      <div className="bg-white rounded-2xl border border-stsn-beige shadow-sm overflow-hidden">
+        {/* Student header */}
+        <div className="px-5 py-4 bg-gradient-to-r from-stsn-cream to-white border-b border-stone-100 flex items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-stsn-gold/15 border border-stsn-gold/30 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-bold text-stsn-brown">{selectedStudent.firstName[0]}{selectedStudent.lastName[0]}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-stsn-brown-dark truncate">
+              {selectedStudent.lastName}, {selectedStudent.firstName} {selectedStudent.middleName}
+            </p>
+            <p className="text-[10px] text-stone-500 mt-0.5">
+              {selectedStudent.studentNo} · {selectedStudent.yearLevel} {selectedStudent.trackOrCourse} · Section {selectedStudent.section}
+            </p>
+          </div>
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${
+            selectedStudent.enrollmentStatus === "Enrolled"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+              : selectedStudent.enrollmentStatus === "Pending" || selectedStudent.enrollmentStatus === "For Assessment"
+              ? "bg-amber-50 text-amber-700 border-amber-100"
+              : "bg-stone-100 text-stone-600 border-stone-200"
+          }`}>
+            {selectedStudent.enrollmentStatus}
+          </span>
+        </div>
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-3 divide-x divide-stone-100 border-b border-stone-100">
+          <div className="px-4 py-3 text-center">
+            <p className="text-lg font-black text-stone-900">{studentGrades.length}</p>
+            <p className="text-[9px] font-mono uppercase text-stone-400 mt-0.5">Subjects</p>
+          </div>
+          <div className="px-4 py-3 text-center">
+            <p className="text-lg font-black text-emerald-600">{passedCount}</p>
+            <p className="text-[9px] font-mono uppercase text-stone-400 mt-0.5">Passed</p>
+          </div>
+          <div className="px-4 py-3 text-center">
+            <p className="text-lg font-black text-red-500">{failedCount}</p>
+            <p className="text-[9px] font-mono uppercase text-stone-400 mt-0.5">Failed</p>
+          </div>
+        </div>
+
+        {/* Grade Summary & Fee Statement */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-stone-100">
+          {/* Grade Summary */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <GraduationCap className="w-3.5 h-3.5 text-stsn-brown" />
+              <span className="text-xs font-bold text-stone-700">Grade Summary</span>
+            </div>
+            {studentGrades.length === 0 ? (
+              <p className="text-[10px] text-stone-400 italic">No finalized grades on record yet.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {studentGrades.slice(0, 6).map((g) => (
+                  <div key={g.id} className="flex items-center justify-between text-[11px]">
+                    <span className="text-stone-600 truncate flex-1 mr-2">{g.subjectCode}</span>
+                    <span className={`font-bold flex-shrink-0 ${
+                      g.finalGrade && g.finalGrade >= 75 ? "text-emerald-600" : g.finalGrade ? "text-red-500" : "text-stone-400"
+                    }`}>
+                      {g.finalGrade ?? "—"}
+                    </span>
+                  </div>
+                ))}
+                {studentGrades.length > 6 && (
+                  <p className="text-[9px] text-stone-400">+{studentGrades.length - 6} more subjects</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Fee Statement */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-xs font-bold text-stone-700">Fee Statement</span>
+            </div>
+            {!latestAssessment ? (
+              <p className="text-[10px] text-stone-400 italic">No assessment on record yet.</p>
+            ) : (
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Total Assessment</span>
+                  <span className="font-bold text-stone-700">₱{latestAssessment.totalAmount.toLocaleString()}</span>
                 </div>
-                {studentGrades.length === 0 ? (
-                  <p className="text-[10px] text-stone-400 italic">No finalized grades on record yet.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {studentGrades.slice(0, 5).map((g) => (
-                      <div key={g.id} className="flex items-center justify-between text-[11px]">
-                        <span className="text-stone-600 truncate flex-1">{g.subjectCode}</span>
-                        <span className={`font-bold ml-2 flex-shrink-0 ${
-                          g.finalGrade && g.finalGrade >= 75 ? "text-emerald-600" : "text-red-500"
-                        }`}>
-                          {g.finalGrade ?? "—"}
-                        </span>
-                      </div>
-                    ))}
-                    {studentGrades.length > 5 && (
-                      <p className="text-[9px] text-stone-400">+{studentGrades.length - 5} more subjects</p>
-                    )}
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Discount</span>
+                  <span className="text-emerald-600">– ₱{latestAssessment.discountAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Paid</span>
+                  <span className="text-blue-600">– ₱{(latestAssessment.totalAmount - latestAssessment.discountAmount - latestAssessment.balance).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-t border-stone-100 pt-1.5 mt-1.5">
+                  <span className="font-bold text-stone-700">Balance</span>
+                  <span className={`font-bold ${latestAssessment.balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                    ₱{latestAssessment.balance.toLocaleString()}
+                  </span>
+                </div>
+                {latestAssessment.balance > 0 && (
+                  <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded-lg">
+                    <p className="text-[9px] text-red-600 font-semibold">Outstanding balance. Please coordinate with the Cashier's Office.</p>
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        </div>
 
-              {/* Fee Statement */}
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-xs font-bold text-stone-700">Fee Statement</span>
-                </div>
-                {!latestAssessment ? (
-                  <p className="text-[10px] text-stone-400 italic">No assessment on record yet.</p>
-                ) : (
-                  <div className="space-y-1.5 text-[11px]">
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Total Assessment</span>
-                      <span className="font-bold text-stone-700">₱{latestAssessment.totalAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Discount</span>
-                      <span className="text-emerald-600">– ₱{latestAssessment.discountAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Paid</span>
-                      <span className="text-blue-600">– ₱{(latestAssessment.totalAmount - latestAssessment.discountAmount - latestAssessment.balance).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-t border-stone-100 pt-1.5 mt-1.5">
-                      <span className="font-bold text-stone-700">Balance</span>
-                      <span className={`font-bold ${latestAssessment.balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                        ₱{latestAssessment.balance.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
+        {/* Footer info */}
+        <div className="px-5 py-2.5 bg-stone-50/60 border-t border-stone-100 flex items-center gap-2">
+          <FileText className="w-3 h-3 text-stone-400" />
+          <span className="text-[10px] text-stone-400 font-mono">
+            {selectedStudent.department} · {selectedStudent.schoolId ?? "STSN"}
+          </span>
+          <span className="ml-auto text-[10px] text-stone-400">LRN: {selectedStudent.lrn || "—"}</span>
+        </div>
+      </div>
+
+      {/* Request Consultation */}
+      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="w-4 h-4 text-blue-600" />
             </div>
-
-            {/* Footer info */}
-            <div className="px-5 py-2.5 bg-stone-50/60 border-t border-stone-100 flex items-center gap-2">
-              <FileText className="w-3 h-3 text-stone-400" />
-              <span className="text-[10px] text-stone-400 font-mono">
-                {student.department} · {student.schoolId ?? "STSN"}
-              </span>
-              <span className="ml-auto text-[10px] text-stone-400">LRN: {student.lrn || "—"}</span>
+            <div>
+              <p className="text-xs font-bold text-stone-800">Request a Consultation</p>
+              <p className="text-[10px] text-stone-400 mt-0.5">Schedule a meeting with your child's adviser or guidance counselor.</p>
             </div>
           </div>
-        );
-      })}
+          {consultRequested ? (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
+              <span className="text-[10px] font-bold text-emerald-700">Request Sent</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConsultRequested(true)}
+              className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition cursor-pointer"
+            >
+              Request
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+        {consultRequested && (
+          <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <p className="text-[10px] text-emerald-700 font-semibold">
+              Your consultation request for <strong>{selectedStudent.firstName} {selectedStudent.lastName}</strong> has been submitted. The school will contact you within 1–2 school days to confirm the schedule.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Disclaimer */}
       <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex gap-2">

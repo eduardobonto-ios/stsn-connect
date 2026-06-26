@@ -11,6 +11,7 @@ import type { UserRole } from "./index";
  */
 export type CanonicalRole =
   | "super-admin"
+  | "admin"
   | "principal"
   | "registrar"
   | "accounting"
@@ -26,7 +27,9 @@ export type CanonicalRole =
 /** Maps the legacy/account-level UserRole values onto canonical roles. */
 export const ROLE_TO_CANONICAL: Record<UserRole, CanonicalRole> = {
   SUPER_ADMIN: "super-admin",
-  ADMIN: "super-admin",
+  // ADMIN is intentionally separate from super-admin — it must not inherit
+  // ACCOUNTS_SECURITY, CORE_SETUP, or PAYROLL_MANAGEMENT modules.
+  ADMIN: "admin",
   PRINCIPAL: "principal",
   REGISTRAR: "registrar",
   ACCOUNTING: "accounting",

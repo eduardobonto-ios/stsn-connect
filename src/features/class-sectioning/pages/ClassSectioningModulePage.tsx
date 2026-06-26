@@ -17,6 +17,9 @@ import {
   School, ToggleLeft, ToggleRight, Grid3x3, Printer, Eye
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 
 /** Inverse of academicUnitToDepartment — used by the section form's department toggle. */
 function departmentToAcademicUnit(dept: "Basic Education" | "College"): AcademicUnit {
@@ -265,7 +268,7 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
   const sectionCapacity = sections.find((s) => s.id === sectionId)?.capacity ?? Infinity;
   const [filterYear, setFilterYear] = useState(sectionYearLevel !== "All" ? sectionYearLevel : "All");
   const [searchQ, setSearchQ] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedStudentRows, setSelectedStudentRows] = useState<Student[]>([]);
 
   const beYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel !== "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
   const collegeYearLevels = (setupData.year_levels ?? []).filter((yl) => yl.academicLevel === "College").sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map((yl) => yl.name);
@@ -286,32 +289,62 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
     });
   }, [students, sectionDept, alreadyEnrolled, filterYear, searchQ]);
 
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (selected.size === eligible.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(eligible.map((s) => s.id)));
-    }
-  };
-
   const handleSave = () => {
-    if (selected.size === 0) { toast("No students selected.", { variant: "warning" }); return; }
-    if (alreadyEnrolled.length + selected.size > sectionCapacity) {
-      toast(`Cannot assign ${selected.size} student(s): section capacity (${sectionCapacity}) would be exceeded. Currently ${alreadyEnrolled.length} enrolled.`, { variant: "warning" });
+    if (selectedStudentRows.length === 0) { toast("No students selected.", { variant: "warning" }); return; }
+    if (alreadyEnrolled.length + selectedStudentRows.length > sectionCapacity) {
+      toast(`Cannot assign ${selectedStudentRows.length} student(s): section capacity (${sectionCapacity}) would be exceeded. Currently ${alreadyEnrolled.length} enrolled.`, { variant: "warning" });
       return;
     }
-    assignStudentsToSection(sectionId, Array.from(selected));
-    toast(`${selected.size} student(s) successfully assigned to ${sectionName}.`);
+    assignStudentsToSection(sectionId, selectedStudentRows.map((s) => s.id));
+    toast(`${selectedStudentRows.length} student(s) successfully assigned to ${sectionName}.`);
     onClose();
   };
+
+  const studentColumns: STSNColumn<Student>[] = [
+    {
+      title: "Student No.",
+      data: "studentNo",
+      render: (v) => <span className="font-mono font-bold text-stsn-brown text-[11px]">{v}</span>,
+    },
+    {
+      title: "Full Name",
+      data: "lastName",
+      render: (_v, row) => (
+        <PersonIdentityCell
+          firstName={row.firstName}
+          lastName={row.lastName}
+          secondary={row.section || undefined}
+        />
+      ),
+    },
+    {
+      title: "Year Level",
+      data: "yearLevel",
+      render: (v) => <span className="text-stone-600">{v}</span>,
+    },
+    {
+      title: "Strand / Course",
+      data: "trackOrCourse",
+      render: (v) => (
+        <span className="bg-stsn-cream border border-stsn-beige text-stsn-brown text-[10px] font-bold px-2 py-0.5 rounded">
+          {v || "—"}
+        </span>
+      ),
+    },
+    {
+      title: "Status",
+      data: "enrollmentStatus",
+      className: "text-center",
+      searchable: false,
+      render: (v: string) => (
+        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+          v === "Enrolled" ? "bg-green-50 text-green-700 border-green-200" :
+          v === "Approved" ? "bg-blue-50 text-blue-700 border-blue-200" :
+          "bg-amber-50 text-amber-700 border-amber-200"
+        }`}>{v}</span>
+      ),
+    },
+  ];
 
   return (
     <div className="app-modal-backdrop z-50 animate-fade-in">
@@ -338,78 +371,32 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
           <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
             {(sectionDept === "Basic Education" ? BE_YEAR_LEVELS_ALL : COLLEGE_YEAR_ALL).map((y) => <option key={y}>{y}</option>)}
           </select>
-          <div className="flex items-center gap-2 text-xs text-stone-500">
-            <span className="font-bold text-stsn-brown">{selected.size}</span> selected
-          </div>
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-y-auto">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-stsn-brown text-white">
-              <tr>
-                <th className="py-2.5 px-3 text-left">
-                  <input type="checkbox" checked={eligible.length > 0 && selected.size === eligible.length} onChange={toggleAll} className="accent-stsn-gold cursor-pointer" />
-                </th>
-                <th className="py-2.5 px-3 text-left text-[10px] uppercase font-bold">Student No.</th>
-                <th className="py-2.5 px-3 text-left text-[10px] uppercase font-bold">Full Name</th>
-                <th className="py-2.5 px-3 text-left text-[10px] uppercase font-bold">Year Level</th>
-                <th className="py-2.5 px-3 text-left text-[10px] uppercase font-bold">Strand / Course</th>
-                <th className="py-2.5 px-3 text-center text-[10px] uppercase font-bold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {eligible.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-10 text-center text-stone-400 italic">No eligible students found.</td>
-                </tr>
-              ) : eligible.map((s) => {
-                const isSelected = selected.has(s.id);
-                return (
-                  <tr
-                    key={s.id}
-                    onClick={() => toggleSelect(s.id)}
-                    className={`cursor-pointer transition ${isSelected ? "bg-stsn-cream/60" : "hover:bg-stone-50"}`}
-                  >
-                    <td className="py-2.5 px-3">
-                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(s.id)} onClick={(e) => e.stopPropagation()} className="accent-stsn-brown cursor-pointer" />
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-stsn-brown text-[11px]">{s.studentNo}</td>
-                    <td className="py-2.5 px-3 font-semibold text-stone-800">{s.lastName}, {s.firstName}</td>
-                    <td className="py-2.5 px-3 text-stone-600">{s.yearLevel}</td>
-                    <td className="py-2.5 px-3">
-                      <span className="bg-stsn-cream border border-stsn-beige text-stsn-brown text-[10px] font-bold px-2 py-0.5 rounded">
-                        {s.trackOrCourse || "—"}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                        s.enrollmentStatus === "Enrolled" ? "bg-green-50 text-green-700 border-green-200" :
-                        s.enrollmentStatus === "Approved" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                        "bg-amber-50 text-amber-700 border-amber-200"
-                      }`}>
-                        {s.enrollmentStatus}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="flex-1 overflow-y-auto p-2">
+          <STSNDataTable<Student>
+            columns={studentColumns}
+            rows={eligible}
+            emptyMessage="No eligible students found."
+            bulkSelectable
+            onBulkSelect={setSelectedStudentRows}
+            pageLength={10}
+          />
         </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-between items-center">
-          <span className="text-xs text-stone-500">{selected.size} student{selected.size !== 1 ? "s" : ""} selected</span>
+          <span className="text-xs text-stone-500">{selectedStudentRows.length} student{selectedStudentRows.length !== 1 ? "s" : ""} selected</span>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer">Cancel</button>
             <button
               onClick={handleSave}
-              disabled={selected.size === 0}
+              disabled={selectedStudentRows.length === 0}
               className="px-4 py-2 text-xs font-bold text-white btn-primary-gradient rounded-lg shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
               <Save className="w-4 h-4" />
-              Assign {selected.size > 0 ? `(${selected.size})` : ""} Students
+              Assign {selectedStudentRows.length > 0 ? `(${selectedStudentRows.length})` : ""} Students
             </button>
           </div>
         </div>
@@ -574,42 +561,24 @@ export default function ClassSectioningModule() {
   return (
     <div className="space-y-5 animate-fade-in font-sans">
 
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-              <Grid3x3 className="w-5 h-5 text-stsn-brown" />
-              Class Sectioning
-            </h2>
-            <p className="text-stone-500 text-xs mt-1">
-              Master {terms.groupNoun} Repository — CRUD management for all school {terms.groupNoun.toLowerCase()}s, {terms.groupLeaderNoun.toLowerCase()}s, and student assignments.
-            </p>
-          </div>
-          <button onClick={openCreate} className="btn-primary-gradient text-white text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer flex items-center gap-2 transition">
+      <ModulePageHeader
+        badge="Class Management"
+        badgeIcon={Grid3x3}
+        title="Class Sectioning"
+        subtitle={`Master ${terms.groupNoun} Repository — CRUD management for all school ${terms.groupNoun.toLowerCase()}s, ${terms.groupLeaderNoun.toLowerCase()}s, and student assignments.`}
+        actions={
+          <button onClick={openCreate} className="inline-flex items-center gap-2 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer">
             <Plus className="w-4 h-4" /> New {terms.groupNoun}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-amber-50 border border-amber-100 rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-display font-black text-amber-700">{totalActive}</p>
-          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Active Sections</p>
-        </div>
-        <div className="bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-display font-black text-emerald-700">{unitSectionCount}</p>
-          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">{lockedDept ? `${lockedDept} Sections` : "Scoped Sections"}</p>
-        </div>
-        <div className="bg-sky-50 border border-sky-100 rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-display font-black text-sky-700">{totalEnrolled}</p>
-          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Total Enrolled</p>
-        </div>
-        <div className="bg-violet-50 border border-violet-100 rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-display font-black text-violet-700">{totalCapacity}</p>
-          <p className="text-[10px] text-stone-500 uppercase font-mono mt-1">Total Capacity</p>
-        </div>
+        <AppKpiCard label="Active Sections" value={totalActive} icon={Layers} tone="warning" hint="Currently active" />
+        <AppKpiCard label={lockedDept ? `${lockedDept} Sections` : "Scoped Sections"} value={unitSectionCount} icon={Grid3x3} tone="success" hint="In current scope" />
+        <AppKpiCard label="Total Enrolled" value={totalEnrolled} icon={Users} tone="info" hint="Across all sections" />
+        <AppKpiCard label="Total Capacity" value={totalCapacity} icon={GraduationCap} tone="neutral" hint="Combined seat limit" />
       </div>
 
       {/* Filters */}
@@ -790,7 +759,9 @@ export default function ClassSectioningModule() {
                           <tr key={s.id} className="hover:bg-stone-50">
                             <td className="px-4 py-2.5 text-center text-stone-400 font-mono">{i + 1}</td>
                             <td className="px-4 py-2.5 font-mono font-bold text-stsn-brown">{s.studentNo}</td>
-                            <td className="px-4 py-2.5 font-semibold text-stone-800">{s.lastName}, {s.firstName}</td>
+                            <td className="px-4 py-2.5">
+                              <PersonIdentityCell firstName={s.firstName} lastName={s.lastName} />
+                            </td>
                             <td className="px-4 py-2.5 text-stone-500">{s.yearLevel}</td>
                             <td className="px-4 py-2.5 text-stone-500">{s.trackOrCourse || "—"}</td>
                             <td className="px-4 py-2.5 text-center">

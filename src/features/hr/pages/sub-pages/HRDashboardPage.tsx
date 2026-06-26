@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { Users, Banknote, FileCheck, Briefcase, CalendarDays, Clock, Award, CalendarCheck } from "lucide-react";
+import { Users, Banknote, FileCheck, CalendarDays, Clock, Award, CalendarCheck, AlertTriangle, CheckCircle2, TrendingDown } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 
 export default function HRDashboardPage() {
@@ -36,6 +36,25 @@ export default function HRDashboardPage() {
     { label: "Pending Time Logs", value: pendingTimeLogs, sub: "awaiting approval", icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", alert: pendingTimeLogs > 0 },
     { label: "Open Payroll Periods", value: openPayrollPeriods, sub: pendingPayroll > 0 ? `${pendingPayroll} payroll pending` : "all closed", icon: Banknote, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
   ];
+
+  // Workforce alerts — recent attendance exceptions (last 7 records)
+  const attendanceExceptions = employeeAttendance
+    .filter((a) => ["Late", "Undertime", "Absent", "Half Day"].includes(a.status))
+    .sort((a, b) => b.attendanceDate.localeCompare(a.attendanceDate))
+    .slice(0, 7);
+
+  // Pending leave requests with employee lookup
+  const pendingLeaveRequests = leaveRequests
+    .filter((r) => r.status === "Submitted" || r.status === "For Approval")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 5);
+
+  const EXCEPTION_STYLES: Record<string, { badge: string; dot: string }> = {
+    Late:      { badge: "bg-amber-50 text-amber-700 border-amber-200",    dot: "bg-amber-400" },
+    Absent:    { badge: "bg-red-50 text-red-700 border-red-200",          dot: "bg-red-500" },
+    Undertime: { badge: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-400" },
+    "Half Day":{ badge: "bg-blue-50 text-blue-700 border-blue-200",       dot: "bg-blue-400" },
+  };
 
   const contractGroups = ["Full-Time", "Part-Time", "Contractual"];
 
@@ -78,6 +97,100 @@ export default function HRDashboardPage() {
           );
         })}
       </div>
+
+      {/* Workforce Alerts */}
+      {(attendanceExceptions.length > 0 || pendingLeaveRequests.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Attendance Exceptions */}
+          <div className="bg-white border border-red-100 rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-red-50 bg-red-50/40">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                <h3 className="text-xs font-display font-bold text-red-800 uppercase tracking-wide">Attendance Exceptions</h3>
+              </div>
+              {attendanceExceptions.length > 0 && (
+                <span className="text-[10px] font-bold bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
+                  {attendanceExceptions.length} flagged
+                </span>
+              )}
+            </div>
+            <div className="divide-y divide-stone-50">
+              {attendanceExceptions.length === 0 ? (
+                <div className="flex items-center gap-2 px-5 py-4 text-xs text-emerald-700">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  No attendance exceptions — all clear.
+                </div>
+              ) : (
+                attendanceExceptions.map((rec) => {
+                  const emp = employees.find((e) => e.id === rec.employeeId);
+                  const style = EXCEPTION_STYLES[rec.status] ?? EXCEPTION_STYLES["Late"];
+                  return (
+                    <div key={rec.id} className="flex items-center justify-between px-5 py-2.5 hover:bg-stone-50 transition">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`} />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-stone-800 truncate">
+                            {emp ? `${emp.firstName} ${emp.lastName}` : rec.employeeId}
+                          </p>
+                          <p className="text-[10px] text-stone-400 font-mono">{rec.attendanceDate}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ml-2 ${style.badge}`}>
+                        {rec.status}{rec.lateMinutes > 0 ? ` · ${rec.lateMinutes}m` : ""}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Pending Leave Requests */}
+          <div className="bg-white border border-amber-100 rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-amber-50 bg-amber-50/40">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-amber-600" />
+                <h3 className="text-xs font-display font-bold text-amber-800 uppercase tracking-wide">Leave Requests Pending</h3>
+              </div>
+              {pendingLeaveRequests.length > 0 && (
+                <span className="text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                  {pendingLeave} total
+                </span>
+              )}
+            </div>
+            <div className="divide-y divide-stone-50">
+              {pendingLeaveRequests.length === 0 ? (
+                <div className="flex items-center gap-2 px-5 py-4 text-xs text-emerald-700">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  No pending leave requests.
+                </div>
+              ) : (
+                pendingLeaveRequests.map((req) => {
+                  const emp = employees.find((e) => e.id === req.employeeId);
+                  const statusStyle = req.status === "For Approval"
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-blue-50 text-blue-700 border-blue-200";
+                  return (
+                    <div key={req.id} className="flex items-center justify-between px-5 py-2.5 hover:bg-stone-50 transition">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <p className="text-xs font-semibold text-stone-800 truncate">
+                          {emp ? `${emp.firstName} ${emp.lastName}` : req.employeeId}
+                        </p>
+                        <p className="text-[10px] text-stone-400">
+                          {req.startDate} → {req.endDate} · {req.totalDays}d
+                        </p>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${statusStyle}`}>
+                        {req.status}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Employee Distribution by Contract */}

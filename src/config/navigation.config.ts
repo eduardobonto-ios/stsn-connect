@@ -22,15 +22,15 @@ export const SIDEBAR_MODE: Record<UserRole, SidebarMode> = {
   PRINCIPAL:    "full",
   REGISTRAR:    "full",
   ACCOUNTING:   "full",
-  PAYROLL:      "compact",
-  HR:           "compact",
-  TEACHER:      "compact",
-  CASHIER:      "minimal",
-  NURSE:        "minimal",
-  GUIDANCE:     "minimal",
-  STUDENT:      "minimal",
-  EMPLOYEE:     "minimal",
-  GUARDIAN:     "minimal",
+  PAYROLL:      "full",
+  HR:           "full",
+  TEACHER:      "full",
+  CASHIER:      "full",
+  NURSE:        "full",
+  GUIDANCE:     "full",
+  STUDENT:      "full",
+  EMPLOYEE:     "full",
+  GUARDIAN:     "full",
 };
 
 export interface NavSubItem {
@@ -96,6 +96,7 @@ export const NAV_ITEMS: NavItem[] = [
           { id: "cost-centers",      label: "Cost Centers",            icon: Building2, desc: "Departmental cost segmentation" },
           { id: "suppliers",         label: "Supplier Management",     icon: Truck,     desc: "Vendor & supplier master list" },
           { id: "items",             label: "Item / Product Mgmt",     icon: Package,   desc: "Product & service catalog" },
+          { id: "discount-types",    label: "Discount Types",           icon: Percent,   desc: "Define discount types and eligibility rules" },
         ],
       },
       {
@@ -201,8 +202,10 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "ACCOUNTS_SECURITY", label: "User Access & Authority", icon: Shield, desc: "Credential security & admin reports",
     children: [
-      { id: "user-security", label: "User Access & Authority", icon: Shield,   desc: "Credential security status",              targetModule: "ACCOUNTS_SECURITY" },
-      { id: "admin-reports", label: "Admin Reports",           icon: FileText, desc: "User access, logs, and audit reports",    targetModule: "ADMIN_REPORTS" },
+      { id: "user-security",         label: "User Security",       icon: Shield,         desc: "Credential security status",                    targetModule: "ACCOUNTS_SECURITY" },
+      { id: "delegation-management", label: "Delegation Mgmt",     icon: History,        desc: "Approval delegation and authority transfer" },
+      { id: "audit-log",             label: "Audit Log",           icon: ClipboardList,  desc: "Full system action and approval audit trail" },
+      { id: "admin-reports",         label: "Admin Reports",       icon: FileText,       desc: "User access, logs, and audit reports",          targetModule: "ADMIN_REPORTS" },
     ],
   },
   { id: "CORE_SETUP", label: "Core Setup", icon: Settings, desc: "System configuration & maintenance" },

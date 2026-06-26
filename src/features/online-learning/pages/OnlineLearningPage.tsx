@@ -30,6 +30,8 @@ import {
   Monitor,
   FileIcon
 } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppFilterChip from "../../../components/common/AppFilterChip";
 
 type LMSTab = "browse" | "manage" | "upload";
 
@@ -398,31 +400,24 @@ export default function OnlineLearning() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-stsn-brown to-stsn-gold flex items-center justify-center">
-              <Monitor className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-display font-black text-stsn-brown leading-none">Online Learning</h1>
-              <p className="text-[10px] font-mono text-stone-400 uppercase tracking-widest">LMS — Digital Classroom</p>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isTeacher && (
+      <ModulePageHeader
+        badge="LMS"
+        badgeIcon={Monitor}
+        title="Online Learning"
+        subtitle="Digital classroom — browse, manage, and upload course materials"
+        meta="Digital Classroom"
+        actions={
+          isTeacher ? (
             <button
               onClick={() => handleOpenUpload()}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-stsn-brown to-stsn-brown-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] rounded-xl text-sm font-bold shadow-lg transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Upload Material
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -479,17 +474,12 @@ export default function OnlineLearning() {
         </div>
         <div className="flex items-center gap-2">
           {(["All", "Video", "Module", "Document"] as const).map((t) => (
-            <button
+            <AppFilterChip
               key={t}
+              label={t}
+              active={filterType === t}
               onClick={() => setFilterType(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                filterType === t
-                  ? "bg-stsn-brown text-white border-stsn-brown"
-                  : "bg-white text-stone-600 border-stone-200 hover:border-stsn-brown/40"
-              }`}
-            >
-              {t}
-            </button>
+            />
           ))}
         </div>
         {uniqueSubjects.length > 0 && (
@@ -549,32 +539,32 @@ export default function OnlineLearning() {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="stsn-plain-table">
               <thead>
-                <tr className="bg-stone-50 border-b border-stone-100">
-                  <th className="text-left px-4 py-3 font-semibold text-stone-500 uppercase tracking-wide text-[10px]">Title</th>
-                  <th className="text-left px-4 py-3 font-semibold text-stone-500 uppercase tracking-wide text-[10px]">Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-stone-500 uppercase tracking-wide text-[10px]">Subject</th>
-                  <th className="text-left px-4 py-3 font-semibold text-stone-500 uppercase tracking-wide text-[10px]">Section</th>
-                  <th className="text-left px-4 py-3 font-semibold text-stone-500 uppercase tracking-wide text-[10px]">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold text-stone-500 uppercase tracking-wide text-[10px]">Date</th>
-                  <th className="text-right px-4 py-3 font-semibold text-stone-500 uppercase tracking-wide text-[10px]">Actions</th>
+                <tr>
+                  <th>Title</th>
+                  <th style={{ textAlign: "left" }}>Type</th>
+                  <th style={{ textAlign: "left" }}>Subject</th>
+                  <th style={{ textAlign: "left" }}>Section</th>
+                  <th style={{ textAlign: "left" }}>Status</th>
+                  <th style={{ textAlign: "left" }}>Date</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-50">
+              <tbody>
                 {manageMaterials.map((m) => (
-                  <tr key={m.id} className="hover:bg-stone-50/50 transition-colors">
-                    <td className="px-4 py-3">
+                  <tr key={m.id}>
+                    <td>
                       <p className="font-semibold text-stone-800 max-w-[200px] truncate">{m.title}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${TYPE_COLORS[m.learningType]}`}>
                         {m.learningType}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-stone-600 max-w-[160px] truncate">{m.subjectName}</td>
-                    <td className="px-4 py-3 text-stone-500">{m.section}</td>
-                    <td className="px-4 py-3">
+                    <td className="text-stone-600 max-w-[160px] truncate">{m.subjectName}</td>
+                    <td className="text-stone-500">{m.section}</td>
+                    <td>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                         m.publishStatus === "Published"
                           ? "bg-emerald-100 text-emerald-700"
@@ -583,8 +573,8 @@ export default function OnlineLearning() {
                         {m.publishStatus}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-stone-400">{m.uploadDate}</td>
-                    <td className="px-4 py-3">
+                    <td className="text-stone-400">{m.uploadDate}</td>
+                    <td>
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setViewingMaterial(m)}

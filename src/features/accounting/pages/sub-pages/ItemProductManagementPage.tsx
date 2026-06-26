@@ -4,6 +4,7 @@ import {
   Loader2, X, CheckCircle, XCircle,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbDelete, dbInsert, dbSelectAll, dbUpdate, newId } from "../../../../services/supabaseCrud";
 
@@ -307,24 +308,20 @@ export default function ItemProductManagementPage() {
 
   return (
     <div className="space-y-5 animate-fade-in font-sans">
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <PackageOpen className="w-5 h-5 text-stsn-brown" />
-            Item / Product Management
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            Maintain products and services with GL mappings for future sales and purchase invoice posting.
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-stsn-brown text-white text-xs font-bold rounded-xl hover:bg-stsn-brown-dark transition shadow-sm cursor-pointer flex-shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New Item
-        </button>
-      </div>
+      <ModulePageHeader
+        badge="Accounting Setup"
+        badgeIcon={PackageOpen}
+        title="Item / Product Management"
+        subtitle="Maintain products and services with GL mappings for future sales and purchase invoice posting."
+        actions={
+          <button
+            onClick={openAdd}
+            className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512]"
+          >
+            <Plus className="w-4 h-4" /> New Item
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white border border-stone-200 rounded-xl px-4 py-3 text-center shadow-sm">

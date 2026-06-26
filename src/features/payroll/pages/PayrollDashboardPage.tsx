@@ -8,7 +8,8 @@ import { useSTSNStore } from "../../../services/store";
 import {
   Banknote, Clock, FileText, AlertTriangle, Download, CheckCircle2,
 } from "lucide-react";
-import AnalyticsDashboardShell from "../../../components/common/analytics/AnalyticsDashboardShell";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppFilterChip from "../../../components/common/AppFilterChip";
 import { CHART_SERIES_COLORS, CHART_THEME } from "../../../config/chart-theme.config";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -57,7 +58,15 @@ function DonutChart({
 }
 
 export default function PayrollDashboardPage() {
-  const { employees, activeSchool } = useSTSNStore();
+  const {
+    employees,
+    activeSchool,
+    payrollPeriods,
+    payrollRuns,
+    payrollLines,
+    salaryPayoutBatches,
+    salaryPayoutLines,
+  } = useSTSNStore();
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [periodView, setPeriodView] = useState<"monthly" | "quarterly">("monthly");
@@ -65,22 +74,93 @@ export default function PayrollDashboardPage() {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [reportReady, setReportReady] = useState(false);
   const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
 
   const scopedEmployees = useMemo(
     () => (activeSchool === "ALL" ? employees : employees.filter((e) => e.schoolId === activeSchool)),
     [employees, activeSchool],
   );
+  const scopedPayrollPeriods = useMemo(
+    () => (activeSchool === "ALL" ? payrollPeriods : payrollPeriods.filter((period) => period.schoolId === activeSchool)),
+    [payrollPeriods, activeSchool],
+  );
+  const scopedPeriodIds = useMemo(
+    () => new Set(scopedPayrollPeriods.map((period) => period.id)),
+    [scopedPayrollPeriods],
+  );
+  const scopedPayrollRuns = useMemo(
+    () =>
+      payrollRuns.filter((run) => {
+        if (activeSchool !== "ALL" && run.schoolId !== activeSchool) return false;
+        return scopedPeriodIds.has(run.payrollPeriodId);
+      }),
+    [payrollRuns, activeSchool, scopedPeriodIds],
+  );
+  const scopedRunIds = useMemo(() => new Set(scopedPayrollRuns.map((run) => run.id)), [scopedPayrollRuns]);
+  const scopedPayrollLines = useMemo(
+    () => payrollLines.filter((line) => scopedRunIds.has(line.payrollRunId) && line.status !== "Cancelled"),
+    [payrollLines, scopedRunIds],
+  );
+  const scopedPayoutBatches = useMemo(
+    () => salaryPayoutBatches.filter((batch) => scopedRunIds.has(batch.payrollRunId) && batch.status !== "Cancelled"),
+    [salaryPayoutBatches, scopedRunIds],
+  );
+  const scopedPayoutBatchIds = useMemo(() => new Set(scopedPayoutBatches.map((batch) => batch.id)), [scopedPayoutBatches]);
+  const scopedPayoutLines = useMemo(
+    () => salaryPayoutLines.filter((line) => scopedPayoutBatchIds.has(line.payoutBatchId) && line.status !== "Cancelled"),
+    [salaryPayoutLines, scopedPayoutBatchIds],
+  );
 
-  const headcount = scopedEmployees.length || 24;
-  const avgSalary = 25000;
-  const totalPayroll = headcount * avgSalary;
+  const latestPayrollPeriod = useMemo(
+    () =>
+      [...scopedPayrollPeriods].sort((a, b) => {
+        const aDate = a.payoutDate || a.endDate || a.startDate;
+        const bDate = b.payoutDate || b.endDate || b.startDate;
+        return bDate.localeCompare(aDate);
+      })[0],
+    [scopedPayrollPeriods],
+  );
+  const latestPayrollRunIds = useMemo(
+    () => new Set(scopedPayrollRuns.filter((run) => run.payrollPeriodId === latestPayrollPeriod?.id).map((run) => run.id)),
+    [scopedPayrollRuns, latestPayrollPeriod?.id],
+  );
+  const latestPayrollLines = useMemo(
+    () => scopedPayrollLines.filter((line) => latestPayrollRunIds.has(line.payrollRunId)),
+    [scopedPayrollLines, latestPayrollRunIds],
+  );
+  const latestPayrollEmployeeIds = useMemo(
+    () => new Set(latestPayrollLines.map((line) => line.employeeId)),
+    [latestPayrollLines],
+  );
+  const headcount = latestPayrollEmployeeIds.size || scopedEmployees.filter((employee) => employee.status !== "Inactive").length;
+  const totalPayroll = latestPayrollLines.reduce((sum, line) => sum + line.netPay, 0);
+  const approvedOrReleasedRuns = scopedPayrollRuns.filter((run) => run.status === "Approved" || run.status === "Released");
+  const releasedRunIds = new Set(scopedPayoutBatches.filter((batch) => batch.status === "Released").map((batch) => batch.payrollRunId));
+  const onTimeRate = approvedOrReleasedRuns.length === 0
+    ? 0
+    : Math.round((approvedOrReleasedRuns.filter((run) => releasedRunIds.has(run.id) || run.status === "Released").length / approvedOrReleasedRuns.length) * 100);
+  const reviewedLines = scopedPayrollLines.filter((line) => line.status === "Approved" || line.status === "Released");
+  const payslipIssuedRate = reviewedLines.length === 0
+    ? 0
+    : Math.round((reviewedLines.filter((line) => line.status === "Released").length / reviewedLines.length) * 100);
+  const payrollErrorRate = scopedPayoutLines.length === 0
+    ? 0
+    : Math.round((scopedPayoutLines.filter((line) => line.status === "Failed").length / scopedPayoutLines.length) * 100);
 
   const monthlyData = useMemo(() => {
-    return MONTHS.map((_, i) => {
-      const variance = 0.78 + Math.sin(i * 0.85 + 0.3) * 0.18 + (i === currentMonth ? 0.12 : 0);
-      return Math.round(totalPayroll * variance);
+    return MONTHS.map((_, monthIndex) => {
+      const periodIds = scopedPayrollPeriods
+        .filter((period) => {
+          const date = new Date(period.payoutDate || period.endDate || period.startDate);
+          return date.getFullYear() === currentYear && date.getMonth() === monthIndex;
+        })
+        .map((period) => period.id);
+      const runIds = new Set(scopedPayrollRuns.filter((run) => periodIds.includes(run.payrollPeriodId)).map((run) => run.id));
+      return scopedPayrollLines
+        .filter((line) => runIds.has(line.payrollRunId))
+        .reduce((sum, line) => sum + line.netPay, 0);
     });
-  }, [totalPayroll, currentMonth]);
+  }, [scopedPayrollLines, scopedPayrollPeriods, scopedPayrollRuns, currentYear]);
 
   const displayedMonthlyData = periodView === "quarterly"
     ? monthlyData.map((_, i) => {
@@ -95,13 +175,11 @@ export default function PayrollDashboardPage() {
 
   const deptSalaries = useMemo(() => {
     const grouped: Record<string, number> = {};
-    scopedEmployees.forEach((e) => {
-      const dept = (e as { department?: string }).department ?? "Admin";
-      grouped[dept] = (grouped[dept] ?? 0) + ((e as { salary?: number }).salary ?? avgSalary);
+    latestPayrollLines.forEach((line) => {
+      const employee = scopedEmployees.find((e) => e.id === line.employeeId);
+      const dept = (employee as { department?: string } | undefined)?.department ?? "Unassigned";
+      grouped[dept] = (grouped[dept] ?? 0) + line.netPay;
     });
-    if (Object.keys(grouped).length === 0) {
-      Object.assign(grouped, { Teaching: 55000, Admin: 50000, Finance: 40000, HR: 35000, IT: 45000, Others: 25000 });
-    }
     const total = Object.values(grouped).reduce((s, v) => s + v, 0) || 1;
     return Object.entries(grouped)
       .sort(([, a], [, b]) => b - a)
@@ -112,16 +190,39 @@ export default function PayrollDashboardPage() {
         pct: Math.round((salary / total) * 100),
         ...DEPT_PALETTE[i % DEPT_PALETTE.length],
       }));
-  }, [scopedEmployees]);
+  }, [latestPayrollLines, scopedEmployees]);
 
   const highestDept = deptSalaries[0];
   const lowestDept = deptSalaries[deptSalaries.length - 1];
   const totalDeptSalary = deptSalaries.reduce((s, d) => s + d.salary, 0);
-  const monthAmount = displayedMonthlyData[selectedMonth] ?? 0;
+  const selectedMonthRunIds = useMemo(() => {
+    const periodIds = scopedPayrollPeriods
+      .filter((period) => {
+        const date = new Date(period.payoutDate || period.endDate || period.startDate);
+        return date.getFullYear() === currentYear && date.getMonth() === selectedMonth;
+      })
+      .map((period) => period.id);
+    return new Set(scopedPayrollRuns.filter((run) => periodIds.includes(run.payrollPeriodId)).map((run) => run.id));
+  }, [scopedPayrollPeriods, scopedPayrollRuns, currentYear, selectedMonth]);
+  const selectedMonthLines = useMemo(
+    () => scopedPayrollLines.filter((line) => selectedMonthRunIds.has(line.payrollRunId)),
+    [scopedPayrollLines, selectedMonthRunIds],
+  );
+  const hoveredMonthLines = useMemo(() => {
+    if (hoveredBar === null) return [];
+    const periodIds = scopedPayrollPeriods
+      .filter((period) => {
+        const date = new Date(period.payoutDate || period.endDate || period.startDate);
+        return date.getFullYear() === currentYear && date.getMonth() === hoveredBar;
+      })
+      .map((period) => period.id);
+    const runIds = new Set(scopedPayrollRuns.filter((run) => periodIds.includes(run.payrollPeriodId)).map((run) => run.id));
+    return scopedPayrollLines.filter((line) => runIds.has(line.payrollRunId));
+  }, [scopedPayrollLines, scopedPayrollPeriods, scopedPayrollRuns, currentYear, hoveredBar]);
   const monthBreakdown = [
-    { label: "Base Salary", ratio: 0.45, color: "bg-emerald-500" },
-    { label: "Overtime Pay", ratio: 0.35, color: "bg-blue-500" },
-    { label: "Bonuses", ratio: 0.20, color: "bg-amber-500" },
+    { label: "Base Salary", value: selectedMonthLines.reduce((sum, line) => sum + line.basicPay, 0), color: "bg-emerald-500" },
+    { label: "Allowances / OT", value: selectedMonthLines.reduce((sum, line) => sum + line.allowances + line.otherAllowances + line.overtimePay, 0), color: "bg-blue-500" },
+    { label: "Deductions", value: selectedMonthLines.reduce((sum, line) => sum + line.sssDeduction + line.philhealthDeduction + line.pagibigDeduction + line.withholdingTax + line.otherDeductions + line.lateDeduction + line.undertimeDeduction + line.absenceDeduction, 0), color: "bg-amber-500" },
   ];
   const selectedDeptData = deptSalaries.find((d) => d.label === selectedDept) ?? highestDept;
 
@@ -136,7 +237,7 @@ export default function PayrollDashboardPage() {
     },
     {
       label: "Payroll on Time Rate",
-      value: "97%",
+      value: `${onTimeRate}%`,
       sub: "Payrolls processed without delay",
       icon: <Clock className="w-5 h-5" />,
       bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-800",
@@ -144,7 +245,7 @@ export default function PayrollDashboardPage() {
     },
     {
       label: "Payslips Issued",
-      value: "98%",
+      value: `${payslipIssuedRate}%`,
       sub: "Payslips generated and sent",
       icon: <FileText className="w-5 h-5" />,
       bg: "bg-stsn-cream", border: "border-stsn-beige", text: "text-stsn-brown",
@@ -152,7 +253,7 @@ export default function PayrollDashboardPage() {
     },
     {
       label: "Payroll Error Rate",
-      value: "2%",
+      value: `${payrollErrorRate}%`,
       sub: "Transactions with errors or discrepancies",
       icon: <AlertTriangle className="w-5 h-5" />,
       bg: "bg-red-50", border: "border-red-200", text: "text-red-800",
@@ -162,19 +263,20 @@ export default function PayrollDashboardPage() {
   const activeKpiData = kpis.find((kpi) => kpi.label === activeKpi) ?? kpis[0];
 
   return (
-    <AnalyticsDashboardShell
-      title="Payroll Analytics Dashboard"
+    <div className="space-y-6 animate-fade-in">
+    <ModulePageHeader
       badge="Admin Only"
+      title="Payroll Analytics Dashboard"
       subtitle="Payroll processing metrics, salary breakdown, and expense analytics."
-      meta={
-        <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-center min-w-[108px]">
-          <span className="text-[9px] text-stone-400 uppercase block font-mono tracking-wider">Period</span>
-          <span className="text-sm font-bold text-stone-900 mt-0.5 block">
+      actions={
+        <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[108px]">
+          <span className="text-[9px] text-white/50 uppercase block font-mono tracking-wider">Period</span>
+          <span className="text-sm font-bold text-white mt-0.5 block">
             {new Date().toLocaleString("en-PH", { month: "long", year: "numeric" })}
           </span>
         </div>
       }
-    >
+    />
       {/* ── KPI Row ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
@@ -210,18 +312,13 @@ export default function PayrollDashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           {(["monthly", "quarterly"] as const).map((view) => (
-            <button
+            <AppFilterChip
               key={view}
-              type="button"
+              label={view.charAt(0).toUpperCase() + view.slice(1)}
+              active={periodView === view}
               onClick={() => setPeriodView(view)}
-              className={`px-3 py-2 rounded-lg border text-[10px] font-mono uppercase transition ${
-                periodView === view
-                  ? "bg-stsn-brown text-white border-stsn-brown"
-                  : "bg-white text-stone-500 border-stone-200 hover:bg-stone-50"
-              }`}
-            >
-              {view}
-            </button>
+              size="sm"
+            />
           ))}
         </div>
       </div>
@@ -260,16 +357,16 @@ export default function PayrollDashboardPage() {
               >
                 <div className="bg-stone-900 text-white rounded-xl px-4 py-3 shadow-lg text-xs whitespace-nowrap">
                   {[
-                    { label: "Base Salary",   ratio: 0.45 },
-                    { label: "Overtime Pay",  ratio: 0.35 },
-                    { label: "Bonuses",       ratio: 0.20 },
-                  ].map(({ label, ratio }) => (
+                    { label: "Base Salary", amount: hoveredMonthLines.reduce((sum, line) => sum + line.basicPay, 0) },
+                    { label: "Allowances / OT", amount: hoveredMonthLines.reduce((sum, line) => sum + line.allowances + line.otherAllowances + line.overtimePay, 0) },
+                    { label: "Deductions", amount: hoveredMonthLines.reduce((sum, line) => sum + line.sssDeduction + line.philhealthDeduction + line.pagibigDeduction + line.withholdingTax + line.otherDeductions + line.lateDeduction + line.undertimeDeduction + line.absenceDeduction, 0) },
+                  ].map(({ label, amount }) => (
                     <div key={label} className="flex items-center justify-between gap-6 mb-1 last:mb-0">
                       <span className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                         {label}
                       </span>
-                      <span className="font-mono">₱{Math.round(displayedMonthlyData[hoveredBar] * ratio).toLocaleString()}</span>
+                      <span className="font-mono">₱{amount.toLocaleString()}</span>
                     </div>
                   ))}
                   <div className="text-[9px] text-stone-400 mt-2 pt-2 border-t border-stone-700 font-mono text-center">
@@ -353,7 +450,7 @@ export default function PayrollDashboardPage() {
                   <span className="text-[10px] text-stone-500">{item.label}</span>
                 </div>
                 <span className="text-sm font-bold text-stone-900 mt-1 block">
-                  ₱{Math.round(monthAmount * item.ratio).toLocaleString()}
+                  ₱{item.value.toLocaleString()}
                 </span>
               </div>
             ))}
@@ -445,6 +542,6 @@ export default function PayrollDashboardPage() {
           ))}
         </div>
       </div>
-    </AnalyticsDashboardShell>
+    </div>
   );
 }

@@ -13,6 +13,7 @@ import { getAcademicScopedData } from "../../../services/academicUnitScopeServic
 import { dbInsert, dbUpdate, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,7 @@ export default function ConsultationModule() {
     return tea ? `${tea.lastName}, ${tea.firstName}` : "Unknown";
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.requestedBy.trim() || !form.purpose.trim()) {
       toast("Please fill in Requested By and Purpose fields.");
       return;
@@ -183,8 +184,7 @@ export default function ConsultationModule() {
       status: "Pending",
       remarks: form.remarks || undefined,
     };
-    setAppointments((prev) => [newAppt, ...prev]);
-    dbInsert("consultation_appointments", {
+    const error = await dbInsert("consultation_appointments", {
       id,
       studentId: form.studentId || null,
       teacherId: form.teacherId || null,
@@ -197,14 +197,24 @@ export default function ConsultationModule() {
       status: "Pending",
       remarks: form.remarks || null,
     });
+    if (error) {
+      toast("Unable to submit consultation request. Please try again.");
+      return;
+    }
+    setAppointments((prev) => [newAppt, ...prev]);
     setShowForm(false);
     setForm(DEFAULT_FORM);
     toast("Consultation request submitted.");
   };
 
-  const updateStatus = (id: string, status: AppointmentStatus, notes?: string) => {
+  const updateStatus = async (id: string, status: AppointmentStatus, notes?: string) => {
+    const error = await dbUpdate("consultation_appointments", id, { status, ...(notes !== undefined && { teacherNotes: notes }) });
+    if (error) {
+      toast("Unable to update consultation status. Please try again.");
+      return false;
+    }
     setAppointments((prev) => prev.map((a) => a.id === id ? { ...a, status, ...(notes !== undefined && { teacherNotes: notes }) } : a));
-    dbUpdate("consultation_appointments", id, { status, ...(notes !== undefined && { teacherNotes: notes }) });
+    return true;
   };
 
   const columns: STSNColumn<ConsultationAppointment & { studentLabel: string; teacherLabel: string }>[] = [
@@ -236,23 +246,20 @@ export default function ConsultationModule() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <PhoneCall className="w-5 h-5 text-stsn-brown" /> Consultation Management
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            Teacher–parent and adviser–student consultation appointment booking and tracking.
-          </p>
-        </div>
-        <button
-          onClick={() => { setShowForm(true); setForm(DEFAULT_FORM); }}
-          className="flex items-center gap-2 bg-stsn-brown hover:bg-stsn-brown-dark text-white text-xs font-bold px-4 py-2 rounded-xl shadow cursor-pointer transition"
-        >
-          <Plus className="w-4 h-4" /> Request
-        </button>
-      </div>
+      <ModulePageHeader
+        badge="Faculty & Staff"
+        badgeIcon={PhoneCall}
+        title="Consultation Management"
+        subtitle="Teacher–parent and adviser–student consultation appointment booking and tracking."
+        actions={
+          <button
+            onClick={() => { setShowForm(true); setForm(DEFAULT_FORM); }}
+            className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512]"
+          >
+            <Plus className="w-4 h-4" /> Request Consultation
+          </button>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -342,7 +349,9 @@ export default function ConsultationModule() {
                                 Confirm
                               </button>
                               <button
-                                onClick={() => updateStatus(a.id, "Cancelled")}
+                                onClick={async () => {
+                                  if (await updateStatus(a.id, "Cancelled")) toast("Consultation request declined.");
+                                }}
                                 className="text-xs font-bold bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 py-1.5 rounded-lg cursor-pointer transition"
                               >
                                 Decline
@@ -411,7 +420,13 @@ export default function ConsultationModule() {
               <p className="text-xs text-stone-600">Add notes or a venue for this consultation appointment.</p>
               <textarea rows={3} value={teacherNotes} onChange={(e) => setTeacherNotes(e.target.value)} placeholder="e.g. Confirmed for June 10, 2026 at 2:00 PM — Room 14…" className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none resize-none" />
               <button
-                onClick={() => { updateStatus(confirmingId, "Confirmed", teacherNotes); setConfirmingId(null); setTeacherNotes(""); toast("Appointment confirmed."); }}
+                onClick={async () => {
+                  if (await updateStatus(confirmingId, "Confirmed", teacherNotes)) {
+                    setConfirmingId(null);
+                    setTeacherNotes("");
+                    toast("Appointment confirmed.");
+                  }
+                }}
                 className="w-full bg-stsn-brown hover:bg-stsn-brown-dark text-white font-bold text-xs py-2.5 rounded-xl shadow cursor-pointer transition"
               >
                 Confirm Appointment
@@ -552,7 +567,12 @@ export default function ConsultationModule() {
                 )}
                 {detailItem.status === "Confirmed" && (
                   <button
-                    onClick={() => { updateStatus(detailItem.id, "Completed"); setDetailItem(null); toast("Consultation marked as completed."); }}
+                    onClick={async () => {
+                      if (await updateStatus(detailItem.id, "Completed")) {
+                        setDetailItem(null);
+                        toast("Consultation marked as completed.");
+                      }
+                    }}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl shadow cursor-pointer transition"
                   >
                     Mark as Completed

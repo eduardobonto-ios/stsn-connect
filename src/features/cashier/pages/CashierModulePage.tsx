@@ -10,10 +10,16 @@ import {
   Wallet, Search, Receipt, History, CheckCircle, AlertCircle,
   Banknote, Printer, Package, Info, X, Clock, ListChecks,
   ChevronLeft, ChevronRight, BarChart3, Download, FileText, Ban,
+  TrendingUp, CalendarDays,
 } from "lucide-react";
-import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppModal from "../../../components/common/AppModal";
+import AppButton from "../../../components/common/AppButton";
+import { ReceiptPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import EmptyState from "../../../components/common/EmptyState";
+import { PreviewModal } from "../../../components/ModalPreviews";
 import { getAccountingLabels, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
 import { BookPackage } from "../../../types";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
@@ -131,13 +137,11 @@ function getActiveSetupNames(items: { name: string; isActive?: boolean; sortOrde
   return configured.length > 0 ? configured : fallback;
 }
 
-/** Resolves the assigned book package for an assessment, if books were availed (Basic Ed only). */
 function getBookPackageInfo(assessment: StudentAssessment, bookPackages: BookPackage[]) {
   if (!assessment.booksAvailed) return undefined;
   return bookPackages.find((p) => p.id === assessment.bookPackageId);
 }
 
-/** Builds the Basic Ed vs College academic info line for a queue/history row. */
 function getAcademicLine(student: Student | undefined, unit: "basic-ed" | "college"): string {
   const labels = getAccountingLabels(unit);
   if (unit === "basic-ed") {
@@ -146,13 +150,11 @@ function getAcademicLine(student: Student | undefined, unit: "basic-ed" | "colle
   return `${labels.programLabel}: ${student?.trackOrCourse || "—"} • ${labels.levelLabel}: ${student?.yearLevel || "—"}`;
 }
 
-/** Slices a list of records to the given page (1-indexed) and page size. */
 function paginateRecords<T>(records: T[], page: number, pageSize: number): T[] {
   const start = (page - 1) * pageSize;
   return records.slice(start, start + pageSize);
 }
 
-/** Compact previous/page-number/next pagination footer for card lists. */
 function CardPagination({
   page, totalRecords, pageSize, onPageChange,
 }: { page: number; totalRecords: number; pageSize: number; onPageChange: (page: number) => void }) {
@@ -164,7 +166,7 @@ function CardPagination({
 
   return (
     <div className="mt-3 pt-3 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-2">
-      <p className="text-[10px] text-stone-400 font-mono">Showing {start}-{end} of {totalRecords} records</p>
+      <p className="text-[10px] text-stone-400 font-mono">Showing {start}–{end} of {totalRecords} records</p>
       <div className="flex items-center gap-1">
         <button
           type="button"
@@ -204,7 +206,9 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   useEffect(() => {
     if (subPage && subPage !== activeTab) setActiveTab(subPage as CashierTab);
   }, [subPage]);
+
   const [searchQuery, setSearchQuery] = useState("");
+  const [historyDateFilter, setHistoryDateFilter] = useState("");
   const [selectedReportId, setSelectedReportId] = useState<CashierReportId>("daily-collection");
   const [reportDateFrom, setReportDateFrom] = useState("");
   const [reportDateTo, setReportDateTo] = useState("");
@@ -219,6 +223,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
   const [voidModalPaymentId, setVoidModalPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [voidConfirmInput, setVoidConfirmInput] = useState("");
 
   const rowsPerPage = 5;
   const [approvedPage, setApprovedPage] = useState(1);
@@ -241,6 +246,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const scopedAssessments = scopedData.assessments ?? [];
   const scopedPayments = scopedData.payments ?? [];
   const scopedBookPackages = scopedData.bookPackages ?? [];
+
   const paymentMethodOptions = useMemo(
     () => getActiveSetupNames(setupData.payment_methods, PAYMENT_METHODS),
     [setupData.payment_methods],
@@ -248,6 +254,22 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const paymentRemittanceTermOptions = useMemo(
     () => getActiveSetupNames(setupData.payment_remittance_terms, PAYMENT_REMITTANCE_TERMS),
     [setupData.payment_remittance_terms],
+  );
+
+  // Today's date string for KPI calculations
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const todayPayments = useMemo(
+    () => scopedPayments.filter((p) => p.paymentDate === todayStr),
+    [scopedPayments, todayStr],
+  );
+  const todayTotal = useMemo(
+    () => todayPayments.reduce((sum, p) => sum + p.amount, 0),
+    [todayPayments],
+  );
+  const pendingVoids = useMemo(
+    () => voidRequests.filter((v) => v.status === "Pending Void Approval" && scopedPayments.some((p) => p.id === v.paymentId)),
+    [voidRequests, scopedPayments],
   );
 
   useEffect(() => {
@@ -261,7 +283,6 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     return `${student?.firstName} ${student?.lastName}`.toLowerCase().includes(q) || (student?.studentNo || "").toLowerCase().includes(q);
   };
 
-  // Payment Queue — Approved for Payment assessments with an outstanding balance, scoped to this school's academic unit.
   const queueRows = useMemo(() => {
     return scopedAssessments
       .filter((a) => a.approvalStatus === "Approved for Payment" && a.balance > 0)
@@ -269,7 +290,6 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       .filter(({ student }) => matchesSearch(student));
   }, [scopedAssessments, scopedStudents, searchQuery]);
 
-  // Awaiting Accounting — visible for context only, never actionable by Cashier.
   const awaitingRows = useMemo(() => {
     return scopedAssessments
       .filter((a) => !!a.approvalStatus && (a.approvalStatus !== "Approved for Payment" || a.balance <= 0))
@@ -277,13 +297,11 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       .filter(({ student, assessment }) => matchesSearch(student) && assessment.balance > 0);
   }, [scopedAssessments, scopedStudents, searchQuery]);
 
-  // Collection History — all payments posted against students in this academic unit.
   const historyRows = useMemo(() => {
     return scopedPayments
       .map((p) => ({
         payment: p,
         student: scopedStudents.find((s) => s.id === p.studentId),
-        // Prefer the specific assessment the payment was collected against; fall back to first match.
         assessment: p.assessmentId
           ? scopedAssessments.find((a) => a.id === p.assessmentId)
           : scopedAssessments.find((a) => a.studentId === p.studentId),
@@ -291,6 +309,11 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       .filter(({ student }) => matchesSearch(student))
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
   }, [scopedPayments, scopedStudents, scopedAssessments, searchQuery]);
+
+  const filteredHistoryRows = useMemo(
+    () => historyRows.filter(({ payment }) => !historyDateFilter || payment.paymentDate === historyDateFilter),
+    [historyRows, historyDateFilter],
+  );
 
   const reportPaymentRows = useMemo<CashierPaymentRow[]>(() => {
     return historyRows
@@ -558,264 +581,392 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm">
-        <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-stsn-brown" />
-          Cashiering Office
-        </h2>
-        <p className="text-stone-500 text-xs mt-1">
-          Collect payments on assessments approved by Accounting, preview official receipts, and review collection history.
-          Cashier cannot edit fees, discounts, books, or assessment approval status.
-        </p>
+    <div className="space-y-5 animate-fade-in font-sans">
+
+      {/* ── Module Header ─────────────────────────────────── */}
+      <ModulePageHeader
+        badge="Collection Window"
+        badgeIcon={Wallet}
+        title="Cashiering Office"
+        subtitle="Collect payments on approved assessments, issue official receipts, and review collection history."
+      />
+
+      {/* ── KPI Summary Strip ─────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <AppKpiCard
+          label="Today's Collections"
+          value={formatMoney(todayTotal)}
+          icon={TrendingUp}
+          tone="success"
+          hint={`${todayPayments.length} transaction${todayPayments.length !== 1 ? "s" : ""} posted`}
+        />
+        <AppKpiCard
+          label="Payment Queue"
+          value={queueRows.length}
+          icon={Receipt}
+          tone="warning"
+          hint="Approved with outstanding balance"
+        />
+        <AppKpiCard
+          label="Receipts Issued Today"
+          value={todayPayments.length}
+          icon={FileText}
+          tone="brand"
+          hint="Official receipts for today"
+        />
+        <AppKpiCard
+          label="Pending Voids"
+          value={pendingVoids.length}
+          icon={Ban}
+          tone={pendingVoids.length > 0 ? "danger" : "neutral"}
+          hint="Awaiting Accounting approval"
+        />
       </div>
 
-      {/* Tab Navigation */}
+      {/* ── Tab Bar + Search ─────────────────────────────── */}
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="flex border-b border-stone-100">
+        <div className="flex items-stretch border-b border-stone-100">
+          {/* Tabs */}
           <button
             onClick={() => { setActiveTab("queue"); onSubPageChange?.("queue"); }}
-            className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === "queue" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "queue" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
           >
             <Receipt className="w-4 h-4" />
             Payment Queue
+            {queueRows.length > 0 && (
+              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
+                activeTab === "queue"
+                  ? "bg-stsn-brown/15 text-stsn-brown"
+                  : "bg-amber-100 text-amber-700"
+              }`}>
+                {queueRows.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => { setActiveTab("history"); onSubPageChange?.("history"); }}
-            className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === "history" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "history" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
           >
             <History className="w-4 h-4" />
             Collection History
           </button>
           <button
             onClick={() => { setActiveTab("reports"); onSubPageChange?.("reports"); }}
-            className={`flex-1 py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${activeTab === "reports" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "reports" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
           >
             <BarChart3 className="w-4 h-4" />
             Reports
           </button>
-        </div>
-      </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-3">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 text-stone-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search by student name or student no..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none font-medium"
-          />
-        </div>
-      </div>
-
-      {/* ===================== PAYMENT QUEUE ===================== */}
-      {activeTab === "queue" && (
-        <div className="space-y-4 animate-fade-in">
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
-            <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2 mb-1">
-              <Receipt className="w-4 h-4 text-stsn-gold" /> Approved for Payment
-            </h3>
-            <p className="text-xs text-stone-500 mb-3">
-              Only assessments approved by Accounting and with an outstanding balance appear here.
-            </p>
-            {queueRows.length === 0 ? (
-              <EmptyState
-                icon={Receipt}
-                title="Payment Queue is Empty"
-                description="Assessments approved by Accounting and with an outstanding balance will appear here for collection."
-                compact
-              />
-            ) : (
-              <div className="space-y-3">
-                {paginatedQueueRows.map(({ assessment, student }) => {
-                  const books = getBookPackageInfo(assessment, scopedBookPackages);
-                  const netPayable = Math.max(0, assessment.totalAmount - assessment.discountAmount);
-                  return (
-                    <div key={assessment.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].badgeClass}`}>
-                            {ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].label}
-                          </span>
-                          {books && (
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border text-purple-700 bg-purple-50 border-purple-200 flex items-center gap-1">
-                              <Package className="w-3 h-3" /> {books.packageName}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm font-bold text-stone-900">{student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}</p>
-                        <p className="text-[10px] font-mono text-stone-400">{student?.studentNo}</p>
-                        <p className="text-[10px] text-stone-500 mt-0.5">{getAcademicLine(student, academicUnit)} • {assessment.schoolYear}</p>
-                        <p className="text-[10px] text-stone-500">Payment Term: {assessment.paymentTerm}</p>
-                      </div>
-                      <div className="text-right flex flex-col items-end justify-between">
-                        <div>
-                          <p className="text-[9px] uppercase font-mono text-stone-400">Net Payable</p>
-                          <p className="text-sm font-display font-black text-stone-900">₱{netPayable.toLocaleString()}</p>
-                          <p className="text-[9px] uppercase font-mono text-stone-400 mt-1">Balance Due</p>
-                          <p className="text-base font-display font-black text-emerald-700">₱{assessment.balance.toLocaleString()}</p>
-                        </div>
-                        <button
-                          onClick={() => openCollect(assessment.id)}
-                          className="mt-2 flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-stsn-brown-dark transition"
-                        >
-                          <Banknote className="w-3.5 h-3.5" /> Collect Payment
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* Search — flush right */}
+          <div className="flex-1 flex items-center justify-end px-3 py-2 gap-2">
+            {activeTab === "history" && (
+              <div className="flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
+                <input
+                  type="date"
+                  value={historyDateFilter}
+                  onChange={(e) => setHistoryDateFilter(e.target.value)}
+                  className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 px-2 text-xs font-semibold focus:ring-1 focus:ring-stsn-brown focus:outline-none w-36"
+                  title="Filter by date"
+                />
+                {historyDateFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryDateFilter("")}
+                    className="text-stone-400 hover:text-stone-600 transition cursor-pointer"
+                    title="Clear date filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
-            <CardPagination page={approvedPage} totalRecords={queueRows.length} pageSize={rowsPerPage} onPageChange={setApprovedPage} />
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 w-3.5 h-3.5 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search student…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 pl-7 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none font-medium w-44"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── PAYMENT QUEUE ─────────────────────────────────── */}
+      {activeTab === "queue" && (
+        <div className="space-y-4 animate-fade-in">
+
+          {/* Approved for Payment */}
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-stsn-gold" />
+                <h3 className="text-sm font-display font-bold text-stone-900">Approved for Payment</h3>
+              </div>
+              <p className="text-[10px] text-stone-400 font-mono">{queueRows.length} in queue</p>
+            </div>
+
+            <div className="p-4">
+              {queueRows.length === 0 ? (
+                <EmptyState
+                  icon={Receipt}
+                  title="Payment Queue is Empty"
+                  description="Assessments approved by Accounting and with an outstanding balance will appear here."
+                  compact
+                />
+              ) : (
+                <div className="space-y-3">
+                  {paginatedQueueRows.map(({ assessment, student }) => {
+                    const books = getBookPackageInfo(assessment, scopedBookPackages);
+                    const netPayable = Math.max(0, assessment.totalAmount - assessment.discountAmount);
+                    return (
+                      <div
+                        key={assessment.id}
+                        className="border border-stone-200 rounded-xl overflow-hidden flex flex-col sm:flex-row"
+                      >
+                        {/* Left — student + assessment info */}
+                        <div className="flex-1 p-4 bg-stone-50/60">
+                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].badgeClass}`}>
+                              {ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].label}
+                            </span>
+                            {books && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border text-purple-700 bg-purple-50 border-purple-200 flex items-center gap-1">
+                                <Package className="w-3 h-3" /> {books.packageName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-bold text-stone-900 leading-tight">
+                            {student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}
+                          </p>
+                          <p className="text-[10px] font-mono text-stone-400 mt-0.5">{student?.studentNo}</p>
+                          <p className="text-[10px] text-stone-500 mt-1.5">{getAcademicLine(student, academicUnit)} • {assessment.schoolYear}</p>
+                          <p className="text-[10px] text-stone-500">Payment Term: <span className="font-semibold">{assessment.paymentTerm}</span></p>
+                          <div className="mt-2 flex items-center gap-3">
+                            <div>
+                              <p className="text-[9px] uppercase font-mono text-stone-400">Net Payable</p>
+                              <p className="text-xs font-mono font-bold text-stone-700">₱{netPayable.toLocaleString()}</p>
+                            </div>
+                            {assessment.discountAmount > 0 && (
+                              <div>
+                                <p className="text-[9px] uppercase font-mono text-stone-400">Discount</p>
+                                <p className="text-xs font-mono font-bold text-emerald-600">−₱{assessment.discountAmount.toLocaleString()}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right — balance + action */}
+                        <div className="sm:w-44 flex flex-col items-center justify-center p-4 bg-emerald-50 border-t sm:border-t-0 sm:border-l border-emerald-200 gap-3">
+                          <div className="text-center">
+                            <p className="text-[9px] uppercase font-mono font-bold text-emerald-600 tracking-wider">Balance Due</p>
+                            <p className="text-2xl font-display font-black text-emerald-700 leading-tight mt-0.5">
+                              ₱{assessment.balance.toLocaleString()}
+                            </p>
+                          </div>
+                          <AppButton
+                            variant="primary"
+                            size="sm"
+                            leftIcon={Banknote}
+                            onClick={() => openCollect(assessment.id)}
+                            className="w-full justify-center"
+                          >
+                            Collect Payment
+                          </AppButton>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <CardPagination page={approvedPage} totalRecords={queueRows.length} pageSize={rowsPerPage} onPageChange={setApprovedPage} />
+            </div>
           </div>
 
-          {/* Awaiting Accounting — read-only context, not actionable */}
+          {/* Awaiting Accounting — read-only context */}
           {awaitingRows.length > 0 && (
-            <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
-              <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2 mb-1">
-                <Clock className="w-4 h-4 text-stone-400" /> Awaiting Accounting Approval
-              </h3>
-              <p className="text-xs text-stone-500 mb-3">
-                These assessments are not yet approved for payment and cannot be collected at the Cashier window.
-              </p>
-              <div className="space-y-2">
-                {paginatedAwaitingRows.map(({ assessment, student }) => {
-                  const status = assessment.approvalStatus || DEFAULT_ASSESSMENT_APPROVAL_STATUS;
-                  const cfg = ASSESSMENT_APPROVAL_STATUS_CONFIG[status];
-                  return (
-                    <div key={assessment.id} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg p-3 opacity-80">
-                      <div>
-                        <p className="text-xs font-bold text-stone-700">{student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}</p>
-                        <p className="text-[10px] font-mono text-stone-400">{student?.studentNo} • {getAcademicLine(student, academicUnit)}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${cfg.badgeClass}`}>{cfg.label}</span>
-                        <p className="text-[10px] text-stone-400 mt-1">Balance: ₱{assessment.balance.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  );
-                })}
+            <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-stone-100 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-stone-400" />
+                <h3 className="text-sm font-display font-bold text-stone-900">Awaiting Accounting Approval</h3>
+                <p className="text-[10px] text-stone-400 font-mono ml-auto">{awaitingRows.length} pending</p>
               </div>
-              <CardPagination page={pendingPage} totalRecords={awaitingRows.length} pageSize={rowsPerPage} onPageChange={setPendingPage} />
+              <div className="p-4">
+                <p className="text-xs text-stone-500 mb-3">
+                  These assessments have not yet been approved for payment and cannot be collected at the cashier window.
+                </p>
+                <div className="space-y-2">
+                  {paginatedAwaitingRows.map(({ assessment, student }) => {
+                    const status = assessment.approvalStatus || DEFAULT_ASSESSMENT_APPROVAL_STATUS;
+                    const cfg = ASSESSMENT_APPROVAL_STATUS_CONFIG[status];
+                    return (
+                      <div key={assessment.id} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg p-3 opacity-80">
+                        <div>
+                          <p className="text-xs font-bold text-stone-700">{student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}</p>
+                          <p className="text-[10px] font-mono text-stone-400">{student?.studentNo} • {getAcademicLine(student, academicUnit)}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${cfg.badgeClass}`}>{cfg.label}</span>
+                          <p className="text-[10px] text-stone-400 mt-1 font-mono">₱{assessment.balance.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <CardPagination page={pendingPage} totalRecords={awaitingRows.length} pageSize={rowsPerPage} onPageChange={setPendingPage} />
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ===================== COLLECTION HISTORY ===================== */}
+      {/* ── COLLECTION HISTORY ─────────────────────────────── */}
       {activeTab === "history" && (
-        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 animate-fade-in">
-          <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2 mb-1">
-            <ListChecks className="w-4 h-4 text-stsn-gold" /> Payment Collection History
-          </h3>
-          <p className="text-xs text-stone-500 mb-3">All payments posted for students in this academic unit.</p>
-          <STSNDataTable
-            columns={historyColumns}
-            rows={historyRows}
-            emptyMessage="No payments recorded yet."
-          />
+        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
+          <div className="px-4 py-3 border-b border-stone-100 flex items-center gap-2">
+            <ListChecks className="w-4 h-4 text-stsn-gold" />
+            <h3 className="text-sm font-display font-bold text-stone-900">Payment Collection History</h3>
+            {historyDateFilter && (
+              <span className="ml-auto text-[10px] font-bold text-stsn-brown bg-stsn-cream border border-stsn-beige px-2 py-0.5 rounded-full font-mono">
+                {historyDateFilter}
+              </span>
+            )}
+            {!historyDateFilter && (
+              <p className="text-[10px] text-stone-400 font-mono ml-auto">{filteredHistoryRows.length} records</p>
+            )}
+          </div>
+          <div className="p-4">
+            {historyDateFilter && filteredHistoryRows.length === 0 ? (
+              <EmptyState
+                icon={CalendarDays}
+                title="No Payments on This Date"
+                description="No payments were posted on the selected date. Try a different date or clear the filter."
+                compact
+              />
+            ) : (
+              <STSNDataTable
+                columns={historyColumns}
+                rows={filteredHistoryRows}
+                emptyMessage="No payments recorded yet."
+              />
+            )}
+          </div>
         </div>
       )}
 
-      {/* ===================== CASHIER REPORTS ===================== */}
+      {/* ── CASHIER REPORTS ─────────────────────────────────── */}
       {activeTab === "reports" && (
         <div className="space-y-4 animate-fade-in">
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
-            <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2 mb-1">
-              <BarChart3 className="w-4 h-4 text-stsn-gold" /> Cashier Reports
-            </h3>
-            <p className="text-xs text-stone-500 mb-3">
-              Generate collection, receipt, payment method, cashier, student payment, and end-of-day reports from posted payments.
-            </p>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-              <div className="lg:col-span-2">
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Report Type</label>
-                <select
-                  value={selectedReportId}
-                  onChange={(e) => setSelectedReportId(e.target.value as CashierReportId)}
-                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                >
-                  {CASHIER_REPORT_OPTIONS.map((report) => <option key={report.id} value={report.id}>{report.title}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Date From</label>
-                <input
-                  type="date"
-                  value={reportDateFrom}
-                  onChange={(e) => setReportDateFrom(e.target.value)}
-                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Date To</label>
-                <input
-                  type="date"
-                  value={reportDateTo}
-                  onChange={(e) => setReportDateTo(e.target.value)}
-                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                />
+
+          {/* Report controls */}
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-stone-100 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-stsn-gold" />
+              <h3 className="text-sm font-display font-bold text-stone-900">Report Generator</h3>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                <div className="lg:col-span-2">
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Report Type</label>
+                  <select
+                    value={selectedReportId}
+                    onChange={(e) => setSelectedReportId(e.target.value as CashierReportId)}
+                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                  >
+                    {CASHIER_REPORT_OPTIONS.map((report) => <option key={report.id} value={report.id}>{report.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Date From</label>
+                  <input
+                    type="date"
+                    value={reportDateFrom}
+                    onChange={(e) => setReportDateFrom(e.target.value)}
+                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Date To</label>
+                  <input
+                    type="date"
+                    value={reportDateTo}
+                    onChange={(e) => setReportDateTo(e.target.value)}
+                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
-            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 mb-3">
+          {/* Report output */}
+          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h4 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-stsn-gold" /> {selectedReport.title}
-                </h4>
-                <p className="text-xs text-stone-500 mt-1">{selectedReport.desc}</p>
-                {selectedReportId === "voided-receipts" && (
-                  <p className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 mt-2">
-                    Shows all receipts with an active void request (Pending, Approved, or Rejected). Cashiers can submit void requests from Collection History; Accounting approves via the Approval Queue.
-                  </p>
-                )}
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-stsn-gold" />
+                  <h4 className="text-sm font-display font-bold text-stone-900">{selectedReport.title}</h4>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5 ml-6">{selectedReport.desc}</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => exportCurrentReport("print")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
-                  <Printer className="w-3.5 h-3.5" /> Print
-                </button>
-                <button onClick={() => exportCurrentReport("csv")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
-                  <Download className="w-3.5 h-3.5" /> CSV
-                </button>
-                <button onClick={() => exportCurrentReport("excel")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
-                  <Download className="w-3.5 h-3.5" /> Excel
-                </button>
-                <button onClick={() => exportCurrentReport("pdf")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
-                  <Download className="w-3.5 h-3.5" /> PDF
-                </button>
+              <div className="flex flex-wrap gap-2 flex-shrink-0">
+                <AppButton variant="outline" size="xs" leftIcon={Printer} onClick={() => exportCurrentReport("print")}>Print</AppButton>
+                <AppButton variant="outline" size="xs" leftIcon={Download} onClick={() => exportCurrentReport("csv")}>CSV</AppButton>
+                <AppButton variant="outline" size="xs" leftIcon={Download} onClick={() => exportCurrentReport("excel")}>Excel</AppButton>
+                <AppButton variant="outline" size="xs" leftIcon={Download} onClick={() => exportCurrentReport("pdf")}>PDF</AppButton>
               </div>
             </div>
-            <STSNDataTable
-              columns={cashierReportTableColumns}
-              rows={reportRows}
-              searchable={false}
-              emptyMessage="No report rows for the selected filters."
-            />
+            <div className="p-4">
+              {selectedReportId === "voided-receipts" && (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>Shows all receipts with an active void request (Pending, Approved, or Rejected). Cashiers can submit void requests from Collection History; Accounting approves via the Approval Queue.</span>
+                </div>
+              )}
+              <STSNDataTable
+                columns={cashierReportTableColumns}
+                rows={reportRows}
+                searchable={false}
+                emptyMessage="No report rows for the selected filters."
+              />
+            </div>
           </div>
         </div>
       )}
 
-      {/* ===================== COLLECT PAYMENT MODAL ===================== */}
+      {/* ── COLLECT PAYMENT MODAL ─────────────────────────── */}
       {collectRow && (
-        <PreviewModal isOpen={true} onClose={() => setCollectModalId(null)} title="Collect Payment" hidePrint>
+        <AppModal
+          open={true}
+          onClose={() => setCollectModalId(null)}
+          title="Collect Payment"
+          eyebrow="Cashier Window"
+          icon={Banknote}
+          panelAs="form"
+          onSubmit={handlePostPayment}
+          maxWidthClass="max-w-lg"
+          footer={
+            <div className="flex justify-end gap-2">
+              <AppButton type="button" variant="outline" size="sm" onClick={() => setCollectModalId(null)}>Cancel</AppButton>
+              <AppButton type="submit" variant="primary" size="sm" leftIcon={CheckCircle}>Post Payment</AppButton>
+            </div>
+          }
+        >
           <div className="space-y-4 text-xs">
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-blue-700">
               <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
               <span>Fees, discounts, books, and approval status are read-only and were set by Accounting. Cashier may only record a payment.</span>
             </div>
 
+            {/* Student + assessment summary */}
             <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
               <p className="text-sm font-bold text-stone-900">{collectRow.student ? `${collectRow.student.lastName}, ${collectRow.student.firstName}` : "—"}</p>
               <p className="font-mono text-stone-400">{collectRow.student?.studentNo}</p>
               <p className="text-stone-500">{getAcademicLine(collectRow.student, academicUnit)} • {collectRow.assessment.schoolYear}</p>
-              {/* Fee breakdown table */}
+
               {collectRow.assessment.fees && collectRow.assessment.fees.length > 0 && (() => {
                 const groups: Record<string, { feeName: string; amount: number }[]> = {};
                 for (const fee of collectRow.assessment.fees) {
@@ -842,7 +993,6 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 );
               })()}
 
-              {/* Books */}
               {getBookPackageInfo(collectRow.assessment, scopedBookPackages) && (
                 <div className="pt-2 border-t border-stone-200">
                   <p className="text-[9px] uppercase font-mono text-stone-400 mb-1.5">Books</p>
@@ -868,7 +1018,6 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 </div>
               )}
 
-              {/* Totals summary */}
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-200">
                 <div>
                   <p className="text-[9px] uppercase font-mono text-stone-400">Total Assessment</p>
@@ -893,75 +1042,66 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               </div>
             </div>
 
-            <form onSubmit={handlePostPayment} className="space-y-3">
+            {/* Payment form fields */}
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
+                BIR Official Receipt No. <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text" required
+                value={paymentForm.orNumber}
+                onChange={(e) => { setPaymentForm({ ...paymentForm, orNumber: e.target.value }); setOrError(null); }}
+                placeholder="e.g. 0001234 — must match physical receipt booklet"
+                className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown ${orError ? "border-red-400 ring-1 ring-red-400" : "border-stone-200"}`}
+              />
+              {orError && <p className="text-red-600 text-[10px] mt-1 font-semibold">{orError}</p>}
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Amount to Collect</label>
+              <input
+                type="number" min="1" step="0.01" required
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">
-                  BIR Official Receipt No. <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text" required
-                  value={paymentForm.orNumber}
-                  onChange={(e) => { setPaymentForm({ ...paymentForm, orNumber: e.target.value }); setOrError(null); }}
-                  placeholder="e.g. 0001234 — must match physical receipt booklet"
-                  className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown ${orError ? "border-red-400 ring-1 ring-red-400" : "border-stone-200"}`}
-                />
-                {orError && <p className="text-red-600 text-[10px] mt-1 font-semibold">{orError}</p>}
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Amount to Collect</label>
-                <input
-                  type="number" min="1" step="0.01" required
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Payment Method</label>
+                <select
+                  value={paymentForm.paymentMethod}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as Payment["paymentMethod"] })}
                   className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Payment Method</label>
-                  <select
-                    value={paymentForm.paymentMethod}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as Payment["paymentMethod"] })}
-                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                  >
-                    {paymentMethodOptions.map((m) => <option key={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Term / Purpose</label>
-                  <select
-                    value={paymentForm.term}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, term: e.target.value as Payment["term"] })}
-                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                  >
-                    {paymentRemittanceTermOptions.map((t) => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
+                >
+                  {paymentMethodOptions.map((m) => <option key={m}>{m}</option>)}
+                </select>
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">Reference No. (optional)</label>
-                <input
-                  type="text"
-                  value={paymentForm.reference}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
-                  placeholder="GCash/Bank reference, check no., etc."
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Term / Purpose</label>
+                <select
+                  value={paymentForm.term}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, term: e.target.value as Payment["term"] })}
                   className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                />
+                >
+                  {paymentRemittanceTermOptions.map((t) => <option key={t}>{t}</option>)}
+                </select>
               </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setCollectModalId(null)} className="text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
-                  Cancel
-                </button>
-                <button type="submit" className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer transition">
-                  <CheckCircle className="w-3.5 h-3.5" /> Post Payment
-                </button>
-              </div>
-            </form>
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Reference No. (optional)</label>
+              <input
+                type="text"
+                value={paymentForm.reference}
+                onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
+                placeholder="GCash/Bank reference, check no., etc."
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+              />
+            </div>
           </div>
-        </PreviewModal>
+        </AppModal>
       )}
 
-      {/* ===================== VOID REQUEST MODAL ===================== */}
+      {/* ── VOID REQUEST MODAL ──────────────────────────────── */}
       {voidModalPaymentId && (() => {
         const voidPayment = scopedPayments.find((p) => p.id === voidModalPaymentId);
         const voidStudent = voidPayment ? scopedStudents.find((s) => s.id === voidPayment.studentId) : undefined;
@@ -982,9 +1122,40 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
           });
           setVoidModalPaymentId(null);
           setVoidReason("");
+          setVoidConfirmInput("");
         };
         return (
-          <PreviewModal isOpen={true} onClose={() => setVoidModalPaymentId(null)} title="Request Receipt Void" hidePrint>
+          <AppModal
+            open={true}
+            onClose={() => { setVoidModalPaymentId(null); setVoidReason(""); setVoidConfirmInput(""); }}
+            title="Request Receipt Void"
+            eyebrow="Void Request"
+            icon={Ban}
+            panelAs="form"
+            onSubmit={handleSubmitVoid}
+            maxWidthClass="max-w-lg"
+            footer={
+              <div className="flex justify-end gap-2">
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setVoidModalPaymentId(null); setVoidReason(""); setVoidConfirmInput(""); }}
+                >
+                  Cancel
+                </AppButton>
+                <AppButton
+                  type="submit"
+                  variant="destructive"
+                  size="sm"
+                  leftIcon={Ban}
+                  disabled={!voidReason.trim() || voidConfirmInput !== voidPayment?.orNumber}
+                >
+                  Submit Void Request
+                </AppButton>
+              </div>
+            }
+          >
             <div className="space-y-4 text-xs">
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-red-700">
                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
@@ -1026,40 +1197,46 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 </div>
               )}
 
-              <form onSubmit={handleSubmitVoid} className="space-y-3">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5">
-                    Reason for Void <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={voidReason}
-                    onChange={(e) => setVoidReason(e.target.value)}
-                    placeholder="e.g. Payment was posted under the wrong student account. OR was not yet issued to payor."
-                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
-                  />
-                  <p className="text-[9.5px] text-stone-400 mt-1">This reason will be included in the void request sent to Accounting for approval.</p>
-                </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <button type="button" onClick={() => setVoidModalPaymentId(null)} className="text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!voidReason.trim()}
-                    className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Ban className="w-3.5 h-3.5" /> Submit Void Request
-                  </button>
-                </div>
-              </form>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
+                  Reason for Void <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="e.g. Payment was posted under the wrong student account. OR was not yet issued to payor."
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
+                />
+                <p className="text-[9.5px] text-stone-400 mt-1">This reason will be included in the void request sent to Accounting for approval.</p>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-red-600 mb-1.5 tracking-wide">
+                  Type the OR Number to confirm <span className="text-red-500">*</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={voidConfirmInput}
+                  onChange={(e) => setVoidConfirmInput(e.target.value)}
+                  placeholder={voidPayment?.orNumber ?? "OR Number"}
+                  className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-mono font-bold focus:outline-none focus:ring-1 transition ${
+                    voidConfirmInput === voidPayment?.orNumber
+                      ? "border-red-400 focus:ring-red-400 text-red-700"
+                      : "border-stone-200 focus:ring-stone-300 text-stone-700"
+                  }`}
+                />
+                {voidConfirmInput.length > 0 && voidConfirmInput !== voidPayment?.orNumber && (
+                  <p className="text-[9.5px] text-red-500 mt-1">OR number does not match. Type exactly: <strong>{voidPayment?.orNumber}</strong></p>
+                )}
+              </div>
             </div>
-          </PreviewModal>
+          </AppModal>
         );
       })()}
 
-      {/* ===================== RECEIPT PREVIEW ===================== */}
+      {/* ── RECEIPT PREVIEW ─────────────────────────────────── */}
       {receipt && (
         <PreviewModal isOpen={true} onClose={() => setReceipt(null)} title="Official Receipt">
           <ReceiptPreview
@@ -1073,9 +1250,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
             <span>Receipt preview only. Use the Print button above to print this OR for the payor.</span>
           </div>
           <div className="mt-3 flex justify-end">
-            <button onClick={() => setReceipt(null)} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer">
-              <X className="w-3.5 h-3.5" /> Close
-            </button>
+            <AppButton variant="outline" size="sm" leftIcon={X} onClick={() => setReceipt(null)}>Close</AppButton>
           </div>
         </PreviewModal>
       )}

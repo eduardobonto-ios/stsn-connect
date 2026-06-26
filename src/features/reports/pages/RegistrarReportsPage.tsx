@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FileText, ShieldCheck } from "lucide-react";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { useSTSNStore } from "../../../services/store";
 import ReportExportButtons from "../components/ReportExportButtons";
@@ -43,31 +44,21 @@ export default function RegistrarReportsPage() {
 
   return (
     <div className="space-y-5">
-      <section className="bg-white border border-stsn-beige rounded-xl p-5 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-stsn-cream text-stsn-brown border border-stsn-beige">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-mono uppercase tracking-widest text-stone-400">Registrar Reports</p>
-                <h1 className="text-2xl font-black text-stsn-brown">Enrollment and Student Records Reports</h1>
-              </div>
+      <ModulePageHeader
+        badge="Registrar Reports"
+        badgeIcon={FileText}
+        title="Enrollment and Student Records Reports"
+        subtitle="Generate Registrar reports from shared filters, tables, preview, print, CSV, Excel, and PDF actions."
+        actions={
+          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-4 py-2.5">
+            <ShieldCheck className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-white uppercase tracking-wide leading-none">Access Controlled</p>
+              <p className="text-[10px] text-white/55 mt-0.5">Registrar Reports permission required.</p>
             </div>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-stone-600">
-              Generate Registrar reports from shared filters, tables, preview, print, CSV, Excel, and PDF actions.
-            </p>
           </div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-            <div className="flex items-center gap-2 text-xs font-black uppercase">
-              <ShieldCheck className="h-4 w-4" />
-              Access Controlled
-            </div>
-            <p className="mt-1 text-xs">Visible only to roles with Registrar Reports permission.</p>
-          </div>
-        </div>
-      </section>
+        }
+      />
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-5">
         {REGISTRAR_REPORTS.map((report) => {
