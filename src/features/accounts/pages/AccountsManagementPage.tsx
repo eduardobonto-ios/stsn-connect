@@ -105,7 +105,7 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
   };
 
   const inputClass =
-    "w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-gold focus:border-stsn-gold placeholder:text-stone-400 transition";
+    "w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 focus:border-stsn-gold/60 placeholder:text-stone-400 transition";
 
   const userColumns: STSNColumn<User>[] = [
     {
@@ -173,7 +173,7 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
           activeTab === "user-security" ? (
             <button
               onClick={() => setIsFormOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#C5A059] hover:bg-[#b8924a] text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] rounded-xl text-sm font-bold shadow-lg transition cursor-pointer"
             >
               <Award className="w-4 h-4" />
               Provision New Authority
@@ -209,13 +209,13 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
         <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
           <div className="flex justify-between items-center bg-stone-50 p-2.5 rounded-lg border border-stone-200">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 text-stone-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search by email, name, or role…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none focus:border-stsn-brown font-semibold text-stone-800"
+                className="w-full h-9 bg-stone-50 border border-stone-200 rounded-xl py-0 pl-10 pr-3 text-xs font-semibold text-stone-800 focus:ring-2 focus:ring-stsn-brown/20 focus:outline-none focus:border-stsn-brown placeholder:text-stone-400 transition"
               />
             </div>
             <span className="text-[10px] text-stone-400 font-mono">

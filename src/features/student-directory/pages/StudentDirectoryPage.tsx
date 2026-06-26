@@ -14,6 +14,7 @@ import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import { UsersRound, LayoutDashboard, BookOpen, Receipt, FileText, Search, UserCheck, Clock, X } from "lucide-react";
 import StudentPortal from "../../student-portal/pages/StudentPortalPage";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 
 interface StudentDirectoryPageProps {
   onNavigate: (subPage: "overview" | "grades" | "ledger" | "profile", studentId: string) => void;
@@ -71,30 +72,14 @@ export default function StudentDirectoryPage({ onNavigate: _onNavigate }: Studen
       {
         title: "Student",
         data: "lastName",
-        render: (_value, stud) => {
-          const initials = `${stud.firstName.charAt(0)}${stud.lastName.charAt(0)}`.toUpperCase();
-          return (
-            <div className="flex items-center gap-2.5 py-0.5">
-              <div
-                className={`w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-[11px] font-black ${
-                  isBasicEd
-                    ? "bg-stsn-cream text-stsn-brown border border-stsn-beige"
-                    : "bg-blue-50 text-blue-700 border border-blue-100"
-                }`}
-              >
-                {initials}
-              </div>
-              <div className="min-w-0">
-                <div className="font-semibold text-stone-900 text-xs leading-tight">
-                  {stud.lastName}, {stud.firstName}
-                </div>
-                <span className="text-[10px] text-stone-400 font-mono block leading-tight">
-                  {stud.section || "No section"}
-                </span>
-              </div>
-            </div>
-          );
-        },
+        render: (_value, stud) => (
+          <PersonIdentityCell
+            firstName={stud.firstName}
+            lastName={stud.lastName}
+            secondary={stud.section || "No section"}
+            variant={isBasicEd ? "basic-ed" : "college"}
+          />
+        ),
       },
       {
         title: terms.unitNounSingular,

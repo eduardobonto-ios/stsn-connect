@@ -1,0 +1,13 @@
+{
+  "name": "stsn-demo-pdf-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "generate": "node generate.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "^4.0.1",
+    "puppeteer": "^22.0.0"
+  }
+}

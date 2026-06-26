@@ -530,24 +530,24 @@ export default function FacultyPortal() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border border-stone-100 rounded-lg overflow-hidden">
+                  <table className="stsn-plain-table">
                     <thead>
-                      <tr className="bg-stone-50 border-b border-stone-100 font-bold text-stone-500 text-[10px] uppercase">
-                        <th className="p-3">Student Number</th>
-                        <th className="p-3">Student Full Name</th>
-                        <th className="p-3">Track / Year Level</th>
-                        <th className="p-3">Contact No</th>
-                        <th className="p-3 text-center">Status</th>
+                      <tr>
+                        <th>Student Number</th>
+                        <th style={{ textAlign: "left" }}>Student Full Name</th>
+                        <th style={{ textAlign: "left" }}>Track / Year Level</th>
+                        <th style={{ textAlign: "left" }}>Contact No</th>
+                        <th style={{ textAlign: "center" }}>Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-stone-100 font-medium">
+                    <tbody>
                       {advisoryStudents.map((stud) => (
-                        <tr key={stud.id} className="hover:bg-stone-50/50">
-                          <td className="p-3 font-mono font-bold text-stsn-brown">{stud.studentNo}</td>
-                          <td className="p-3 text-stone-900">{stud.lastName}, {stud.firstName} {stud.middleName ? stud.middleName[0] + "." : ""}</td>
-                          <td className="p-3 text-stone-500">{stud.trackOrCourse || "STEM"} - {stud.yearLevel}</td>
-                          <td className="p-3 font-mono text-[11px] text-stone-500">{stud.contactNo}</td>
-                          <td className="p-3 text-center">
+                        <tr key={stud.id}>
+                          <td className="font-mono font-bold text-stsn-gold">{stud.studentNo}</td>
+                          <td className="text-stone-900 font-medium">{stud.lastName}, {stud.firstName} {stud.middleName ? stud.middleName[0] + "." : ""}</td>
+                          <td className="text-stone-500">{stud.trackOrCourse || "STEM"} - {stud.yearLevel}</td>
+                          <td className="font-mono text-[11px] text-stone-500">{stud.contactNo}</td>
+                          <td style={{ textAlign: "center" }}>
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-50 text-green-700 border border-green-200">
                               Enrolled
                             </span>

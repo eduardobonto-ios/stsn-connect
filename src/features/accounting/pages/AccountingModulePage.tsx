@@ -195,14 +195,6 @@ function AccountingDashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <ModulePageHeader
-        badge="Finance & Accounting"
-        badgeIcon={Coins}
-        title="Accounting Office"
-        subtitle="Financial management — billing, collections, discounts, and ledger"
-        meta="Fiscal Year"
-      />
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => {
@@ -2546,16 +2538,13 @@ export default function AccountingModule({ subPage = "dashboard", onSubPageChang
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm">
-        <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-          <Coins className="w-5 h-5 text-stsn-brown" />
-          Treasury & Accounting Office
-        </h2>
-        <p className="text-stone-500 text-xs mt-1">
-          Financial analytics, student ledger management, discount administration, and accounting operations.
-        </p>
-      </div>
+      <ModulePageHeader
+        badge="Finance & Accounting"
+        badgeIcon={Coins}
+        title="Treasury & Accounting Office"
+        subtitle="Financial analytics, student ledger management, discount administration, and accounting operations."
+        meta="Fiscal Year"
+      />
       {/* Tab Content */}
       {activeTab === "dashboard" && <AccountingDashboard />}
       {activeTab === "ledger" && <StudentLedger />}

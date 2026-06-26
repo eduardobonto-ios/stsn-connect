@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { PreviewModal, CORPreview, IDCardPreview } from "../../../components/ModalPreviews";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppFilterChip from "../../../components/common/AppFilterChip";
 import {
   computeMockAssessment,
   generatePaymentSchedule,
@@ -816,19 +817,14 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                 className="w-full bg-white border border-stone-200 rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-stsn-brown/20 focus:border-stsn-brown"
               />
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               {(["All", "Video", "Module", "Document"] as const).map((t) => (
-                <button
+                <AppFilterChip
                   key={t}
+                  label={t}
+                  active={lmsType === t}
                   onClick={() => setLmsType(t)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                    lmsType === t
-                      ? "bg-stsn-brown text-white border-stsn-brown shadow-sm"
-                      : "bg-white text-stone-600 border-stone-200 hover:border-stsn-brown/40"
-                  }`}
-                >
-                  {t}
-                </button>
+                />
               ))}
             </div>
           </div>

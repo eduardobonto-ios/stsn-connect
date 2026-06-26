@@ -8,7 +8,8 @@ import { useSTSNStore } from "../../../services/store";
 import {
   Banknote, Clock, FileText, AlertTriangle, Download, CheckCircle2,
 } from "lucide-react";
-import AnalyticsDashboardShell from "../../../components/common/analytics/AnalyticsDashboardShell";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppFilterChip from "../../../components/common/AppFilterChip";
 import { CHART_SERIES_COLORS, CHART_THEME } from "../../../config/chart-theme.config";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -262,19 +263,20 @@ export default function PayrollDashboardPage() {
   const activeKpiData = kpis.find((kpi) => kpi.label === activeKpi) ?? kpis[0];
 
   return (
-    <AnalyticsDashboardShell
-      title="Payroll Analytics Dashboard"
+    <div className="space-y-6 animate-fade-in">
+    <ModulePageHeader
       badge="Admin Only"
+      title="Payroll Analytics Dashboard"
       subtitle="Payroll processing metrics, salary breakdown, and expense analytics."
-      meta={
-        <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-center min-w-[108px]">
-          <span className="text-[9px] text-stone-400 uppercase block font-mono tracking-wider">Period</span>
-          <span className="text-sm font-bold text-stone-900 mt-0.5 block">
+      actions={
+        <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[108px]">
+          <span className="text-[9px] text-white/50 uppercase block font-mono tracking-wider">Period</span>
+          <span className="text-sm font-bold text-white mt-0.5 block">
             {new Date().toLocaleString("en-PH", { month: "long", year: "numeric" })}
           </span>
         </div>
       }
-    >
+    />
       {/* ── KPI Row ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
@@ -310,18 +312,13 @@ export default function PayrollDashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           {(["monthly", "quarterly"] as const).map((view) => (
-            <button
+            <AppFilterChip
               key={view}
-              type="button"
+              label={view.charAt(0).toUpperCase() + view.slice(1)}
+              active={periodView === view}
               onClick={() => setPeriodView(view)}
-              className={`px-3 py-2 rounded-lg border text-[10px] font-mono uppercase transition ${
-                periodView === view
-                  ? "bg-stsn-brown text-white border-stsn-brown"
-                  : "bg-white text-stone-500 border-stone-200 hover:bg-stone-50"
-              }`}
-            >
-              {view}
-            </button>
+              size="sm"
+            />
           ))}
         </div>
       </div>
@@ -545,6 +542,6 @@ export default function PayrollDashboardPage() {
           ))}
         </div>
       </div>
-    </AnalyticsDashboardShell>
+    </div>
   );
 }

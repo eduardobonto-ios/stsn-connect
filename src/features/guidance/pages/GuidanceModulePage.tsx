@@ -9,6 +9,7 @@ import {
   MessageSquare, CheckCircle, Clock, AlertCircle, Filter, Lock,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
@@ -240,7 +241,15 @@ export default function GuidanceModule() {
   };
 
   const anecColumns: STSNColumn<AnecdotalRecord & { studentName: string }>[] = [
-    { title: "Student", data: "studentName", className: "font-semibold text-stone-800" },
+    {
+      title: "Student",
+      data: "studentName",
+      render: (_value, row) => {
+        const stu = scopedStudents.find((s) => s.id === row.studentId);
+        if (!stu) return <span className="font-semibold text-stone-500">{row.studentName}</span>;
+        return <PersonIdentityCell firstName={stu.firstName} lastName={stu.lastName} secondary={stu.section || undefined} />;
+      },
+    },
     { title: "Date", data: "recordDate", width: "90px", className: "font-mono text-xs" },
     {
       title: "Type", data: "incidentType", width: "140px",
@@ -263,7 +272,15 @@ export default function GuidanceModule() {
   ];
 
   const sessionColumns: STSNColumn<GuidanceSession & { studentName: string }>[] = [
-    { title: "Student", data: "studentName", className: "font-semibold text-stone-800" },
+    {
+      title: "Student",
+      data: "studentName",
+      render: (_value, row) => {
+        const stu = scopedStudents.find((s) => s.id === row.studentId);
+        if (!stu) return <span className="font-semibold text-stone-500">{row.studentName}</span>;
+        return <PersonIdentityCell firstName={stu.firstName} lastName={stu.lastName} secondary={stu.section || undefined} />;
+      },
+    },
     { title: "Date", data: "sessionDate", width: "90px", className: "font-mono text-xs" },
     { title: "Type", data: "sessionType", width: "100px", className: "text-xs font-semibold" },
     { title: "Concern", data: "concernArea", className: "text-xs text-stone-600" },
