@@ -24,6 +24,7 @@ export interface AppButtonProps
   loading?: boolean;
   leftIcon?: React.ElementType;
   rightIcon?: React.ElementType;
+  children?: React.ReactNode;
 }
 
 const VARIANT: Record<AppButtonVariant, string> = {
