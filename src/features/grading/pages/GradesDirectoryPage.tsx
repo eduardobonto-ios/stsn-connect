@@ -23,6 +23,7 @@ import {
   FileCheck,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppFilterChip from "../../../components/common/AppFilterChip";
 import { useSTSNStore } from "../../../services/store";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import type { UserRole } from "../../../types";
@@ -44,6 +45,7 @@ import {
   getRatingBadgeClass,
 } from "../utils/gradeCalculations";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -55,6 +57,8 @@ const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "REGISTRAR", "TEACHER
 type StudentGradeRow = {
   id: string;
   studentNo: string;
+  firstName: string;
+  lastName: string;
   fullName: string;
   termAverage: number | null;
   rating: string;
@@ -100,6 +104,8 @@ function buildStudentRows(
     return {
       id: student.id,
       studentNo: student.studentNo,
+      firstName: student.firstName,
+      lastName: student.lastName,
       fullName: `${student.lastName}, ${student.firstName}`,
       termAverage,
       rating: getRating(termAverage),
@@ -143,7 +149,17 @@ function SectionDetailView({
 
   const columns = useMemo((): STSNColumn<StudentGradeRow>[] => [
     { title: "Student No.", data: "studentNo", width: "110px" },
-    { title: "Student Name", data: "fullName" },
+    {
+      title: "Student Name",
+      data: "fullName",
+      render: (_value, row) => (
+        <PersonIdentityCell
+          firstName={row.firstName}
+          lastName={row.lastName}
+          variant={isBasicEd ? "basic-ed" : "college"}
+        />
+      ),
+    },
     ...loadsForSection.map(load => ({
       title: load.subjectCode,
       data: `s_${load.id}` as string,
@@ -644,32 +660,24 @@ export default function GradesDirectoryPage() {
           {/* Period filter pills */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-mono text-stone-400 uppercase font-bold mr-1">Period:</span>
-            <button
+            <AppFilterChip
+              label="All"
+              active={selectedPeriodLabel === ""}
               onClick={() => setSelectedPeriodLabel("")}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition cursor-pointer ${
-                selectedPeriodLabel === ""
-                  ? isBasicEd
-                    ? "bg-stsn-brown text-white border-stsn-brown"
-                    : "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
-              }`}
-            >
-              All
-            </button>
+              variant={isBasicEd ? "default" : "college"}
+              shape="pill"
+              size="sm"
+            />
             {periodLabels.map(label => (
-              <button
+              <AppFilterChip
                 key={label}
+                label={label}
+                active={selectedPeriodLabel === label}
                 onClick={() => setSelectedPeriodLabel(label)}
-                className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition cursor-pointer ${
-                  selectedPeriodLabel === label
-                    ? isBasicEd
-                      ? "bg-stsn-brown text-white border-stsn-brown"
-                      : "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
-                }`}
-              >
-                {label}
-              </button>
+                variant={isBasicEd ? "default" : "college"}
+                shape="pill"
+                size="sm"
+              />
             ))}
           </div>
         </div>

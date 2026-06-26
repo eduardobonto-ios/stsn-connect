@@ -46,6 +46,8 @@ import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import AppModal from "../../../components/common/AppModal";
 import EnrollmentWizard from "../components/EnrollmentWizard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
+import AppFilterChip from "../../../components/common/AppFilterChip";
 import STSNDataTable, {
   type STSNColumn,
 } from "../../../components/common/STSNDataTable";
@@ -1154,36 +1156,18 @@ export default function RegistrarModule() {
       {
         title: "Student",
         data: "lastName",
-        render: (_value, stud) => {
-          const initials = `${stud.firstName.charAt(0)}${stud.lastName.charAt(0)}`.toUpperCase();
-          return (
-            <div
-              onClick={() => {
-                setSelectedStudent(stud);
-                setDetailTab("info");
-              }}
-              className="cursor-pointer flex items-center gap-2.5 py-0.5"
-            >
-              <div
-                className={`w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-[11px] font-black ${
-                  schoolContext === "BASIC_ED"
-                    ? "bg-stsn-cream text-stsn-brown border border-stsn-beige"
-                    : "bg-blue-50 text-blue-700 border border-blue-100"
-                }`}
-              >
-                {initials}
-              </div>
-              <div className="min-w-0">
-                <div className="font-semibold text-stone-900 text-xs leading-tight truncate">
-                  {stud.lastName}, {stud.firstName}
-                </div>
-                <span className="text-[10px] text-stone-400 font-mono block leading-tight">
-                  {stud.section || "No section"}
-                </span>
-              </div>
-            </div>
-          );
-        },
+        render: (_value, stud) => (
+          <PersonIdentityCell
+            firstName={stud.firstName}
+            lastName={stud.lastName}
+            secondary={stud.section || "No section"}
+            variant={schoolContext === "BASIC_ED" ? "basic-ed" : "college"}
+            onClick={() => {
+              setSelectedStudent(stud);
+              setDetailTab("info");
+            }}
+          />
+        ),
       },
       {
         title: terms.unitNounSingular,
@@ -1486,20 +1470,15 @@ export default function RegistrarModule() {
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {(["All", "Online", "Walk-in/ERP"] as const).map((filter) => (
-                    <button
+                    <AppFilterChip
                       key={filter}
-                      type="button"
+                      label={filter}
+                      active={sourceFilter === filter}
                       onClick={() => setSourceFilter(filter)}
-                      className={`h-7 px-3 rounded-full text-[11px] font-bold border transition cursor-pointer ${
-                        sourceFilter === filter
-                          ? schoolContext === "BASIC_ED"
-                            ? "bg-stsn-brown text-white border-stsn-brown shadow-sm"
-                            : "bg-blue-600 text-white border-blue-600 shadow-sm"
-                          : "bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:bg-stone-50"
-                      }`}
-                    >
-                      {filter}
-                    </button>
+                      variant={schoolContext === "BASIC_ED" ? "default" : "college"}
+                      shape="pill"
+                      size="sm"
+                    />
                   ))}
                   {(sourceFilter !== "All" || statusFilter !== "All" || searchQuery) && (
                     <button

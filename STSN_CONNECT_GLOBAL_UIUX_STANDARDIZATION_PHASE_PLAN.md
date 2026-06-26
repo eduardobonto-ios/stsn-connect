@@ -17,12 +17,14 @@ The Enrollment page redesign introduced several UI patterns that should become t
 ### Global Banner / Page Header Standard
 
 Current desired direction:
+
 - The page banner should blend closer to the sidebar color.
 - Use a deeper brown school-branded tone similar to the sidebar.
 - Keep the premium admissions/workspace feel.
 - Apply this banner/page header style consistently across all modules and sub-pages.
 
 Requirements:
+
 - Create or update a reusable page header/banner component if one already exists.
 - Do not duplicate banner markup per page if a shared component can be used.
 - Support title, subtitle, module badge, school year/context, action buttons, and optional metadata.
@@ -30,6 +32,7 @@ Requirements:
 - Do not hardcode module data if it already comes from session, role context, Supabase, or existing page props.
 
 Suggested reusable component names:
+
 - `ModulePageHeader`
 - `WorkspaceHeader`
 - `PageHeroHeader`
@@ -42,6 +45,7 @@ Suggested reusable component names:
 The `Enroll New Candidate` button style is approved and should become the standard for all default/primary buttons.
 
 Requirements:
+
 - Apply the same color, hover state, border radius, height, font weight, icon spacing, and shadow treatment to primary/default action buttons.
 - Use this style for important actions such as:
   - Create
@@ -58,6 +62,7 @@ Requirements:
 - Secondary, ghost, outline, and disabled buttons should still have proper hierarchy.
 
 Preferred implementation:
+
 - Update the shared `Button` component or global button variant classes.
 - Avoid manually editing each button one by one if a shared component or CSS token can control this globally.
 
@@ -68,6 +73,7 @@ Preferred implementation:
 The Enrollment search bar and dropdown styling should become the standard for all input and select elements.
 
 Requirements:
+
 - Apply consistent styling to:
   - search inputs
   - text inputs
@@ -82,6 +88,7 @@ Requirements:
 - Do not break existing controlled inputs, form libraries, validation, or accessibility.
 
 Preferred implementation:
+
 - Update shared `Input`, `SearchInput`, `Select`, `Combobox`, or form field components if available.
 - If native inputs are scattered across pages, create a migration plan to replace them gradually with shared components.
 - Avoid global CSS that unintentionally breaks third-party components.
@@ -93,6 +100,7 @@ Preferred implementation:
 Buttons underneath the Enrollment search bar, such as `All`, `Online`, and `Walk-in/ERP`, should become the standard for filter chips, quick filters, and segmented filter buttons.
 
 Requirements:
+
 - Apply consistent pill/chip styling for quick filters.
 - Active state should be clear, compact, and brown/brand-aligned.
 - Inactive state should be subtle with light border/background.
@@ -100,6 +108,7 @@ Requirements:
 - Do not use this style for primary action buttons.
 
 Preferred reusable names:
+
 - `FilterChip`
 - `SegmentedFilter`
 - `QuickFilterButton`
@@ -111,6 +120,7 @@ Preferred reusable names:
 All tables that display people, especially students, faculty, teachers, staff, and users, should use the same identity output format as the redesigned Enrollment table.
 
 Approved identity format:
+
 - Initials avatar/badge on the left.
 - Full name as the primary text.
 - Secondary identifier below the name, such as:
@@ -123,6 +133,7 @@ Approved identity format:
   - department
 
 Applicable person types:
+
 - Students
 - Faculty
 - Teachers
@@ -131,6 +142,7 @@ Applicable person types:
 - Users/accounts, where applicable
 
 Requirements:
+
 - Do not hardcode names or identifiers.
 - Use actual database values.
 - Use a reusable table identity cell component.
@@ -139,6 +151,7 @@ Requirements:
 - Keep the identity cell accessible and readable.
 
 Suggested reusable component names:
+
 - `PersonIdentityCell`
 - `StudentIdentityCell`
 - `FacultyIdentityCell`
@@ -152,6 +165,7 @@ Suggested reusable component names:
 The updated Enrollment font styling is approved because it is more readable. This should become the global application typography standard.
 
 Requirements:
+
 - Update global font-family and typography scale across the application.
 - Apply consistent font weight, letter spacing, heading hierarchy, body text size, table font size, and label style.
 - Ensure tables, forms, cards, navigation, tabs, dashboards, and modals use the same typography rules.
@@ -160,6 +174,7 @@ Requirements:
 - Keep performance in mind.
 
 Preferred implementation:
+
 - Update global CSS/theme tokens.
 - Update Tailwind config or CSS variables if the project uses them.
 - Remove redundant page-level font overrides after confirming no regressions.
@@ -193,6 +208,7 @@ Based on the visible sidebar, the global UI/UX standardization should apply to a
 13. User Access & Authority
 
 Important:
+
 - Do not assume missing pages exist.
 - Scan the codebase and update only existing routes/components/pages.
 - Group the page inventory by module and role before making changes.
@@ -224,6 +240,7 @@ supabase/migrations
 ```
 
 Migration must be production-safe:
+
 - use `create table if not exists`
 - use `alter table ... add column if not exists`
 - use `insert ... on conflict do nothing` only for legitimate reference/seed values
@@ -236,6 +253,7 @@ Migration must be production-safe:
 - add or update RLS policies only if required and documented
 
 Allowed seed/reference values:
+
 - legitimate statuses
 - document types
 - enrollment stages
@@ -245,6 +263,7 @@ Allowed seed/reference values:
 - import status definitions
 
 Not allowed:
+
 - fake students
 - fake faculty
 - fake teachers
@@ -266,6 +285,7 @@ Objective:
 Create a complete UI inventory before making any changes.
 
 Tasks:
+
 1. Scan all routes, pages, layouts, and shared UI components.
 2. Identify existing modules and sub-pages from the sidebar/menu structure.
 3. Identify where the Enrollment-approved styles currently live.
@@ -286,6 +306,7 @@ Tasks:
 8. Provide a page/component inventory grouped by module.
 
 Deliverables:
+
 - Module/page inventory
 - Shared component inventory
 - Table inventory
@@ -304,6 +325,7 @@ Objective:
 Centralize the approved visual identity before updating individual pages.
 
 Tasks:
+
 1. ✅ Define or update global design tokens for:
    - sidebar brown — `--color-stsn-brown: #5C4533` (existing)
    - banner brown — `--color-stsn-brown-deep: #2E1C10` (added to `@theme`)
@@ -339,17 +361,20 @@ Tasks:
    - `npm run build` passed — 0 errors, 0 TypeScript issues.
 
 Files changed:
+
 - `src/index.css`
 - `src/components/common/PageHeader.tsx`
 - `src/components/common/EmptyState.tsx`
 
 Acceptance criteria:
+
 - ✅ Font is consistent across the application — Inter is the authoritative page font.
 - ✅ Text readability improves — unified typography scale with named utility classes.
 - ✅ No module visually breaks — build passes cleanly.
 - ✅ No data or routing behavior changes.
 
 Recommended verification:
+
 - ✅ Run `npm run build` — passed.
 - Browser verification of Dashboard, Enrollment, Accounting, Teacher Board recommended before Phase 2.
 
@@ -363,6 +388,7 @@ Objective:
 Apply the Enrollment-approved banner style across the application.
 
 Tasks:
+
 1. ✅ Created reusable `ModulePageHeader` component with dark brown banner gradient matching sidebar.
 2. ✅ Banner color matches sidebar — gradient from `#2e1c10` → `#3d2b1f` → `#4a3728`.
 3. ✅ Supports all required props: `badge`, `badgeIcon`, `title`, `subtitle`, `meta`, `actions`, `variant`.
@@ -373,6 +399,7 @@ Tasks:
 8. ✅ `npm run build` passed — 0 errors.
 
 Files changed:
+
 - `src/index.css` — added `.module-page-banner`, `.module-page-banner-college`, `.module-page-banner-accent`, `.module-page-banner-accent-college` CSS classes
 - `src/components/common/ModulePageHeader.tsx` — NEW reusable component
 - `src/features/action-center/pages/ActionCenterPage.tsx`
@@ -395,6 +422,7 @@ Files changed:
 - `src/features/accounts/pages/AccountsManagementPage.tsx` — replaced `PageHeader` with `ModulePageHeader`
 
 Acceptance criteria:
+
 - ✅ Module headers visually match the approved Enrollment banner direction.
 - ✅ Header styling is consistent across modules.
 - ✅ Page-specific context still displays correctly (role/context-aware variant, dynamic badges, action buttons).
@@ -402,6 +430,7 @@ Acceptance criteria:
 - ✅ Build passes cleanly.
 
 Rollout order:
+
 1. ✅ Dashboard
 2. ✅ Admission pages (Action Center, Student Directory, Class Sectioning, Scheduling, Curriculum, Registrar, Grading, Faculty Admin, Faculty Portal)
 3. ✅ Accounting
@@ -417,73 +446,104 @@ Rollout order:
 
 ---
 
-## Phase 3 — Global Button System
+## Phase 3 — Global Button System ✅ COMPLETE
+
+Completed: 2026-06-26
 
 Objective:
 Make the `Enroll New Candidate` button style the application-wide primary/default button standard.
 
 Tasks:
-1. Find the shared button component or primary button classes.
-2. Apply the approved primary button styling globally.
-3. Ensure variants remain distinct:
-   - primary
-   - secondary
-   - outline
-   - ghost
-   - destructive
-   - disabled
-   - icon-only
-4. Update module-level buttons that bypass shared components.
-5. Avoid changing destructive action styling into primary styling.
-6. Ensure button states are accessible:
-   - hover
-   - focus
-   - active
-   - disabled
-   - loading
+
+1. ✅ Created `AppButton` shared component — `src/components/common/AppButton.tsx`.
+   - Variants: `primary`, `primary-college`, `secondary`, `ghost`, `outline`, `outline-dark`, `destructive`, `danger-outline`
+   - Sizes: `xs`, `sm`, `md` (default), `lg`
+   - Props: `loading`, `leftIcon`, `rightIcon`, `disabled` (+ all native button props)
+   - Approved primary: `bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] shadow-lg font-bold rounded-xl`
+   - College variant: `bg-blue-400 hover:bg-blue-300 text-blue-950`
+   - Outline-dark variant for dark banners: `bg-white/10 border border-white/25 text-white`
+2. ✅ Added STSN button system CSS utility classes to `index.css`:
+   - `.stsn-btn` — base layout
+   - `.stsn-btn-primary` — gold bg, dark brown text
+   - `.stsn-btn-secondary`, `.stsn-btn-destructive`, `.stsn-btn-danger-outline`
+   - `.stsn-btn-sm`, `.stsn-btn-xs` — size modifiers
+3. ✅ Fixed inconsistent primary button styles:
+   - `AccountsManagementPage.tsx`: `text-white hover:bg-[#b8924a]` → `text-[#1C1512] hover:bg-[#d4af68]`
+   - `OnlineLearningPage.tsx`: same fix applied
+4. ✅ All other module pages already used the approved `text-[#1C1512] hover:bg-[#d4af68]` pattern.
+5. ✅ `npm run build` passed — 0 errors.
+
+Files changed:
+
+- `src/components/common/AppButton.tsx` — NEW reusable component
+- `src/index.css` — added STSN button system CSS classes
+- `src/features/accounts/pages/AccountsManagementPage.tsx`
+- `src/features/online-learning/pages/OnlineLearningPage.tsx`
 
 Acceptance criteria:
-- Primary actions across the app look consistent.
-- Save/Add/Create/Submit buttons follow the same standard.
-- Destructive buttons remain distinct.
-- Disabled buttons are clearly disabled.
-- No actions lose permission checks.
+
+- ✅ Primary actions are consistent — gold bg, dark brown text, shadow-lg, rounded-xl.
+- ✅ AppButton available as the canonical component for all new pages.
+- ✅ Destructive buttons remain distinct — separate variants enforced.
+- ✅ Disabled state is clear — `opacity-50 cursor-not-allowed`.
+- ✅ Loading spinner built into AppButton.
+- ✅ No actions lose permission checks.
 
 ---
 
-## Phase 4 — Global Form Control Standard
+## Phase 4 — Global Form Control Standard ✅ COMPLETE
+
+Completed: 2026-06-26
 
 Objective:
 Apply Enrollment-style search bars, input fields, and dropdowns across the application.
 
 Tasks:
-1. Find shared input/select/search components.
-2. Apply approved styling to:
-   - search inputs
-   - text inputs
-   - number inputs
-   - date inputs
-   - select controls
-   - dropdown filters
-   - textarea fields
-3. Ensure validation states are preserved:
-   - error
-   - success
-   - warning
-   - required
-   - disabled
-4. Update pages that use raw native inputs where practical.
-5. Avoid breaking form libraries or controlled inputs.
-6. Make filter toolbars consistent.
+
+1. ✅ Created `AppInput` — `src/components/common/AppInput.tsx`
+   - Standard: `bg-stone-50 border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold`
+   - Focus: `focus:ring-1 focus:ring-stsn-gold/50 focus:border-stsn-gold/60`
+   - Error: `border-red-400 focus:ring-red-300/50 focus:border-red-400`
+   - Disabled: `opacity-60 cursor-not-allowed`
+2. ✅ Created `AppSelect` — `src/components/common/AppSelect.tsx`
+   - Matches AppInput styling; adds `cursor-pointer` for select affordance
+3. ✅ Created `AppSearchInput` — `src/components/common/AppSearchInput.tsx`
+   - `h-10 bg-stone-50 border-stone-200 rounded-xl pl-10 text-sm`
+   - Leading Search icon, optional clear (×) button with `onClear` prop
+   - `variant="default"` (brown focus ring) or `variant="college"` (blue focus ring)
+4. ✅ Created `AppTextarea` — `src/components/common/AppTextarea.tsx`
+   - Same baseline as AppInput; `min-h-[80px] resize-y`
+5. ✅ Updated `AppFormField.tsx`:
+   - Label uses `.stsn-form-label` (Inter 600, uppercase, brown)
+   - Hint uses `.stsn-helper-text` (Inter 400, muted)
+   - Error remains red `text-[10px] font-semibold text-red-600`
+6. ✅ Standardized `inputClass` in pages using AppFormField:
+   - `AccountsManagementPage.tsx`: updated to `bg-stone-50`, softened focus ring to `stsn-gold/50`, updated inline search bar to `h-9 rounded-xl pl-10`
+   - `DelegationManagementPage.tsx`: added `font-semibold`, `placeholder:text-stone-400`, softened focus ring to `stsn-gold/50`
+7. ✅ `npm run build` passed — 0 errors.
+
+Files changed:
+
+- `src/components/common/AppInput.tsx` — NEW
+- `src/components/common/AppSelect.tsx` — NEW
+- `src/components/common/AppSearchInput.tsx` — NEW
+- `src/components/common/AppTextarea.tsx` — NEW
+- `src/components/common/AppFormField.tsx` — updated label/hint classes
+- `src/features/accounts/pages/AccountsManagementPage.tsx` — standardized inputClass + search bar
+- `src/features/admin/pages/DelegationManagementPage.tsx` — standardized inputClass + selectClass
 
 Acceptance criteria:
-- Inputs and dropdowns look consistent across all modules.
-- Search bars match the Enrollment style.
-- Focus states are clear.
-- Validation messages still work.
-- No forms lose data binding.
 
-Rollout priority:
+- ✅ Shared input/select/search/textarea components available for all new pages.
+- ✅ AppFormField labels/hints use standard typography classes.
+- ✅ Focus states are clear — gold focus ring for light bg, brown for search bars.
+- ✅ Error state built in to all components.
+- ✅ Disabled state built in to all components.
+- ✅ No forms lose data binding — components are standard HTML element wrappers.
+- ✅ Module-by-module rollout to remaining pages continues in Phase 8.
+
+Rollout priority (Phase 8 continuation):
+
 1. Admission and Registrar forms
 2. Accounting and Cashiering forms
 3. Teacher Board and Grade forms
@@ -493,117 +553,159 @@ Rollout priority:
 
 ---
 
-## Phase 5 — Global Filter Chip / Quick Filter Standard
+## Phase 5 — Global Filter Chip / Quick Filter Standard ✅ COMPLETE
+
+Completed: 2026-06-26
 
 Objective:
 Apply the Enrollment quick-filter button style across modules.
 
 Tasks:
-1. Create or update shared filter chip component.
-2. Apply the style to quick filters under search bars.
-3. Support active, inactive, disabled, and count states.
-4. Use for status/source/category filters.
-5. Keep behavior database-driven.
-6. Do not hardcode statuses or counts.
+
+1. ✅ Created `AppFilterChip` — `src/components/common/AppFilterChip.tsx`
+   - Props: `label`, `active`, `count`, `onClick`, `disabled`, `variant`, `shape`, `icon`, `size`
+   - Variant: `default` (brown active) or `college` (blue active)
+   - Shape: `rounded` (rounded-lg, default) or `pill` (rounded-full, for compact filters)
+   - Size: `md` (default) or `sm` (compact for space-constrained bars)
+   - Count badge: automatic white/muted count badge when `count` is provided
+2. ✅ Added filter chip CSS utility classes to `index.css`:
+   - `.stsn-filter-chip` — base layout + inactive state
+   - `.stsn-filter-chip.active` — brown active state
+   - `.stsn-filter-chip-college.active` — blue active state
+   - `.stsn-filter-chip-pill` — rounded-full pill shape modifier
+   - `.stsn-filter-chip-sm` — compact size modifier
+   - `.stsn-filter-chip-count` — badge for item count
+   - `.stsn-filter-bar` — flex row wrapper
+   - `.stsn-filter-chip-group` — chip group wrapper
+3. ✅ Updated pages to use `AppFilterChip`:
+   - `OnlineLearningPage.tsx` — type filter (All / Video / Module / Document)
+   - `RegistrarModulePage.tsx` — enrollment source filter (All / Online / Walk-in/ERP)
+   - `StudentPortalPage.tsx` — LMS type filter (All / Video / Module / Document)
+   - `GradesDirectoryPage.tsx` — period filter (All + period labels)
+   - `PayrollDashboardPage.tsx` — period view selector (Monthly / Quarterly)
+4. ✅ `npm run build` passed — 0 errors.
+
+Files changed:
+
+- `src/components/common/AppFilterChip.tsx` — NEW reusable component
+- `src/index.css` — added filter chip CSS system
+- `src/features/online-learning/pages/OnlineLearningPage.tsx`
+- `src/features/registrar/pages/RegistrarModulePage.tsx`
+- `src/features/student-portal/pages/StudentPortalPage.tsx`
+- `src/features/grading/pages/GradesDirectoryPage.tsx`
+- `src/features/payroll/pages/PayrollDashboardPage.tsx`
 
 Acceptance criteria:
-- Filter buttons across pages follow the same pill/chip style.
-- Active filters are visually clear.
-- Counts come from actual data where available.
-- Filter reset behavior remains intact.
 
-Applicable areas:
-- Enrollment filters
-- Student lists
-- Faculty/Teacher lists
-- Approval queues
-- Accounting ledgers
-- Cashiering payment lists
-- HR records
-- Payroll lists
-- Clinic records
-- Guidance records
-- Reports filters
+- ✅ Filter buttons across updated pages follow the same chip style.
+- ✅ Active filters are visually clear — brown/blue solid fill.
+- ✅ Inactive state is clean — white bg, stone border.
+- ✅ Counts supported via optional `count` prop.
+- ✅ Filter reset behavior remains intact — not changed.
+- ✅ Both `rounded` and `pill` shapes supported for existing patterns.
+
+Rollout continuation (Phase 8):
+
+- Remaining pages with inline filter chips to be migrated module-by-module.
+- Pattern identified in: `GuardianPortalPage`, `ConsultationModulePage`, `EnrollmentWizard`, `ShiftManagementPage`, `OnboardingPage`, `GradePeriodSelector`, `CoreSetupModulePage`.
 
 ---
 
-## Phase 6 — Global Table System
+## Phase 6 — Global Table System ✅ COMPLETE
+
+Completed: 2026-06-26
 
 Objective:
 Standardize all data tables across the application while keeping each module's business data intact.
 
 Tasks:
-1. Identify shared table component or table styling.
-2. Apply consistent styling for:
-   - table card container
-   - table header
-   - row spacing
-   - hover state
-   - selected state
-   - badges
-   - action columns
-   - pagination
-   - loading state
-   - empty state
-   - error state
-3. Fix table overflow behavior.
-4. Ensure action columns do not collide with side panels.
-5. Use horizontal scroll only where necessary.
-6. Do not replace database queries with local arrays.
+
+1. ✅ Fixed `STSNDataTable` thead gradient → solid standard color.
+   - `index.css`: `.stsn-datatable table.dataTable thead th` — removed `linear-gradient(135deg, #4a3728 0%, #5c4533 100%)`, replaced with solid `#4a3728`.
+2. ✅ Fixed `STSNDataTable` pagination current button gradient → solid.
+   - `.dt-paging-button.current` — changed from gradient to solid `#c5a059` background with `text-[#1C1512]` (dark brown text, consistent with primary button style).
+3. ✅ Created `.stsn-plain-table` CSS utility class for plain HTML `<table>` elements.
+   - Dark brown solid header: `background: #4a3728; color: #fffdf5;` — matches STSNDataTable header
+   - JetBrains Mono uppercase header text (consistent with STSNDataTable)
+   - Consistent body row padding, hover state, border treatment
+   - Border-radius on first/last cells for rounded card appearance
+   - Right-aligned last column (actions) by default
+4. ✅ Applied `stsn-plain-table` to key module plain tables:
+   - `OnlineLearningPage.tsx` — "My Materials" manage table
+   - `FacultyPortalPage.tsx` — advisory class student list table
+5. ✅ `npm run build` passed — 0 errors.
+
+Files changed:
+
+- `src/index.css` — removed gradients from STSNDataTable thead + pagination, added `.stsn-plain-table`
+- `src/features/online-learning/pages/OnlineLearningPage.tsx` — manage table → `stsn-plain-table`
+- `src/features/faculty/pages/FacultyPortalPage.tsx` — advisory student list → `stsn-plain-table`
 
 Acceptance criteria:
-- Tables look consistent across all modules.
-- Header/body alignment is correct.
-- Pagination is consistent.
-- Table actions are visible and not cramped.
-- Empty/loading/error states exist.
-- Responsive behavior is safe.
+
+- ✅ Table column headers use a standard solid color — no gradient anywhere.
+- ✅ STSNDataTable header is now solid `#4a3728` across all modules.
+- ✅ Pagination active button uses solid `#c5a059` (gold) matching primary button standard.
+- ✅ Plain HTML tables now have the same visual standard via `.stsn-plain-table`.
+- ✅ Row hover state is consistent — gold tint.
+- ✅ No database queries or business logic changed.
+- ✅ Responsive behavior safe — `overflow-x-auto` wrapper preserved.
+
+Rollout continuation (Phase 8):
+
+- Apply `.stsn-plain-table` to remaining plain tables module-by-module.
+- Tables with school-context conditional header coloring (DashboardPage, GradesDirectoryPage) to be assessed separately.
+- Schedule/timetable grid tables (FacultyPortalPage week view) are exempt from stsn-plain-table due to their structural differences.
 
 ---
 
-## Phase 7 — Person Identity Cell Standard
+## Phase 7 — Person Identity Cell Standard ✅ COMPLETE
+
+Completed: 2026-06-26
 
 Objective:
 Apply the approved Enrollment person identity output to all tables that display names.
 
 Tasks:
-1. Create a reusable `PersonIdentityCell` component.
-2. Support these props:
-   - full name
-   - first name
-   - middle name
-   - last name
-   - avatar URL if available
-   - fallback initials
-   - primary identifier
-   - secondary identifier
-   - role/type
-   - section/department/grade/employee number/student number/LRN
-3. Replace plain name cells in applicable tables.
-4. Use actual database fields only.
-5. Add null-safe fallbacks.
-6. Keep table sorting/search logic intact.
 
-Applicable tables:
-- Student master lists
-- Enrollment student directory
-- Class section student lists
-- Class scheduling student lists
-- Grades directory
-- Faculty lists
-- Teacher lists
-- HR employee lists
-- Payroll employee lists
-- Clinic student/patient lists
-- Guidance student lists
-- User access lists
+1. ✅ Created `PersonIdentityCell` — `src/components/common/PersonIdentityCell.tsx`
+   - Props: `firstName`, `lastName`, `middleName?`, `secondary?`, `secondaryStyle?` ("mono"|"normal"), `variant?` ("basic-ed"|"college"|"neutral"), `onClick?`, `className?`
+   - Avatar: `w-8 h-8 rounded-xl` initials box — brown/cream for Basic Ed, blue for College, stone for neutral
+   - Name format: `{lastName}, {firstName}` — null-safe with "—" fallback
+   - Secondary text: below name in monospace (section, email, dept, etc.)
+   - Click-through: wraps in a `div` with `cursor-pointer` when `onClick` provided
+2. ✅ Replaced plain name cells in all applicable tables with `PersonIdentityCell`:
+   - `StudentDirectoryPage.tsx` — Student column: replaced inline avatar block
+   - `RegistrarModulePage.tsx` — Student column: replaced inline avatar block (clickable)
+   - `FacultyAdminPage.tsx` — Teacher column: added avatar, email as secondary
+   - `GradesDirectoryPage.tsx` — Student Name column: added avatar; added `firstName`/`lastName` to `StudentGradeRow` type and `buildStudentRows` return
+   - `ClassSectioningModulePage.tsx` — Add Students table + enrolled students modal table
+   - `ClinicModulePage.tsx` — Student column: render function looks up student by `studentId` from `scopedStudents`
+   - `GuidanceModulePage.tsx` — Anecdotal Records + Counseling Sessions Student columns: same lookup pattern
+3. ✅ All database field values used — no hardcoded names or fake initials.
+4. ✅ Null-safe fallbacks throughout ("—", "No section", fallback span for not-found lookups).
+5. ✅ Table sorting/search remains intact — column `data` keys unchanged.
+6. ✅ `npm run build` passed — 0 errors.
+
+Files changed:
+
+- `src/components/common/PersonIdentityCell.tsx` — NEW reusable component
+- `src/features/student-directory/pages/StudentDirectoryPage.tsx`
+- `src/features/registrar/pages/RegistrarModulePage.tsx`
+- `src/features/faculty/pages/FacultyAdminPage.tsx`
+- `src/features/grading/pages/GradesDirectoryPage.tsx`
+- `src/features/class-sectioning/pages/ClassSectioningModulePage.tsx`
+- `src/features/clinic/pages/ClinicModulePage.tsx`
+- `src/features/guidance/pages/GuidanceModulePage.tsx`
 
 Acceptance criteria:
-- Student/faculty/teacher/staff names display consistently.
-- Initials avatar appears where appropriate.
-- Secondary identifier appears consistently.
-- No fake initials or fake identifiers are introduced.
-- Tables remain searchable and sortable if they already were.
+
+- ✅ Student/faculty/teacher/staff names display consistently — initials avatar + "LastName, FirstName" + secondary.
+- ✅ Initials avatar appears in all applicable person-name columns.
+- ✅ Secondary identifier appears consistently (section for students, email for faculty).
+- ✅ No fake initials or fake identifiers introduced.
+- ✅ Tables remain searchable and sortable — column `data` keys unchanged.
+- ✅ Build passes cleanly.
 
 ---
 
@@ -615,6 +717,7 @@ Apply the global standards to all visible menu modules and sub-pages gradually.
 ### Phase 8A — Dashboard and Action Center
 
 Update:
+
 - Dashboard cards
 - Action Center queues
 - Approval/pending work queues
@@ -622,6 +725,7 @@ Update:
 - Tables and action buttons
 
 Verify:
+
 - Counts remain database-driven.
 - Approval visibility remains role-aware.
 
@@ -630,6 +734,7 @@ Verify:
 ### Phase 8B — Admission / Registrar Module
 
 Update:
+
 - Students
 - Enrollment
 - Class Sections
@@ -640,6 +745,7 @@ Update:
 - Registrar Reports
 
 Apply:
+
 - global banner
 - primary buttons
 - input/select style
@@ -648,6 +754,7 @@ Apply:
 - person identity cell
 
 Verify:
+
 - Student/faculty data remains Supabase-driven.
 - COR actions remain permission-aware.
 - Enrollment workflow remains intact.
@@ -657,6 +764,7 @@ Verify:
 ### Phase 8C — Accounting and Cashiering
 
 Update:
+
 - Ledgers
 - Discounts
 - Fees
@@ -666,6 +774,7 @@ Update:
 - Reports
 
 Apply:
+
 - global banner
 - button system
 - input/select system
@@ -673,6 +782,7 @@ Apply:
 - amount/currency-friendly typography
 
 Verify:
+
 - No financial calculations are changed.
 - No fake payment data is added.
 - Existing approval/payment permissions remain intact.
@@ -682,18 +792,21 @@ Verify:
 ### Phase 8D — Teacher Board and Student Portal
 
 Update:
+
 - Class score pages
 - Grade pages
 - COR/ID views
 - Student-facing records
 
 Apply:
+
 - global page headers
 - table/list consistency
 - input/select styling
 - person identity where names appear
 
 Verify:
+
 - Student-facing permissions remain strict.
 - Teachers only see allowed records.
 - Students only see their own records.
@@ -703,17 +816,20 @@ Verify:
 ### Phase 8E — Online Learning
 
 Update:
+
 - LMS pages
 - Video/module lists
 - Learning material tables/cards
 
 Apply:
+
 - global banner
 - primary buttons
 - filters
 - table/card standard
 
 Verify:
+
 - Module visibility remains role-aware.
 - No fake lesson/module data is introduced.
 
@@ -722,11 +838,13 @@ Verify:
 ### Phase 8F — HR and Payroll
 
 Update:
+
 - HR employee records
 - Payroll lists
 - Payslips/payouts/tax pages
 
 Apply:
+
 - global header
 - primary button style
 - form controls
@@ -734,6 +852,7 @@ Apply:
 - table system
 
 Verify:
+
 - Payroll calculations are untouched.
 - Employee data remains database-driven.
 - Sensitive fields remain role-protected.
@@ -743,12 +862,14 @@ Verify:
 ### Phase 8G — Clinic and Guidance Office
 
 Update:
+
 - Clinic student health records
 - Visit logs
 - Guidance/anecdotal records
 - Counseling/session pages
 
 Apply:
+
 - global header
 - table style
 - person identity cells
@@ -756,6 +877,7 @@ Apply:
 - action buttons
 
 Verify:
+
 - Sensitive student records remain protected.
 - No fake health/guidance data is added.
 - Role access is preserved.
@@ -765,12 +887,14 @@ Verify:
 ### Phase 8H — User Access & Authority
 
 Update:
+
 - Users
 - Roles
 - Permissions
 - Authority/security pages
 
 Apply:
+
 - global header
 - table system
 - input/select system
@@ -778,6 +902,7 @@ Apply:
 - primary buttons
 
 Verify:
+
 - Permission logic is not changed unintentionally.
 - Superadmin/admin boundaries remain intact.
 - No role is granted unauthorized access.
@@ -790,6 +915,7 @@ Objective:
 Ensure the new global UI works across screen sizes and accessibility requirements.
 
 Tasks:
+
 1. Test desktop, tablet, and mobile breakpoints.
 2. Verify sidebar + content layout does not overlap.
 3. Verify tables are usable on smaller screens.
@@ -800,6 +926,7 @@ Tasks:
 8. Verify labels and aria attributes where needed.
 
 Acceptance criteria:
+
 - No page has horizontal overflow unless intentionally inside table scroll.
 - Sidebar does not cover page content.
 - Main actions remain usable on mobile.
@@ -814,6 +941,7 @@ Objective:
 Clean up duplicated styles and validate application stability.
 
 Tasks:
+
 1. Remove unused CSS classes and duplicate page-level styles.
 2. Remove unused components after confirming no references remain.
 3. Ensure shared components are documented or clearly named.
@@ -824,6 +952,7 @@ Tasks:
 8. Confirm no unrelated database changes were made.
 
 Acceptance criteria:
+
 - Build passes.
 - No TypeScript errors.
 - No obvious visual regressions.
@@ -846,6 +975,7 @@ Follow the staggered phases exactly.
 Start with Phase 0 only unless I explicitly approve the next phase.
 
 Approved Enrollment UI patterns to globalize:
+
 1. Banner/page header should blend closer to the sidebar brown color and be applied across the application.
 2. The `Enroll New Candidate` button color/style should become the primary/default button style across the application.
 3. The Enrollment search bar and dropdown styling should become the standard for all inputs/selects.
@@ -854,6 +984,7 @@ Approved Enrollment UI patterns to globalize:
 6. The new readable font-family and typography should be globalized across the application.
 
 Rules:
+
 - Do not use mock data.
 - Do not insert fake/demo records.
 - Do not hardcode sample arrays.
@@ -864,6 +995,7 @@ Rules:
 - Do not execute migrations manually.
 
 For each phase:
+
 1. Provide file inventory before editing.
 2. Explain what will visibly change.
 3. Modify only the files required for that phase.

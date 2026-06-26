@@ -19,6 +19,7 @@ import {
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 
 /** Inverse of academicUnitToDepartment — used by the section form's department toggle. */
 function departmentToAcademicUnit(dept: "Basic Education" | "College"): AcademicUnit {
@@ -308,7 +309,13 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
     {
       title: "Full Name",
       data: "lastName",
-      render: (_v, row) => <span className="font-semibold text-stone-800">{row.lastName}, {row.firstName}</span>,
+      render: (_v, row) => (
+        <PersonIdentityCell
+          firstName={row.firstName}
+          lastName={row.lastName}
+          secondary={row.section || undefined}
+        />
+      ),
     },
     {
       title: "Year Level",
@@ -752,7 +759,9 @@ export default function ClassSectioningModule() {
                           <tr key={s.id} className="hover:bg-stone-50">
                             <td className="px-4 py-2.5 text-center text-stone-400 font-mono">{i + 1}</td>
                             <td className="px-4 py-2.5 font-mono font-bold text-stsn-brown">{s.studentNo}</td>
-                            <td className="px-4 py-2.5 font-semibold text-stone-800">{s.lastName}, {s.firstName}</td>
+                            <td className="px-4 py-2.5">
+                              <PersonIdentityCell firstName={s.firstName} lastName={s.lastName} />
+                            </td>
                             <td className="px-4 py-2.5 text-stone-500">{s.yearLevel}</td>
                             <td className="px-4 py-2.5 text-stone-500">{s.trackOrCourse || "—"}</td>
                             <td className="px-4 py-2.5 text-center">

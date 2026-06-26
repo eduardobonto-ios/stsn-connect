@@ -13,6 +13,7 @@ import { getAcademicScopedData } from "../../../services/academicUnitScopeServic
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 import {
   Users,
   Eye,
@@ -650,14 +651,12 @@ export default function FacultyAdminPage() {
       title: "Teacher",
       data: "lastName",
       render: (_value, teacher) => (
-        <div>
-          <p className="font-bold text-stone-900">
-            {teacher.lastName}, {teacher.firstName}
-          </p>
-          <p className="text-[10px] text-stone-400 font-mono mt-0.5">
-            {teacher.email}
-          </p>
-        </div>
+        <PersonIdentityCell
+          firstName={teacher.firstName}
+          lastName={teacher.lastName}
+          secondary={teacher.email}
+          variant={teacher.department === "Basic Education" ? "basic-ed" : "college"}
+        />
       ),
     },
     {

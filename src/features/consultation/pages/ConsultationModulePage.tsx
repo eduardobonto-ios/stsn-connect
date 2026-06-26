@@ -13,6 +13,7 @@ import { getAcademicScopedData } from "../../../services/academicUnitScopeServic
 import { dbInsert, dbUpdate, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -245,23 +246,20 @@ export default function ConsultationModule() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="p-5 bg-white border border-stsn-beige rounded-xl shadow-sm flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
-            <PhoneCall className="w-5 h-5 text-stsn-brown" /> Consultation Management
-          </h2>
-          <p className="text-stone-500 text-xs mt-1">
-            Teacher–parent and adviser–student consultation appointment booking and tracking.
-          </p>
-        </div>
-        <button
-          onClick={() => { setShowForm(true); setForm(DEFAULT_FORM); }}
-          className="flex items-center gap-2 bg-stsn-brown hover:bg-stsn-brown-dark text-white text-xs font-bold px-4 py-2 rounded-xl shadow cursor-pointer transition"
-        >
-          <Plus className="w-4 h-4" /> Request
-        </button>
-      </div>
+      <ModulePageHeader
+        badge="Faculty & Staff"
+        badgeIcon={PhoneCall}
+        title="Consultation Management"
+        subtitle="Teacher–parent and adviser–student consultation appointment booking and tracking."
+        actions={
+          <button
+            onClick={() => { setShowForm(true); setForm(DEFAULT_FORM); }}
+            className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512]"
+          >
+            <Plus className="w-4 h-4" /> Request Consultation
+          </button>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

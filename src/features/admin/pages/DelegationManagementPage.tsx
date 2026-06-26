@@ -22,9 +22,9 @@ const SCOPE_LABEL: Record<DelegationScope, string> = {
 };
 
 const selectClass =
-  "w-full text-xs border border-stone-200 rounded-lg px-2.5 py-2 bg-stone-50 outline-none focus:ring-1 focus:ring-stsn-gold text-stone-800";
+  "w-full text-xs font-semibold border border-stone-200 rounded-lg px-3 py-2 bg-stone-50 outline-none focus:ring-1 focus:ring-stsn-gold/50 focus:border-stsn-gold/60 text-stone-800 transition cursor-pointer";
 const inputClass =
-  "w-full text-xs border border-stone-200 rounded-lg px-2.5 py-2 bg-stone-50 outline-none focus:ring-1 focus:ring-stsn-gold text-stone-800";
+  "w-full text-xs font-semibold border border-stone-200 rounded-lg px-3 py-2 bg-stone-50 outline-none focus:ring-1 focus:ring-stsn-gold/50 focus:border-stsn-gold/60 placeholder:text-stone-400 text-stone-800 transition";
 
 export default function DelegationManagementPage() {
   const { delegations, users, currentUser, addDelegation, revokeDelegation } = useSTSNStore();

@@ -9,6 +9,7 @@ import {
   Heart, AlertCircle, CheckCircle, Clock, Download, Filter,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
@@ -209,7 +210,15 @@ export default function ClinicModule() {
   ];
 
   const visitColumns: STSNColumn<ClinicVisit & { studentName: string }>[] = [
-    { title: "Student", data: "studentName", className: "font-semibold text-stone-800" },
+    {
+      title: "Student",
+      data: "studentName",
+      render: (_value, row) => {
+        const stu = scopedStudents.find((s) => s.id === row.studentId);
+        if (!stu) return <span className="font-semibold text-stone-500">{row.studentName}</span>;
+        return <PersonIdentityCell firstName={stu.firstName} lastName={stu.lastName} secondary={stu.section || undefined} />;
+      },
+    },
     { title: "Date", data: "visitDate", className: "font-mono text-xs text-stone-600", width: "100px" },
     { title: "Chief Complaint", data: "chiefComplaint", className: "text-stone-700" },
     {
