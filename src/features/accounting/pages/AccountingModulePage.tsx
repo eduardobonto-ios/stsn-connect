@@ -8,7 +8,7 @@ import { useSTSNStore } from "../../../services/store";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import { DiscountRequest, DiscountType } from "../../../types";
 import {
-  Coins, TrendingUp, FileText, Search, Filter, Plus, Edit2, Trash2,
+  Coins, TrendingUp, FileText, Search, Plus, Edit2, Trash2,
   CheckCircle, XCircle, Clock, Eye, AlertCircle, Award, Receipt,
   Percent, Calendar, Scale, ChevronDown, BarChart3, ArrowUpRight,
   Download, Users, BookOpen, Wallet, Paperclip, X, ChevronRight,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DataTableCard from "../../../components/common/DataTableCard";
 import SLABadge from "../../../components/common/SLABadge";
 import { Payment, StudentAssessment, Student } from "../../../types";
 import { getAccountingLabels, FINANCIAL_HOLD_STATUS_CONFIG, DISCOUNT_STATUS_CONFIG, BLOCKED_PROCESS_LABELS, DEFAULT_HOLD_CATEGORY, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
@@ -1147,34 +1148,33 @@ function DiscountTypesSetupPage() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 justify-between">
-            <div className="flex items-stretch gap-2 flex-1">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                <input type="text" placeholder="Search discount types..." value={searchTypes} onChange={(e) => setSearchTypes(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
-              </div>
-              <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="h-9 min-w-[108px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
-                {SOURCES.map((s) => <option key={s}>{s}</option>)}
-              </select>
-            </div>
+      <DataTableCard
+        title="Discount Types"
+        icon={Percent}
+        searchValue={searchTypes}
+        onSearchChange={setSearchTypes}
+        searchPlaceholder="Search discount types…"
+        actions={
+          <>
+            <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs font-semibold focus:outline-none">
+              {SOURCES.map((s) => <option key={s}>{s}</option>)}
+            </select>
             <button
               onClick={() => { setEditingType(null); setTypeForm(DEFAULT_TYPE_FORM); setIsTypeFormOpen(true); }}
-              className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
+              className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-3 py-1.5 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
             >
-              <Plus className="w-4 h-4" /> Add Discount Type
+              <Plus className="w-3.5 h-3.5" /> Add Discount Type
             </button>
-          </div>
-
-          <STSNDataTable<DiscountType>
-            columns={discountTypeColumns}
-            rows={filteredTypes}
-            emptyMessage="No discount types found."
-            searchable={false}
-          />
-        </div>
-      </div>
+          </>
+        }
+      >
+        <STSNDataTable<DiscountType>
+          columns={discountTypeColumns}
+          rows={filteredTypes}
+          emptyMessage="No discount types found."
+          searchable={false}
+        />
+      </DataTableCard>
 
       {/* DISCOUNT TYPE FORM MODAL */}
       {isTypeFormOpen && (
@@ -1685,41 +1685,32 @@ function FinancialHolds() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-stsn-gold" /> Financial Holds
-              </h3>
-              <p className="text-xs text-stone-500 mt-0.5">Students with active or resolved financial holds restricting school processes.</p>
-            </div>
-            <div className="flex items-stretch gap-2">
-              <div className="relative flex-1 sm:w-56">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                <input type="text" placeholder="Search student..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-9 w-full bg-stone-50 border border-stone-200 rounded-md pl-8 pr-3 text-xs focus:outline-none" />
-              </div>
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 min-w-[84px] bg-stone-50 border border-stone-200 rounded-md px-3 text-xs font-semibold focus:outline-none">
-                {HOLD_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <STSNDataTable<FinancialHoldRow>
-            columns={holdColumns}
-            rows={rows}
-            emptyMessage="No financial holds match the selected filters."
-            searchable={false}
-          />
-
-          <div className="bg-stsn-cream border border-stsn-beige rounded-lg p-3 flex items-start gap-2">
-            <Info className="w-3.5 h-3.5 text-stsn-gold flex-shrink-0 mt-0.5" />
-            <p className="text-[10px] text-stone-500 leading-relaxed">
-              "Clear Hold" / "Reactivate" actions are session-only for this prototype. This workflow is prepared for prototype review and future backend integration with the Registrar and Enrollment modules.
-            </p>
-          </div>
+      <DataTableCard
+        title="Financial Holds"
+        icon={Lock}
+        subtitle="Students with active or resolved financial holds restricting school processes."
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search student…"
+        actions={
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs font-semibold focus:outline-none">
+            {HOLD_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
+          </select>
+        }
+      >
+        <STSNDataTable<FinancialHoldRow>
+          columns={holdColumns}
+          rows={rows}
+          emptyMessage="No financial holds match the selected filters."
+          searchable={false}
+        />
+        <div className="px-4 py-3 bg-stsn-cream border-t border-stsn-beige flex items-start gap-2">
+          <Info className="w-3.5 h-3.5 text-stsn-gold flex-shrink-0 mt-0.5" />
+          <p className="text-[10px] text-stone-500 leading-relaxed">
+            "Clear Hold" / "Reactivate" actions are session-only for this prototype. This workflow is prepared for prototype review and future backend integration with the Registrar and Enrollment modules.
+          </p>
         </div>
-      </div>
+      </DataTableCard>
     </div>
   );
 }
@@ -2017,47 +2008,35 @@ function AssessmentApproval() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Filter bar */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 flex flex-col sm:flex-row gap-3 justify-between">
-        <div>
-          <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2">
-            <ClipboardList className="w-4 h-4 text-stsn-gold" /> Assessment Approval Queue
-          </h3>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Tuition, miscellaneous fees, discounts, payment term, and optional books must be approved before Cashier can collect payment.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <div className="relative flex-1 sm:w-56">
-            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-            <input type="text" placeholder="Search student or student no..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:outline-none" />
-          </div>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none">
+      <DataTableCard
+        title="Assessment Approval Queue"
+        icon={ClipboardList}
+        subtitle="Tuition, fees, discounts, payment term, and optional books must be approved before Cashier can collect payment."
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search student or student no…"
+        actions={
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs font-semibold focus:outline-none">
             {ASSESSMENT_APPROVAL_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
           </select>
-        </div>
-      </div>
-
-      {/* Bulk action bar — shown when rows are selected */}
-      {selectedQueueRows.length > 0 && (
-        <div className="bg-stsn-brown text-stsn-cream rounded-xl px-4 py-3 flex items-center justify-between gap-3 shadow-md animate-fade-in">
-          <span className="text-xs font-bold">{selectedQueueRows.length} assessment{selectedQueueRows.length > 1 ? "s" : ""} selected</span>
-          <div className="flex gap-2">
-            <button onClick={handleBulkApprove} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
-              <CheckCircle className="w-3.5 h-3.5" /> Approve All
-            </button>
-            <button onClick={handleBulkReturn} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
-              <RotateCcw className="w-3.5 h-3.5" /> Return All
-            </button>
-            <button onClick={() => setSelectedQueueRows([])} className="text-xs font-bold px-2 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition">
-              Clear
-            </button>
+        }
+      >
+        {selectedQueueRows.length > 0 && (
+          <div className="px-4 py-3 bg-stsn-brown text-stsn-cream flex items-center justify-between gap-3 border-b border-stsn-brown-dark">
+            <span className="text-xs font-bold">{selectedQueueRows.length} assessment{selectedQueueRows.length > 1 ? "s" : ""} selected</span>
+            <div className="flex gap-2">
+              <button onClick={handleBulkApprove} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
+                <CheckCircle className="w-3.5 h-3.5" /> Approve All
+              </button>
+              <button onClick={handleBulkReturn} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
+                <RotateCcw className="w-3.5 h-3.5" /> Return All
+              </button>
+              <button onClick={() => setSelectedQueueRows([])} className="text-xs font-bold px-2 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition">
+                Clear
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Approval Queue Table */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+        )}
         <STSNDataTable<ApprovalQueueRow>
           columns={approvalColumns}
           rows={rows}
@@ -2069,7 +2048,7 @@ function AssessmentApproval() {
           pageLength={10}
           searchable={false}
         />
-      </div>
+      </DataTableCard>
 
       {/* DETAIL PANEL MODAL */}
       {selected && (

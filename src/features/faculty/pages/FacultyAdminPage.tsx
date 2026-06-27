@@ -11,6 +11,7 @@ import type { Teacher } from "../../../types";
 import GradingModule from "../../grading/pages/GradingModulePage";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DataTableCard from "../../../components/common/DataTableCard";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
@@ -722,29 +723,27 @@ export default function FacultyAdminPage() {
         <AppKpiCard label="With Advisory" value={kpiStats.withAdvisory} icon={UserCheck} tone="success" hint="Section advisers" />
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Search by name or specialization..."
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none"
-          />
-        </div>
-      </div>
-
       {/* Table */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden p-4">
+      <DataTableCard
+        title="Faculty Members"
+        icon={Users}
+        searchValue={searchQ}
+        onSearchChange={setSearchQ}
+        searchPlaceholder="Search by name or specialization…"
+        actions={
+          <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">
+            {filtered.length} teacher{filtered.length !== 1 ? "s" : ""}
+          </span>
+        }
+        bodyClassName="p-4"
+      >
         <STSNDataTable<Teacher>
           columns={facultyColumns}
           rows={filtered}
           searchable={false}
           emptyMessage="No teachers found."
         />
-      </div>
+      </DataTableCard>
 
       {/* Modals */}
       {activeModal?.type === "dashboard" && (

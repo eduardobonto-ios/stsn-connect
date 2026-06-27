@@ -8,6 +8,7 @@ import { Users, ChevronRight, X, Clock } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { Employee, EmployeeLifecycleEvent } from "../../../../types";
 import { EMPLOYMENT_STATUSES } from "../../utils/payrollCalculations";
 import { createPortal } from "react-dom";
@@ -304,35 +305,35 @@ export default function EmployeeLifecyclePage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-        <input
-          type="text"
-          placeholder="Search name, position, EE #..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="border border-stone-200 rounded-lg px-3 py-2 text-xs w-56 focus:outline-none focus:ring-2 focus:ring-stsn-gold/30"
-        />
-        <select
-          value={filterDept}
-          onChange={(e) => setFilterDept(e.target.value)}
-          className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30"
-        >
-          {departments.map((d) => <option key={d}>{d}</option>)}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30"
-        >
-          <option value="All">All Statuses</option>
-          {EMPLOYMENT_STATUSES.map((s) => <option key={s}>{s}</option>)}
-        </select>
-      </div>
-
       {/* Main content */}
       <div className={`flex gap-4 ${selectedEmployee ? "flex-col lg:flex-row" : ""}`}>
-        <div className={`${selectedEmployee ? "lg:flex-1" : "w-full"} bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1`}>
+        <DataTableCard
+          title="Employee Records"
+          icon={Users}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search name, position, EE #…"
+          actions={
+            <>
+              <select
+                value={filterDept}
+                onChange={(e) => setFilterDept(e.target.value)}
+                className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50"
+              >
+                {departments.map((d) => <option key={d}>{d}</option>)}
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50"
+              >
+                <option value="All">All Statuses</option>
+                {EMPLOYMENT_STATUSES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </>
+          }
+          className={selectedEmployee ? "lg:flex-1" : "w-full"}
+        >
           <STSNDataTable<Employee>
             columns={columns}
             rows={filtered}
@@ -342,7 +343,7 @@ export default function EmployeeLifecyclePage() {
             onRowClick={(row) => setSelectedEmployee(row)}
             selectedId={selectedEmployee?.id}
           />
-        </div>
+        </DataTableCard>
 
         {selectedEmployee && (
           <div className="lg:w-80 xl:w-96 flex-shrink-0">

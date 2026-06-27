@@ -8,6 +8,7 @@ import { Wallet, ChevronRight, X, CheckCircle } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { SalaryPayoutBatch, SalaryPayoutLine } from "../../../../types";
 
 const BATCH_STATUS_COLORS: Record<string, string> = {
@@ -164,21 +165,25 @@ export default function SalaryPayoutsPage() {
         </div>
       </div>
 
-      {/* Status filter */}
-      <div className="flex gap-1 bg-stone-100 p-1 rounded-xl w-fit">
-        {["All", "Pending", "Queued", "Released", "Failed", "Cancelled"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterStatus === s ? "bg-white text-stsn-brown shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
       <div className={`flex gap-4 ${selectedBatch ? "flex-col lg:flex-row" : ""}`}>
-        <div className={`${selectedBatch ? "lg:flex-1" : "w-full"} bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1`}>
+        <DataTableCard
+          title="Salary Payout Batches"
+          icon={Wallet}
+          actions={
+            <div className="flex gap-1 bg-stone-100 p-0.5 rounded-lg">
+              {["All", "Pending", "Queued", "Released", "Failed", "Cancelled"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilterStatus(s)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${filterStatus === s ? "bg-white text-stsn-brown shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          }
+          className={selectedBatch ? "lg:flex-1" : "w-full"}
+        >
           <STSNDataTable<SalaryPayoutBatch>
             columns={batchColumns}
             rows={filtered}
@@ -187,7 +192,7 @@ export default function SalaryPayoutsPage() {
             onRowClick={(row) => setSelectedBatch(row)}
             selectedId={selectedBatch?.id}
           />
-        </div>
+        </DataTableCard>
 
         {selectedBatch && (
           <div className="lg:w-96 flex-shrink-0">

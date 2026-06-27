@@ -398,30 +398,29 @@ function EnrollmentAnalyticsPage({
             </select>
           </div>
 
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-[10px] uppercase font-bold text-stone-400 mb-1">Search</label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Name or student no..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none"
-              />
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-stone-100 flex justify-between items-center">
-          <span className="text-xs font-bold text-stone-700">
+        <div className="px-5 py-3 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center gap-3">
+          <span className="text-xs font-bold text-stone-700 flex-1">
             {isBasicEd ? "Basic Education" : "College"} Enrollment Records
           </span>
-          <span className="text-[10px] font-mono text-stone-400">
-            {filtered.length} record{filtered.length !== 1 ? "s" : ""} found
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Name or student no…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 w-44 bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none"
+              />
+            </div>
+            <span className="text-[10px] font-mono text-stone-400 flex-shrink-0">
+              {filtered.length} record{filtered.length !== 1 ? "s" : ""} found
+            </span>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">

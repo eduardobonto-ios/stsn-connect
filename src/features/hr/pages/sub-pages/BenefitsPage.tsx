@@ -7,6 +7,7 @@ import React, { useMemo, useState } from "react";
 import { Award, ToggleLeft, ToggleRight } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { BenefitPlan, StatutoryContributionRule } from "../../../../types";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -151,29 +152,27 @@ export default function BenefitsPage() {
         ))}
       </div>
 
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+      <DataTableCard title="Benefit Plans" icon={Award}>
         <STSNDataTable<BenefitPlan>
           columns={columns}
           rows={filtered}
           emptyMessage="No benefit plans configured."
           pageLength={15}
         />
-      </div>
+      </DataTableCard>
 
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
-        <div className="px-4 py-3 border-b border-stone-100">
-          <p className="text-sm font-bold text-stone-900">Effective-Dated Statutory Contribution Rules</p>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Payroll computation reads these rules first, then falls back to simplified defaults only when no active configured rule matches.
-          </p>
-        </div>
+      <DataTableCard
+        title="Statutory Contribution Rules"
+        icon={Award}
+        subtitle="Payroll computation reads these rules first, then falls back to simplified defaults only when no active configured rule matches."
+      >
         <STSNDataTable<StatutoryContributionRule>
           columns={statutoryRuleColumns}
           rows={statutoryContributionRules}
           emptyMessage="No statutory contribution rules configured yet."
           pageLength={10}
         />
-      </div>
+      </DataTableCard>
 
       <div className="bg-stsn-cream border border-stsn-beige rounded-xl p-4 text-xs text-stone-600">
         <p className="font-semibold mb-1">Configuration Note</p>
