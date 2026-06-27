@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { EmployeeAttendance } from "../../../../types";
 import { ATTENDANCE_STATUSES } from "../../utils/payrollCalculations";
 
@@ -192,10 +193,26 @@ export default function AttendancePage() {
         </button>
       </div>
 
-      {/* Filters card */}
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm space-y-3">
+      <DataTableCard
+        title="Attendance Records"
+        icon={ClipboardList}
+        actions={
+          <>
+            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold bg-stone-50" />
+            <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50">
+              <option value="All">All Employees</option>
+              {employees.map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
+            </select>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50">
+              <option value="All">All Statuses</option>
+              {ATTENDANCE_STATUSES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+            <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">{filtered.length} records</span>
+          </>
+        }
+      >
         {Object.keys(summary).length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 px-4 py-2 border-b border-stone-100">
             {Object.entries(summary).map(([s, count]) => (
               <button
                 key={s}
@@ -207,28 +224,13 @@ export default function AttendancePage() {
             ))}
           </div>
         )}
-        <div className="flex flex-wrap gap-3 items-center">
-          <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30" />
-          <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)} className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30">
-            <option value="All">All Employees</option>
-            {employees.map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
-          </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30">
-            <option value="All">All Statuses</option>
-            {ATTENDANCE_STATUSES.map((s) => <option key={s}>{s}</option>)}
-          </select>
-          <span className="ml-auto text-xs text-stone-400"><span className="font-semibold text-stone-700">{filtered.length}</span> records</span>
-        </div>
-      </div>
-
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
         <STSNDataTable<EmployeeAttendance>
           columns={columns}
           rows={filtered}
           emptyMessage="No attendance records found for the selected period."
           pageLength={20}
         />
-      </div>
+      </DataTableCard>
 
       {showModal && <RecordAttendanceModal onClose={() => setShowModal(false)} onSave={handleSave} />}
     </div>

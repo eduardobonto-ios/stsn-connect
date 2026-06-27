@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Activity, Banknote, Download, Eye, Filter, Loader2, PieChart, Search, Scale, X,
+  Activity, Banknote, Download, Eye, Loader2, PieChart, Scale, X,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { dbSelectAll } from "../../../../services/supabaseCrud";
 
 type ReportKind = "trial-balance" | "balance-sheet" | "income-statement" | "cash-flow";
@@ -467,32 +468,23 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
         )}
       </div>
 
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search report rows..."
-            className="w-full pl-8 pr-3 py-2 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-stone-400" />
-          <select
-            value={fiscalYear}
-            onChange={(e) => setFiscalYear(e.target.value)}
-            className="text-xs border border-stone-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          >
-            <option value="All">All Fiscal Years</option>
-            {fiscalYears.map((year) => <option key={year} value={year}>{year}</option>)}
-          </select>
-        </div>
-        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
-        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
-      </div>
-
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+      <DataTableCard
+        title={config.title}
+        icon={Icon}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search report rows…"
+        actions={
+          <>
+            <select value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
+              <option value="All">All Fiscal Years</option>
+              {fiscalYears.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
+          </>
+        }
+      >
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -505,7 +497,7 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
         ) : (
           <STSNDataTable key={`${report}-table`} columns={statementColumns} rows={statementRows} searchable={false} emptyMessage="No statement balances for this period." pageLength={15} />
         )}
-      </div>
+      </DataTableCard>
 
       {detailTarget && (
         <div className="app-modal-backdrop z-50 animate-fade-in">

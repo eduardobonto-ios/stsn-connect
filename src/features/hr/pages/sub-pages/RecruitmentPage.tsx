@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { JobRequisition, JobApplicant, ApplicantInterview } from "../../../../types";
 
 const REQ_STATUS_COLORS: Record<string, string> = {
@@ -431,22 +432,26 @@ export default function RecruitmentPage() {
 
       {tab === "requisitions" && (
         <>
-          {/* Filter card */}
-          <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-            <label className="text-xs text-stone-500">Status:</label>
-            {["All", "Draft", "Approved", "Posted", "Screening", "Interview", "Offered", "Closed", "Cancelled"].map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(s)}
-                className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold cursor-pointer transition-all ${filterStatus === s ? "bg-stsn-brown text-white border-stsn-brown" : s !== "All" ? `${REQ_STATUS_COLORS[s]} border-transparent` : "border-stone-200 text-stone-500"}`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
           <div className={`flex gap-4 ${selectedReq ? "flex-col lg:flex-row" : ""}`}>
-            <div className={`${selectedReq ? "lg:flex-1" : "w-full"} bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1`}>
+            <DataTableCard
+              title="Job Requisitions"
+              icon={Briefcase}
+              actions={
+                <>
+                  <label className="text-xs text-stone-500">Status:</label>
+                  {["All", "Draft", "Approved", "Posted", "Screening", "Interview", "Offered", "Closed", "Cancelled"].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStatus(s)}
+                      className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold cursor-pointer transition-all ${filterStatus === s ? "bg-stsn-brown text-white border-stsn-brown" : s !== "All" ? `${REQ_STATUS_COLORS[s]} border-transparent` : "border-stone-200 text-stone-500"}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </>
+              }
+              className={selectedReq ? "lg:flex-1" : "w-full"}
+            >
               <STSNDataTable<JobRequisition>
                 columns={reqColumns}
                 rows={filteredReqs}
@@ -456,7 +461,7 @@ export default function RecruitmentPage() {
                 onRowClick={(row) => setSelectedReq(row)}
                 selectedId={selectedReq?.id}
               />
-            </div>
+            </DataTableCard>
             {selectedReq && (
               <div className="lg:w-96 flex-shrink-0">
                 <RequisitionDetail
@@ -471,14 +476,14 @@ export default function RecruitmentPage() {
       )}
 
       {tab === "applicants" && (
-        <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+        <DataTableCard title="All Applicants" icon={Briefcase}>
           <STSNDataTable<JobApplicant>
             columns={applicantColumns}
             rows={jobApplicants}
             emptyMessage="No applicants found."
             pageLength={15}
           />
-        </div>
+        </DataTableCard>
       )}
 
       {showAddReq && <AddRequisitionModal onClose={() => setShowAddReq(false)} onSave={(data) => { addJobRequisition(data); toast("Job requisition created."); }} />}

@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  BookMarked, Plus, Eye, Edit2, Trash2, Search, Filter, Download,
+  BookMarked, Plus, Eye, Edit2, Trash2, Download,
   CheckCircle, AlertTriangle, Loader2, Send, Ban, X,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbInsert, dbUpdate, dbDelete, dbDeleteWhere, dbSelectAll, newId } from "../../../../services/supabaseCrud";
 
@@ -546,38 +547,26 @@ export default function JournalEntriesPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by entry no., description, reference…"
-            className="w-full pl-8 pr-3 py-2 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-stone-400" />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as JEStatus | "All")}
-            className="text-xs border border-stone-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          >
-            <option value="All">All Statuses</option>
-            <option value="Draft">Draft</option>
-            <option value="Posted">Posted</option>
-            <option value="Void">Void</option>
-          </select>
-        </div>
-        <button className="flex items-center gap-1.5 px-3 py-2 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
-          <Download className="w-3.5 h-3.5" />
-          Export
-        </button>
-      </div>
-
-      {/* Main table */}
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+      <DataTableCard
+        title="Journal Entries"
+        icon={BookMarked}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by entry no., description, reference…"
+        actions={
+          <>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as JEStatus | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
+              <option value="All">All Statuses</option>
+              <option value="Draft">Draft</option>
+              <option value="Posted">Posted</option>
+              <option value="Void">Void</option>
+            </select>
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
+              <Download className="w-3.5 h-3.5" /> Export
+            </button>
+          </>
+        }
+      >
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -592,7 +581,7 @@ export default function JournalEntriesPage() {
             pageLength={10}
           />
         )}
-      </div>
+      </DataTableCard>
 
       {/* ── View / Detail Modal ──────────────────────────────────────────── */}
       {viewEntry && (
