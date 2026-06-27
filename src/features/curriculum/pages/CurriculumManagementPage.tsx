@@ -13,11 +13,11 @@ import {
   Trash2,
   Edit,
   Settings,
-  Search,
   BookMarked,
   Layers,
   GraduationCap,
 } from "lucide-react";
+import DataTableCard from "../../../components/common/DataTableCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
@@ -588,64 +588,56 @@ export default function CurriculumManagement() {
 
       {/* Courses Tab */}
       {activeTab === "courses" && (
-        <div className="bg-white p-6 rounded-2xl border border-stsn-beige shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Search registered courses..."
-                value={courseSearch}
-                onChange={(e) => setCourseSearch(e.target.value)}
-                className="w-full bg-[#F5F2ED] text-xs py-2.5 pl-9 pr-4 rounded-xl border border-transparent focus:border-stsn-gold focus:bg-white outline-none font-medium transition"
-              />
-            </div>
+        <DataTableCard
+          title="Course Programs"
+          icon={GraduationCap}
+          searchValue={courseSearch}
+          onSearchChange={setCourseSearch}
+          searchPlaceholder="Search registered courses…"
+          actions={
             <button
               onClick={() => handleOpenCourseModal(null)}
-              className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm inline-flex items-center gap-1 cursor-pointer transition ml-auto flex-shrink-0"
+              className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm inline-flex items-center gap-1 cursor-pointer transition flex-shrink-0"
             >
               <Plus className="w-4 h-4" />
               Add Course Program
             </button>
-          </div>
+          }
+        >
           <STSNDataTable<Course>
             columns={courseColumns}
             rows={filteredCoursesList}
             searchable={false}
             emptyMessage="No courses found. Add a course program to get started."
           />
-        </div>
+        </DataTableCard>
       )}
 
       {/* Subjects Tab */}
       {activeTab === "subjects" && (
-        <div className="bg-white p-6 rounded-2xl border border-stsn-beige shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Search registered subjects catalog..."
-                value={subjectSearch}
-                onChange={(e) => setSubjectSearch(e.target.value)}
-                className="w-full bg-[#F5F2ED] text-xs py-2.5 pl-9 pr-4 rounded-xl border border-transparent focus:border-stsn-gold focus:bg-white outline-none font-medium transition"
-              />
-            </div>
+        <DataTableCard
+          title="Subject Catalog"
+          icon={BookOpen}
+          searchValue={subjectSearch}
+          onSearchChange={setSubjectSearch}
+          searchPlaceholder="Search registered subjects catalog…"
+          actions={
             <button
               onClick={() => handleOpenSubjectModal(null)}
-              className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm inline-flex items-center gap-1 cursor-pointer transition ml-auto flex-shrink-0"
+              className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm inline-flex items-center gap-1 cursor-pointer transition flex-shrink-0"
             >
               <Plus className="w-4 h-4" />
               New Subject Catalog
             </button>
-          </div>
+          }
+        >
           <STSNDataTable<Subject>
             columns={subjectColumns}
             rows={filteredSubjectsList}
             searchable={false}
             emptyMessage="No subjects found in the catalog."
           />
-        </div>
+        </DataTableCard>
       )}
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}

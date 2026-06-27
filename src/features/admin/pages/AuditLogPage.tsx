@@ -8,6 +8,7 @@ import { Shield, Search, Download } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
 import type { AuditEntityType, AuditAction, AuditLogEntry } from "../../../types";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DataTableCard from "../../../components/common/DataTableCard";
 import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
 
 const ACTION_BADGE: Record<AuditAction, string> = {
@@ -114,56 +115,42 @@ export default function AuditLogPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-stsn-gold/10 border border-stsn-gold/20 flex items-center justify-center">
-            <Shield className="w-4.5 h-4.5 text-stsn-gold" />
-          </div>
-          <div>
-            <h2 className="text-sm font-display font-bold text-stsn-brown-dark">Central Audit Log</h2>
-            <p className="text-[10px] text-stone-400 mt-0.5">Immutable record of all approval-sensitive actions — click a row to inspect details</p>
-          </div>
-        </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-white border border-stone-200 rounded-xl shadow-sm hover:bg-stsn-cream transition cursor-pointer"
-        >
-          <Download className="w-3.5 h-3.5" /> Export CSV
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5">
-          <Search className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
-          <input
-            value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search actor, entity ID, remarks…"
-            className="flex-1 text-xs outline-none bg-transparent text-stone-700 placeholder-stone-400"
-          />
-        </div>
-        <select
-          value={filterEntity}
-          onChange={(e) => setFilterEntity(e.target.value as AuditEntityType | "")}
-          className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
-        >
-          <option value="">All Entity Types</option>
-          {ALL_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select
-          value={filterAction}
-          onChange={(e) => setFilterAction(e.target.value as AuditAction | "")}
-          className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
-        >
-          <option value="">All Actions</option>
-          {(Object.keys(ACTION_BADGE) as AuditAction[]).map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <span className="text-[10px] text-stone-400 self-center font-mono">{filtered.length} entries</span>
-      </div>
-
       {/* Table */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
+      <DataTableCard
+        title="Central Audit Log"
+        icon={Shield}
+        subtitle="Immutable record of all approval-sensitive actions — click a row to inspect details"
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search actor, entity ID, remarks…"
+        actions={
+          <>
+            <select
+              value={filterEntity}
+              onChange={(e) => setFilterEntity(e.target.value as AuditEntityType | "")}
+              className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
+            >
+              <option value="">All Entity Types</option>
+              {ALL_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select
+              value={filterAction}
+              onChange={(e) => setFilterAction(e.target.value as AuditAction | "")}
+              className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
+            >
+              <option value="">All Actions</option>
+              {(Object.keys(ACTION_BADGE) as AuditAction[]).map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">{filtered.length} entries</span>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-white border border-stone-200 rounded-xl shadow-sm hover:bg-stsn-cream transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" /> Export CSV
+            </button>
+          </>
+        }
+      >
         <STSNDataTable<AuditLogEntry>
           columns={columns}
           rows={filtered}
@@ -173,7 +160,7 @@ export default function AuditLogPage() {
           emptyMessage="No audit entries match your filters."
           tableId="audit-log"
         />
-      </div>
+      </DataTableCard>
 
       {/* Drilldown Drawer */}
       <DrilldownDrawer

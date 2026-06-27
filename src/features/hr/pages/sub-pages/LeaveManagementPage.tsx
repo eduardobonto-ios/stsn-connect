@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import SLABadge from "../../../../components/common/SLABadge";
 import { LeaveRequest, LeaveType } from "../../../../types";
 
@@ -249,44 +250,47 @@ export default function LeaveManagementPage() {
       </div>
 
       {tab === "requests" && (
-        <>
-          <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-            <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)} className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30">
-              <option value="All">All Employees</option>
-              {employees.map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
-            </select>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30">
-              <option value="All">All Statuses</option>
-              {["Draft", "Submitted", "For Approval", "Approved", "Rejected", "Cancelled"].map((s) => <option key={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
-            <STSNDataTable<LeaveRequest>
-              columns={requestColumns}
-              rows={filteredRequests}
-              emptyMessage="No leave requests found."
-              pageLength={15}
-              rowColorClass={(req) => {
-                if (req.status === "Rejected" || req.status === "Cancelled") return "bg-red-50";
-                if (req.status === "Approved") return "bg-emerald-50";
-                if (req.status === "Submitted" || req.status === "For Approval") return "bg-amber-50";
-                if (req.status === "Draft") return "bg-blue-50";
-                return undefined;
-              }}
-            />
-          </div>
-        </>
+        <DataTableCard
+          title="Leave Requests"
+          icon={FileCheck}
+          actions={
+            <>
+              <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50">
+                <option value="All">All Employees</option>
+                {employees.map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
+              </select>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50">
+                <option value="All">All Statuses</option>
+                {["Draft", "Submitted", "For Approval", "Approved", "Rejected", "Cancelled"].map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </>
+          }
+        >
+          <STSNDataTable<LeaveRequest>
+            columns={requestColumns}
+            rows={filteredRequests}
+            emptyMessage="No leave requests found."
+            pageLength={15}
+            rowColorClass={(req) => {
+              if (req.status === "Rejected" || req.status === "Cancelled") return "bg-red-50";
+              if (req.status === "Approved") return "bg-emerald-50";
+              if (req.status === "Submitted" || req.status === "For Approval") return "bg-amber-50";
+              if (req.status === "Draft") return "bg-blue-50";
+              return undefined;
+            }}
+          />
+        </DataTableCard>
       )}
 
       {tab === "types" && (
-        <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+        <DataTableCard title="Leave Types" icon={FileCheck}>
           <STSNDataTable<LeaveType>
             columns={typeColumns}
             rows={leaveTypes}
             emptyMessage="No leave types configured."
             pageLength={10}
           />
-        </div>
+        </DataTableCard>
       )}
 
       {showModal && <FileLeaveModal onClose={() => setShowModal(false)} onSave={handleFile} />}

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Users, Search, Filter, Download, Loader2, X, Eye,
+  Users, Download, Loader2, X, Eye,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { dbSelectAll } from "../../../../services/supabaseCrud";
 
 type InvoiceStatus = "Draft" | "Posted" | "Paid" | "Void";
@@ -282,36 +283,24 @@ export default function ARAgingPage() {
         })}
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search invoice no. or customer..."
-            className="w-full pl-8 pr-3 py-2 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-stone-400" />
-          <select
-            value={filterBucket}
-            onChange={(e) => setFilterBucket(e.target.value as AgingBucket | "All")}
-            className="text-xs border border-stone-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          >
-            <option value="All">All Buckets</option>
-            {BUCKETS.map((b) => <option key={b} value={b}>{BUCKET_CONFIG[b].label}</option>)}
-          </select>
-        </div>
-        <button className="flex items-center gap-1.5 px-3 py-2 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
-          <Download className="w-3.5 h-3.5" />
-          Export
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+      <DataTableCard
+        title="Accounts Receivable Aging"
+        icon={Users}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search invoice no. or customer…"
+        actions={
+          <>
+            <select value={filterBucket} onChange={(e) => setFilterBucket(e.target.value as AgingBucket | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
+              <option value="All">All Buckets</option>
+              {BUCKETS.map((b) => <option key={b} value={b}>{BUCKET_CONFIG[b].label}</option>)}
+            </select>
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
+              <Download className="w-3.5 h-3.5" /> Export
+            </button>
+          </>
+        }
+      >
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -326,7 +315,7 @@ export default function ARAgingPage() {
             pageLength={15}
           />
         )}
-      </div>
+      </DataTableCard>
 
       {/* View Invoice Modal */}
       {viewTarget && (

@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
   NotebookPen, Plus, Search, Eye, X, Calendar, User,
-  MessageSquare, CheckCircle, Clock, AlertCircle, Filter, Lock,
+  MessageSquare, CheckCircle, Clock, AlertCircle, Lock,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
@@ -353,37 +353,37 @@ export default function GuidanceModule() {
 
       {/* Tabs */}
       <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden">
-        <div className="flex border-b border-stone-100">
-          {([["anecdotal", "Anecdotal Records"], ["sessions", "Counseling Sessions"]] as const).map(([tab, label]) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-bold transition-all ${activeTab === tab ? "tab-active-gradient text-stsn-brown border-b-2 border-stsn-gold" : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* Search + Filter */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
+        <div className="flex items-center border-b border-stone-100">
+          <div className="flex flex-1">
+            {([["anecdotal", "Anecdotal Records"], ["sessions", "Counseling Sessions"]] as const).map(([tab, label]) => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 text-xs font-bold transition-all ${activeTab === tab ? "tab-active-gradient text-stsn-brown border-b-2 border-stsn-gold" : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 px-3 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
               <input type="text" placeholder="Search student or keyword…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40" />
+                className="h-8 w-44 bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40" />
             </div>
             {activeTab === "anecdotal" && (
-              <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs focus:outline-none">
+              <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs focus:outline-none">
                 <option value="All">All Types</option>
                 {INCIDENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             )}
             {activeTab === "sessions" && (
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs focus:outline-none">
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs focus:outline-none">
                 <option value="All">All Statuses</option>
                 {SESSION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
           </div>
+        </div>
 
+        <div className="p-5 space-y-4">
           {activeTab === "anecdotal" && (
             <STSNDataTable
               columns={anecColumns}

@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
   Stethoscope, Plus, Search, Eye, X, Calendar, User,
-  Heart, AlertCircle, CheckCircle, Clock, Download, Filter,
+  Heart, AlertCircle, CheckCircle, Clock, Download,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
@@ -327,16 +327,38 @@ export default function ClinicModule() {
 
       {/* Tabs */}
       <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden">
-        <div className="flex border-b border-stone-100">
-          {([["visits", "Today's Visits"], ["history", "Visit History"], ["profiles", "Health Profiles"]] as const).map(([tab, label]) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-bold transition-all ${activeTab === tab ? "tab-active-gradient text-stsn-brown border-b-2 border-stsn-gold" : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"}`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center border-b border-stone-100">
+          <div className="flex flex-1">
+            {([["visits", "Today's Visits"], ["history", "Visit History"], ["profiles", "Health Profiles"]] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 text-xs font-bold transition-all ${activeTab === tab ? "tab-active-gradient text-stsn-brown border-b-2 border-stsn-gold" : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {activeTab === "history" && (
+            <div className="flex items-center gap-2 px-3 flex-shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
+                <input
+                  type="text" placeholder="Search student or complaint…"
+                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 w-44 bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40"
+                />
+              </div>
+              <select
+                value={filterDisposition} onChange={(e) => setFilterDisposition(e.target.value)}
+                className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs focus:outline-none"
+              >
+                <option value="All">All Dispositions</option>
+                {Object.keys(DISPOSITION_CONFIG).map((d) => <option key={d} value={d}>{DISPOSITION_CONFIG[d as Disposition].label}</option>)}
+              </select>
+              <ExportMenu onExport={exportVisitHistory} label="Export" />
+            </div>
+          )}
         </div>
 
         <div className="p-5">
@@ -403,27 +425,6 @@ export default function ClinicModule() {
           {/* VISIT HISTORY */}
           {activeTab === "history" && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-                  <input
-                    type="text" placeholder="Search student name or complaint..."
-                    value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-stone-400" />
-                  <select
-                    value={filterDisposition} onChange={(e) => setFilterDisposition(e.target.value)}
-                    className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs focus:outline-none"
-                  >
-                    <option value="All">All Dispositions</option>
-                    {Object.keys(DISPOSITION_CONFIG).map((d) => <option key={d} value={d}>{DISPOSITION_CONFIG[d as Disposition].label}</option>)}
-                  </select>
-                </div>
-                <ExportMenu onExport={exportVisitHistory} label="Export" />
-              </div>
               <STSNDataTable
                 columns={visitColumns}
                 rows={visitRows}

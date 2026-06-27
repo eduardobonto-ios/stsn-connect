@@ -11,6 +11,7 @@ import { useSTSNStore } from "../../../services/store";
 import PageHeader from "../../../components/common/PageHeader";
 import StatCard from "../../../components/common/StatCard";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DataTableCard from "../../../components/common/DataTableCard";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import type { BookPackage, BookPackageItem } from "../../../types";
 import type { AcademicUnit } from "../../../types/school.types";
@@ -48,6 +49,7 @@ export default function BooksSetupPage() {
   );
   const [filterGradeLevel, setFilterGradeLevel] = useState("All");
   const [filterStatus, setFilterStatus] = useState<"All" | BookPackage["status"]>("All");
+  const [filterSearch, setFilterSearch] = useState("");
 
   // ---- Detail / Edit modal ----
   const [selectedPackage, setSelectedPackage] = useState<BookPackage | null>(null);
@@ -60,15 +62,17 @@ export default function BooksSetupPage() {
 
   const filteredPackages = useMemo(() => {
     if (isCollegeView) return [];
+    const q = filterSearch.toLowerCase();
     return packages.filter((p) => {
       const matchYear = filterSchoolYear === "All" || p.schoolYear === filterSchoolYear;
       const matchSchool = filterSchool === "All" || p.schoolId === filterSchool;
       const matchUnit = filterAcademicUnit === "All" || p.academicUnit === filterAcademicUnit;
       const matchGrade = filterGradeLevel === "All" || p.gradeLevel === filterGradeLevel;
       const matchStatus = filterStatus === "All" || p.status === filterStatus;
-      return matchYear && matchSchool && matchUnit && matchGrade && matchStatus;
+      const matchSearch = !q || p.packageName.toLowerCase().includes(q) || p.gradeLevel.toLowerCase().includes(q) || p.schoolYear.includes(q);
+      return matchYear && matchSchool && matchUnit && matchGrade && matchStatus && matchSearch;
     });
-  }, [packages, filterSchoolYear, filterSchool, filterAcademicUnit, filterGradeLevel, filterStatus, isCollegeView]);
+  }, [packages, filterSchoolYear, filterSchool, filterAcademicUnit, filterGradeLevel, filterStatus, isCollegeView, filterSearch]);
 
   const totalPackages = packages.length;
   const activePackages = packages.filter((p) => p.status === "Active").length;
@@ -335,13 +339,20 @@ export default function BooksSetupPage() {
           <p className="text-sm text-stone-500 font-semibold">{BOOKS_NOT_APPLICABLE_NOTICE}</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden p-4">
+        <DataTableCard
+          title="Book Packages"
+          icon={Library}
+          searchValue={filterSearch}
+          onSearchChange={setFilterSearch}
+          searchPlaceholder="Search package name or grade level…"
+        >
           <STSNDataTable<BookPackage>
             columns={packageColumns}
             rows={filteredPackages}
+            searchable={false}
             emptyMessage="No book packages match the selected filters."
           />
-        </div>
+        </DataTableCard>
       )}
 
       {/* Detail / Edit Modal */}

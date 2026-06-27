@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
   PhoneCall, Plus, Search, Eye, X, Calendar, User,
-  CheckCircle, Clock, AlertCircle, ChevronDown, Filter,
+  CheckCircle, Clock, AlertCircle,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
@@ -279,34 +279,34 @@ export default function ConsultationModule() {
 
       {/* Tabs */}
       <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden">
-        <div className="flex border-b border-stone-100">
-          {([["appointments", "Confirmed Appointments"], ["requests", "Pending Requests"]] as const).map(([tab, label]) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-bold transition-all ${activeTab === tab ? "tab-active-gradient text-stsn-brown border-b-2 border-stsn-gold" : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"}`}>
-              {label}
-              {tab === "requests" && pendingItems.length > 0 && (
-                <span className="ml-1.5 bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{pendingItems.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* Filter bar */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
+        <div className="flex items-center border-b border-stone-100">
+          <div className="flex flex-1">
+            {([["appointments", "Confirmed Appointments"], ["requests", "Pending Requests"]] as const).map(([tab, label]) => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 text-xs font-bold transition-all ${activeTab === tab ? "tab-active-gradient text-stsn-brown border-b-2 border-stsn-gold" : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"}`}>
+                {label}
+                {tab === "requests" && pendingItems.length > 0 && (
+                  <span className="ml-1.5 bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{pendingItems.length}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 px-3 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
               <input type="text" placeholder="Search by name, purpose, or teacher…"
                 value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPendingPage(1); }}
-                className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40" />
+                className="h-8 w-44 bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40" />
             </div>
             <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPendingPage(1); }}
-              className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs focus:outline-none">
+              className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs focus:outline-none">
               <option value="All">All Statuses</option>
               {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+        </div>
 
+        <div className="p-5 space-y-4">
           {activeTab === "requests" && (() => {
             const totalPages = Math.max(1, Math.ceil(filteredItems.length / PENDING_PAGE_SIZE));
             const safePage = Math.min(pendingPage, totalPages);
