@@ -15,7 +15,6 @@ import {
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
-import AppButton from "../../../components/common/AppButton";
 import { ReceiptPreview } from "../../../components/ModalPreviews";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import EmptyState from "../../../components/common/EmptyState";
@@ -768,15 +767,13 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                               ₱{assessment.balance.toLocaleString()}
                             </p>
                           </div>
-                          <AppButton
-                            variant="primary"
-                            size="sm"
-                            leftIcon={Banknote}
+                          <button
+                            type="button"
                             onClick={() => openCollect(assessment.id)}
-                            className="w-full justify-center"
+                            className="stsn-btn stsn-btn-primary stsn-btn-sm w-full justify-center flex items-center gap-1.5 cursor-pointer"
                           >
-                            Collect Payment
-                          </AppButton>
+                            <Banknote className="w-3.5 h-3.5" /> Collect Payment
+                          </button>
                         </div>
                       </div>
                     );
@@ -913,10 +910,18 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 <p className="text-xs text-stone-500 mt-0.5 ml-6">{selectedReport.desc}</p>
               </div>
               <div className="flex flex-wrap gap-2 flex-shrink-0">
-                <AppButton variant="outline" size="xs" leftIcon={Printer} onClick={() => exportCurrentReport("print")}>Print</AppButton>
-                <AppButton variant="outline" size="xs" leftIcon={Download} onClick={() => exportCurrentReport("csv")}>CSV</AppButton>
-                <AppButton variant="outline" size="xs" leftIcon={Download} onClick={() => exportCurrentReport("excel")}>Excel</AppButton>
-                <AppButton variant="outline" size="xs" leftIcon={Download} onClick={() => exportCurrentReport("pdf")}>PDF</AppButton>
+                <button type="button" onClick={() => exportCurrentReport("print")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
+                  <Printer className="w-3.5 h-3.5" /> Print
+                </button>
+                <button type="button" onClick={() => exportCurrentReport("csv")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </button>
+                <button type="button" onClick={() => exportCurrentReport("excel")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
+                  <Download className="w-3.5 h-3.5" /> Excel
+                </button>
+                <button type="button" onClick={() => exportCurrentReport("pdf")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
               </div>
             </div>
             <div className="p-4">
@@ -950,8 +955,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
           maxWidthClass="max-w-lg"
           footer={
             <div className="flex justify-end gap-2">
-              <AppButton type="button" variant="outline" size="sm" onClick={() => setCollectModalId(null)}>Cancel</AppButton>
-              <AppButton type="submit" variant="primary" size="sm" leftIcon={CheckCircle}>Post Payment</AppButton>
+              <button type="button" onClick={() => setCollectModalId(null)} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
+              <button type="submit" className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition"><CheckCircle className="w-3.5 h-3.5" /> Post Payment</button>
             </div>
           }
         >
@@ -1136,23 +1141,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
             maxWidthClass="max-w-lg"
             footer={
               <div className="flex justify-end gap-2">
-                <AppButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { setVoidModalPaymentId(null); setVoidReason(""); setVoidConfirmInput(""); }}
-                >
-                  Cancel
-                </AppButton>
-                <AppButton
-                  type="submit"
-                  variant="destructive"
-                  size="sm"
-                  leftIcon={Ban}
-                  disabled={!voidReason.trim() || voidConfirmInput !== voidPayment?.orNumber}
-                >
-                  Submit Void Request
-                </AppButton>
+                <button type="button" onClick={() => { setVoidModalPaymentId(null); setVoidReason(""); setVoidConfirmInput(""); }} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
+                <button type="submit" disabled={!voidReason.trim() || voidConfirmInput !== voidPayment?.orNumber} className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed"><Ban className="w-3.5 h-3.5" /> Submit Void Request</button>
               </div>
             }
           >
@@ -1250,7 +1240,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
             <span>Receipt preview only. Use the Print button above to print this OR for the payor.</span>
           </div>
           <div className="mt-3 flex justify-end">
-            <AppButton variant="outline" size="sm" leftIcon={X} onClick={() => setReceipt(null)}>Close</AppButton>
+            <button type="button" onClick={() => setReceipt(null)} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition"><X className="w-3.5 h-3.5" /> Close</button>
           </div>
         </PreviewModal>
       )}
