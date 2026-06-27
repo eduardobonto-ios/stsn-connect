@@ -1,0 +1,252 @@
+{
+  "capturedAt": "2026-06-27T02:06:49.158Z",
+  "captured": [
+    {
+      "filename": "dashboard-super-admin.png",
+      "label": "Dashboard — Super Admin"
+    },
+    {
+      "filename": "action-center-super-admin.png",
+      "label": "Action Center — Super Admin"
+    },
+    {
+      "filename": "enrollment-admissions-directory.png",
+      "label": "Enrollment / Admission"
+    },
+    {
+      "filename": "student-directory.png",
+      "label": "Student Directory"
+    },
+    {
+      "filename": "class-sectioning.png",
+      "label": "Class Sectioning"
+    },
+    {
+      "filename": "class-scheduling.png",
+      "label": "Class Scheduling"
+    },
+    {
+      "filename": "faculty-management.png",
+      "label": "Faculty Management"
+    },
+    {
+      "filename": "curriculum-syllabus-pathways.png",
+      "label": "Curriculum / Syllabus Pathways"
+    },
+    {
+      "filename": "grades-directory.png",
+      "label": "Grades Directory"
+    },
+    {
+      "filename": "registrar-reports.png",
+      "label": "Registrar Reports"
+    },
+    {
+      "filename": "accounting-dashboard.png",
+      "label": "Accounting Dashboard (KPI)"
+    },
+    {
+      "filename": "student-accounts.png",
+      "label": "Student Accounts — Ledger"
+    },
+    {
+      "filename": "accounting-setup.png",
+      "label": "Accounting Setup — Chart of Accounts"
+    },
+    {
+      "filename": "journal-entries.png",
+      "label": "Journal Entries / General Ledger"
+    },
+    {
+      "filename": "accounts-receivable.png",
+      "label": "Accounts Receivable — Sales Invoice"
+    },
+    {
+      "filename": "accounts-payable.png",
+      "label": "Accounts Payable — Purchase Invoice"
+    },
+    {
+      "filename": "financial-reports.png",
+      "label": "Financial Reports — Income Statement"
+    },
+    {
+      "filename": "payroll-dashboard.png",
+      "label": "Payroll Dashboard"
+    },
+    {
+      "filename": "online-learning.png",
+      "label": "Online Learning / LMS"
+    },
+    {
+      "filename": "clinic-module.png",
+      "label": "Clinic Module — Nurse View"
+    },
+    {
+      "filename": "consultation.png",
+      "label": "Consultation / Appointments"
+    },
+    {
+      "filename": "clinic-reports.png",
+      "label": "Clinic Reports"
+    },
+    {
+      "filename": "guidance-office.png",
+      "label": "Guidance Office"
+    },
+    {
+      "filename": "guidance-reports.png",
+      "label": "Guidance Reports"
+    },
+    {
+      "filename": "user-access-authority.png",
+      "label": "User Access & Authority — User Security"
+    },
+    {
+      "filename": "admin-reports.png",
+      "label": "Admin Reports"
+    },
+    {
+      "filename": "core-setup.png",
+      "label": "Core Setup / System Configuration"
+    },
+    {
+      "filename": "student-portal-super-admin.png",
+      "label": "Student Portal — Super Admin Preview"
+    },
+    {
+      "filename": "dashboard-school-admin.png",
+      "label": "Dashboard — School Administrator"
+    },
+    {
+      "filename": "action-center-school-admin.png",
+      "label": "Action Center — School Admin"
+    },
+    {
+      "filename": "student-directory-school-admin.png",
+      "label": "Student Directory — School Admin"
+    },
+    {
+      "filename": "hr-management-school-admin.png",
+      "label": "HR Management — School Admin"
+    },
+    {
+      "filename": "registrar-reports-school-admin.png",
+      "label": "Registrar Reports — School Admin"
+    },
+    {
+      "filename": "cashiering-office.png",
+      "label": "Cashiering — Payment Queue"
+    },
+    {
+      "filename": "teacher-board.png",
+      "label": "Teacher Board — Overview & Advisory"
+    },
+    {
+      "filename": "grade-encoding.png",
+      "label": "Grade Encoding"
+    },
+    {
+      "filename": "online-learning-teacher.png",
+      "label": "Online Learning — Teacher View"
+    },
+    {
+      "filename": "student-portal.png",
+      "label": "Student Portal — Overview"
+    },
+    {
+      "filename": "action-center-accounting.png",
+      "label": "Action Center — Accounting Staff"
+    },
+    {
+      "filename": "student-accounts-accounting.png",
+      "label": "Student Accounts — Accounting Staff"
+    },
+    {
+      "filename": "journal-entries-accounting.png",
+      "label": "Journal Entries — Accounting Staff"
+    },
+    {
+      "filename": "accounts-payable-accounting.png",
+      "label": "Accounts Payable — Accounting Staff"
+    },
+    {
+      "filename": "hr-management.png",
+      "label": "HR Management — HR Manager"
+    },
+    {
+      "filename": "action-center-hr.png",
+      "label": "Action Center — HR Manager"
+    },
+    {
+      "filename": "action-center-payroll.png",
+      "label": "Action Center — Payroll Officer"
+    },
+    {
+      "filename": "payroll-management.png",
+      "label": "Payroll Management — Payroll Officer"
+    },
+    {
+      "filename": "guidance-office-counselor.png",
+      "label": "Guidance Office — Counselor"
+    },
+    {
+      "filename": "guidance-reports-counselor.png",
+      "label": "Guidance Reports — Counselor"
+    },
+    {
+      "filename": "clinic-module-nurse.png",
+      "label": "Clinic Module — School Nurse"
+    },
+    {
+      "filename": "clinic-reports-nurse.png",
+      "label": "Clinic Reports — School Nurse"
+    },
+    {
+      "filename": "enrollment-registrar.png",
+      "label": "Enrollment — Registrar View"
+    },
+    {
+      "filename": "action-center-registrar.png",
+      "label": "Action Center — Registrar"
+    },
+    {
+      "filename": "curriculum-teacher.png",
+      "label": "Curriculum / Syllabus Pathways — Teacher"
+    },
+    {
+      "filename": "online-learning-student.png",
+      "label": "Online Learning — Student (via Student Portal sub-page)"
+    },
+    {
+      "filename": "consultation-student.png",
+      "label": "Consultation — Student"
+    },
+    {
+      "filename": "accounting-setup-accounting.png",
+      "label": "Accounting Setup — Accounting Staff"
+    },
+    {
+      "filename": "accounts-receivable-accounting.png",
+      "label": "Accounts Receivable — Accounting Staff"
+    },
+    {
+      "filename": "financial-reports-accounting.png",
+      "label": "Financial Reports — Accounting Staff"
+    }
+  ],
+  "skipped": [
+    {
+      "filename": "books-setup.png",
+      "reason": "BOOKS_SETUP has no sidebar nav entry in navigation.config.ts — not reachable via UI"
+    },
+    {
+      "filename": "consultation-nurse.png",
+      "reason": "NURSE role lacks CONSULTATION permission — PDF placeholder can use consultation.png (Super Admin capture)"
+    },
+    {
+      "filename": "parent-portal.png",
+      "reason": "No GUARDIAN role user in Supabase DB. Add a user with role=GUARDIAN and re-run, or capture manually."
+    }
+  ],
+  "updatedAt": "2026-06-27T02:11:58.314Z"
+}
