@@ -7,8 +7,6 @@ import React, { useState, useEffect } from "react";
 import { useSTSNStore } from "./services/store";
 import {
   GraduationCap,
-  LogOut,
-  Sparkles,
   Building2,
   Clock,
   Menu,
@@ -28,8 +26,8 @@ import {
 
 // Components
 import LoginOverlay from "./components/LoginOverlay";
-import { useAppDialog } from "./components/common/useAppDialog";
 import NotificationBell, { UrgentAnnouncementBanner } from "./components/common/NotificationBell";
+import UserProfileDropdown from "./components/common/UserProfileDropdown";
 import GlobalSearch from "./components/common/GlobalSearch";
 import BreadcrumbBar, { type BreadcrumbCrumb } from "./components/common/BreadcrumbBar";
 import MobileBottomNav, { hasMobileBottomNav } from "./components/common/MobileBottomNav";
@@ -86,9 +84,8 @@ function PendingBadge({ count, small = false }: { count: number; small?: boolean
 }
 
 export default function App() {
-  const { currentUser, login, logout, users, activeSchool, academicUnit, isLoading, initialize } =
+  const { currentUser, logout, activeSchool, academicUnit, isLoading, initialize } =
     useSTSNStore();
-  const { toast } = useAppDialog();
   const counts = usePendingCounts();
   const [activeModule, setActiveModule] = useState<STSNModule>("DASHBOARD");
   const [accountingSubPage, setAccountingSubPage] = useState("dashboard");
@@ -224,10 +221,6 @@ export default function App() {
     currentUser.role,
     academicUnit,
   );
-
-  const handleRoleQuickSwitch = (email: string) => {
-    login(email, "");
-  };
 
   const getBadgeCount = (moduleId: STSNModule, childId?: string): number => {
     if (!currentUser) return 0;
@@ -408,30 +401,6 @@ export default function App() {
                 </span>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Authenticated Staff Card */}
-        {sidebarMode === "minimal" ? (
-          <div className="px-2 pt-2 pb-1 flex justify-center">
-            <div className="w-8 h-8 rounded-full bg-stsn-gold/20 border border-stsn-gold/40 flex items-center justify-center" title={`${currentUser.name} — ${currentUser.role}`}>
-              <span className="text-[10px] font-bold text-stsn-gold">{currentUser.name[0]}</span>
-            </div>
-          </div>
-        ) : (
-          <div className="px-4 pt-3 pb-2">
-            <div className="bg-black/20 backdrop-blur border border-white/8 rounded-xl p-3.5">
-              <span className="text-[8px] uppercase font-mono tracking-widest text-stsn-gold/80 block mb-1">
-                Signed Authority
-              </span>
-              <p className="text-xs font-bold text-white truncate leading-tight">
-                {currentUser.name}
-              </p>
-              <p className="text-[9px] font-mono text-stone-400 mt-1 uppercase tracking-wide flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-stsn-gold animate-pulse flex-shrink-0" />
-                {currentUser.role.replace("_", " ")} Clearance
-              </p>
-            </div>
           </div>
         )}
 
@@ -696,19 +665,6 @@ export default function App() {
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="p-4 border-t border-white/8">
-          <button
-            onClick={() => {
-              logout();
-              toast("Logged out of STSN Connect session.");
-            }}
-            className="w-full bg-white/5 hover:bg-black/30 text-stone-300 hover:text-white rounded-xl py-2.5 text-xs font-semibold flex items-center justify-center gap-2 border border-white/8 cursor-pointer transition-all"
-          >
-            <LogOut className="w-4 h-4" />
-            Exit Connect Session
-          </button>
-        </div>
       </aside>
 
       {/* ============ MAIN AREA ============ */}
@@ -733,46 +689,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Presenter Tools */}
-            <div className="hidden md:flex items-center gap-1.5 bg-gradient-to-r from-stsn-cream to-white px-3 py-1.5 rounded-xl border border-stsn-beige shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-stsn-gold animate-spin" />
-              <div className="text-left leading-none">
-                <span className="text-[8.5px] uppercase font-mono text-stone-400 block font-bold">
-                  Presenter Sandbox
-                </span>
-                <span className="text-[10.5px] font-bold text-stsn-brown">
-                  ERP Demo Simulator:
-                </span>
-              </div>
-            </div>
-
-            {/* Role selector */}
-            <div className="relative group">
-              <div className="flex items-center gap-1 btn-primary-gradient text-white text-xs font-bold leading-none px-3 py-2 rounded-xl cursor-pointer shadow-md">
-                <span>Role: {currentUser.role.replace("_", " ")}</span>
-                <ChevronDown className="w-4 h-4" />
-              </div>
-              <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-xl border border-stone-200/85 w-54 py-2 hidden group-hover:block animate-fade-in text-slate-800">
-                <div className="px-3 pb-2 mb-1.5 border-b border-stone-100">
-                  <span className="text-[9px] uppercase font-mono text-stone-400 tracking-wider">
-                    Switch Simulated Account
-                  </span>
-                </div>
-                {users.map((u) => (
-                  <button
-                    key={u.email}
-                    onClick={() => handleRoleQuickSwitch(u.email)}
-                    className="w-full text-left font-sans font-semibold text-xs py-1.5 px-3 hover:bg-stsn-cream hover:text-stsn-brown-dark transition-all flex items-center gap-2"
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full ${currentUser.role === u.role ? "bg-stsn-gold" : "bg-stone-300"}`}
-                    />
-                    <span>{u.role.replace("_", " ")}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Global Search trigger */}
             <button
               onClick={() => setGlobalSearchOpen(true)}
@@ -784,9 +700,6 @@ export default function App() {
               <kbd className="hidden md:inline text-[9px] font-mono px-1.5 py-px rounded bg-stone-100 border border-stone-200 text-stone-400 leading-none">⌘K</kbd>
             </button>
 
-            {/* Notification Bell */}
-            <NotificationBell />
-
             {/* Clock */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-stone-50 to-white border border-stone-200/60 rounded-xl text-stone-600 shadow-sm">
               <Clock className="w-4 h-4 text-stsn-gold" />
@@ -794,6 +707,12 @@ export default function App() {
                 {currentTime || "12:00:00"}
               </span>
             </div>
+
+            {/* Notification Bell */}
+            <NotificationBell />
+
+            {/* User profile */}
+            <UserProfileDropdown />
           </div>
         </header>
         <BreadcrumbBar crumbs={breadcrumbs} />
