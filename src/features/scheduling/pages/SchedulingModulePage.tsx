@@ -11,12 +11,13 @@ import { getAcademicTerms, academicUnitToDepartment } from "../../../config/scho
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import {
-  CalendarDays, Plus, Edit2, Trash2, Search, Filter, X, AlertTriangle,
+  CalendarDays, Plus, Edit2, Trash2, X, AlertTriangle,
   CheckCircle, Clock, Building2, Users, BookOpen, ChevronDown, List,
   LayoutGrid, GraduationCap, MapPin, RefreshCw
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import DataTableCard from "../../../components/common/DataTableCard";
 
 /** Inverse of academicUnitToDepartment — used to derive terminology from a teacher's department. */
 function departmentToAcademicUnit(dept: "Basic Education" | "College"): AcademicUnit {
@@ -679,10 +680,6 @@ export default function SchedulingModule() {
       {/* Filters & View Toggle */}
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
         <div className="flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-48">
-            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-            <input type="text" placeholder="Search subject, section, teacher, room..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none" />
-          </div>
           <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
             {schoolYearOptions.map((y) => <option key={y.id}>{y.name}</option>)}
           </select>
@@ -725,15 +722,19 @@ export default function SchedulingModule() {
           {viewMode === "grid" ? (
             <CalendarGridView schedules={displaySchedules} conflictIds={conflictIds} />
           ) : (
-            <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-              <div className="p-4">
-                <STSNDataTable<ClassSchedule>
-                  columns={scheduleColumns}
-                  rows={displaySchedules}
-                  searchable={false}
-                  emptyMessage={showConflictsOnly ? "No conflicts detected in the current view." : "No schedules found. Adjust filters or create a new schedule."}
-                />
-              </div>
+            <DataTableCard
+              title="Class Schedules"
+              icon={CalendarDays}
+              searchValue={searchQ}
+              onSearchChange={setSearchQ}
+              searchPlaceholder="Search subject, section, teacher, room…"
+            >
+              <STSNDataTable<ClassSchedule>
+                columns={scheduleColumns}
+                rows={displaySchedules}
+                searchable={false}
+                emptyMessage={showConflictsOnly ? "No conflicts detected in the current view." : "No schedules found. Adjust filters or create a new schedule."}
+              />
               <div className="px-4 py-3 border-t border-stone-100 text-xs text-stone-400 flex justify-between">
                 <span>{displaySchedules.length} schedule{displaySchedules.length !== 1 ? "s" : ""} displayed</span>
                 {conflictIds.size > 0 && (
@@ -742,7 +743,7 @@ export default function SchedulingModule() {
                   </span>
                 )}
               </div>
-            </div>
+            </DataTableCard>
           )}
         </div>
 

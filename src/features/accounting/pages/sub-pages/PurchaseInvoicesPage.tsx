@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  FileInput, Plus, Eye, Edit2, Trash2, Search, Filter, Download,
+  FileInput, Plus, Eye, Edit2, Trash2, Download,
   Loader2, X, Send, Ban, PlusCircle, Trash,
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbDelete, dbDeleteWhere, dbInsert, dbSelectAll, dbUpdate, newId } from "../../../../services/supabaseCrud";
 
@@ -559,30 +560,30 @@ export default function PurchaseInvoicesPage() {
         <div className="bg-white border border-stone-200 rounded-xl px-4 py-3 text-center shadow-sm"><p className="text-[10px] font-mono uppercase tracking-wider text-stone-400">Payable</p><p className="text-xl font-bold text-blue-600 mt-0.5">PHP {fmt(stats.payable)}</p><p className="text-[9px] text-stone-400">Posted total</p></div>
       </div>
 
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search invoice, supplier, or notes..." className="w-full pl-8 pr-3 py-2 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-stone-400" />
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as PurchaseInvoiceStatus | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50">
-            <option value="All">All Statuses</option>
-            {Object.keys(STATUS_CONFIG).map((status) => <option key={status} value={status}>{status}</option>)}
-          </select>
-        </div>
-        <button className="flex items-center gap-1.5 px-3 py-2 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
-          <Download className="w-3.5 h-3.5" /> Export
-        </button>
-      </div>
-
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+      <DataTableCard
+        title="Purchase Invoices"
+        icon={FileInput}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search invoice, supplier, or notes…"
+        actions={
+          <>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as PurchaseInvoiceStatus | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
+              <option value="All">All Statuses</option>
+              {Object.keys(STATUS_CONFIG).map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
+              <Download className="w-3.5 h-3.5" /> Export
+            </button>
+          </>
+        }
+      >
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs"><Loader2 className="w-4 h-4 animate-spin" /> Loading purchase invoices...</div>
         ) : (
           <STSNDataTable columns={columns} rows={filtered} searchable={false} emptyMessage="No purchase invoices match your search." pageLength={10} />
         )}
-      </div>
+      </DataTableCard>
 
       {showForm && (
         <div className="app-modal-backdrop z-50 animate-fade-in">

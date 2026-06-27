@@ -17,6 +17,7 @@ import {
   School, ToggleLeft, ToggleRight, Grid3x3, Printer, Eye
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DataTableCard from "../../../components/common/DataTableCard";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
@@ -581,41 +582,46 @@ export default function ClassSectioningModule() {
         <AppKpiCard label="Total Capacity" value={totalCapacity} icon={GraduationCap} tone="neutral" hint="Combined seat limit" />
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-          <input type="text" placeholder="Search by section name, code, adviser..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none" />
-        </div>
-        {lockedDept ? (
-          <div className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-500">
-            {lockedDept}
-          </div>
-        ) : (
-          <select value={filterDept} onChange={(e: any) => setFilterDept(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
-            <option value="All">All Departments</option>
-            <option value="Basic Education">Basic Education</option>
-            <option value="College">College</option>
-          </select>
-        )}
-        <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
-          {yearLevelOptions.map((y) => <option key={y}>{y}</option>)}
-        </select>
-        <span className="text-[10px] text-stone-400 font-mono">{filtered.length} section{filtered.length !== 1 ? "s" : ""}</span>
-      </div>
-
       {/* Sections Table */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden p-4">
+      <DataTableCard
+        title={`${terms.groupNoun} Registry`}
+        icon={Layers}
+        searchValue={searchQ}
+        onSearchChange={setSearchQ}
+        searchPlaceholder={`Search by ${terms.groupNoun.toLowerCase()} name, code, adviser…`}
+        actions={
+          <>
+            {lockedDept ? (
+              <span className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 px-3 text-xs font-semibold text-stone-500">
+                {lockedDept}
+              </span>
+            ) : (
+              <select value={filterDept} onChange={(e: any) => setFilterDept(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 px-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown cursor-pointer">
+                <option value="All">All Departments</option>
+                <option value="Basic Education">Basic Education</option>
+                <option value="College">College</option>
+              </select>
+            )}
+            <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 px-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown cursor-pointer">
+              {yearLevelOptions.map((y) => <option key={y}>{y}</option>)}
+            </select>
+            <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">
+              {filtered.length} {terms.groupNoun.toLowerCase()}{filtered.length !== 1 ? "s" : ""}
+            </span>
+          </>
+        }
+        bodyClassName="p-4"
+      >
         <STSNDataTable<SchoolSection>
           columns={sectionColumns}
           rows={filtered}
           searchable={false}
           emptyMessage="No sections found. Create a new section to get started."
         />
-        <div className="px-4 py-3 border-t border-stone-100 text-xs text-stone-400 font-mono">
-          {filtered.length} section{filtered.length !== 1 ? "s" : ""} displayed • Total Enrolled: {totalEnrolled} / {totalCapacity} capacity
+        <div className="pt-3 border-t border-stone-100 text-xs text-stone-400 font-mono">
+          {filtered.length} {terms.groupNoun.toLowerCase()}{filtered.length !== 1 ? "s" : ""} displayed • Total Enrolled: {totalEnrolled} / {totalCapacity} capacity
         </div>
-      </div>
+      </DataTableCard>
 
       {/* Section Form Modal */}
       {isFormOpen && (

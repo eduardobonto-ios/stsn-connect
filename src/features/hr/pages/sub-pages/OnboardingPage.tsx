@@ -8,6 +8,7 @@ import { UserCheck, CheckCircle, Clock, SkipForward, X, ChevronRight } from "luc
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import { EmployeeOnboardingTask, OnboardingTask } from "../../../../types";
 
 const TASK_STATUS_COLORS: Record<string, string> = {
@@ -215,21 +216,6 @@ export default function OnboardingPage() {
         </div>
       </div>
 
-      {/* Filter card */}
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-        <span className="text-xs text-stone-500">Show:</span>
-        {["All", "In Progress", "Complete"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`text-xs px-3 py-1 rounded-full border font-semibold cursor-pointer transition-all ${filterStatus === s ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-500 hover:border-stsn-gold"}`}
-          >
-            {s}
-          </button>
-        ))}
-        <span className="ml-auto text-xs text-stone-400"><span className="font-semibold text-stone-700">{filtered.length}</span> employee(s)</span>
-      </div>
-
       {onboardingTemplates.length > 0 && (
         <div className="bg-stsn-cream border border-stsn-beige rounded-xl p-4 text-xs text-stone-600">
           <p className="font-semibold mb-1">Onboarding Templates</p>
@@ -247,7 +233,25 @@ export default function OnboardingPage() {
       )}
 
       <div className={`flex gap-4 ${selectedEmployeeId ? "flex-col lg:flex-row" : ""}`}>
-        <div className={`${selectedEmployeeId ? "lg:flex-1" : "w-full"} bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1`}>
+        <DataTableCard
+          title="Onboarding Employees"
+          icon={UserCheck}
+          actions={
+            <>
+              {["All", "In Progress", "Complete"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilterStatus(s)}
+                  className={`text-xs px-3 py-1 rounded-full border font-semibold cursor-pointer transition-all ${filterStatus === s ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-500 hover:border-stsn-gold"}`}
+                >
+                  {s}
+                </button>
+              ))}
+              <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">{filtered.length} employee(s)</span>
+            </>
+          }
+          className={selectedEmployeeId ? "lg:flex-1" : "w-full"}
+        >
           {onboardingEmployees.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <UserCheck className="w-10 h-10 text-stone-200" />
@@ -267,7 +271,7 @@ export default function OnboardingPage() {
               selectedId={selectedEmployeeId ?? undefined}
             />
           )}
-        </div>
+        </DataTableCard>
         {selectedEmployeeId && (
           <div className="lg:w-96 flex-shrink-0">
             <EmployeeChecklist

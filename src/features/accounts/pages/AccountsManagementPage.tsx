@@ -13,6 +13,7 @@ import {
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DataTableCard from "../../../components/common/DataTableCard";
 import AppModal from "../../../components/common/AppModal";
 import AppFormField from "../../../components/common/AppFormField";
 import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
@@ -206,22 +207,20 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
 
       {/* User Security tab */}
       {activeTab === "user-security" && (
-        <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
-          <div className="flex justify-between items-center bg-stone-50 p-2.5 rounded-lg border border-stone-200">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search by email, name, or role…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-9 bg-stone-50 border border-stone-200 rounded-xl py-0 pl-10 pr-3 text-xs font-semibold text-stone-800 focus:ring-2 focus:ring-stsn-brown/20 focus:outline-none focus:border-stsn-brown placeholder:text-stone-400 transition"
-              />
-            </div>
-            <span className="text-[10px] text-stone-400 font-mono">
+        <DataTableCard
+          title="Provisioned User Profiles"
+          icon={Shield}
+          subtitle="All credentialed system users — click a row to view details"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search by email, name, or role…"
+          actions={
+            <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">
               {filteredUsers.length} profile{filteredUsers.length !== 1 ? "s" : ""}
             </span>
-          </div>
+          }
+          bodyClassName="p-4"
+        >
           <STSNDataTable<User>
             columns={userColumns}
             rows={filteredUsers}
@@ -230,7 +229,7 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
             onRowClick={(u) => setSelectedUser(u)}
             tableId="accounts-users"
           />
-        </div>
+        </DataTableCard>
       )}
 
       {/* Delegation Management tab */}

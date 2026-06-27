@@ -4,6 +4,7 @@ import {
   CheckCircle, XCircle, Filter, Download, Loader2
 } from "lucide-react";
 import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import DataTableCard from "../../../../components/common/DataTableCard";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbInsert, dbUpdate, dbDelete, dbSelectAll, newId } from "../../../../services/supabaseCrud";
@@ -408,51 +409,44 @@ export default function ChartOfAccountsPage() {
         })}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by code or name…"
-            className="w-full pl-8 pr-3 py-2 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-stone-400" />
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as AccountType | "All")}
-            className="text-xs border border-stone-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50"
-          >
-            <option value="All">All Types</option>
-            {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <button className="flex items-center gap-1.5 px-3 py-2 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
-          <Download className="w-3.5 h-3.5" />
-          Export
-        </button>
-      </div>
-
       {/* Table */}
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+      <DataTableCard
+        title="Chart of Accounts"
+        icon={List}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by code or name…"
+        actions={
+          <>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as AccountType | "All")}
+              className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer"
+            >
+              <option value="All">All Types</option>
+              {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
+              <Download className="w-3.5 h-3.5" /> Export
+            </button>
+          </>
+        }
+      >
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
             <Loader2 className="w-4 h-4 animate-spin" />
             Loading accounts…
           </div>
         ) : (
-        <STSNDataTable
-          columns={isSearching ? flatColumns : treeColumns}
-          rows={isSearching ? flatFiltered : treeRows}
-          searchable={false}
-          emptyMessage={isSearching ? "No accounts match your search." : "No accounts found."}
-          pageLength={50}
-        />
+          <STSNDataTable
+            columns={isSearching ? flatColumns : treeColumns}
+            rows={isSearching ? flatFiltered : treeRows}
+            searchable={false}
+            emptyMessage={isSearching ? "No accounts match your search." : "No accounts found."}
+            pageLength={50}
+          />
         )}
-      </div>
+      </DataTableCard>
 
       {/* Add / Edit Form Modal */}
       {showForm && (

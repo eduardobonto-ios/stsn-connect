@@ -9,9 +9,10 @@ import { getAcademicTerms } from "../../../config/schools.config";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { Student } from "../../../types";
 import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import DataTableCard from "../../../components/common/DataTableCard";
 import AppModal from "../../../components/common/AppModal";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
-import { UsersRound, LayoutDashboard, BookOpen, Receipt, FileText, Search, UserCheck, Clock, X } from "lucide-react";
+import { UsersRound, LayoutDashboard, BookOpen, Receipt, FileText, UserCheck, Clock } from "lucide-react";
 import StudentPortal from "../../student-portal/pages/StudentPortalPage";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
@@ -171,38 +172,23 @@ export default function StudentDirectoryPage({ onNavigate: _onNavigate }: Studen
       </div>
 
       {/* Table card */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        {/* Search toolbar */}
-        <div className="px-4 py-3 border-b border-stone-100">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4 pointer-events-none" />
-              <input
-                type="text"
-                placeholder={`Search ${isBasicEd ? "learners" : "students"} by name or ID…`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full h-10 bg-stone-50 border border-stone-200 rounded-xl py-0 pl-10 pr-10 text-sm focus:ring-2 focus:outline-none ${isBasicEd ? "focus:ring-stsn-brown/20 focus:border-stsn-brown" : "focus:ring-blue-500/20 focus:border-blue-500"}`}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+      <DataTableCard
+        title={isBasicEd ? "Learner Registry" : "Student Registry"}
+        icon={UsersRound}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={`Search ${isBasicEd ? "learners" : "students"} by name or ID…`}
+        actions={
+          <>
             <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${schoolBadgeClass}`}>
               {isBasicEd ? "Basic Ed" : "College"}
             </span>
             <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">
-              Found: {filteredStudents.length}
+              {filteredStudents.length} found
             </span>
-          </div>
-        </div>
-
+          </>
+        }
+      >
         <STSNDataTable<Student>
           columns={columns}
           rows={filteredStudents}
@@ -210,7 +196,7 @@ export default function StudentDirectoryPage({ onNavigate: _onNavigate }: Studen
           searchable={false}
           className="px-3 pb-3"
         />
-      </div>
+      </DataTableCard>
 
       {modal && (
         <AppModal
