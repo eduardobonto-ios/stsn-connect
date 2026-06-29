@@ -8,6 +8,8 @@ import { ClipboardList, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
+import AppButton from "../../../../components/common/AppButton";
+import AppCard from "../../../../components/common/AppCard";
 import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import { EmployeeAttendance } from "../../../../types";
 import { ATTENDANCE_STATUSES } from "../../utils/payrollCalculations";
@@ -228,7 +230,7 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
+      <AppCard className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" tone="brand">
         <div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-stsn-brown" />
@@ -236,13 +238,13 @@ export default function AttendancePage() {
           </h2>
           <p className="text-stone-500 text-xs mt-1">Daily attendance records per employee.</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary-gradient text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 cursor-pointer">
-          <Plus className="w-4 h-4" /> Record Attendance
-        </button>
-      </div>
+        <AppButton onClick={() => setShowModal(true)} size="sm" leftIcon={Plus}>
+          Record Attendance
+        </AppButton>
+      </AppCard>
 
       {Object.keys(summary).length > 0 && (
-        <div className="flex flex-wrap gap-2 rounded-lg border border-[var(--erp-border)] bg-white px-4 py-2">
+        <AppCard className="flex flex-wrap gap-2 px-4 py-3" padded={false} tone="brand">
           {Object.entries(summary).map(([s, count]) => (
             <button
               key={s}
@@ -252,7 +254,7 @@ export default function AttendancePage() {
               {s}: {count}
             </button>
           ))}
-        </div>
+        </AppCard>
       )}
 
       <AppTable<EmployeeAttendance>

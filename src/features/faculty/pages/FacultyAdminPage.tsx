@@ -14,7 +14,11 @@ import AppTable, {
   appTableColumnsFromLegacy,
   type AppTableLegacyColumn,
 } from "../../../components/common/AppTable";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
 import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 import {
@@ -187,17 +191,9 @@ function OverviewAdvisoryModal({
                         {s.contactNo || "—"}
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                            s.enrollmentStatus === "Enrolled"
-                              ? "bg-green-50 text-green-700 border-green-200"
-                              : s.enrollmentStatus === "Approved"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
-                          }`}
-                        >
+                        <AppStatusBadge status={s.enrollmentStatus}>
                           {s.enrollmentStatus}
-                        </span>
+                        </AppStatusBadge>
                       </td>
                     </tr>
                   ))}
@@ -208,12 +204,14 @@ function OverviewAdvisoryModal({
         </div>
 
         <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-end">
-          <button
+          <AppButton
+            type="button"
+            variant="secondary"
+            size="sm"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer"
           >
             Close
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>,
@@ -335,17 +333,9 @@ function SectionStudentsModal({
                             {s.yearLevel}
                           </td>
                           <td className="px-4 py-2.5 text-center">
-                            <span
-                              className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                                s.enrollmentStatus === "Enrolled"
-                                  ? "bg-green-50 text-green-700 border-green-200"
-                                  : s.enrollmentStatus === "Approved"
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : "bg-amber-50 text-amber-700 border-amber-200"
-                              }`}
-                            >
+                            <AppStatusBadge status={s.enrollmentStatus}>
                               {s.enrollmentStatus}
-                            </span>
+                            </AppStatusBadge>
                           </td>
                         </tr>
                       ))}
@@ -358,12 +348,14 @@ function SectionStudentsModal({
         </div>
 
         <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-end">
-          <button
+          <AppButton
+            type="button"
+            variant="secondary"
+            size="sm"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer"
           >
             Close
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -534,20 +526,22 @@ function AttendanceModal({
           </div>
 
           <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-between items-center">
-            <button
+            <AppButton
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer"
             >
               Close
-            </button>
-            <button
+            </AppButton>
+            <AppButton
               type="submit"
-              className="bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream text-xs font-bold px-5 py-2 rounded-lg border border-stsn-brown/30 shadow-sm cursor-pointer flex items-center gap-1.5 transition"
+              variant="primary"
+              size="sm"
+              leftIcon={CheckCircle}
             >
-              <CheckCircle className="w-4 h-4" />
               Submit Attendance
-            </button>
+            </AppButton>
           </div>
         </form>
       </div>
@@ -725,6 +719,29 @@ export default function FacultyAdminPage() {
         <AppKpiCard label="With Advisory" value={kpiStats.withAdvisory} icon={UserCheck} tone="success" hint="Section advisers" />
       </div>
 
+      <AppCard className="grid gap-3 border border-[var(--erp-border)] lg:grid-cols-3" tone="brand">
+        <div className="space-y-1">
+          <p className="text-[10px] font-mono font-bold uppercase tracking-[0.22em] text-[var(--erp-text-muted)]">
+            Faculty Overview
+          </p>
+          <p className="text-sm font-semibold text-[var(--erp-text)]">
+            Faculty records, advisory ownership, attendance, and grading access stay in one workflow surface.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--erp-border)] bg-white/80 px-4 py-3">
+          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">Academic Scope</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--erp-text)]">
+            {kpiStats.basicEd} Basic Ed and {kpiStats.college} College faculty in the current view
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--erp-border)] bg-white/80 px-4 py-3">
+          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">Advisory Coverage</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--erp-text)]">
+            {kpiStats.withAdvisory} adviser{kpiStats.withAdvisory !== 1 ? "s" : ""} currently mapped to sections
+          </p>
+        </div>
+      </AppCard>
+
       {/* Table */}
       <AppTable<Teacher>
         title="Faculty Members"
@@ -735,16 +752,14 @@ export default function FacultyAdminPage() {
         emptyMessage="No teachers found."
         getRowId={(teacher) => teacher.id}
         toolbar={
-          <div className="relative min-w-60 flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
-            <input
-              type="search"
-              value={searchQ}
-              onChange={(event) => setSearchQ(event.target.value)}
-              placeholder="Search by name or specialization..."
-              className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-8 pr-3 text-xs text-[var(--erp-text)] outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
-            />
-          </div>
+          <AppSearchInput
+            value={searchQ}
+            onChange={(event) => setSearchQ(event.target.value)}
+            onClear={searchQ ? () => setSearchQ("") : undefined}
+            placeholder="Search by name or specialization..."
+            wrapperClassName="min-w-60 flex-1"
+            uiSize="sm"
+          />
         }
       />
 

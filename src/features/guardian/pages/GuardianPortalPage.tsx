@@ -9,8 +9,11 @@ import {
   ChevronRight, MessageSquare, AlertCircle, CheckCircle,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
-import EmptyState from "../../../components/common/EmptyState";
+import AppEmptyState from "../../../components/common/AppEmptyState";
 
 export default function GuardianPortalPage() {
   const { currentUser, students, assessments, grades, announcements } = useSTSNStore();
@@ -34,7 +37,7 @@ export default function GuardianPortalPage() {
 
   if (linkedStudents.length === 0) {
     return (
-      <EmptyState
+      <AppEmptyState
         icon={GraduationCap}
         title="No Students Linked"
         description="Your account has no linked student records yet. Please contact the Registrar's office to have your child's account linked to your guardian profile."
@@ -51,20 +54,16 @@ export default function GuardianPortalPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-stsn-gold/10 border border-stsn-gold/20 flex items-center justify-center flex-shrink-0">
-          <User className="w-4 h-4 text-stsn-gold" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-sm font-display font-bold text-stsn-brown-dark">Guardian Portal</h2>
-          <p className="text-[10px] text-stone-400 mt-0.5 truncate">Welcome, {currentUser?.name}. Read-only view of your linked student(s).</p>
-        </div>
-      </div>
+      <ModulePageHeader
+        badge="Guardian Portal"
+        badgeIcon={User}
+        title="Guardian Portal"
+        subtitle={`Welcome, ${currentUser?.name}. Read-only view of your linked student records, finances, and finalized academic results.`}
+      />
 
       {/* Announcements */}
       {activeAnnouncements.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <AppCard className="border border-amber-200 bg-amber-50 p-4" tone="brand">
           <div className="flex items-center gap-2 mb-3">
             <Bell className="w-3.5 h-3.5 text-amber-600" />
             <span className="text-xs font-bold text-amber-700">School Notices ({activeAnnouncements.length})</span>
@@ -82,7 +81,7 @@ export default function GuardianPortalPage() {
               </div>
             ))}
           </div>
-        </div>
+        </AppCard>
       )}
 
       {/* Student Switcher — shown only when more than one student is linked */}
@@ -108,7 +107,7 @@ export default function GuardianPortalPage() {
       )}
 
       {/* Selected Student Card */}
-      <div className="bg-white rounded-2xl border border-stsn-beige shadow-sm overflow-hidden">
+      <AppCard className="overflow-hidden p-0" tone="brand">
         {/* Student header */}
         <div className="px-5 py-4 bg-gradient-to-r from-stsn-cream to-white border-b border-stone-100 flex items-center gap-4">
           <div className="w-11 h-11 rounded-xl bg-stsn-gold/15 border border-stsn-gold/30 flex items-center justify-center flex-shrink-0">
@@ -219,10 +218,10 @@ export default function GuardianPortalPage() {
           </span>
           <span className="ml-auto text-[10px] text-stone-400">LRN: {selectedStudent.lrn || "—"}</span>
         </div>
-      </div>
+      </AppCard>
 
       {/* Request Consultation */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+      <AppCard className="p-4" tone="brand">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
@@ -239,13 +238,14 @@ export default function GuardianPortalPage() {
               <span className="text-[10px] font-bold text-emerald-700">Request Sent</span>
             </div>
           ) : (
-            <button
+            <AppButton
               onClick={() => setConsultRequested(true)}
-              className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition cursor-pointer"
+              variant="primary-college"
+              size="sm"
+              className="flex-shrink-0"
             >
               Request
-              <ChevronRight className="w-3 h-3" />
-            </button>
+            </AppButton>
           )}
         </div>
         {consultRequested && (
@@ -255,16 +255,16 @@ export default function GuardianPortalPage() {
             </p>
           </div>
         )}
-      </div>
+      </AppCard>
 
       {/* Disclaimer */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex gap-2">
+      <AppCard className="flex gap-2 border border-blue-100 bg-blue-50 px-4 py-3" tone="muted">
         <BookOpen className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
         <p className="text-[10px] text-blue-700 leading-relaxed">
           This is a read-only view. Grade records shown are finalized entries only.
           For concerns about your child's records, please contact the Registrar's Office or Class Adviser.
         </p>
-      </div>
+      </AppCard>
     </div>
   );
 }

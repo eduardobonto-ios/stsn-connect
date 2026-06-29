@@ -6,6 +6,7 @@
 import React from "react";
 import { Users, Banknote, FileCheck, CalendarDays, Clock, Award, CalendarCheck, AlertTriangle, CheckCircle2, TrendingDown } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
+import AppCard from "../../../../components/common/AppCard";
 
 export default function HRDashboardPage() {
   const {
@@ -67,7 +68,7 @@ export default function HRDashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
+      <AppCard className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" tone="brand">
         <div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <Users className="w-5 h-5 text-stsn-brown" />
@@ -77,7 +78,7 @@ export default function HRDashboardPage() {
             Human resources overview — workforce, attendance, leave, and payroll at a glance.
           </p>
         </div>
-      </div>
+      </AppCard>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -102,7 +103,7 @@ export default function HRDashboardPage() {
       {(attendanceExceptions.length > 0 || pendingLeaveRequests.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Attendance Exceptions */}
-          <div className="bg-white border border-red-100 rounded-xl shadow-sm overflow-hidden">
+          <AppCard className="overflow-hidden border-red-100" padded={false}>
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-red-50 bg-red-50/40">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-500" />
@@ -143,10 +144,10 @@ export default function HRDashboardPage() {
                 })
               )}
             </div>
-          </div>
+          </AppCard>
 
           {/* Pending Leave Requests */}
-          <div className="bg-white border border-amber-100 rounded-xl shadow-sm overflow-hidden">
+          <AppCard className="overflow-hidden border-amber-100" padded={false}>
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-amber-50 bg-amber-50/40">
               <div className="flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-amber-600" />
@@ -188,13 +189,13 @@ export default function HRDashboardPage() {
                 })
               )}
             </div>
-          </div>
+          </AppCard>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Employee Distribution by Contract */}
-        <div className="bg-white border border-stsn-beige rounded-xl p-6 shadow-sm">
+        <AppCard tone="brand">
           <h3 className="text-sm font-display font-bold text-stone-800 mb-4">Employee Distribution</h3>
           <div className="space-y-3">
             {contractGroups.map((group) => {
@@ -230,10 +231,10 @@ export default function HRDashboardPage() {
           {filteredEmployees.length === 0 && (
             <p className="text-xs text-stone-400 text-center py-4">No employee records found.</p>
           )}
-        </div>
+        </AppCard>
 
         {/* HR Module Summary */}
-        <div className="bg-white border border-stsn-beige rounded-xl p-6 shadow-sm">
+        <AppCard tone="brand">
           <h3 className="text-sm font-display font-bold text-stone-800 mb-4">Module Summary</h3>
           <div className="space-y-1">
             {[
@@ -261,7 +262,7 @@ export default function HRDashboardPage() {
               );
             })}
           </div>
-        </div>
+        </AppCard>
       </div>
     </div>
   );

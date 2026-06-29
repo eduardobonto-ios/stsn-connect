@@ -5,16 +5,16 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import {
-  Stethoscope, Plus, Search, Eye, X, Calendar, User,
-  Heart, AlertCircle, CheckCircle, Clock, Download,
+  Stethoscope, Plus, X, Calendar, User,
+  Heart, AlertCircle, CheckCircle, Clock,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
+import AppCard from "../../../components/common/AppCard";
 import AppButton from "../../../components/common/AppButton";
 import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppLoadingState from "../../../components/common/AppLoadingState";
 import AppSearchInput from "../../../components/common/AppSearchInput";
-import AppSelect from "../../../components/common/AppSelect";
 import AppTabs from "../../../components/common/AppTabs";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
@@ -320,57 +320,56 @@ export default function ClinicModule() {
       {loading ? (
         <AppLoadingState title="Loading clinic records..." description="Preparing visit logs and health profiles." />
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {kpis.map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <div key={kpi.label} className={`border rounded-xl shadow-sm p-4 ${kpi.bg}`}>
+              <AppCard key={kpi.label} className={`border-none p-4 ${kpi.bg}`} tone="brand">
                 <div className="flex items-center gap-2 mb-1">
                   <Icon className={`w-4 h-4 ${kpi.color}`} />
                   <p className="text-[10px] uppercase font-mono tracking-wider text-stone-500">{kpi.label}</p>
                 </div>
                 <p className="text-2xl font-display font-black text-stone-800">{kpi.value}</p>
-              </div>
+              </AppCard>
             );
           })}
         </div>
       )}
 
       {/* Tabs */}
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center border-b border-stone-100">
-          <div className="flex flex-1">
-            {([["visits", "Today's Visits"], ["history", "Visit History"], ["profiles", "Health Profiles"]] as const).map(([tab, label]) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-3 text-xs font-bold transition-all ${activeTab === tab ? "tab-active-gradient text-stsn-brown border-b-2 border-stsn-gold" : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {activeTab === "history" && (
-            <div className="flex items-center gap-2 px-3 flex-shrink-0">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
-                <input
-                  type="text" placeholder="Search student or complaint…"
-                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 w-44 bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40"
+      <AppCard className="overflow-hidden p-0" tone="brand">
+        <AppTabs<"visits" | "history" | "profiles">
+          items={[
+            { value: "visits", label: "Today's Visits" },
+            { value: "history", label: "Visit History" },
+            { value: "profiles", label: "Health Profiles" },
+          ]}
+          value={activeTab}
+          onChange={(value) => setActiveTab(value)}
+          variant="underline"
+          rightSlot={
+            activeTab === "history" ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <AppSearchInput
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search student or complaint..."
+                  uiSize="sm"
+                  wrapperClassName="w-full sm:w-52"
                 />
+                <select
+                  value={filterDisposition}
+                  onChange={(e) => setFilterDisposition(e.target.value)}
+                  className="min-h-9 rounded-xl border border-[var(--erp-border)] bg-white px-3 text-xs text-[var(--erp-text)] outline-none transition focus:border-[var(--erp-accent)]/60 focus:ring-4 focus:ring-[var(--erp-brand)]/12"
+                >
+                  <option value="All">All Dispositions</option>
+                  {Object.keys(DISPOSITION_CONFIG).map((d) => <option key={d} value={d}>{DISPOSITION_CONFIG[d as Disposition].label}</option>)}
+                </select>
+                <ExportMenu onExport={exportVisitHistory} label="Export" />
               </div>
-              <select
-                value={filterDisposition} onChange={(e) => setFilterDisposition(e.target.value)}
-                className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs focus:outline-none"
-              >
-                <option value="All">All Dispositions</option>
-                {Object.keys(DISPOSITION_CONFIG).map((d) => <option key={d} value={d}>{DISPOSITION_CONFIG[d as Disposition].label}</option>)}
-              </select>
-              <ExportMenu onExport={exportVisitHistory} label="Export" />
-            </div>
-          )}
-        </div>
+            ) : undefined
+          }
+        />
 
         <div className="p-5">
           {/* TODAY'S VISITS */}
@@ -387,7 +386,7 @@ export default function ClinicModule() {
 
               {/* Follow-up reminder strip */}
               {followUpVisits.length > 0 && (
-                <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-200 rounded-xl p-3">
+                <AppCard className="flex items-start gap-2.5 border border-purple-200 bg-purple-50 p-3" tone="muted">
                   <AlertCircle className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-purple-800">Follow-up Required</p>
@@ -395,21 +394,22 @@ export default function ClinicModule() {
                       {followUpVisits.length} student{followUpVisits.length !== 1 ? "s" : ""} from previous visits are marked <strong>For Follow-up</strong>. Check Visit History for details.
                     </p>
                   </div>
-                </div>
+                </AppCard>
               )}
               {todaysVisits.length === 0 ? (
-                <div className="text-center py-12">
-                  <CheckCircle className="w-10 h-10 text-stone-200 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-stone-600">No visits recorded today.</p>
-                  <p className="text-xs text-stone-400 mt-1">Click "Log Visit" to add a clinic visit entry.</p>
-                </div>
+                <AppEmptyState
+                  icon={CheckCircle}
+                  title="No visits recorded today."
+                  description='Click "Log Visit" to add a clinic visit entry.'
+                  compact
+                />
               ) : (
                 <div className="space-y-3">
                   {todaysVisits.map((v) => {
                     const stu = scopedStudents.find((s) => s.id === v.studentId);
                     const cfg = DISPOSITION_CONFIG[v.disposition];
                     return (
-                      <div key={v.id} className="flex items-start justify-between p-3 bg-stone-50 border border-stone-200 rounded-xl gap-3">
+                      <AppCard key={v.id} className="border border-stone-200 bg-stone-50 p-3" tone="muted">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <User className="w-3.5 h-3.5 text-stsn-gold flex-shrink-0" />
@@ -425,7 +425,7 @@ export default function ClinicModule() {
                           </p>
                         </div>
                         <button onClick={() => setDetailVisit(v)} className="text-[10px] font-bold text-stsn-brown underline cursor-pointer flex-shrink-0">View</button>
-                      </div>
+                      </AppCard>
                     );
                   })}
                 </div>
@@ -452,28 +452,29 @@ export default function ClinicModule() {
           {/* HEALTH PROFILES */}
           {activeTab === "profiles" && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                 <p className="text-xs text-stone-500">Student health profiles with blood type, allergies, chronic conditions, and emergency contacts.</p>
-                <div className="relative flex-shrink-0 w-full sm:w-56">
-                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-                  <input
-                    type="text" placeholder="Search student…"
-                    value={profileSearch} onChange={(e) => setProfileSearch(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold/40"
-                  />
-                </div>
+                <AppSearchInput
+                  value={profileSearch}
+                  onChange={(e) => setProfileSearch(e.target.value)}
+                  placeholder="Search student..."
+                  uiSize="sm"
+                  wrapperClassName="w-full sm:w-56"
+                />
               </div>
               {filteredProfiles.length === 0 ? (
-                <div className="text-center py-12">
-                  <Heart className="w-10 h-10 text-stone-200 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-stone-600">{scopedProfiles.length === 0 ? "No health profiles on record." : "No profiles match your search."}</p>
-                </div>
+                <AppEmptyState
+                  icon={Heart}
+                  title={scopedProfiles.length === 0 ? "No health profiles on record." : "No profiles match your search."}
+                  description="Student health profiles will appear here when records are available."
+                  compact
+                />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {filteredProfiles.map((p) => {
                     const stu = scopedStudents.find((s) => s.id === p.studentId);
                     return (
-                      <div key={p.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-2">
+                      <AppCard key={p.id} className="border border-stone-200 bg-stone-50 p-4 space-y-2" tone="muted">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-stsn-gold" />
                           <p className="text-sm font-bold text-stone-800">
@@ -502,7 +503,7 @@ export default function ClinicModule() {
                             Emergency: {p.emergencyContact} {p.emergencyPhone && `— ${p.emergencyPhone}`}
                           </p>
                         )}
-                      </div>
+                      </AppCard>
                     );
                   })}
                 </div>
@@ -510,7 +511,7 @@ export default function ClinicModule() {
             </div>
           )}
         </div>
-      </div>
+      </AppCard>
 
       {/* LOG VISIT MODAL */}
       {showForm && (

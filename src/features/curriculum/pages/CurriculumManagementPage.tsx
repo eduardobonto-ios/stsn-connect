@@ -18,10 +18,12 @@ import {
   GraduationCap,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppCard from "../../../components/common/AppCard";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
 import AppButton from "../../../components/common/AppButton";
 import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import AppTabs from "../../../components/common/AppTabs";
 import EmptyState from "../../../components/common/EmptyState";
 import AppTable, {
@@ -316,8 +318,8 @@ export default function CurriculumManagement() {
       data: "department",
       className: "text-center",
       render: (value) => (
-        <span className={`inline-block text-[10px] px-2 py-0.5 rounded font-bold ${
-          value === "College" ? "bg-blue-50 text-blue-700" : "bg-orange-50 text-orange-700"
+        <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+          value === "College" ? "border-blue-200 bg-blue-50 text-blue-700" : "border-[var(--erp-accent)]/35 bg-[var(--erp-surface-muted)] text-[var(--erp-brand)]"
         }`}>
           {value as string}
         </span>
@@ -383,8 +385,8 @@ export default function CurriculumManagement() {
       data: "department",
       className: "text-center",
       render: (value) => (
-        <span className={`inline-block text-[10px] px-2 py-0.5 rounded font-bold ${
-          value === "College" ? "bg-purple-50 text-purple-700" : "bg-emerald-50 text-emerald-700"
+        <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+          value === "College" ? "border-blue-200 bg-blue-50 text-blue-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"
         }`}>
           {value as string}
         </span>
@@ -492,7 +494,7 @@ export default function CurriculumManagement() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
 
           {/* Left: Curricula list */}
-          <div className="lg:col-span-3 bg-white p-5 rounded-2xl border border-stsn-beige shadow-sm space-y-4">
+          <AppCard className="lg:col-span-3 space-y-4 border border-[var(--erp-border)]" tone="brand">
             <AppButton
               onClick={() => {
                 setCurrForm({ courseCode: courses[0]?.code || "BSIT", schoolYear: "2026-2027", description: "", customName: "" });
@@ -525,21 +527,36 @@ export default function CurriculumManagement() {
                         }`}
                       >
                         {c.name}
+                        <span className="mt-1 block text-[10px] font-mono font-medium text-stone-400">
+                          {c.subjects.reduce((sum, group) => sum + group.subjectCodes.length, 0)} subject
+                          {c.subjects.reduce((sum, group) => sum + group.subjectCodes.length, 0) !== 1 ? "s" : ""}
+                        </span>
                       </button>
                     );
                   })
                 )}
               </div>
             </div>
-          </div>
+          </AppCard>
 
           {/* Right: Active curriculum detail */}
-          <div className="lg:col-span-9 bg-white rounded-2xl border border-stsn-beige shadow-sm flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-stsn-beige flex justify-between items-center bg-[#F9F8F5]">
+          <AppCard className="lg:col-span-9 flex flex-col overflow-hidden border border-[var(--erp-border)] p-0">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--erp-border)] bg-[linear-gradient(180deg,#fffdf6_0%,#f8f4ea_100%)] p-6">
               {activeCurriculum ? (
-                <div>
-                  <span className="text-[9px] uppercase tracking-widest text-[#A39184] font-bold block">Active Curriculum Target</span>
-                  <h3 className="text-sm font-bold text-[#4A3728] uppercase tracking-wide mt-1">{activeCurriculum.name}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-widest text-[#A39184] font-bold block">Active Curriculum Target</span>
+                    <h3 className="text-sm font-bold text-[#4A3728] uppercase tracking-wide mt-1">{activeCurriculum.name}</h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AppStatusBadge status="active">Active Registry</AppStatusBadge>
+                    <span className="rounded-full border border-[var(--erp-border)] bg-white px-2.5 py-1 text-[10px] font-mono font-bold text-[var(--erp-text-muted)]">
+                      {activeCurriculum.subjects.length} year grouping{activeCurriculum.subjects.length !== 1 ? "s" : ""}
+                    </span>
+                    <span className="rounded-full border border-[var(--erp-border)] bg-white px-2.5 py-1 text-[10px] font-mono font-bold text-[var(--erp-text-muted)]">
+                      {currentCurriculumSubjects.length} mapped subject{currentCurriculumSubjects.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <span className="text-xs text-stone-400">Select or create a curriculum</span>
@@ -579,13 +596,14 @@ export default function CurriculumManagement() {
                   Subjects List
                 </h4>
                 {activeCurriculum && (
-                  <button
+                  <AppButton
                     onClick={openAddSubjectModal}
-                    className="bg-[#4A3728] hover:bg-[#634935] text-[#FFFDF5] text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition shadow-sm flex items-center gap-1"
+                    variant="primary"
+                    size="sm"
+                    leftIcon={Plus}
                   >
-                    <Plus className="w-4 h-4" />
                     Add Subject
-                  </button>
+                  </AppButton>
                 )}
               </div>
 
@@ -616,7 +634,7 @@ export default function CurriculumManagement() {
                 )}
               </div>
             </div>
-          </div>
+          </AppCard>
         </div>
       )}
 
@@ -757,12 +775,12 @@ export default function CurriculumManagement() {
         maxWidthClass="max-w-sm"
         footer={
           <div className="flex gap-2">
-            <button type="submit" className="flex-1 bg-stsn-brown hover:bg-stsn-brown-dark text-white py-2 rounded-lg font-bold text-xs cursor-pointer transition">
+            <AppButton type="submit" variant="primary" size="sm" fullWidth>
               Save Changes
-            </button>
-            <button type="button" onClick={() => setIsEditCurrModalOpen(false)} className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 py-2 rounded-lg font-bold text-xs cursor-pointer transition">
+            </AppButton>
+            <AppButton type="button" variant="secondary" size="sm" fullWidth onClick={() => setIsEditCurrModalOpen(false)}>
               Cancel
-            </button>
+            </AppButton>
           </div>
         }
       >
@@ -791,12 +809,12 @@ export default function CurriculumManagement() {
         onSubmit={handleAddSubjectToCurriculum}
         footer={
           <div className="flex gap-3">
-            <button type="submit" className="flex-1 bg-stsn-brown hover:bg-stsn-brown-dark text-white py-2.5 rounded-xl font-bold text-xs transition cursor-pointer">
+            <AppButton type="submit" variant="primary" size="sm" fullWidth>
               Add Subject
-            </button>
-            <button type="button" onClick={() => setIsAddSubjectToCurrModalOpen(false)} className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer">
+            </AppButton>
+            <AppButton type="button" variant="secondary" size="sm" fullWidth onClick={() => setIsAddSubjectToCurrModalOpen(false)}>
               Cancel
-            </button>
+            </AppButton>
           </div>
         }
       >
@@ -855,12 +873,12 @@ export default function CurriculumManagement() {
         maxWidthClass="max-w-md"
         footer={
           <div className="flex gap-2">
-            <button type="submit" className="flex-1 bg-stsn-brown hover:bg-stsn-brown-dark text-white py-2 rounded-lg font-bold text-xs transition cursor-pointer">
+            <AppButton type="submit" variant="primary" size="sm" fullWidth>
               Save Program
-            </button>
-            <button type="button" onClick={() => setIsCourseModalOpen(false)} className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 py-2 rounded-lg font-bold text-xs transition cursor-pointer">
+            </AppButton>
+            <AppButton type="button" variant="secondary" size="sm" fullWidth onClick={() => setIsCourseModalOpen(false)}>
               Cancel
-            </button>
+            </AppButton>
           </div>
         }
       >
@@ -926,12 +944,12 @@ export default function CurriculumManagement() {
         maxWidthClass="max-w-md"
         footer={
           <div className="flex gap-2">
-            <button type="submit" className="flex-1 bg-stsn-brown text-white py-2 rounded-lg font-bold text-xs transition cursor-pointer hover:bg-stsn-brown-dark">
+            <AppButton type="submit" variant="primary" size="sm" fullWidth>
               Save Subject
-            </button>
-            <button type="button" onClick={() => setIsSubjectModalOpen(false)} className="flex-1 bg-stone-100 text-stone-700 py-2 rounded-lg font-bold text-xs transition cursor-pointer hover:bg-stone-200">
+            </AppButton>
+            <AppButton type="button" variant="secondary" size="sm" fullWidth onClick={() => setIsSubjectModalOpen(false)}>
               Cancel
-            </button>
+            </AppButton>
           </div>
         }
       >

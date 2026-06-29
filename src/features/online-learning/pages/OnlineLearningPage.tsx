@@ -31,7 +31,12 @@ import {
   FileIcon
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
+import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppFilterChip from "../../../components/common/AppFilterChip";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppTabs from "../../../components/common/AppTabs";
 
 type LMSTab = "browse" | "manage" | "upload";
 
@@ -408,26 +413,27 @@ export default function OnlineLearning() {
         meta="Digital Classroom"
         actions={
           isTeacher ? (
-            <button
+            <AppButton
               onClick={() => handleOpenUpload()}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] rounded-xl text-sm font-bold shadow-lg transition cursor-pointer"
+              variant="primary"
+              size="md"
+              leftIcon={Plus}
             >
-              <Plus className="w-4 h-4" />
               Upload Material
-            </button>
+            </AppButton>
           ) : undefined
         }
       />
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           { label: "Published", value: totalPublished, color: "from-emerald-500 to-emerald-600", icon: <Globe className="w-4 h-4" /> },
           { label: "Drafts", value: totalDrafts, color: "from-stone-400 to-stone-500", icon: <Lock className="w-4 h-4" /> },
           { label: "Videos", value: totalVideos, color: "from-blue-500 to-blue-600", icon: <Video className="w-4 h-4" /> },
           { label: "Docs / Modules", value: totalDocs, color: "from-stsn-brown to-stsn-gold", icon: <FileText className="w-4 h-4" /> }
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-stone-200/60 p-3 shadow-sm flex items-center gap-3">
+          <AppCard key={s.label} className="flex items-center gap-3 border border-stone-200/60 p-3" tone="brand">
             <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white flex-shrink-0`}>
               {s.icon}
             </div>
@@ -435,43 +441,29 @@ export default function OnlineLearning() {
               <p className="text-xl font-display font-black text-stone-800 leading-none">{s.value}</p>
               <p className="text-[10px] text-stone-400 font-mono uppercase tracking-wide mt-0.5">{s.label}</p>
             </div>
-          </div>
+          </AppCard>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1 w-fit">
-        {([
-          { id: "browse", label: "Browse All", icon: <BookOpen className="w-3.5 h-3.5" /> },
-          ...(isTeacher ? [{ id: "manage", label: "My Materials", icon: <Edit2 className="w-3.5 h-3.5" /> }] : [])
-        ] as { id: LMSTab; label: string; icon: React.ReactNode }[]).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === tab.id
-                ? "bg-stsn-brown text-white shadow-sm"
-                : "text-stone-600 hover:text-stone-800"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <AppTabs<LMSTab>
+        items={[
+          { value: "browse", label: "Browse All" },
+          ...(isTeacher ? [{ value: "manage" as LMSTab, label: "My Materials" }] : []),
+        ]}
+        value={activeTab}
+        onChange={(value) => setActiveTab(value)}
+        className="w-fit"
+      />
 
       {/* Search & Filter Row */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Search lessons, subjects, teachers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-stone-200 rounded-xl py-2 pl-9 pr-4 text-sm font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-stsn-brown/20 focus:border-stsn-brown transition-all"
-          />
-        </div>
+      <AppCard className="flex flex-wrap items-center gap-3 p-4" tone="brand">
+        <AppSearchInput
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search lessons, subjects, teachers..."
+          wrapperClassName="min-w-[200px] flex-1"
+        />
         <div className="flex items-center gap-2">
           {(["All", "Video", "Module", "Document"] as const).map((t) => (
             <AppFilterChip
@@ -492,19 +484,17 @@ export default function OnlineLearning() {
             {uniqueSubjects.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
-      </div>
+      </AppCard>
 
       {/* Content */}
       {activeTab === "browse" && (
         <>
           {filteredMaterials.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto mb-3">
-                <BookOpen className="w-7 h-7 text-stone-300" />
-              </div>
-              <p className="text-sm font-semibold text-stone-500">No learning materials found</p>
-              <p className="text-xs text-stone-400 mt-1">Try adjusting your search or filters</p>
-            </div>
+            <AppEmptyState
+              icon={BookOpen}
+              title="No learning materials found"
+              description="Try adjusting your search or filters."
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredMaterials.map((m) => (
@@ -524,19 +514,20 @@ export default function OnlineLearning() {
       )}
 
       {activeTab === "manage" && isTeacher && (
-        <div className="bg-white rounded-2xl border border-stone-200/70 shadow-sm overflow-hidden">
+        <AppCard className="overflow-hidden p-0" tone="brand">
           <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-stone-800">My Uploaded Materials</h3>
               <p className="text-[10px] text-stone-400 font-mono mt-0.5">{manageMaterials.length} total items</p>
             </div>
-            <button
+            <AppButton
               onClick={() => handleOpenUpload()}
-              className="flex items-center gap-1.5 px-3 py-2 bg-stsn-brown hover:bg-stsn-brown-dark text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              variant="primary"
+              size="sm"
+              leftIcon={Plus}
             >
-              <Plus className="w-3.5 h-3.5" />
               Add New
-            </button>
+            </AppButton>
           </div>
           <div className="overflow-x-auto">
             <table className="stsn-plain-table">
@@ -618,7 +609,7 @@ export default function OnlineLearning() {
               </tbody>
             </table>
           </div>
-        </div>
+        </AppCard>
       )}
 
       {/* Upload / Edit Form Modal */}
