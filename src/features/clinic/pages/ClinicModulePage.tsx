@@ -10,11 +10,20 @@ import {
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
+import AppButton from "../../../components/common/AppButton";
+import AppEmptyState from "../../../components/common/AppEmptyState";
+import AppLoadingState from "../../../components/common/AppLoadingState";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
+import AppTabs from "../../../components/common/AppTabs";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 import ExportMenu from "../../../components/common/ExportMenu";
 import { reportExportService } from "../../../services/reportExportService";
 
@@ -48,6 +57,8 @@ interface HealthProfile {
   philhealthNo?: string;
   notes?: string;
 }
+
+type ClinicVisitRow = ClinicVisit & { studentName: string };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -209,7 +220,7 @@ export default function ClinicModule() {
     { label: "Health Profiles", value: scopedProfiles.length, icon: Heart, color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
   ];
 
-  const visitColumns: STSNColumn<ClinicVisit & { studentName: string }>[] = [
+  const visitColumns: AppTableLegacyColumn<ClinicVisitRow>[] = [
     {
       title: "Student",
       data: "studentName",
@@ -294,20 +305,20 @@ export default function ClinicModule() {
         title="Nurse / Clinic Office"
         subtitle="Student health visit logs, health profiles, and clinical records management."
         actions={
-          <button
+          <AppButton
             onClick={() => { setShowForm(true); setForm(DEFAULT_VISIT_FORM); }}
-            className="inline-flex items-center gap-2 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer"
+            variant="primary"
+            size="md"
+            leftIcon={Plus}
           >
-            <Plus className="w-4 h-4" /> Log Visit
-          </button>
+            Log Visit
+          </AppButton>
         }
       />
 
       {/* KPI Cards */}
       {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map((i) => <div key={i} className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 h-20 animate-pulse" />)}
-        </div>
+        <AppLoadingState title="Loading clinic records..." description="Preparing visit logs and health profiles." />
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {kpis.map((kpi) => {
@@ -425,12 +436,15 @@ export default function ClinicModule() {
           {/* VISIT HISTORY */}
           {activeTab === "history" && (
             <div className="space-y-4">
-              <STSNDataTable
-                columns={visitColumns}
-                rows={visitRows}
+              <AppTable<ClinicVisitRow>
+                columns={appTableColumnsFromLegacy(visitColumns)}
+                data={visitRows}
                 emptyMessage="No clinic visits match the selected filters."
-                pageLength={10}
-                searchable={false}
+                loading={loading}
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                enableSearch={false}
+                getRowId={(visit) => visit.id}
               />
             </div>
           )}

@@ -10,11 +10,18 @@ import {
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
+import AppButton from "../../../components/common/AppButton";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
+import AppTabs from "../../../components/common/AppTabs";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +56,9 @@ interface GuidanceSession {
   isConfidential: boolean;
   status: SessionStatus;
 }
+
+type AnecdotalRecordRow = AnecdotalRecord & { studentName: string };
+type GuidanceSessionRow = GuidanceSession & { studentName: string };
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -240,7 +250,7 @@ export default function GuidanceModule() {
     toast("Guidance session saved.");
   };
 
-  const anecColumns: STSNColumn<AnecdotalRecord & { studentName: string }>[] = [
+  const anecColumns: AppTableLegacyColumn<AnecdotalRecordRow>[] = [
     {
       title: "Student",
       data: "studentName",
@@ -256,8 +266,16 @@ export default function GuidanceModule() {
       render: (v: IncidentType, row: any) => (
         <div className="flex items-center gap-1.5">
           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${INCIDENT_TYPE_CONFIG[v].badgeClass}`}>{v}</span>
-          {row.isConfidential && <Lock className="w-3 h-3 text-stone-400 flex-shrink-0" title="Confidential" />}
-          {!row.followUpDone && row.followUpDate && <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0" title="Pending follow-up" />}
+          {row.isConfidential && (
+            <span title="Confidential" aria-label="Confidential">
+              <Lock className="w-3 h-3 text-stone-400 flex-shrink-0" />
+            </span>
+          )}
+          {!row.followUpDone && row.followUpDate && (
+            <span title="Pending follow-up" aria-label="Pending follow-up">
+              <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+            </span>
+          )}
         </div>
       ),
     },
@@ -271,7 +289,7 @@ export default function GuidanceModule() {
     },
   ];
 
-  const sessionColumns: STSNColumn<GuidanceSession & { studentName: string }>[] = [
+  const sessionColumns: AppTableLegacyColumn<GuidanceSessionRow>[] = [
     {
       title: "Student",
       data: "studentName",
@@ -305,12 +323,12 @@ export default function GuidanceModule() {
         subtitle="Anecdotal records, behavioral incident tracking, and individual counseling session logs."
         actions={
           <div className="flex gap-2">
-            <button onClick={() => { setShowAnecForm(true); setAnecForm(DEFAULT_ANEC_FORM); }} className="inline-flex items-center gap-1.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg transition cursor-pointer">
-              <Plus className="w-3.5 h-3.5" /> Record
-            </button>
-            <button onClick={() => { setShowSessionForm(true); setSessionForm(DEFAULT_SESSION_FORM); }} className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/25 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer">
-              <MessageSquare className="w-3.5 h-3.5" /> Session
-            </button>
+            <AppButton onClick={() => { setShowAnecForm(true); setAnecForm(DEFAULT_ANEC_FORM); }} variant="primary" size="sm" leftIcon={Plus}>
+              Record
+            </AppButton>
+            <AppButton onClick={() => { setShowSessionForm(true); setSessionForm(DEFAULT_SESSION_FORM); }} variant="outline-dark" size="sm" leftIcon={MessageSquare}>
+              Session
+            </AppButton>
           </div>
         }
       />
@@ -385,21 +403,27 @@ export default function GuidanceModule() {
 
         <div className="p-5 space-y-4">
           {activeTab === "anecdotal" && (
-            <STSNDataTable
-              columns={anecColumns}
-              rows={filteredRecords.map((r) => ({ ...r, studentName: getStudentLabel(r.studentId) }))}
+            <AppTable<AnecdotalRecordRow>
+              columns={appTableColumnsFromLegacy(anecColumns)}
+              data={filteredRecords.map((r) => ({ ...r, studentName: getStudentLabel(r.studentId) }))}
               emptyMessage="No anecdotal records match the selected filters."
-              pageLength={10}
-              searchable={false}
+              loading={loading}
+              initialPageSize={10}
+              pageSizeOptions={[10]}
+              enableSearch={false}
+              getRowId={(record) => record.id}
             />
           )}
           {activeTab === "sessions" && (
-            <STSNDataTable
-              columns={sessionColumns}
-              rows={filteredSessions.map((s) => ({ ...s, studentName: getStudentLabel(s.studentId) }))}
+            <AppTable<GuidanceSessionRow>
+              columns={appTableColumnsFromLegacy(sessionColumns)}
+              data={filteredSessions.map((s) => ({ ...s, studentName: getStudentLabel(s.studentId) }))}
               emptyMessage="No counseling sessions match the selected filters."
-              pageLength={10}
-              searchable={false}
+              loading={loading}
+              initialPageSize={10}
+              pageSizeOptions={[10]}
+              enableSearch={false}
+              getRowId={(session) => session.id}
             />
           )}
         </div>

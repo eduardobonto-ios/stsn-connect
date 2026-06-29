@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Truck, Download, Loader2, X, Eye,
+  Truck, Download, X, Eye,
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
-import DataTableCard from "../../../../components/common/DataTableCard";
 import { dbSelectAll } from "../../../../services/supabaseCrud";
 
 type InvoiceStatus = "Draft" | "Posted" | "Paid" | "Void";
@@ -216,7 +215,7 @@ export default function APAgingPage() {
     [allLines, viewTarget],
   );
 
-  const invoiceColumns: STSNColumn<AgingRow>[] = [
+  const invoiceColumns: AppTableLegacyColumn<AgingRow>[] = [
     {
       title: "Invoice No.",
       data: "invoiceNo",
@@ -282,7 +281,7 @@ export default function APAgingPage() {
     },
   ];
 
-  const vendorColumns: STSNColumn<VendorRow>[] = [
+  const vendorColumns: AppTableLegacyColumn<VendorRow>[] = [
     {
       title: "Supplier",
       data: "supplierName",
@@ -351,7 +350,7 @@ export default function APAgingPage() {
     },
   ];
 
-  const lineColumns: STSNColumn<PurchaseInvoiceLine>[] = [
+  const lineColumns: AppTableLegacyColumn<PurchaseInvoiceLine>[] = [
     { title: "#", data: "lineNo", width: "45px" },
     { title: "Item", data: "itemCode", render: (v) => <span className="font-mono text-xs text-stone-600">{v || "—"}</span>, width: "95px" },
     { title: "Description", data: "description" },
@@ -413,13 +412,20 @@ export default function APAgingPage() {
         })}
       </div>
 
-      <DataTableCard
+      <AppTable<any>
+        data={viewMode === "by-invoice" ? filteredInvoices : filteredVendors}
+        columns={appTableColumnsFromLegacy((viewMode === "by-invoice" ? invoiceColumns : vendorColumns) as AppTableLegacyColumn<any>[])}
         title="Accounts Payable Aging"
-        icon={Truck}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search invoice no. or supplier…"
-        actions={
+        toolbar={
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search invoice no. or supplier..."
+            className="h-9 min-w-[220px] rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15 sm:w-72"
+          />
+        }
+        rightToolbar={
           <>
             {viewMode === "by-invoice" && (
               <select value={filterBucket} onChange={(e) => setFilterBucket(e.target.value as AgingBucket | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
@@ -432,30 +438,13 @@ export default function APAgingPage() {
             </button>
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading AP aging data...
-          </div>
-        ) : viewMode === "by-invoice" ? (
-          <STSNDataTable
-            columns={invoiceColumns}
-            rows={filteredInvoices}
-            searchable={false}
-            emptyMessage="No outstanding AP invoices."
-            pageLength={15}
-          />
-        ) : (
-          <STSNDataTable
-            columns={vendorColumns}
-            rows={filteredVendors}
-            searchable={false}
-            emptyMessage="No outstanding AP invoices."
-            pageLength={15}
-          />
-        )}
-      </DataTableCard>
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage="No outstanding AP invoices."
+        initialPageSize={15}
+        pageSizeOptions={[15]}
+        getRowId={(row) => row.id}
+      />
 
       {/* View Invoice Modal */}
       {viewTarget && (
@@ -507,12 +496,16 @@ export default function APAgingPage() {
                 </div>
               )}
 
-              <STSNDataTable
-                columns={lineColumns}
-                rows={viewLines}
-                searchable={false}
+              <AppTable
+                data={viewLines}
+                columns={appTableColumnsFromLegacy(lineColumns)}
+                loading={false}
+                enableSearch={false}
                 emptyMessage="No invoice lines found."
-                pageLength={10}
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                getRowId={(row) => row.id}
+                compact
               />
 
               {viewTarget.notes && (
@@ -534,3 +527,4 @@ export default function APAgingPage() {
     </div>
   );
 }
+

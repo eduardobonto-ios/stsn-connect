@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Activity, Banknote, Download, Eye, Loader2, PieChart, Scale, X,
+  Activity, Banknote, Download, Eye, PieChart, Scale,
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import AppButton from "../../../../components/common/AppButton";
+import AppCard from "../../../../components/common/AppCard";
+import AppInput from "../../../../components/common/AppInput";
+import AppModal from "../../../../components/common/AppModal";
+import AppSearchInput from "../../../../components/common/AppSearchInput";
+import AppSelect from "../../../../components/common/AppSelect";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
-import DataTableCard from "../../../../components/common/DataTableCard";
 import { dbSelectAll } from "../../../../services/supabaseCrud";
 
 type ReportKind = "trial-balance" | "balance-sheet" | "income-statement" | "cash-flow";
@@ -354,7 +359,7 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
       .sort((a, b) => b.entryDate.localeCompare(a.entryDate) || a.lineNo - b.lineNo);
   }, [detailTarget, entriesById, postedLines]);
 
-  const trialColumns: STSNColumn<AccountBalanceRow>[] = [
+  const trialColumns: AppTableLegacyColumn<AccountBalanceRow>[] = [
     {
       title: "Account",
       data: "accountName",
@@ -390,14 +395,14 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
     },
   ];
 
-  const statementColumns: STSNColumn<StatementRow>[] = [
+  const statementColumns: AppTableLegacyColumn<StatementRow>[] = [
     { title: "Section", data: "section", render: (value: string) => <span className="text-xs font-semibold text-stone-600">{value}</span>, width: "120px" },
     { title: "Account Code", data: "accountCode", render: (value: string) => <span className="font-mono text-xs font-bold text-stone-700">{value}</span>, width: "120px" },
     { title: "Account", data: "accountName", render: (value: string) => <span className="text-xs font-semibold text-stone-800">{value}</span> },
     { title: "Amount", data: "amount", className: "text-right", render: (value: number) => <span className={`font-mono text-xs font-bold ${value < 0 ? "text-rose-600" : "text-stone-900"}`}>PHP {fmt(value)}</span>, width: "140px" },
   ];
 
-  const cashFlowColumns: STSNColumn<CashFlowRow>[] = [
+  const cashFlowColumns: AppTableLegacyColumn<CashFlowRow>[] = [
     { title: "Category", data: "category", render: (value: CashFlowCategory) => <span className="text-xs font-semibold text-stone-700">{value}</span>, width: "110px" },
     { title: "Date", data: "entryDate", width: "105px" },
     { title: "Entry No.", data: "entryNo", render: (value: string) => <span className="font-mono text-xs font-bold text-stone-700">{value}</span>, width: "150px" },
@@ -406,7 +411,7 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
     { title: "Cash Movement", data: "amount", className: "text-right", render: (value: number) => <span className={`font-mono text-xs font-bold ${value < 0 ? "text-rose-600" : "text-emerald-700"}`}>{value < 0 ? "-" : ""}PHP {fmt(Math.abs(value))}</span>, width: "140px" },
   ];
 
-  const detailColumns: STSNColumn<LineDetailRow>[] = [
+  const detailColumns: AppTableLegacyColumn<LineDetailRow>[] = [
     { title: "Date", data: "entryDate", width: "105px" },
     { title: "Entry No.", data: "entryNo", render: (value: string) => <span className="font-mono text-xs font-bold text-stone-700">{value}</span>, width: "150px" },
     { title: "Period", data: "fiscalPeriod", width: "130px" },
@@ -426,10 +431,9 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
         title={config.title}
         subtitle={config.desc}
         actions={
-          <button className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer bg-white/10 border border-white/20 text-white hover:bg-white/20">
-            <Download className="w-4 h-4" />
+          <AppButton variant="outline-dark" size="md" leftIcon={Download}>
             Export
-          </button>
+          </AppButton>
         }
       />
 
@@ -468,59 +472,71 @@ export default function FinancialStatementsPage({ report }: { report: ReportKind
         )}
       </div>
 
-      <DataTableCard
+      <AppTable<any>
+        data={report === "trial-balance" ? trialBalanceRows : report === "cash-flow" ? cashFlowRows : statementRows}
+        columns={appTableColumnsFromLegacy((report === "trial-balance" ? trialColumns : report === "cash-flow" ? cashFlowColumns : statementColumns) as AppTableLegacyColumn<any>[])}
         title={config.title}
-        icon={Icon}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search report rows…"
-        actions={
+        toolbar={
+          <AppSearchInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search report rows..."
+            uiSize="sm"
+            wrapperClassName="min-w-[220px] sm:w-72"
+          />
+        }
+        rightToolbar={
           <>
-            <select value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
+            <AppSelect value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)} uiSize="sm" className="min-w-[160px]">
               <option value="All">All Fiscal Years</option>
               {fiscalYears.map((year) => <option key={year} value={year}>{year}</option>)}
-            </select>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50" />
+            </AppSelect>
+            <AppInput type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} uiSize="sm" />
+            <AppInput type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} uiSize="sm" />
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading financial statement data...
-          </div>
-        ) : report === "trial-balance" ? (
-          <STSNDataTable key="trial-balance-table" columns={trialColumns} rows={trialBalanceRows} searchable={false} emptyMessage="No posted journal balances for this period." pageLength={15} />
-        ) : report === "cash-flow" ? (
-          <STSNDataTable key="cash-flow-table" columns={cashFlowColumns} rows={cashFlowRows} searchable={false} emptyMessage="No cash movements for this period." pageLength={15} />
-        ) : (
-          <STSNDataTable key={`${report}-table`} columns={statementColumns} rows={statementRows} searchable={false} emptyMessage="No statement balances for this period." pageLength={15} />
-        )}
-      </DataTableCard>
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage={report === "trial-balance" ? "No posted journal balances for this period." : report === "cash-flow" ? "No cash movements for this period." : "No statement balances for this period."}
+        initialPageSize={15}
+        pageSizeOptions={[15]}
+        getRowId={(row) => row.id}
+      />
 
       {detailTarget && (
-        <div className="app-modal-backdrop z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl border border-stone-200 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between flex-shrink-0">
-              <div>
-                <h3 className="text-sm font-bold text-stone-800">{detailTarget.accountCode} - {detailTarget.accountName}</h3>
-                <p className="text-[10px] text-stone-400">{detailTarget.lineCount} posted line{detailTarget.lineCount !== 1 ? "s" : ""} in the selected period</p>
-              </div>
-              <button onClick={() => setDetailTarget(null)} className="text-stone-400 hover:text-stone-600 cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1 px-6 py-5">
-              <STSNDataTable columns={detailColumns} rows={detailRows} searchable={false} emptyMessage="No posting detail found." pageLength={10} />
-            </div>
-            <div className="px-6 py-4 border-t border-stone-100 flex justify-end flex-shrink-0">
-              <button onClick={() => setDetailTarget(null)} className="px-4 py-2 text-xs font-semibold text-stone-500 hover:text-stone-700 border border-stone-200 rounded-xl hover:bg-stone-50 transition cursor-pointer">
+        <AppModal
+          open
+          title={`${detailTarget.accountCode} - ${detailTarget.accountName}`}
+          eyebrow="Posting Detail"
+          icon={Eye}
+          onClose={() => setDetailTarget(null)}
+          maxWidthClass="max-w-5xl"
+          bodyClassName="overflow-y-auto flex-1 px-6 py-5"
+          footer={(
+            <div className="flex justify-end">
+              <AppButton type="button" variant="outline" size="sm" onClick={() => setDetailTarget(null)}>
                 Close
-              </button>
+              </AppButton>
+            </div>
+          )}
+        >
+          <div className="space-y-4">
+            <p className="text-[10px] text-stone-400">{detailTarget.lineCount} posted line{detailTarget.lineCount !== 1 ? "s" : ""} in the selected period</p>
+            <div>
+              <AppTable
+                data={detailRows}
+                columns={appTableColumnsFromLegacy(detailColumns)}
+                loading={false}
+                enableSearch={false}
+                emptyMessage="No posting detail found."
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                getRowId={(row) => row.id}
+                compact
+              />
             </div>
           </div>
-        </div>
+        </AppModal>
       )}
     </div>
   );
@@ -537,9 +553,10 @@ function SummaryCard({ label, value, tone }: { label: string; value: string; ton
   }[tone];
 
   return (
-    <div className={`border rounded-xl px-4 py-3 shadow-sm ${toneClass}`}>
+    <AppCard className={`border px-4 py-3 shadow-sm ${toneClass}`} padded={false}>
       <p className="text-[10px] font-mono uppercase tracking-wider opacity-70">{label}</p>
       <p className="text-base font-bold mt-0.5">{value}</p>
-    </div>
+    </AppCard>
   );
 }
+

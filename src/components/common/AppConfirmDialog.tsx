@@ -5,6 +5,7 @@
 
 import React from "react";
 import { VARIANT_STYLES, type DialogVariant } from "./AppToast";
+import AppButton from "./AppButton";
 import AppModal from "./AppModal";
 
 export interface ConfirmDialogState {
@@ -45,18 +46,18 @@ export default function AppConfirmDialog({
       maxWidthClass="max-w-sm"
       footer={
         <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-xs font-bold rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-100 transition cursor-pointer"
-          >
+          <AppButton type="button" variant="secondary" size="sm" onClick={onCancel}>
             {cancelText}
-          </button>
-          <button
+          </AppButton>
+          <AppButton
+            type="button"
+            variant={variant === "danger" ? "destructive" : variant === "warning" ? "primary" : "primary"}
+            size="sm"
             onClick={onConfirm}
-            className={`px-4 py-2 text-xs font-bold rounded-lg text-white transition cursor-pointer ${style.button}`}
+            className={variant === "warning" ? "bg-amber-500 text-white hover:bg-amber-600" : ""}
           >
             {confirmText}
-          </button>
+          </AppButton>
         </div>
       }
     >

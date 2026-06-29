@@ -4,35 +4,49 @@
  */
 
 import React, { useMemo, useState } from "react";
-import { Shield, Search, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
-import type { AuditEntityType, AuditAction, AuditLogEntry } from "../../../types";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
-import DataTableCard from "../../../components/common/DataTableCard";
+import type { AuditAction, AuditEntityType, AuditLogEntry } from "../../../types";
+import AppButton from "../../../components/common/AppButton";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
+import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
 
 const ACTION_BADGE: Record<AuditAction, string> = {
-  created:   "bg-blue-50 text-blue-700 border-blue-200",
-  updated:   "bg-amber-50 text-amber-700 border-amber-200",
-  approved:  "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected:  "bg-red-50 text-red-700 border-red-200",
-  returned:  "bg-orange-50 text-orange-700 border-orange-200",
-  deleted:   "bg-red-100 text-red-800 border-red-300",
+  created: "bg-blue-50 text-blue-700 border-blue-200",
+  updated: "bg-amber-50 text-amber-700 border-amber-200",
+  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+  returned: "bg-orange-50 text-orange-700 border-orange-200",
+  deleted: "bg-red-100 text-red-800 border-red-300",
   finalized: "bg-purple-50 text-purple-700 border-purple-200",
   submitted: "bg-sky-50 text-sky-700 border-sky-200",
-  voided:    "bg-stone-100 text-stone-600 border-stone-300",
+  voided: "bg-stone-100 text-stone-600 border-stone-300",
   delegated: "bg-indigo-50 text-indigo-700 border-indigo-200",
 };
 
 const ALL_ENTITY_TYPES: AuditEntityType[] = [
-  "enrollment", "assessment", "payment", "grade",
-  "employee", "leave", "void", "user", "discount",
-  "payroll", "delegation",
+  "enrollment",
+  "assessment",
+  "payment",
+  "grade",
+  "employee",
+  "leave",
+  "void",
+  "user",
+  "discount",
+  "payroll",
+  "delegation",
 ];
 
 function ActionBadge({ action }: { action: AuditAction }) {
   return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize ${ACTION_BADGE[action] ?? "bg-stone-100 text-stone-600 border-stone-200"}`}>
+    <span
+      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize ${
+        ACTION_BADGE[action] ?? "bg-stone-100 text-stone-600 border-stone-200"
+      }`}
+    >
       {action}
     </span>
   );
@@ -47,122 +61,169 @@ export default function AuditLogPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return auditLog.filter((e) => {
-      if (filterEntity && e.entityType !== filterEntity) return false;
-      if (filterAction && e.action !== filterAction) return false;
-      if (q && !e.actorName.toLowerCase().includes(q) && !e.entityId.includes(q) && !(e.remarks ?? "").toLowerCase().includes(q)) return false;
+    return auditLog.filter((entry) => {
+      if (filterEntity && entry.entityType !== filterEntity) return false;
+      if (filterAction && entry.action !== filterAction) return false;
+      if (
+        q &&
+        !entry.actorName.toLowerCase().includes(q) &&
+        !entry.entityId.includes(q) &&
+        !(entry.remarks ?? "").toLowerCase().includes(q)
+      ) {
+        return false;
+      }
       return true;
     });
   }, [auditLog, search, filterEntity, filterAction]);
 
   const handleExport = () => {
-    const headers = ["Timestamp", "Actor", "Role", "School", "Entity Type", "Entity ID", "Action", "Remarks"];
-    const rows = filtered.map((e) => [
-      e.timestamp, e.actorName, e.actorRole, e.schoolId ?? "ALL",
-      e.entityType, e.entityId, e.action, e.remarks ?? "",
+    const headers = [
+      "Timestamp",
+      "Actor",
+      "Role",
+      "School",
+      "Entity Type",
+      "Entity ID",
+      "Action",
+      "Remarks",
+    ];
+    const rows = filtered.map((entry) => [
+      entry.timestamp,
+      entry.actorName,
+      entry.actorRole,
+      entry.schoolId ?? "ALL",
+      entry.entityType,
+      entry.entityId,
+      entry.action,
+      entry.remarks ?? "",
     ]);
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `audit-log-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `audit-log-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
-  const columns: STSNColumn<AuditLogEntry>[] = [
-    {
-      title: "Timestamp",
-      data: "timestamp",
-      render: (v: string) => (
-        <span className="font-mono text-[10px] text-stone-400">
-          {v.replace("T", " ").substring(0, 16)}
-        </span>
-      ),
-    },
-    {
-      title: "Actor",
-      data: "actorName",
-      className: "font-semibold text-stone-700",
-    },
-    {
-      title: "Role",
-      data: "actorRole",
-      render: (v: string) => (
-        <span className="text-[10px] font-mono text-stone-500">{v}</span>
-      ),
-    },
-    {
-      title: "Entity Type",
-      data: "entityType",
-      render: (v: string) => (
-        <span className="text-[10px] capitalize text-stone-500">{v}</span>
-      ),
-    },
-    {
-      title: "Action",
-      data: "action",
-      render: (v: AuditAction) => <ActionBadge action={v} />,
-    },
-    {
-      title: "Remarks",
-      data: "remarks",
-      orderable: false,
-      render: (v: string | undefined) => (
-        <span className="text-[10px] text-stone-400 truncate max-w-[160px] block">{v ?? "—"}</span>
-      ),
-    },
-  ];
+  const columns = useMemo<AppTableColumn<AuditLogEntry>[]>(
+    () => [
+      {
+        accessorKey: "timestamp",
+        header: "Timestamp",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-[10px] text-stone-400">
+            {String(getValue()).replace("T", " ").substring(0, 16)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "actorName",
+        header: "Actor",
+        cell: ({ getValue }) => (
+          <span className="font-semibold text-stone-700">{String(getValue())}</span>
+        ),
+      },
+      {
+        accessorKey: "actorRole",
+        header: "Role",
+        cell: ({ getValue }) => (
+          <span className="text-[10px] font-mono text-stone-500">{String(getValue())}</span>
+        ),
+      },
+      {
+        accessorKey: "entityType",
+        header: "Entity Type",
+        cell: ({ getValue }) => (
+          <span className="text-[10px] capitalize text-stone-500">{String(getValue())}</span>
+        ),
+      },
+      {
+        accessorKey: "action",
+        header: "Action",
+        cell: ({ getValue }) => <ActionBadge action={getValue<AuditAction>()} />,
+      },
+      {
+        accessorKey: "remarks",
+        header: "Remarks",
+        enableSorting: false,
+        cell: ({ getValue }) => (
+          <span className="text-[10px] text-stone-400 truncate max-w-[160px] block">
+            {getValue<string | undefined>() ?? "-"}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="space-y-4">
-      {/* Table */}
-      <DataTableCard
+      <AppTable<AuditLogEntry>
+        data={filtered}
+        columns={columns}
         title="Central Audit Log"
-        icon={Shield}
-        subtitle="Immutable record of all approval-sensitive actions — click a row to inspect details"
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search actor, entity ID, remarks…"
-        actions={
+        description="Immutable record of all approval-sensitive actions - click a row to inspect details"
+        enableSearch={false}
+        enableColumnVisibility={false}
+        initialPageSize={25}
+        pageSizeOptions={[25]}
+        loading={false}
+        emptyMessage="No audit entries match your filters."
+        emptyDescription="Clear the search or filters to review audit activity."
+        getRowId={(row) => row.id}
+        onRowClick={(row) => setSelectedEntry(row)}
+        toolbar={
           <>
-            <select
+            <AppSearchInput
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onClear={() => setSearch("")}
+              placeholder="Search actor, entity ID, remarks..."
+              aria-label="Search audit log"
+              uiSize="sm"
+              wrapperClassName="min-w-[224px]"
+            />
+            <AppSelect
               value={filterEntity}
-              onChange={(e) => setFilterEntity(e.target.value as AuditEntityType | "")}
-              className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
+              onChange={(event) => setFilterEntity(event.target.value as AuditEntityType | "")}
+              uiSize="sm"
+              className="min-w-[160px]"
             >
               <option value="">All Entity Types</option>
-              {ALL_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select
+              {ALL_ENTITY_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </AppSelect>
+            <AppSelect
               value={filterAction}
-              onChange={(e) => setFilterAction(e.target.value as AuditAction | "")}
-              className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 bg-stone-50 text-stone-700 outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer"
+              onChange={(event) => setFilterAction(event.target.value as AuditAction | "")}
+              uiSize="sm"
+              className="min-w-[144px]"
             >
               <option value="">All Actions</option>
-              {(Object.keys(ACTION_BADGE) as AuditAction[]).map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">{filtered.length} entries</span>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-white border border-stone-200 rounded-xl shadow-sm hover:bg-stsn-cream transition cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" /> Export CSV
-            </button>
+              {(Object.keys(ACTION_BADGE) as AuditAction[]).map((action) => (
+                <option key={action} value={action}>
+                  {action}
+                </option>
+              ))}
+            </AppSelect>
+            <span className="text-[10px] text-[var(--erp-text-muted)] font-mono whitespace-nowrap">
+              {filtered.length} entries
+            </span>
+            <AppButton type="button" variant="outline" size="sm" leftIcon={Download} onClick={handleExport}>
+              Export CSV
+            </AppButton>
           </>
         }
-      >
-        <STSNDataTable<AuditLogEntry>
-          columns={columns}
-          rows={filtered}
-          searchable={false}
-          pageLength={25}
-          onRowClick={(row) => setSelectedEntry(row)}
-          emptyMessage="No audit entries match your filters."
-          tableId="audit-log"
-        />
-      </DataTableCard>
+      />
 
-      {/* Drilldown Drawer */}
       <DrilldownDrawer
         open={!!selectedEntry}
         onClose={() => setSelectedEntry(null)}
@@ -176,7 +237,9 @@ export default function AuditLogPage() {
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
                 <div>
                   <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Timestamp</dt>
-                  <dd className="font-mono text-stone-700">{selectedEntry.timestamp.replace("T", " ").substring(0, 19)}</dd>
+                  <dd className="font-mono text-stone-700">
+                    {selectedEntry.timestamp.replace("T", " ").substring(0, 19)}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">School</dt>
@@ -206,7 +269,9 @@ export default function AuditLogPage() {
               {selectedEntry.remarks && (
                 <div className="pt-1">
                   <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1">Remarks</dt>
-                  <dd className="text-xs text-stone-700 leading-relaxed bg-stone-50 rounded-lg p-2.5 border border-stone-100">{selectedEntry.remarks}</dd>
+                  <dd className="text-xs text-stone-700 leading-relaxed bg-stone-50 rounded-lg p-2.5 border border-stone-100">
+                    {selectedEntry.remarks}
+                  </dd>
                 </div>
               )}
               {selectedEntry.ipAddress && (

@@ -5,19 +5,18 @@
 
 import React, { useMemo, useState } from "react";
 import {
-  Library, BookOpen, AlertCircle, Eye, ToggleLeft, ToggleRight, X, Check, GraduationCap, Package, Coins, Plus, Trash2,
+  Library, BookOpen, AlertCircle, Eye, ToggleLeft, ToggleRight, X, Check, GraduationCap, Package, Coins, Plus, Trash2, Search,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
 import PageHeader from "../../../components/common/PageHeader";
 import StatCard from "../../../components/common/StatCard";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
-import DataTableCard from "../../../components/common/DataTableCard";
+import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import type { BookPackage, BookPackageItem } from "../../../types";
 import type { AcademicUnit } from "../../../types/school.types";
 import {
   BOOK_PACKAGE_GRADE_LEVELS,
-  BOOK_PACKAGE_STATUS_BADGE,
   BOOKS_PACKAGE_ASSIGNMENT_NOTICE,
   BOOKS_NOT_APPLICABLE_NOTICE,
   computeBookPackageTotal,
@@ -182,32 +181,45 @@ export default function BooksSetupPage() {
 
   const displayPackage = isEditing || isCreating ? editDraft : selectedPackage;
 
-  const packageColumns: STSNColumn<BookPackage>[] = [
-    { title: "Grade Level", data: "gradeLevel", className: "font-bold text-stsn-brown" },
-    { title: "Package Name", data: "packageName", className: "font-semibold text-stone-800" },
+  const legacyPackageColumns: any[] = [
     {
-      title: "Included Books",
-      data: "books",
-      className: "text-center text-stone-600",
-      render: (value: BookPackageItem[]) => value.length,
+      accessorKey: "gradeLevel",
+      header: "Grade Level",
+      cell: ({ getValue }) => <span className="font-bold text-stsn-brown">{String(getValue())}</span>,
     },
     {
-      title: "Total Amount",
-      data: "totalAmount",
-      className: "text-right font-mono font-bold text-stone-800",
+      accessorKey: "packageName",
+      header: "Package Name",
+      cell: ({ getValue }) => <span className="font-semibold text-stone-800">{String(getValue())}</span>,
+    },
+    {
+      accessorKey: "books",
+      header: "Included Books",
+      cell: ({ getValue }) => (
+        <span className="block text-center text-stone-600">{(getValue() as BookPackageItem[]).length}</span>
+      ),
+    },
+    {
+      accessorFn: (row) => `₱${row.totalAmount.toLocaleString()}`,
+      id: "totalAmount",
+      header: "Total Amount",
       render: (value: number) => `₱${value.toLocaleString()}`,
     },
     {
-      title: "Status",
-      data: "status",
-      className: "text-center",
-      render: (value: BookPackage["status"]) => {
-        const badge = BOOK_PACKAGE_STATUS_BADGE[value];
-        return <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full border ${badge.badgeClass}`}>{badge.label}</span>;
-      },
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ getValue }) => <AppStatusBadge status={String(getValue())} className="mx-auto flex w-fit text-[9px]" />,
     },
-    { title: "Effective SY", data: "schoolYear", className: "text-stone-600" },
-    { title: "Last Updated", data: "lastUpdated", className: "text-stone-500 text-[11px]" },
+    {
+      accessorKey: "schoolYear",
+      header: "Effective SY",
+      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue())}</span>,
+    } as AppTableColumn<BookPackage>,
+    {
+      accessorKey: "lastUpdated",
+      header: "Last Updated",
+      cell: ({ getValue }) => <span className="text-stone-500 text-[11px]">{String(getValue())}</span>,
+    } as AppTableColumn<BookPackage>,
     {
       title: "Actions",
       className: "text-center",
@@ -230,6 +242,78 @@ export default function BooksSetupPage() {
           </button>
         </div>
       ),
+    },
+  ];
+
+  void legacyPackageColumns;
+
+  const packageColumns: AppTableColumn<BookPackage>[] = [
+    {
+      accessorKey: "gradeLevel",
+      header: "Grade Level",
+      cell: ({ getValue }) => <span className="font-bold text-stsn-brown">{String(getValue())}</span>,
+    },
+    {
+      accessorKey: "packageName",
+      header: "Package Name",
+      cell: ({ getValue }) => <span className="font-semibold text-stone-800">{String(getValue())}</span>,
+    },
+    {
+      accessorKey: "books",
+      header: "Included Books",
+      cell: ({ getValue }) => (
+        <span className="block text-center text-stone-600">{getValue<BookPackageItem[]>().length}</span>
+      ),
+    },
+    {
+      accessorFn: (row) => `₱${row.totalAmount.toLocaleString()}`,
+      id: "totalAmount",
+      header: "Total Amount",
+      cell: ({ getValue }) => (
+        <span className="block text-right font-mono font-bold text-stone-800">{String(getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ getValue }) => <AppStatusBadge status={String(getValue())} className="mx-auto flex w-fit text-[9px]" />,
+    },
+    {
+      accessorKey: "schoolYear",
+      header: "Effective SY",
+      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue())}</span>,
+    },
+    {
+      accessorKey: "lastUpdated",
+      header: "Last Updated",
+      cell: ({ getValue }) => <span className="text-stone-500 text-[11px]">{String(getValue())}</span>,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      enableGlobalFilter: false,
+      cell: ({ row }) => {
+        const pkg = row.original;
+        return (
+          <div className="flex items-center justify-center gap-1">
+            <button type="button" onClick={() => openView(pkg)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="View details">
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+            <button type="button" onClick={() => openEdit(pkg)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="Edit package">
+              <Package className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => quickToggleStatus(pkg.id)}
+              title={pkg.status === "Active" ? "Set Inactive" : "Set Active"}
+              className="p-1.5 hover:bg-emerald-50 rounded text-stone-400 hover:text-emerald-600 cursor-pointer transition"
+            >
+              {pkg.status === "Active" ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -339,20 +423,43 @@ export default function BooksSetupPage() {
           <p className="text-sm text-stone-500 font-semibold">{BOOKS_NOT_APPLICABLE_NOTICE}</p>
         </div>
       ) : (
-        <DataTableCard
+        <AppTable<BookPackage>
+          data={filteredPackages}
+          columns={packageColumns}
           title="Book Packages"
-          icon={Library}
-          searchValue={filterSearch}
-          onSearchChange={setFilterSearch}
+          enableSearch={false}
+          enableColumnVisibility={false}
+          initialPageSize={10}
+          pageSizeOptions={[10]}
+          loading={false}
+          emptyMessage="No book packages match the selected filters."
+          emptyDescription="Adjust the search or filters to find book packages."
+          getRowId={(row) => row.id}
+          toolbar={
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400 pointer-events-none" />
+              <input
+                type="search"
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                placeholder="Search package name or grade level…"
+                className="h-9 w-64 rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-9 pr-8 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+                aria-label="Search book packages"
+              />
+              {filterSearch && (
+                <button
+                  type="button"
+                  onClick={() => setFilterSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 transition hover:text-stone-600"
+                  aria-label="Clear book package search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          }
           searchPlaceholder="Search package name or grade level…"
-        >
-          <STSNDataTable<BookPackage>
-            columns={packageColumns}
-            rows={filteredPackages}
-            searchable={false}
-            emptyMessage="No book packages match the selected filters."
-          />
-        </DataTableCard>
+        />
       )}
 
       {/* Detail / Edit Modal */}
@@ -467,10 +574,10 @@ export default function BooksSetupPage() {
                       {displayPackage.status}
                     </button>
                   ) : (
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold ${BOOK_PACKAGE_STATUS_BADGE[displayPackage.status].badgeClass}`}>
+                    <AppStatusBadge status={displayPackage.status} className="gap-1.5 px-3 py-2 text-xs">
                       {displayPackage.status === "Active" ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
                       {displayPackage.status}
-                    </span>
+                    </AppStatusBadge>
                   )}
                 </div>
               </div>

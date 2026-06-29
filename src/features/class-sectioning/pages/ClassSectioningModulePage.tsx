@@ -16,8 +16,10 @@ import {
   GraduationCap, BookOpen, ChevronDown, UserCheck, Save, AlertCircle,
   School, ToggleLeft, ToggleRight, Grid3x3, Printer, Eye
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
-import DataTableCard from "../../../components/common/DataTableCard";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
@@ -301,7 +303,7 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
     onClose();
   };
 
-  const studentColumns: STSNColumn<Student>[] = [
+  const studentColumns: AppTableLegacyColumn<Student>[] = [
     {
       title: "Student No.",
       data: "studentNo",
@@ -376,13 +378,18 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
 
         {/* Table */}
         <div className="flex-1 overflow-y-auto p-2">
-          <STSNDataTable<Student>
-            columns={studentColumns}
-            rows={eligible}
+          <AppTable<Student>
+            columns={appTableColumnsFromLegacy(studentColumns)}
+            data={eligible}
             emptyMessage="No eligible students found."
-            bulkSelectable
-            onBulkSelect={setSelectedStudentRows}
-            pageLength={10}
+            enableSearch={false}
+            enableRowSelection
+            selectedRowIds={selectedStudentRows.map((student) => student.id)}
+            onSelectionChange={(rows) => setSelectedStudentRows(rows)}
+            getRowId={(student) => student.id}
+            initialPageSize={10}
+            pageSizeOptions={[10]}
+            compact
           />
         </div>
 
@@ -473,7 +480,7 @@ export default function ClassSectioningModule() {
   const openEdit = (sec: SchoolSection) => { setEditingSection(sec); setIsFormOpen(true); };
   const openCreate = () => { setEditingSection(null); setIsFormOpen(true); };
 
-  const sectionColumns: STSNColumn<SchoolSection>[] = [
+  const sectionColumns: AppTableLegacyColumn<SchoolSection>[] = [
     { title: "Code", data: "code", className: "font-mono font-bold text-stsn-brown text-[11px]" },
     { title: "Section Name", data: "name", className: "font-semibold text-stone-800" },
     {
@@ -583,14 +590,26 @@ export default function ClassSectioningModule() {
       </div>
 
       {/* Sections Table */}
-      <DataTableCard
+      <AppTable<SchoolSection>
         title={`${terms.groupNoun} Registry`}
-        icon={Layers}
-        searchValue={searchQ}
-        onSearchChange={setSearchQ}
-        searchPlaceholder={`Search by ${terms.groupNoun.toLowerCase()} name, code, adviser…`}
-        actions={
+        description={`${filtered.length} ${terms.groupNoun.toLowerCase()}${filtered.length !== 1 ? "s" : ""} displayed - Total Enrolled: ${totalEnrolled} / ${totalCapacity} capacity`}
+        columns={appTableColumnsFromLegacy(sectionColumns)}
+        data={filtered}
+        enableSearch={false}
+        emptyMessage="No sections found. Create a new section to get started."
+        getRowId={(section) => section.id}
+        toolbar={
           <>
+            <div className="relative min-w-52 flex-1">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
+              <input
+                type="search"
+                value={searchQ}
+                onChange={(event) => setSearchQ(event.target.value)}
+                placeholder={`Search by ${terms.groupNoun.toLowerCase()} name, code, adviser...`}
+                className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-8 pr-3 text-xs text-[var(--erp-text)] outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+              />
+            </div>
             {lockedDept ? (
               <span className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 px-3 text-xs font-semibold text-stone-500">
                 {lockedDept}
@@ -610,19 +629,7 @@ export default function ClassSectioningModule() {
             </span>
           </>
         }
-        bodyClassName="p-4"
-      >
-        <STSNDataTable<SchoolSection>
-          columns={sectionColumns}
-          rows={filtered}
-          searchable={false}
-          emptyMessage="No sections found. Create a new section to get started."
-        />
-        <div className="pt-3 border-t border-stone-100 text-xs text-stone-400 font-mono">
-          {filtered.length} {terms.groupNoun.toLowerCase()}{filtered.length !== 1 ? "s" : ""} displayed • Total Enrolled: {totalEnrolled} / {totalCapacity} capacity
-        </div>
-      </DataTableCard>
-
+      />
       {/* Section Form Modal */}
       {isFormOpen && (
         <SectionForm

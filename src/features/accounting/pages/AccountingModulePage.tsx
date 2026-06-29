@@ -16,8 +16,13 @@ import {
   RotateCcw, History, GraduationCap, AlertTriangle
 } from "lucide-react";
 import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
-import DataTableCard from "../../../components/common/DataTableCard";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../components/common/AppTable";
 import SLABadge from "../../../components/common/SLABadge";
 import { Payment, StudentAssessment, Student } from "../../../types";
 import { getAccountingLabels, FINANCIAL_HOLD_STATUS_CONFIG, DISCOUNT_STATUS_CONFIG, BLOCKED_PROCESS_LABELS, DEFAULT_HOLD_CATEGORY, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
@@ -187,7 +192,7 @@ function AccountingDashboard() {
     };
   }), [discountedAssessments, students]);
 
-  const discountSummaryColumns: STSNColumn<DiscountSummaryRow>[] = [
+  const discountSummaryColumns: AppTableLegacyColumn<DiscountSummaryRow>[] = [
     { title: "Student", data: "studentLabel", className: "font-semibold text-stone-800" },
     { title: "Scholarship / Discount", data: "scholarshipName", className: "text-stone-600" },
     { title: "% Disc", data: "discountPercentage", className: "text-right font-mono font-bold text-amber-700", render: (v) => `${v}%` },
@@ -201,16 +206,14 @@ function AccountingDashboard() {
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <div
+            <AppKpiCard
               key={kpi.label}
-              className={`${kpi.card} border rounded-xl shadow-sm hover:shadow-md transition-shadow p-4`}
-            >
-              <div className={`inline-flex p-2 rounded-lg mb-2 shadow-sm ${kpi.iconBg}`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <p className="text-[10px] uppercase font-mono tracking-wider text-stone-500 leading-tight">{kpi.label}</p>
-              <p className={`text-lg font-display font-black mt-0.5 ${kpi.critical ? "text-red-700" : "text-stone-800"}`}>{kpi.value}</p>
-            </div>
+              label={kpi.label}
+              value={kpi.value}
+              icon={Icon}
+              tone={kpi.critical ? "danger" : kpi.label === "Total Collected" ? "success" : kpi.label === "Today's Collection" ? "info" : "warning"}
+              className={kpi.card}
+            />
           );
         })}
       </div>
@@ -346,7 +349,7 @@ function AccountingDashboard() {
                 <div key={hold.id} className="p-2.5 bg-stone-50 rounded-lg border border-stone-200/60">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-bold text-stone-800 truncate">{hold.studentName}</p>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${badge.badgeClass}`}>{badge.label}</span>
+                    <AppStatusBadge status={badge.label} className="flex-shrink-0" />
                   </div>
                   <p className="text-[9px] font-mono text-stone-400">{hold.studentNo} • {hold.holdType}</p>
                   <p className="text-[10px] text-stone-600 mt-0.5">{hold.reason}</p>
@@ -364,10 +367,14 @@ function AccountingDashboard() {
         <h3 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700 mb-4 flex items-center gap-2">
           <Award className="w-4 h-4 text-stsn-gold" /> Discount & Scholarship Summary
         </h3>
-        <STSNDataTable<DiscountSummaryRow>
-          columns={discountSummaryColumns}
-          rows={discountSummaryRows}
+        <AppTable<DiscountSummaryRow>
+          columns={appTableColumnsFromLegacy(discountSummaryColumns)}
+          data={discountSummaryRows}
           emptyMessage="No discounts applied."
+          emptyDescription="Discount and scholarship rows will appear here once applied."
+          getRowId={(row) => row.id}
+          initialPageSize={10}
+          pageSizeOptions={[10]}
         />
       </div>
     </div>
@@ -554,9 +561,7 @@ function StudentLedger() {
     setIsReceiptOpen(true);
   };
 
-  const actionBtnClass = "flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow cursor-pointer transition whitespace-nowrap";
-
-  const ledgerColumns: STSNColumn<LedgerRow>[] = [
+  const ledgerColumns: AppTableLegacyColumn<LedgerRow>[] = [
     {
       title: "Date / Ref",
       data: "date",
@@ -614,17 +619,15 @@ function StudentLedger() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-in">
       {/* Student List */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Search student..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none"
-          />
-        </div>
+      <AppCard className="p-4 space-y-3" padded={false}>
+        <AppSearchInput
+          type="text"
+          placeholder="Search student..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onClear={searchQuery ? () => setSearchQuery("") : undefined}
+          uiSize="sm"
+        />
         <div className="space-y-1 max-h-[500px] overflow-y-auto">
           {filteredStudents.map((stud) => {
             const assess = assessments.find((a) => a.studentId === stud.id);
@@ -632,7 +635,7 @@ function StudentLedger() {
               <div
                 key={stud.id}
                 onClick={() => setSelectedStudentId(stud.id)}
-                className={`p-2.5 rounded-lg cursor-pointer transition ${selectedStudentId === stud.id ? "bg-stsn-cream border border-stsn-beige" : "hover:bg-stone-50"}`}
+                className={`p-2.5 rounded-xl border cursor-pointer transition ${selectedStudentId === stud.id ? "border-[var(--erp-accent)] bg-[linear-gradient(180deg,#fffdf6_0%,#f8f2e4_100%)] shadow-sm" : "border-transparent hover:bg-stone-50"}`}
               >
                 <p className="text-[10px] font-mono text-stone-400">{stud.studentNo}</p>
                 <p className="text-xs font-bold text-stone-800">{stud.lastName}, {stud.firstName}</p>
@@ -646,11 +649,11 @@ function StudentLedger() {
             );
           })}
         </div>
-      </div>
+      </AppCard>
 
       {/* Ledger Detail */}
       {!currentStudent ? (
-        <div className="lg:col-span-3 bg-white rounded-xl border border-stsn-beige shadow-sm flex items-center justify-center min-h-[420px] p-8">
+        <AppCard className="lg:col-span-3 flex items-center justify-center min-h-[420px] p-8" padded={false}>
           <div className="text-center max-w-sm">
             <div className="w-14 h-14 rounded-full bg-stsn-cream border border-stsn-beige flex items-center justify-center mx-auto mb-3">
               <UserCircle2 className="w-7 h-7 text-stsn-gold" />
@@ -660,11 +663,11 @@ function StudentLedger() {
               Select a student to view assessment, payments, balance, and ledger history.
             </p>
           </div>
-        </div>
+        </AppCard>
       ) : (
       <div className="lg:col-span-3 space-y-4">
         {/* Filters & Header */}
-        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 space-y-4">
+        <AppCard className="p-4 space-y-4" padded={false}>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h3 className="text-sm font-display font-bold text-stone-900">{currentStudent.lastName}, {currentStudent.firstName}</h3>
@@ -673,23 +676,19 @@ function StudentLedger() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-md py-1 px-2 text-xs font-semibold focus:outline-none">
+              <AppSelect value={filterYear} onChange={(e) => setFilterYear(e.target.value)} uiSize="sm" className="min-w-[130px]">
                 <option value="All">All Years</option>
                 {schoolYearOptions.map((y) => <option key={y.id}>{y.name}</option>)}
-              </select>
-              <select value={filterSemester} onChange={(e) => setFilterSemester(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-md py-1 px-2 text-xs font-semibold focus:outline-none">
+              </AppSelect>
+              <AppSelect value={filterSemester} onChange={(e) => setFilterSemester(e.target.value)} uiSize="sm" className="min-w-[130px]">
                 <option>All</option>
                 {semesterOptions.map((s) => <option key={s.id}>{s.name}</option>)}
-              </select>
-              <select value={filterTxType} onChange={(e) => setFilterTxType(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-md py-1 px-2 text-xs font-semibold focus:outline-none">
+              </AppSelect>
+              <AppSelect value={filterTxType} onChange={(e) => setFilterTxType(e.target.value)} uiSize="sm" className="min-w-[130px]">
                 {txTypeOptions.map((t) => <option key={t}>{t}</option>)}
-              </select>
-              <button className="flex items-center gap-1 bg-stsn-brown text-stsn-cream text-xs font-semibold px-3 py-1.5 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition">
-                <Download className="w-3.5 h-3.5" /> Export PDF
-              </button>
-              <button className="flex items-center gap-1 bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow cursor-pointer hover:bg-emerald-800 transition">
-                <Download className="w-3.5 h-3.5" /> Export Excel
-              </button>
+              </AppSelect>
+              <AppButton variant="outline" size="sm" leftIcon={Download}>Export PDF</AppButton>
+              <AppButton variant="outline" size="sm" leftIcon={Download}>Export Excel</AppButton>
             </div>
           </div>
 
@@ -742,24 +741,14 @@ function StudentLedger() {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-100">
-            <button onClick={() => setActiveAction("adjustment")} className={`${actionBtnClass} bg-stone-600 text-white hover:bg-stone-700`}>
-              <Edit2 className="w-3.5 h-3.5" /> Add Adjustment
-            </button>
-            <button onClick={() => setActiveAction("soa")} className={`${actionBtnClass} bg-stsn-brown text-stsn-cream hover:bg-stsn-brown-dark`}>
-              <FileText className="w-3.5 h-3.5" /> Generate SOA
-            </button>
-            <button onClick={() => setActiveAction("print")} className={`${actionBtnClass} bg-stone-700 text-white hover:bg-stone-800`}>
-              <Printer className="w-3.5 h-3.5" /> Print Ledger
-            </button>
-            <button onClick={handleIssueReceipt} className={`${actionBtnClass} bg-blue-700 text-white hover:bg-blue-800`}>
-              <Receipt className="w-3.5 h-3.5" /> View Receipt
-            </button>
-            <button onClick={() => setActiveAction("discount")} className={`${actionBtnClass} bg-amber-600 text-white hover:bg-amber-700`}>
-              <Percent className="w-3.5 h-3.5" /> Apply Discount
-            </button>
-            <button onClick={toggleHold} className={`${actionBtnClass} ${holdStatus === "Hold" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"} text-white`}>
-              {holdStatus === "Hold" ? <><Unlock className="w-3.5 h-3.5" /> Clear Hold</> : <><Lock className="w-3.5 h-3.5" /> Put on Hold</>}
-            </button>
+            <AppButton onClick={() => setActiveAction("adjustment")} variant="outline" size="sm" leftIcon={Edit2}>Add Adjustment</AppButton>
+            <AppButton onClick={() => setActiveAction("soa")} variant="primary" size="sm" leftIcon={FileText}>Generate SOA</AppButton>
+            <AppButton onClick={() => setActiveAction("print")} variant="outline" size="sm" leftIcon={Printer}>Print Ledger</AppButton>
+            <AppButton onClick={handleIssueReceipt} variant="outline" size="sm" leftIcon={Receipt}>View Receipt</AppButton>
+            <AppButton onClick={() => setActiveAction("discount")} variant="secondary" size="sm" leftIcon={Percent}>Apply Discount</AppButton>
+            <AppButton onClick={toggleHold} variant={holdStatus === "Hold" ? "secondary" : "destructive"} size="sm" leftIcon={holdStatus === "Hold" ? Unlock : Lock}>
+              {holdStatus === "Hold" ? "Clear Hold" : "Put on Hold"}
+            </AppButton>
           </div>
 
           {/* Accounting Summary */}
@@ -793,7 +782,7 @@ function StudentLedger() {
               </div>
             </div>
           )}
-        </div>
+        </AppCard>
 
         {/* Ledger Table */}
         <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
@@ -802,17 +791,21 @@ function StudentLedger() {
             <h4 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700">Transaction Ledger</h4>
           </div>
           <div className="p-4">
-            <STSNDataTable<LedgerRow>
-              columns={ledgerColumns}
-              rows={ledgerRows}
+            <AppTable<LedgerRow>
+              columns={appTableColumnsFromLegacy(ledgerColumns)}
+              data={ledgerRows}
               emptyMessage="No transactions found for the selected filters."
+              emptyDescription="Try another school year, semester, or transaction type."
+              getRowId={(row, index) => `${row.date}-${row.ref ?? row.type}-${index}`}
+              initialPageSize={10}
+              pageSizeOptions={[10]}
             />
           </div>
         </div>
 
         {/* Payment History */}
         {studentPayments.length > 0 && (
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+          <AppCard className="p-4" padded={false}>
             <h4 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700 mb-3 flex items-center gap-2">
               <Receipt className="w-4 h-4 text-stsn-gold" /> Payment Receipts
             </h4>
@@ -821,7 +814,7 @@ function StudentLedger() {
                 <div
                   key={pay.id}
                   onClick={() => { setSelectedReceiptPayment(pay); setIsReceiptOpen(true); }}
-                  className="p-3 bg-stsn-cream border border-stsn-beige rounded-lg cursor-pointer hover:border-stsn-brown transition flex justify-between items-center"
+                  className="p-3 bg-[linear-gradient(180deg,#fffdf6_0%,#f8f2e4_100%)] border border-[var(--erp-border)] rounded-xl cursor-pointer hover:border-[var(--erp-accent)] transition flex justify-between items-center"
                 >
                   <div>
                     <p className="text-[10px] font-mono font-bold text-stsn-gold">{pay.orNumber}</p>
@@ -835,7 +828,7 @@ function StudentLedger() {
                 </div>
               ))}
             </div>
-          </div>
+          </AppCard>
         )}
       </div>
       )}
@@ -1046,7 +1039,7 @@ function DiscountTypesSetupPage() {
     setTypeForm(DEFAULT_TYPE_FORM);
   };
 
-  const discountTypeColumns: STSNColumn<DiscountType>[] = useMemo(() => [
+  const discountTypeColumns: AppTableLegacyColumn<DiscountType>[] = useMemo(() => [
     {
       title: "Code",
       data: "code",
@@ -1148,13 +1141,23 @@ function DiscountTypesSetupPage() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <DataTableCard
+      <AppTable<DiscountType>
         title="Discount Types"
-        icon={Percent}
-        searchValue={searchTypes}
-        onSearchChange={setSearchTypes}
+        description="Configurable scholarship and discount policies."
         searchPlaceholder="Search discount types…"
-        actions={
+        toolbar={
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400 pointer-events-none" />
+            <input
+              type="search"
+              value={searchTypes}
+              onChange={(e) => setSearchTypes(e.target.value)}
+              placeholder="Search discount types..."
+              className="h-9 w-56 rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-8 pr-3 text-xs outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+            />
+          </div>
+        }
+        rightToolbar={
           <>
             <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs font-semibold focus:outline-none">
               {SOURCES.map((s) => <option key={s}>{s}</option>)}
@@ -1167,14 +1170,15 @@ function DiscountTypesSetupPage() {
             </button>
           </>
         }
-      >
-        <STSNDataTable<DiscountType>
-          columns={discountTypeColumns}
-          rows={filteredTypes}
-          emptyMessage="No discount types found."
-          searchable={false}
-        />
-      </DataTableCard>
+        columns={appTableColumnsFromLegacy(discountTypeColumns)}
+        data={filteredTypes}
+        emptyMessage="No discount types found."
+        emptyDescription="Try adjusting the source filter or search."
+        enableSearch={false}
+        getRowId={(row) => row.id}
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+      />
 
       {/* DISCOUNT TYPE FORM MODAL */}
       {isTypeFormOpen && (
@@ -1624,7 +1628,7 @@ function FinancialHolds() {
     setOverrides((prev) => ({ ...prev, [id]: { status: currentStatus === "Active" ? "Cleared" : "Active", updatedAt: now } }));
   };
 
-  const holdColumns: STSNColumn<FinancialHoldRow>[] = [
+  const holdColumns: AppTableLegacyColumn<FinancialHoldRow>[] = [
     {
       title: "Student",
       data: "studentName",
@@ -1685,32 +1689,42 @@ function FinancialHolds() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <DataTableCard
+      <AppTable<FinancialHoldRow>
         title="Financial Holds"
-        icon={Lock}
-        subtitle="Students with active or resolved financial holds restricting school processes."
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
+        description="Students with active or resolved financial holds restricting school processes."
         searchPlaceholder="Search student…"
-        actions={
+        toolbar={
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400 pointer-events-none" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search student..."
+              className="h-9 w-56 rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-8 pr-3 text-xs outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+            />
+          </div>
+        }
+        rightToolbar={
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs font-semibold focus:outline-none">
             {HOLD_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
           </select>
         }
-      >
-        <STSNDataTable<FinancialHoldRow>
-          columns={holdColumns}
-          rows={rows}
-          emptyMessage="No financial holds match the selected filters."
-          searchable={false}
-        />
+        columns={appTableColumnsFromLegacy(holdColumns)}
+        data={rows}
+        emptyMessage="No financial holds match the selected filters."
+        emptyDescription="Try adjusting the hold status filter or search."
+        enableSearch={false}
+        getRowId={(row) => row.id}
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+      />
         <div className="px-4 py-3 bg-stsn-cream border-t border-stsn-beige flex items-start gap-2">
           <Info className="w-3.5 h-3.5 text-stsn-gold flex-shrink-0 mt-0.5" />
           <p className="text-[10px] text-stone-500 leading-relaxed">
             "Clear Hold" / "Reactivate" actions are session-only for this prototype. This workflow is prepared for prototype review and future backend integration with the Registrar and Enrollment modules.
           </p>
         </div>
-      </DataTableCard>
     </div>
   );
 }
@@ -1912,7 +1926,7 @@ function AssessmentApproval() {
     setRemarks("");
   };
 
-  const approvalColumns: STSNColumn<ApprovalQueueRow>[] = useMemo(() => [
+  const approvalColumns: AppTableLegacyColumn<ApprovalQueueRow>[] = useMemo(() => [
     {
       title: "Student",
       data: "studentName",
@@ -2008,47 +2022,52 @@ function AssessmentApproval() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <DataTableCard
+      <AppTable<ApprovalQueueRow>
         title="Assessment Approval Queue"
-        icon={ClipboardList}
-        subtitle="Tuition, fees, discounts, payment term, and optional books must be approved before Cashier can collect payment."
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
+        description="Tuition, fees, discounts, payment term, and optional books must be approved before Cashier can collect payment."
         searchPlaceholder="Search student or student no…"
-        actions={
+        toolbar={
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400 pointer-events-none" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search student or student no..."
+              className="h-9 w-64 rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-8 pr-3 text-xs outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+            />
+          </div>
+        }
+        rightToolbar={
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-8 bg-stone-50 border border-stone-200 rounded-lg px-2 text-xs font-semibold focus:outline-none">
             {ASSESSMENT_APPROVAL_STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
           </select>
         }
-      >
-        {selectedQueueRows.length > 0 && (
-          <div className="px-4 py-3 bg-stsn-brown text-stsn-cream flex items-center justify-between gap-3 border-b border-stsn-brown-dark">
-            <span className="text-xs font-bold">{selectedQueueRows.length} assessment{selectedQueueRows.length > 1 ? "s" : ""} selected</span>
-            <div className="flex gap-2">
+        columns={appTableColumnsFromLegacy(approvalColumns)}
+        data={rows}
+        emptyMessage="No submitted assessments match the selected filters."
+        emptyDescription="Try another approval status or search term."
+        enableSearch={false}
+        enableRowSelection
+        selectedRowIds={selectedQueueRows.map((row) => row.id)}
+        onSelectionChange={(selectedRows) => setSelectedQueueRows(selectedRows)}
+        renderBulkActions={() => (
+          <>
               <button onClick={handleBulkApprove} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
                 <CheckCircle className="w-3.5 h-3.5" /> Approve All
               </button>
               <button onClick={handleBulkReturn} disabled={!canFinalApprove} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
                 <RotateCcw className="w-3.5 h-3.5" /> Return All
               </button>
-              <button onClick={() => setSelectedQueueRows([])} className="text-xs font-bold px-2 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition">
-                Clear
-              </button>
-            </div>
-          </div>
+          </>
         )}
-        <STSNDataTable<ApprovalQueueRow>
-          columns={approvalColumns}
-          rows={rows}
-          emptyMessage="No submitted assessments match the selected filters."
-          bulkSelectable
-          onBulkSelect={setSelectedQueueRows}
-          onRowClick={(row) => setSelectedId(row.id)}
-          selectedId={selectedId ?? undefined}
-          pageLength={10}
-          searchable={false}
-        />
-      </DataTableCard>
+        onRowClick={(row) => setSelectedId(row.id)}
+        selectedRowId={selectedId ?? undefined}
+        selectedRowKey="id"
+        getRowId={(row) => row.id}
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+      />
 
       {/* DETAIL PANEL MODAL */}
       {selected && (
@@ -2356,7 +2375,7 @@ const AssessmentBilling = React.memo(function AssessmentBilling() {
   const basicEdRows = rows.filter((r) => r.academicUnit === "basic-ed");
   const collegeRows = rows.filter((r) => r.academicUnit === "college");
 
-  const studentNameColumn: STSNColumn<AssessmentBillingRow> = {
+  const studentNameColumn: AppTableLegacyColumn<AssessmentBillingRow> = {
     title: "Student",
     data: "studentName",
     render: (_value, row) => (
@@ -2367,14 +2386,14 @@ const AssessmentBilling = React.memo(function AssessmentBilling() {
     ),
   };
 
-  const statusColumn: STSNColumn<AssessmentBillingRow> = {
+  const statusColumn: AppTableLegacyColumn<AssessmentBillingRow> = {
     title: "Status",
     data: "status",
     searchable: false,
     render: (value: AssessmentBillingRow["status"]) => <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${BILLING_STATUS_BADGE[value]}`}>{value}</span>,
   };
 
-  const basicEdColumns: STSNColumn<AssessmentBillingRow>[] = [
+  const basicEdColumns: AppTableLegacyColumn<AssessmentBillingRow>[] = [
     studentNameColumn,
     { title: "Grade Level", data: "gradeLevel", render: (value) => <span className="font-semibold text-stone-700">{value}</span> },
     { title: "Tuition Package", data: "feeTemplateName", render: (value) => <span className="text-stone-600">{value}</span> },
@@ -2385,7 +2404,7 @@ const AssessmentBilling = React.memo(function AssessmentBilling() {
     statusColumn,
   ];
 
-  const collegeColumns: STSNColumn<AssessmentBillingRow>[] = [
+  const collegeColumns: AppTableLegacyColumn<AssessmentBillingRow>[] = [
     studentNameColumn,
     { title: "Program", data: "program", render: (value) => <span className="font-semibold text-stone-700">{value}</span> },
     { title: "Semester", data: "semester", render: (value) => <span className="text-stone-600">{value}</span> },
@@ -2411,10 +2430,14 @@ const AssessmentBilling = React.memo(function AssessmentBilling() {
           <h3 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700">Basic Education — Assessment & Billing</h3>
         </div>
         <div className="billing-table-card billing-table-wrapper">
-          <STSNDataTable<AssessmentBillingRow>
-            columns={basicEdColumns}
-            rows={basicEdRows}
+          <AppTable<AssessmentBillingRow>
+            columns={appTableColumnsFromLegacy(basicEdColumns)}
+            data={basicEdRows}
             emptyMessage="No Basic Education assessments on record."
+            emptyDescription="Assessment billing rows will appear here once available."
+            getRowId={(row) => row.id}
+            initialPageSize={10}
+            pageSizeOptions={[10]}
           />
         </div>
       </div>
@@ -2426,10 +2449,14 @@ const AssessmentBilling = React.memo(function AssessmentBilling() {
           <h3 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700">College — Assessment & Billing</h3>
         </div>
         <div className="billing-table-card billing-table-wrapper">
-          <STSNDataTable<AssessmentBillingRow>
-            columns={collegeColumns}
-            rows={collegeRows}
+          <AppTable<AssessmentBillingRow>
+            columns={appTableColumnsFromLegacy(collegeColumns)}
+            data={collegeRows}
             emptyMessage="No College assessments on record."
+            emptyDescription="Assessment billing rows will appear here once available."
+            getRowId={(row) => row.id}
+            initialPageSize={10}
+            pageSizeOptions={[10]}
           />
         </div>
       </div>

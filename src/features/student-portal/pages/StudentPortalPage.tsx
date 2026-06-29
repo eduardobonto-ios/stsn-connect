@@ -45,6 +45,7 @@ import {
 import { PreviewModal, CORPreview, IDCardPreview } from "../../../components/ModalPreviews";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppFilterChip from "../../../components/common/AppFilterChip";
+import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import {
   computeMockAssessment,
   generatePaymentSchedule,
@@ -52,9 +53,32 @@ import {
 } from "../../../services/mockAssessmentService";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
-import type { Requirement, Student } from "../../../types";
+import type { Grade, Payment, Requirement, Student } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
+
+interface StudentPortalGradeRow {
+  id: string;
+  syllabusCode: string;
+  courseModule: string;
+  midterm?: number | null;
+  q1?: number;
+  q2?: number;
+  q3?: number;
+  q4?: number;
+  finalGrade?: number | null;
+  remarksLabel: "PASSED" | "FAILED" | "Incomplete";
+}
+
+interface StudentPortalPaymentRow {
+  id: string;
+  orNumber: string;
+  paymentDate: string;
+  term: string;
+  paymentMethod: string;
+  amount: number;
+  highlighted?: boolean;
+}
 
 export default function StudentPortal({ subPage, initialStudentId, compact }: { subPage: string; initialStudentId?: string; compact?: boolean }) {
   const {
@@ -308,6 +332,214 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     return 4;
   };
   const currentStepIdx = getStepIndex(currentStatusString);
+
+  const gradeRows = useMemo<StudentPortalGradeRow[]>(() => (
+    loadedSubjects.map((sub) => {
+      const findGrade = studentGrades.find((g) => g.subjectCode === sub.code);
+      const avg = findGrade ? (findGrade.midtermGrade + findGrade.finalGrade) / 2 : 0;
+      const isPassed = findGrade ? avg >= 75 : false;
+      const q1 = findGrade?.midtermGrade || 85;
+      const q2 = findGrade?.finalGrade || 87;
+      const q3 = Math.min(100, q1 + 2);
+      const q4 = Math.min(100, q2 - 1);
+
+      return {
+        id: sub.id,
+        syllabusCode: sub.code,
+        courseModule: sub.name,
+        midterm: findGrade?.midtermGrade,
+        q1,
+        q2,
+        q3,
+        q4,
+        finalGrade: findGrade?.finalGrade,
+        remarksLabel: findGrade ? (isPassed ? "PASSED" : "FAILED") : "Incomplete",
+      };
+    })
+  ), [loadedSubjects, studentGrades]);
+
+  const paymentHistoryRows = useMemo<StudentPortalPaymentRow[]>(() => {
+    const paymentRows = scopedPayments
+      .filter((payment) => payment.studentId === student.id)
+      .map((payment) => ({
+        id: payment.id,
+        orNumber: payment.orNumber,
+        paymentDate: payment.paymentDate,
+        term: payment.term,
+        paymentMethod: payment.paymentMethod,
+        amount: payment.amount,
+      }));
+
+    if (!overrideSettleBalance) return paymentRows;
+
+    return [
+      ...paymentRows,
+      {
+        id: "mock-clearance-row",
+        orNumber: "OR-MOCK-CLEARANCE",
+        paymentDate: "Today (Simulated)",
+        term: "Full Settlement",
+        paymentMethod: "Treasury Exemption",
+        amount: assessment?.balance ?? 0,
+        highlighted: true,
+      },
+    ];
+  }, [assessment?.balance, overrideSettleBalance, scopedPayments, student.id]);
+
+  const collegeGradeColumns = useMemo<AppTableColumn<StudentPortalGradeRow>[]>(() => [
+    {
+      accessorKey: "syllabusCode",
+      header: "Syllabus Code",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="font-mono font-bold text-stsn-brown">{row.original.syllabusCode}</span>
+      ),
+    },
+    {
+      accessorKey: "courseModule",
+      header: "Course Module",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-bold text-stone-900">{row.original.courseModule}</span>,
+    },
+    {
+      accessorKey: "midterm",
+      header: "Midterm",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono">{row.original.midterm ?? "—"}</span>,
+      meta: { align: "center" },
+    },
+    {
+      accessorKey: "finalGrade",
+      header: "Final Grade",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono">{row.original.finalGrade ?? "—"}</span>,
+      meta: { align: "center" },
+    },
+    {
+      accessorKey: "remarksLabel",
+      header: "Remarks",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const remark = row.original.remarksLabel;
+        if (remark === "Incomplete") {
+          return <span className="text-[10px] italic font-medium text-stone-400">Incomplete</span>;
+        }
+        return (
+          <span className={`inline-block rounded border px-2 py-0.5 text-[9.5px] font-bold ${
+            remark === "PASSED"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}>
+            {remark}
+          </span>
+        );
+      },
+      meta: { align: "center" },
+    },
+  ], []);
+
+  const basicEdGradeColumns = useMemo<AppTableColumn<StudentPortalGradeRow>[]>(() => [
+    {
+      accessorKey: "syllabusCode",
+      header: "Syllabus Code",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="font-mono font-bold text-stsn-brown">{row.original.syllabusCode}</span>
+      ),
+    },
+    {
+      accessorKey: "courseModule",
+      header: "Course Module",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-bold text-stone-900">{row.original.courseModule}</span>,
+    },
+    {
+      accessorKey: "q1",
+      header: "Q1",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono">{row.original.q1}</span>,
+      meta: { align: "center" },
+    },
+    {
+      accessorKey: "q2",
+      header: "Q2",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono">{row.original.q2}</span>,
+      meta: { align: "center" },
+    },
+    {
+      accessorKey: "q3",
+      header: "Q3",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono">{row.original.q3}</span>,
+      meta: { align: "center" },
+    },
+    {
+      accessorKey: "q4",
+      header: "Q4",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono">{row.original.q4}</span>,
+      meta: { align: "center" },
+    },
+    {
+      accessorKey: "remarksLabel",
+      header: "Remarks",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const remark = row.original.remarksLabel;
+        if (remark === "Incomplete") {
+          return <span className="text-[10px] italic font-medium text-stone-400">Incomplete</span>;
+        }
+        return (
+          <span className={`inline-block rounded border px-2 py-0.5 text-[9.5px] font-bold ${
+            remark === "PASSED"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}>
+            {remark}
+          </span>
+        );
+      },
+      meta: { align: "center" },
+    },
+  ], []);
+
+  const gradeColumns = isBasicEd ? basicEdGradeColumns : collegeGradeColumns;
+
+  const paymentHistoryColumns = useMemo<AppTableColumn<StudentPortalPaymentRow>[]>(() => [
+    {
+      accessorKey: "orNumber",
+      header: "Reference OR No",
+      enableSorting: false,
+      cell: ({ row }) => <span className={`font-mono font-bold ${row.original.highlighted ? "text-green-800" : "text-[#6D4C41]"}`}>{row.original.orNumber}</span>,
+    },
+    {
+      accessorKey: "paymentDate",
+      header: "Date Timestamp",
+      enableSorting: false,
+    },
+    {
+      accessorKey: "term",
+      header: "Term Settled",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-bold text-stone-800">{row.original.term}</span>,
+    },
+    {
+      accessorKey: "paymentMethod",
+      header: "Method",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-semibold uppercase">{row.original.paymentMethod}</span>,
+    },
+    {
+      accessorKey: "amount",
+      header: "Amount",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="font-mono font-bold text-green-700">₱{row.original.amount.toLocaleString()}</span>
+      ),
+      meta: { align: "right" },
+    },
+  ], []);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -671,63 +903,17 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border border-stone-100 rounded-lg overflow-hidden">
-                  <thead>
-                    <tr className="bg-stone-50 border-b border-stone-150 font-bold text-stone-500 text-[10px] uppercase">
-                      <th className="p-3">Syllabus Code</th>
-                      <th className="p-3">Course Module</th>
-                      {!isBasicEd && <th className="p-3 text-center">Midterm</th>}
-                      {isBasicEd ? (
-                        <>
-                          <th className="p-3 text-center">Q1</th>
-                          <th className="p-3 text-center">Q2</th>
-                          <th className="p-3 text-center">Q3</th>
-                          <th className="p-3 text-center">Q4</th>
-                        </>
-                      ) : (
-                        <th className="p-3 text-center">Final Grade</th>
-                      )}
-                      <th className="p-3 text-center">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 font-medium text-stone-700">
-                    {loadedSubjects.map((sub) => {
-                      const findGrade = studentGrades.find((g) => g.subjectCode === sub.code);
-                      const avg = findGrade ? (findGrade.midtermGrade + findGrade.finalGrade) / 2 : 0;
-                      const isPassed = findGrade && avg >= 75;
-                      const q1 = findGrade?.midtermGrade || 85;
-                      const q2 = findGrade?.finalGrade || 87;
-                      const q3 = Math.min(100, q1 + 2);
-                      const q4 = Math.min(100, q2 - 1);
-                      return (
-                        <tr key={sub.id} className="hover:bg-stone-50/50">
-                          <td className="p-3 font-mono text-stsn-brown font-bold">{sub.code}</td>
-                          <td className="p-3 font-bold text-stone-900">{sub.name}</td>
-                          {!isBasicEd && <td className="p-3 text-center font-mono">{findGrade?.midtermGrade ?? "—"}</td>}
-                          {isBasicEd ? (
-                            <>
-                              <td className="p-3 text-center font-mono">{q1}</td>
-                              <td className="p-3 text-center font-mono">{q2}</td>
-                              <td className="p-3 text-center font-mono">{q3}</td>
-                              <td className="p-3 text-center font-mono">{q4}</td>
-                            </>
-                          ) : (
-                            <td className="p-3 text-center font-mono">{findGrade?.finalGrade ?? "—"}</td>
-                          )}
-                          <td className="p-3 text-center">
-                            {findGrade ? (
-                              <span className={`inline-block text-[9.5px] font-bold px-2 py-0.5 rounded ${isPassed ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-                                {isPassed ? "PASSED" : "FAILED"}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-stone-400 italic font-medium">Incomplete</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <AppTable<StudentPortalGradeRow>
+                  data={gradeRows}
+                  columns={gradeColumns}
+                  enableSearch={false}
+                  enablePagination={false}
+                  enableColumnVisibility={false}
+                  emptyMessage="No finalized grades on record yet."
+                  emptyDescription="Grade rows will appear here once instructor entries are finalized."
+                  compact
+                  tableClassName="text-left"
+                />
               </div>
 
               <div className="p-4 bg-stone-50 border border-stone-200/55 rounded-xl flex flex-col sm:flex-row justify-between text-xs font-medium text-stone-500">
@@ -1001,37 +1187,19 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
           <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
             <h3 className="text-xs font-display font-extrabold text-stone-950 uppercase tracking-widest pb-2.5 border-b border-stone-100">Receipt Payment History Audit</h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border border-stone-50 rounded-lg overflow-hidden">
-                <thead>
-                  <tr className="bg-stone-50 border-b border-stone-150 font-bold text-stone-500 text-[10px] uppercase">
-                    <th className="p-3">Reference OR No</th>
-                    <th className="p-3">Date Timestamp</th>
-                    <th className="p-3">Term Settled</th>
-                    <th className="p-3">Method</th>
-                    <th className="p-3 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100 font-medium text-stone-600">
-                  {scopedPayments.filter((p) => p.studentId === student.id).map((pay) => (
-                    <tr key={pay.id} className="hover:bg-stone-50/50">
-                      <td className="p-3 font-mono font-bold text-[#6D4C41]">{pay.orNumber}</td>
-                      <td className="p-3">{pay.paymentDate}</td>
-                      <td className="p-3 font-bold text-stone-800">{pay.term}</td>
-                      <td className="p-3 font-semibold uppercase">{pay.paymentMethod}</td>
-                      <td className="p-3 text-right font-mono font-bold text-green-700">₱{pay.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                  {overrideSettleBalance && (
-                    <tr className="bg-green-50/50">
-                      <td className="p-3 font-mono font-bold text-green-800">OR-MOCK-CLEARANCE</td>
-                      <td className="p-3">Today (Simulated)</td>
-                      <td className="p-3 font-bold text-stone-800">Full Settlement</td>
-                      <td className="p-3 font-semibold uppercase">Treasury Exemption</td>
-                      <td className="p-3 text-right font-mono font-bold text-green-700">₱{assessment?.balance.toLocaleString()}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <AppTable<StudentPortalPaymentRow>
+                data={paymentHistoryRows}
+                columns={paymentHistoryColumns}
+                getRowId={(row) => row.id}
+                getRowClassName={(row) => (row.highlighted ? "bg-green-50/50" : undefined)}
+                enableSearch={false}
+                enablePagination={false}
+                enableColumnVisibility={false}
+                emptyMessage="No payment history on record."
+                emptyDescription="Receipt and settlement entries will appear here once payments are posted."
+                compact
+                tableClassName="text-left"
+              />
             </div>
           </div>
         </div>

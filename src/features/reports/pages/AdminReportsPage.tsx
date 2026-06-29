@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { FileText, Filter, Search, ShieldCheck } from "lucide-react";
+import { FileText, Filter, ShieldCheck } from "lucide-react";
+import AppCard from "../../../components/common/AppCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useSTSNStore } from "../../../services/store";
 import ReportExportButtons from "../components/ReportExportButtons";
@@ -76,7 +79,7 @@ export default function AdminReportsPage() {
         })}
       </section>
 
-      <section className="bg-white border border-stsn-beige rounded-xl p-4 shadow-sm">
+      <AppCard className="border border-stsn-beige">
         <div className="flex items-center gap-2 mb-3">
           <Filter className="w-4 h-4 text-stsn-gold" />
           <h3 className="text-sm font-black text-stsn-brown uppercase">Report Filters</h3>
@@ -84,35 +87,32 @@ export default function AdminReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className={showStatusFilter ? "md:col-span-2" : "md:col-span-3"}>
             <span className="block text-[10px] uppercase font-mono text-stone-400 mb-1">Search</span>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-stone-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-stsn-beige bg-white pl-8 pr-3 py-2 text-xs font-semibold text-stone-700 outline-none focus:border-stsn-gold"
-                placeholder="Name, email, role, department..."
-              />
-            </div>
+            <AppSearchInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Name, email, role, department..."
+              uiSize="sm"
+            />
           </div>
           {showStatusFilter && (
             <div>
               <span className="block text-[10px] uppercase font-mono text-stone-400 mb-1">Account Status</span>
-              <select
+              <AppSelect
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full rounded-lg border border-stsn-beige bg-white px-3 py-2 text-xs font-semibold text-stone-700 outline-none focus:border-stsn-gold"
+                uiSize="sm"
               >
                 <option value="All">All</option>
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
           )}
         </div>
-      </section>
+      </AppCard>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-stsn-beige bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <AppCard className="border border-stsn-beige lg:flex lg:items-center lg:justify-between">
         <div>
           <p className="text-[10px] font-mono uppercase tracking-widest text-stone-400">Active Report</p>
           <h2 className="text-lg font-black text-stsn-brown">{activeReport.title}</h2>
@@ -130,7 +130,7 @@ export default function AdminReportsPage() {
           rows={rows}
           onPreview={() => setIsPreviewOpen(true)}
         />
-      </section>
+      </AppCard>
 
       <ReportTable columns={activeReport.columns} rows={rows} />
 

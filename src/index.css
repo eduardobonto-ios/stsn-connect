@@ -6,34 +6,114 @@
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Custom STSN Academic Palette */
-  --color-stsn-brown: #5c4533;
-  --color-stsn-brown-dark: #4a3728;
-  --color-stsn-brown-light: #634935;
-  --color-stsn-brown-deep: #2e1c10;
-  --color-stsn-cream: #fffdf5;
-  --color-stsn-beige: #e5e0d5;
-  --color-stsn-gold: #c5a059;
-  --color-stsn-gold-light: #d6cfb5;
-  --color-stsn-text: #2d241e;
+  /* STSN academic ERP palette */
+  --color-stsn-brown: #123a63;
+  --color-stsn-brown-dark: #0a2748;
+  --color-stsn-brown-light: #1a4d7d;
+  --color-stsn-brown-deep: #071c34;
+  --color-stsn-cream: #fffdf6;
+  --color-stsn-beige: #e6d9b8;
+  --color-stsn-gold: #e7b82f;
+  --color-stsn-gold-light: #f2c94c;
+  --color-stsn-text: #102033;
+
+  /* ERP semantic palette */
+  --color-erp-bg: #fffdf6;
+  --color-erp-surface: #ffffff;
+  --color-erp-surface-muted: #f8f2e4;
+  --color-erp-border: #e6d9b8;
+  --color-erp-text: #102033;
+  --color-erp-text-muted: #64748b;
+  --color-erp-brand: #0a2748;
+  --color-erp-accent: #e7b82f;
+
+  /* Workflow status colors */
+  --color-status-draft-bg: #f4f4f5;
+  --color-status-draft-text: #52525b;
+  --color-status-draft-border: #d4d4d8;
+  --color-status-pending-bg: #fffbeb;
+  --color-status-pending-text: #92400e;
+  --color-status-pending-border: #fde68a;
+  --color-status-review-bg: #eff6ff;
+  --color-status-review-text: #1d4ed8;
+  --color-status-review-border: #bfdbfe;
+  --color-status-approved-bg: #ecfdf5;
+  --color-status-approved-text: #047857;
+  --color-status-approved-border: #a7f3d0;
+  --color-status-rejected-bg: #fef2f2;
+  --color-status-rejected-text: #b91c1c;
+  --color-status-rejected-border: #fecaca;
+  --color-status-cancelled-bg: #f5f5f4;
+  --color-status-cancelled-text: #57534e;
+  --color-status-cancelled-border: #d6d3d1;
+
+  /* Academic status colors */
+  --color-status-academic-active-bg: #ecfdf5;
+  --color-status-academic-active-text: #047857;
+  --color-status-academic-active-border: #a7f3d0;
+  --color-status-academic-enrolled-bg: #eef2ff;
+  --color-status-academic-enrolled-text: #4338ca;
+  --color-status-academic-enrolled-border: #c7d2fe;
+  --color-status-academic-graduated-bg: #f5f3ff;
+  --color-status-academic-graduated-text: #6d28d9;
+  --color-status-academic-graduated-border: #ddd6fe;
+  --color-status-academic-dropped-bg: #fef2f2;
+  --color-status-academic-dropped-text: #b91c1c;
+  --color-status-academic-dropped-border: #fecaca;
+  --color-status-academic-leave-bg: #fff7ed;
+  --color-status-academic-leave-text: #c2410c;
+  --color-status-academic-leave-border: #fed7aa;
+  --color-status-academic-suspended-bg: #fdf2f8;
+  --color-status-academic-suspended-text: #be185d;
+  --color-status-academic-suspended-border: #fbcfe8;
+
+  /* Finance status colors */
+  --color-status-finance-credit-bg: #ecfdf5;
+  --color-status-finance-credit-text: #047857;
+  --color-status-finance-credit-border: #a7f3d0;
+  --color-status-finance-debit-bg: #eff6ff;
+  --color-status-finance-debit-text: #1d4ed8;
+  --color-status-finance-debit-border: #bfdbfe;
+  --color-status-finance-balance-bg: #f8fafc;
+  --color-status-finance-balance-text: #334155;
+  --color-status-finance-balance-border: #cbd5e1;
+  --color-status-finance-overdue-bg: #fef2f2;
+  --color-status-finance-overdue-text: #b91c1c;
+  --color-status-finance-overdue-border: #fecaca;
+  --color-status-finance-paid-bg: #ecfdf5;
+  --color-status-finance-paid-text: #047857;
+  --color-status-finance-paid-border: #a7f3d0;
+  --color-status-finance-partial-bg: #fffbeb;
+  --color-status-finance-partial-text: #92400e;
+  --color-status-finance-partial-border: #fde68a;
+  --color-status-finance-waived-bg: #f5f3ff;
+  --color-status-finance-waived-text: #6d28d9;
+  --color-status-finance-waived-border: #ddd6fe;
+  --color-status-neutral-bg: #f5f5f4;
+  --color-status-neutral-text: #57534e;
+  --color-status-neutral-border: #d6d3d1;
 }
 
 :root {
   /* Layout */
-  --stsn-page-bg: #f8f3ea;
+  --stsn-page-bg: #fffdf6;
   --stsn-card-bg: #ffffff;
-  --stsn-card-border: #e5e0d5;
+  --stsn-card-border: #e6d9b8;
   --stsn-card-radius: 0.75rem;
   --stsn-card-shadow:
-    0 1px 3px rgba(74, 55, 40, 0.08), 0 10px 24px rgba(74, 55, 40, 0.05);
+    0 1px 3px rgba(7, 28, 52, 0.08), 0 12px 28px rgba(7, 28, 52, 0.06);
+  --stsn-control-radius: 0.875rem;
+  --stsn-control-shadow: 0 1px 2px rgba(16, 32, 51, 0.04);
+  --stsn-surface-shadow: 0 1px 2px rgba(16, 32, 51, 0.04),
+    0 12px 28px rgba(16, 32, 51, 0.08);
 
   /* Text */
-  --stsn-muted-text: #78716c;
-  --stsn-heading-text: #2d241e;
-  --stsn-secondary-text: #6b5e54;
+  --stsn-muted-text: #64748b;
+  --stsn-heading-text: #102033;
+  --stsn-secondary-text: #36506d;
 
   /* Focus */
-  --stsn-focus-ring: rgba(197, 160, 89, 0.28);
+  --stsn-focus-ring: rgba(231, 184, 47, 0.28);
 
   /* Status backgrounds */
   --stsn-info-bg: #eff6ff;
@@ -42,17 +122,104 @@
   --stsn-danger-bg: #fef2f2;
   --stsn-purple-bg: #f5f3ff;
 
+  /* ERP semantic surfaces */
+  --erp-page-bg: #fffdf6;
+  --erp-surface: #ffffff;
+  --erp-surface-muted: #f8f2e4;
+  --erp-border: #e6d9b8;
+  --erp-text: #102033;
+  --erp-text-muted: #64748b;
+  --erp-brand: #0a2748;
+  --erp-accent: #e7b82f;
+
+  /* Workflow status tokens */
+  --status-draft-bg: #f4f4f5;
+  --status-draft-text: #52525b;
+  --status-draft-border: #d4d4d8;
+  --status-pending-bg: #fffbeb;
+  --status-pending-text: #92400e;
+  --status-pending-border: #fde68a;
+  --status-review-bg: #eff6ff;
+  --status-review-text: #1d4ed8;
+  --status-review-border: #bfdbfe;
+  --status-approved-bg: #ecfdf5;
+  --status-approved-text: #047857;
+  --status-approved-border: #a7f3d0;
+  --status-rejected-bg: #fef2f2;
+  --status-rejected-text: #b91c1c;
+  --status-rejected-border: #fecaca;
+  --status-cancelled-bg: #f5f5f4;
+  --status-cancelled-text: #57534e;
+  --status-cancelled-border: #d6d3d1;
+
+  /* Academic status tokens */
+  --status-academic-active-bg: #ecfdf5;
+  --status-academic-active-text: #047857;
+  --status-academic-active-border: #a7f3d0;
+  --status-academic-enrolled-bg: #eef2ff;
+  --status-academic-enrolled-text: #4338ca;
+  --status-academic-enrolled-border: #c7d2fe;
+  --status-academic-graduated-bg: #f5f3ff;
+  --status-academic-graduated-text: #6d28d9;
+  --status-academic-graduated-border: #ddd6fe;
+  --status-academic-dropped-bg: #fef2f2;
+  --status-academic-dropped-text: #b91c1c;
+  --status-academic-dropped-border: #fecaca;
+  --status-academic-leave-bg: #fff7ed;
+  --status-academic-leave-text: #c2410c;
+  --status-academic-leave-border: #fed7aa;
+  --status-academic-suspended-bg: #fdf2f8;
+  --status-academic-suspended-text: #be185d;
+  --status-academic-suspended-border: #fbcfe8;
+
+  /* Finance status tokens */
+  --status-finance-credit-bg: #ecfdf5;
+  --status-finance-credit-text: #047857;
+  --status-finance-credit-border: #a7f3d0;
+  --status-finance-debit-bg: #eff6ff;
+  --status-finance-debit-text: #1d4ed8;
+  --status-finance-debit-border: #bfdbfe;
+  --status-finance-balance-bg: #f8fafc;
+  --status-finance-balance-text: #334155;
+  --status-finance-balance-border: #cbd5e1;
+  --status-finance-overdue-bg: #fef2f2;
+  --status-finance-overdue-text: #b91c1c;
+  --status-finance-overdue-border: #fecaca;
+  --status-finance-paid-bg: #ecfdf5;
+  --status-finance-paid-text: #047857;
+  --status-finance-paid-border: #a7f3d0;
+  --status-finance-partial-bg: #fffbeb;
+  --status-finance-partial-text: #92400e;
+  --status-finance-partial-border: #fde68a;
+  --status-finance-waived-bg: #f5f3ff;
+  --status-finance-waived-text: #6d28d9;
+  --status-finance-waived-border: #ddd6fe;
+  --status-neutral-bg: #f5f5f4;
+  --status-neutral-text: #57534e;
+  --status-neutral-border: #d6d3d1;
+
   /* Module/Workspace Banner — dark, closest to sidebar color */
-  --stsn-banner-bg: linear-gradient(
-    135deg,
-    #502d15 0%,
-    #532e14 40%,
-    #4a3728 100%
-  );
+  --stsn-banner-bg: linear-gradient(135deg, #071c34 0%, #0a2748 48%, #123a63 100%);
   --stsn-banner-text: #fffdf5;
-  --stsn-banner-border: rgba(197, 160, 89, 0.22);
-  --stsn-banner-eyebrow: rgba(197, 160, 89, 0.85);
-  --stsn-banner-subtitle: rgba(255, 253, 245, 0.68);
+  --stsn-banner-border: rgba(231, 184, 47, 0.28);
+  --stsn-banner-eyebrow: rgba(242, 201, 76, 0.9);
+  --stsn-banner-subtitle: rgba(255, 253, 246, 0.74);
+
+  /* Layout shell tokens */
+  --stsn-shell-bg:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.78), transparent 38%),
+    linear-gradient(180deg, #fffdf6 0%, #f8f2e4 100%);
+  --stsn-shell-content-max: 1680px;
+  --stsn-shell-edge-padding: clamp(1rem, 2vw, 2rem);
+  --stsn-shell-section-gap: clamp(1rem, 2vw, 1.5rem);
+  --stsn-sidebar-border: rgba(255, 255, 255, 0.08);
+  --stsn-sidebar-shadow: 18px 0 48px rgba(7, 28, 52, 0.24);
+  --stsn-shell-header-bg: rgba(255, 253, 246, 0.88);
+  --stsn-shell-header-border: rgba(231, 184, 47, 0.18);
+  --stsn-shell-breadcrumb-bg: rgba(255, 255, 255, 0.7);
+  --stsn-shell-main-bg:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.94), transparent 22%),
+    linear-gradient(180deg, #fffdf6 0%, #f8f2e4 100%);
 }
 
 .app-page-bg {
@@ -63,7 +230,389 @@
   background: var(--stsn-card-bg);
   border: 1px solid var(--stsn-card-border);
   border-radius: var(--stsn-card-radius);
-  box-shadow: var(--stsn-card-shadow);
+  box-shadow: var(--stsn-surface-shadow);
+}
+
+.app-detail-hero {
+  background: linear-gradient(135deg, #071c34 0%, #0a2748 52%, #123a63 100%);
+}
+
+.app-detail-hero-college {
+  background: linear-gradient(135deg, #071c34 0%, #0d3156 52%, #184a79 100%);
+}
+
+.app-detail-hero-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 253, 246, 0.88);
+}
+
+.app-local-panel-tabs {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 253, 246, 0.94));
+  border-bottom: 1px solid rgba(230, 217, 184, 0.8);
+}
+
+.app-local-toolbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 253, 246, 0.95));
+}
+
+.app-local-table-head th {
+  background: linear-gradient(180deg, #f8f2e4 0%, #f3e6c6 100%);
+  color: var(--erp-text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--erp-border);
+}
+
+.app-shell {
+  background: var(--stsn-shell-bg);
+}
+
+.app-shell-sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%),
+    linear-gradient(180deg, #071c34 0%, #0a2748 25%, #123a63 65%, #184a79 100%);
+  border-right: 1px solid var(--stsn-sidebar-border);
+  box-shadow: var(--stsn-sidebar-shadow);
+}
+
+.app-shell-sidebar-header {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.app-shell-school-card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+}
+
+.app-shell-school-card-active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.app-shell-nav {
+  scrollbar-color: rgba(231, 184, 47, 0.7) rgba(255, 255, 255, 0.04);
+}
+
+.app-shell-nav-item,
+.app-shell-nav-child {
+  position: relative;
+  border: 1px solid transparent;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    color 0.18s ease;
+}
+
+.app-shell-nav-item:hover,
+.app-shell-nav-child:hover {
+  transform: translateX(1px);
+}
+
+.app-shell-nav-item:not(.app-shell-nav-item-active):hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.app-shell-nav-child:not(.app-shell-nav-child-active):hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.app-shell-nav-nested {
+  border-left-style: solid;
+  border-left-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-item-active {
+  background: linear-gradient(
+    135deg,
+    rgba(231, 184, 47, 0.24) 0%,
+    rgba(18, 58, 99, 0.82) 100%
+  );
+  border-left: 3px solid #e7b82f;
+}
+
+.app-shell-nav-item-active,
+.app-shell-nav-child-active {
+  border-color: rgba(197, 160, 89, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 20px rgba(7, 28, 52, 0.18);
+}
+
+.app-shell-main-column {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 20%);
+}
+
+.app-shell-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem var(--stsn-shell-edge-padding);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 100%),
+    var(--stsn-shell-header-bg);
+  border-bottom-color: var(--stsn-shell-header-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.app-shell-breadcrumb-inner,
+.app-shell-main-inner {
+  width: 100%;
+  max-width: var(--stsn-shell-content-max);
+}
+
+.app-shell-topbar-inner {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app-shell-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+}
+
+.app-shell-utility-button,
+.app-shell-utility-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), #fff8ea 100%);
+  border: 1px solid rgba(230, 217, 184, 0.9);
+  box-shadow: 0 8px 20px rgba(7, 28, 52, 0.08);
+}
+
+.app-shell-utility-button:hover {
+  border-color: rgba(231, 184, 47, 0.42);
+  background: linear-gradient(180deg, #ffffff 0%, #fff8e4 100%);
+}
+
+.app-shell-breadcrumb {
+  background: var(--stsn-shell-breadcrumb-bg);
+  border-bottom: 1px solid rgba(230, 217, 184, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.app-shell-breadcrumb-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  overflow-x: auto;
+  padding: 0.75rem var(--stsn-shell-edge-padding);
+  font-size: 0.6875rem;
+  font-family: "JetBrains Mono", monospace;
+  color: #64748b;
+}
+
+.app-shell-alert-slot {
+  padding-inline: var(--stsn-shell-edge-padding);
+}
+
+.app-shell-main {
+  background: var(--stsn-shell-main-bg);
+}
+
+.app-shell-main-inner {
+  margin: 0 auto;
+  padding: var(--stsn-shell-section-gap) var(--stsn-shell-edge-padding)
+    calc(var(--stsn-shell-section-gap) * 1.5);
+}
+
+.app-shell-mobile-overlay {
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.app-shell-mobile-drawer {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 20%),
+    linear-gradient(180deg, #071c34 0%, #0a2748 25%, #123a63 65%, #184a79 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px rgba(7, 28, 52, 0.4);
+}
+
+.app-shell-mobile-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+}
+
+@media (max-width: 1024px) {
+  .app-shell-topbar {
+    padding-block: 0.875rem;
+  }
+
+  .app-shell-main-inner {
+    padding-top: 1rem;
+    padding-bottom: 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-shell-topbar {
+    gap: 0.75rem;
+    padding-inline: 1rem;
+  }
+
+  .app-shell-topbar-actions {
+    gap: 0.5rem;
+  }
+
+  .app-shell-breadcrumb-inner {
+    padding: 0.625rem 1rem;
+  }
+
+  .app-shell-alert-slot {
+    padding-inline: 1rem;
+  }
+
+  .app-shell-main-inner {
+    padding-inline: 1rem;
+  }
+}
+
+/* =============================================
+   ERP STATUS BADGE TOKENS
+   ============================================= */
+.stsn-status-badge {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
+  border-color: var(--status-neutral-border);
+}
+
+.stsn-status-neutral {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
+  border-color: var(--status-neutral-border);
+}
+
+.stsn-status-workflow-draft {
+  background: var(--status-draft-bg);
+  color: var(--status-draft-text);
+  border-color: var(--status-draft-border);
+}
+
+.stsn-status-workflow-pending {
+  background: var(--status-pending-bg);
+  color: var(--status-pending-text);
+  border-color: var(--status-pending-border);
+}
+
+.stsn-status-workflow-review {
+  background: var(--status-review-bg);
+  color: var(--status-review-text);
+  border-color: var(--status-review-border);
+}
+
+.stsn-status-workflow-approved {
+  background: var(--status-approved-bg);
+  color: var(--status-approved-text);
+  border-color: var(--status-approved-border);
+}
+
+.stsn-status-workflow-rejected {
+  background: var(--status-rejected-bg);
+  color: var(--status-rejected-text);
+  border-color: var(--status-rejected-border);
+}
+
+.stsn-status-workflow-cancelled {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled-text);
+  border-color: var(--status-cancelled-border);
+}
+
+.stsn-status-academic-active {
+  background: var(--status-academic-active-bg);
+  color: var(--status-academic-active-text);
+  border-color: var(--status-academic-active-border);
+}
+
+.stsn-status-academic-enrolled {
+  background: var(--status-academic-enrolled-bg);
+  color: var(--status-academic-enrolled-text);
+  border-color: var(--status-academic-enrolled-border);
+}
+
+.stsn-status-academic-graduated {
+  background: var(--status-academic-graduated-bg);
+  color: var(--status-academic-graduated-text);
+  border-color: var(--status-academic-graduated-border);
+}
+
+.stsn-status-academic-dropped {
+  background: var(--status-academic-dropped-bg);
+  color: var(--status-academic-dropped-text);
+  border-color: var(--status-academic-dropped-border);
+}
+
+.stsn-status-academic-leave {
+  background: var(--status-academic-leave-bg);
+  color: var(--status-academic-leave-text);
+  border-color: var(--status-academic-leave-border);
+}
+
+.stsn-status-academic-suspended {
+  background: var(--status-academic-suspended-bg);
+  color: var(--status-academic-suspended-text);
+  border-color: var(--status-academic-suspended-border);
+}
+
+.stsn-status-finance-credit {
+  background: var(--status-finance-credit-bg);
+  color: var(--status-finance-credit-text);
+  border-color: var(--status-finance-credit-border);
+}
+
+.stsn-status-finance-debit {
+  background: var(--status-finance-debit-bg);
+  color: var(--status-finance-debit-text);
+  border-color: var(--status-finance-debit-border);
+}
+
+.stsn-status-finance-balance {
+  background: var(--status-finance-balance-bg);
+  color: var(--status-finance-balance-text);
+  border-color: var(--status-finance-balance-border);
+}
+
+.stsn-status-finance-overdue {
+  background: var(--status-finance-overdue-bg);
+  color: var(--status-finance-overdue-text);
+  border-color: var(--status-finance-overdue-border);
+}
+
+.stsn-status-finance-paid {
+  background: var(--status-finance-paid-bg);
+  color: var(--status-finance-paid-text);
+  border-color: var(--status-finance-paid-border);
+}
+
+.stsn-status-finance-partial {
+  background: var(--status-finance-partial-bg);
+  color: var(--status-finance-partial-text);
+  border-color: var(--status-finance-partial-border);
+}
+
+.stsn-status-finance-waived {
+  background: var(--status-finance-waived-bg);
+  color: var(--status-finance-waived-text);
+  border-color: var(--status-finance-waived-border);
 }
 
 /* =============================================
@@ -74,8 +623,7 @@ button,
 input,
 select,
 textarea,
-table,
-.dataTables_wrapper {
+table {
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -144,7 +692,7 @@ h3,
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: #4a3728;
+  color: var(--erp-brand);
   text-transform: uppercase;
 }
 
@@ -157,7 +705,7 @@ h3,
   line-height: 1.4;
 }
 
-/* Table column headers (standalone, outside stsn-datatable) */
+/* Table column headers */
 .stsn-table-header {
   font-family: "JetBrains Mono", monospace;
   font-size: 0.625rem;
@@ -173,50 +721,50 @@ h3,
 .sidebar-gradient {
   background: linear-gradient(
     180deg,
-    #2e1c10 0%,
-    #3d2b1f 25%,
-    #4a3728 60%,
-    #5c4533 100%
+    #071c34 0%,
+    #0a2748 25%,
+    #123a63 65%,
+    #184a79 100%
   );
 }
 
 .sidebar-item-active {
   background: linear-gradient(
     135deg,
-    rgba(197, 160, 89, 0.2) 0%,
-    rgba(92, 69, 51, 0.6) 100%
+    rgba(231, 184, 47, 0.24) 0%,
+    rgba(18, 58, 99, 0.76) 100%
   );
-  border-left: 3px solid #c5a059;
+  border-left: 3px solid #e7b82f;
 }
 
 /* =============================================
    HEADER GRADIENT
    ============================================= */
 .header-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #fffdf5 60%, #faf6ee 100%);
-  border-bottom: 1px solid rgba(197, 160, 89, 0.15);
+  background: linear-gradient(135deg, #ffffff 0%, #fffdf6 60%, #f8f2e4 100%);
+  border-bottom: 1px solid rgba(231, 184, 47, 0.15);
 }
 
 /* =============================================
    BUTTON GRADIENTS
    ============================================= */
 .btn-primary-gradient {
-  background: linear-gradient(135deg, #5c4533 0%, #4a3728 50%, #3d2b1f 100%);
-  box-shadow: 0 2px 8px rgba(74, 55, 40, 0.35);
+  background: linear-gradient(135deg, #0a2748 0%, #123a63 55%, #184a79 100%);
+  box-shadow: 0 2px 8px rgba(7, 28, 52, 0.34);
   transition: all 0.2s ease;
 }
 .btn-primary-gradient:hover {
-  background: linear-gradient(135deg, #6b5242 0%, #5c4533 50%, #4a3728 100%);
-  box-shadow: 0 4px 12px rgba(74, 55, 40, 0.45);
+  background: linear-gradient(135deg, #123a63 0%, #184a79 50%, #215a8f 100%);
+  box-shadow: 0 4px 12px rgba(7, 28, 52, 0.42);
   transform: translateY(-1px);
 }
 
 .btn-gold-gradient {
-  background: linear-gradient(135deg, #c5a059 0%, #a37b3e 100%);
-  box-shadow: 0 2px 8px rgba(197, 160, 89, 0.3);
+  background: linear-gradient(135deg, #e7b82f 0%, #d6a21e 100%);
+  box-shadow: 0 2px 8px rgba(231, 184, 47, 0.34);
 }
 .btn-gold-gradient:hover {
-  background: linear-gradient(135deg, #d4af6a 0%, #c5a059 100%);
+  background: linear-gradient(135deg, #f2c94c 0%, #e7b82f 100%);
 }
 
 /* =============================================
@@ -245,23 +793,23 @@ h3,
 
 /* Primary — approved gold/tan, dark brown text */
 .stsn-btn-primary {
-  background: #c5a059;
-  color: #1c1512;
-  box-shadow: 0 4px 12px rgba(197, 160, 89, 0.3);
+  background: #e7b82f;
+  color: #071c34;
+  box-shadow: 0 4px 12px rgba(231, 184, 47, 0.32);
 }
 .stsn-btn-primary:hover:not(:disabled) {
-  background: #d4af68;
-  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.4);
+  background: #f2c94c;
+  box-shadow: 0 4px 16px rgba(231, 184, 47, 0.4);
 }
 
 /* Secondary — muted stone */
 .stsn-btn-secondary {
-  background: #f5f5f4;
-  color: #44403c;
-  border: 1px solid #e7e5e4;
+  background: #fffdf6;
+  color: #36506d;
+  border: 1px solid #e6d9b8;
 }
 .stsn-btn-secondary:hover:not(:disabled) {
-  background: #e7e5e4;
+  background: #f8f2e4;
 }
 
 /* Destructive — red */
@@ -303,72 +851,82 @@ h3,
 .card-hero-gradient {
   background: linear-gradient(
     135deg,
-    #2e1c10 0%,
-    #4a3728 40%,
-    #5c4533 80%,
-    #6b5242 100%
+    #071c34 0%,
+    #0a2748 42%,
+    #123a63 80%,
+    #184a79 100%
   );
 }
 
 .card-stat-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #fffdf5 100%);
-  border: 1px solid rgba(197, 160, 89, 0.2);
+  background: linear-gradient(135deg, #ffffff 0%, #fffdf6 100%);
+  border: 1px solid rgba(230, 217, 184, 0.88);
 }
 
 .card-gold-accent {
   background: linear-gradient(
     135deg,
-    rgba(197, 160, 89, 0.08) 0%,
-    rgba(255, 253, 245, 1) 50%
+    rgba(231, 184, 47, 0.1) 0%,
+    rgba(255, 253, 246, 1) 50%
   );
-  border: 1px solid rgba(197, 160, 89, 0.25);
+  border: 1px solid rgba(231, 184, 47, 0.24);
 }
 
 /* =============================================
    DASHBOARD WIDGET GRADIENTS
    ============================================= */
 .widget-brown {
-  background: linear-gradient(135deg, #4a3728 0%, #5c4533 100%);
+  background: linear-gradient(135deg, #0a2748 0%, #123a63 100%);
 }
 .widget-gold {
-  background: linear-gradient(135deg, #c5a059 0%, #a37b3e 100%);
+  background: linear-gradient(135deg, #e7b82f 0%, #d6a21e 100%);
 }
 .widget-cream {
-  background: linear-gradient(135deg, #fffdf5 0%, #f5f0e8 100%);
+  background: linear-gradient(135deg, #fffdf6 0%, #f8f2e4 100%);
 }
 
 /* =============================================
    SECTION HEADER GRADIENTS
    ============================================= */
 .section-header-gradient {
-  background: linear-gradient(135deg, #2e1c10 0%, #5c4533 100%);
+  background: linear-gradient(135deg, #071c34 0%, #123a63 100%);
   color: #fffdf5;
 }
 
 .section-header-light {
-  background: linear-gradient(135deg, #fffdf5 0%, #f0eae0 100%);
-  border-bottom: 2px solid rgba(197, 160, 89, 0.3);
+  background: linear-gradient(135deg, #fffdf6 0%, #f8f2e4 100%);
+  border-bottom: 2px solid rgba(231, 184, 47, 0.3);
 }
 
 /* =============================================
    MODULE PAGE BANNER — workspace header (dark, closest to sidebar)
    ============================================= */
 .module-page-banner {
-  background: linear-gradient(135deg, #2e1c10 0%, #3d2b1f 40%, #4a3728 100%);
+  background: linear-gradient(135deg, #071c34 0%, #0a2748 48%, #123a63 100%);
 }
 
 .module-page-banner-college {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #071c34 0%, #0a2748 48%, #184a79 100%);
 }
 
 .module-page-banner-accent {
   height: 2px;
-  background: linear-gradient(90deg, rgba(197, 160, 89, 0) 0%, #c5a059 50%, rgba(197, 160, 89, 0) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(231, 184, 47, 0) 0%,
+    #e7b82f 50%,
+    rgba(231, 184, 47, 0) 100%
+  );
 }
 
 .module-page-banner-accent-college {
   height: 2px;
-  background: linear-gradient(90deg, rgba(96, 165, 250, 0) 0%, #60a5fa 50%, rgba(96, 165, 250, 0) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(96, 165, 250, 0) 0%,
+    #60a5fa 50%,
+    rgba(96, 165, 250, 0) 100%
+  );
 }
 
 /* =============================================
@@ -409,7 +967,7 @@ h3,
    MODAL GRADIENT HEADERS
    ============================================= */
 .modal-header-gradient {
-  background: linear-gradient(135deg, #2e1c10 0%, #4a3728 50%, #5c4533 100%);
+  background: linear-gradient(135deg, #071c34 0%, #0a2748 50%, #123a63 100%);
 }
 
 .modal-header-gradient h3 {
@@ -432,9 +990,9 @@ h3,
   min-height: 100dvh;
   overflow-y: auto;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(7, 28, 52, 0.56);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 @media (min-width: 768px) {
@@ -447,9 +1005,9 @@ h3,
    TAB ACTIVE GRADIENT
    ============================================= */
 .tab-active-gradient {
-  background: linear-gradient(135deg, #4a3728 0%, #5c4533 100%);
+  background: linear-gradient(135deg, #0a2748 0%, #123a63 100%);
   color: #fffdf5;
-  border-top: 2px solid #c5a059;
+  border-top: 2px solid #e7b82f;
 }
 
 /* =============================================
@@ -458,10 +1016,10 @@ h3,
 .row-selected {
   background: linear-gradient(
     90deg,
-    rgba(197, 160, 89, 0.12) 0%,
-    rgba(255, 253, 245, 0.5) 100%
+    rgba(231, 184, 47, 0.12) 0%,
+    rgba(255, 253, 246, 0.7) 100%
   ) !important;
-  border-left: 4px solid #c5a059 !important;
+  border-left: 4px solid #e7b82f !important;
 }
 
 .row-selected td:first-child {
@@ -474,11 +1032,11 @@ h3,
 .badge-basic-ed {
   background: linear-gradient(
     135deg,
-    rgba(74, 55, 40, 0.15) 0%,
-    rgba(197, 160, 89, 0.15) 100%
+    rgba(10, 39, 72, 0.12) 0%,
+    rgba(231, 184, 47, 0.16) 100%
   );
-  border: 1px solid rgba(74, 55, 40, 0.3);
-  color: #4a3728;
+  border: 1px solid rgba(10, 39, 72, 0.24);
+  color: #0a2748;
 }
 
 .badge-college {
@@ -495,9 +1053,9 @@ h3,
    STEPPER GRADIENT
    ============================================= */
 .stepper-active {
-  background: linear-gradient(135deg, #4a3728 0%, #5c4533 100%);
+  background: linear-gradient(135deg, #0a2748 0%, #123a63 100%);
   color: #fffdf5;
-  border: 2px solid #c5a059;
+  border: 2px solid #e7b82f;
 }
 
 /* =============================================
@@ -511,11 +1069,11 @@ h3,
   background: var(--color-stsn-cream);
 }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #c5a059 0%, #a37b3e 100%);
+  background: linear-gradient(180deg, #e7b82f 0%, #d6a21e 100%);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #d4af6a 0%, #c5a059 100%);
+  background: linear-gradient(180deg, #f2c94c 0%, #e7b82f 100%);
 }
 
 /* =============================================
@@ -566,17 +1124,17 @@ h3,
 }
 .smooth-hover:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(74, 55, 40, 0.12);
+  box-shadow: 0 4px 16px rgba(7, 28, 52, 0.12);
 }
 
 /* =============================================
    GLASS MORPHISM CARD
    ============================================= */
 .glass-card {
-  background: rgba(255, 253, 245, 0.7);
+  background: rgba(255, 253, 246, 0.78);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(197, 160, 89, 0.2);
-  box-shadow: 0 4px 24px rgba(74, 55, 40, 0.08);
+  border: 1px solid rgba(231, 184, 47, 0.2);
+  box-shadow: 0 4px 24px rgba(7, 28, 52, 0.08);
 }
 
 /* =============================================
@@ -592,23 +1150,23 @@ h3,
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid #e7e5e4;
+  border: 1px solid #e6d9b8;
   background: #ffffff;
-  color: #57534e;
+  color: #36506d;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 .stsn-filter-chip:hover:not(.active):not(:disabled) {
-  border-color: rgba(92, 69, 51, 0.35);
-  background: rgba(255, 253, 245, 0.7);
+  border-color: rgba(10, 39, 72, 0.24);
+  background: rgba(255, 253, 246, 0.82);
 }
 .stsn-filter-chip.active,
 .stsn-filter-chip[aria-pressed="true"] {
-  background: #5c4533;
+  background: #0a2748;
   color: #fffdf5;
-  border-color: #5c4533;
-  box-shadow: 0 1px 4px rgba(74, 55, 40, 0.2);
+  border-color: #0a2748;
+  box-shadow: 0 1px 4px rgba(7, 28, 52, 0.2);
 }
 .stsn-filter-chip-college.active,
 .stsn-filter-chip-college[aria-pressed="true"] {
@@ -657,7 +1215,7 @@ h3,
 
 /* =============================================
    STSN PLAIN TABLE — Phase 6 standard
-   For plain HTML <table> elements outside STSNDataTable.
+   For plain HTML <table> elements.
    Apply class="stsn-plain-table" to <table>.
    ============================================= */
 .stsn-plain-table {
@@ -666,20 +1224,20 @@ h3,
   border-spacing: 0;
   font-size: 0.75rem;
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  border: 1px solid #e5e0d5;
+  border: 1px solid #e6d9b8;
   border-radius: 0.75rem;
   overflow: hidden;
 }
 .stsn-plain-table thead th {
-  background: #4a3728;
-  color: #fffdf5;
+  background: linear-gradient(180deg, #f8f2e4 0%, #f3e6c6 100%);
+  color: #64748b;
   font-family: "JetBrains Mono", monospace;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.625rem;
   letter-spacing: 0.08em;
   padding: 0.55rem 1rem;
-  border-bottom: none;
+  border-bottom: 1px solid #e6d9b8;
   white-space: nowrap;
   text-align: left;
   vertical-align: middle;
@@ -693,15 +1251,15 @@ h3,
 }
 .stsn-plain-table tbody td {
   padding: 0.625rem 1rem;
-  border-bottom: 1px solid #f0eae0;
-  color: #2d241e;
+  border-bottom: 1px solid #f0e7d1;
+  color: #102033;
   vertical-align: middle;
 }
 .stsn-plain-table tbody tr:last-child td {
   border-bottom: none;
 }
 .stsn-plain-table tbody tr:hover {
-  background: rgba(197, 160, 89, 0.05);
+  background: rgba(231, 184, 47, 0.06);
 }
 .stsn-plain-table tbody tr:last-child td:first-child {
   border-bottom-left-radius: 0.75rem;
@@ -714,126 +1272,6 @@ h3,
   text-align: right;
 }
 
-/* =============================================
-   STSN DATATABLE THEME
-   ============================================= */
-.stsn-datatable table.dataTable {
-  width: 100% !important;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 0.75rem;
-  border: 1px solid #e5e0d5;
-  border-radius: 0.75rem;
-  overflow: hidden;
-}
-
-.stsn-datatable table.dataTable thead th {
-  display: table-cell !important; /* override DataTables 2.x flex layout to prevent left-side sort indicator excess */
-  background: #4a3728;
-  color: #fffdf5;
-  font-family: "JetBrains Mono", monospace;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.625rem;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-  padding: 0.55rem 0.8rem;
-  border-bottom: none;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
-.stsn-datatable table.dataTable thead th .dt-column-order {
-  display: none;
-}
-
-.stsn-datatable table.dataTable thead th.dt-orderable-asc,
-.stsn-datatable table.dataTable thead th.dt-orderable-desc {
-  cursor: pointer;
-}
-
-.stsn-datatable table.dataTable tbody td {
-  padding: 0.6rem 0.9rem;
-  border-bottom: 1px solid #f0eae0;
-  color: #2d241e;
-}
-
-.stsn-datatable table.dataTable tbody tr:hover {
-  background: rgba(197, 160, 89, 0.06);
-}
-
-.stsn-datatable table.dataTable tbody tr.stsn-row-selected {
-  background: rgba(74, 55, 40, 0.09) !important;
-}
-
-.stsn-datatable table.dataTable tbody tr.stsn-row-selected:hover {
-  background: rgba(74, 55, 40, 0.11) !important;
-}
-
-.stsn-datatable table.dataTable tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.stsn-datatable .dt-search input {
-  border: 1px solid #e5e0d5;
-  border-radius: 0.5rem;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.75rem;
-  background: #fffdf5;
-  color: #2d241e;
-  margin-left: 0.5rem;
-}
-
-.stsn-datatable .dt-search input:focus {
-  outline: none;
-  border-color: #c5a059;
-  box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.2);
-}
-
-.stsn-datatable .dt-length select {
-  border: 1px solid #e5e0d5;
-  border-radius: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  background: #fffdf5;
-  color: #2d241e;
-}
-
-.stsn-datatable .dt-paging .dt-paging-button {
-  border-radius: 0.5rem;
-  margin: 0 0.15rem;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.75rem;
-  border: 1px solid #e5e0d5;
-  color: #5c4533;
-  background: #fffdf5;
-}
-
-.stsn-datatable .dt-paging .dt-paging-button.current {
-  background: #c5a059;
-  color: #1c1512;
-  border-color: #c5a059;
-  font-weight: 700;
-}
-
-.stsn-datatable .dt-paging .dt-paging-button:not(.disabled):hover {
-  background: rgba(197, 160, 89, 0.15);
-}
-
-.stsn-datatable .dt-paging .dt-paging-button.disabled {
-  opacity: 0.4;
-}
-
-.stsn-datatable .dt-info {
-  font-size: 0.6875rem;
-  color: #8a7c6f;
-  font-family: "JetBrains Mono", monospace;
-}
-
-.stsn-datatable .dt-layout-row {
-  margin-bottom: 0.75rem;
-}
-
 .payroll-workflow-table-card {
   position: relative;
 }
@@ -843,35 +1281,7 @@ h3,
   contain: layout paint;
 }
 
-.payroll-workflow-table .dt-layout-row:first-child {
-  min-height: 3.375rem;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-bottom: 0;
-}
-
-.payroll-workflow-table .dt-layout-row:first-child .dt-layout-cell {
-  width: auto;
-}
-
-.payroll-workflow-table .dt-layout-row:first-child .dt-layout-cell:first-child {
-  flex: 1 1 auto;
-}
-
-.payroll-workflow-table .dt-search {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.payroll-workflow-table table.dataTable {
-  table-layout: auto;
-}
-
-.stsn-datatable table.dataTable th.payroll-money-cell,
-.stsn-datatable table.dataTable td.payroll-money-cell,
-.stsn-datatable .payroll-money-cell {
+.payroll-money-cell {
   min-width: 7.5rem;
   white-space: nowrap;
   text-align: right;
@@ -887,10 +1297,6 @@ h3,
 
 .billing-table-wrapper {
   margin-top: 0.75rem;
-}
-
-.billing-table-card table.dataTable {
-  margin-bottom: 0.75rem;
 }
 
 @media (max-width: 640px) {

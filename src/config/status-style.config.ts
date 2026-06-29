@@ -5,50 +5,130 @@
 
 import type { AppTone } from "../components/common/ui-variants";
 
+export type StatusFamily = "workflow" | "academic" | "finance" | "neutral";
+
 export interface StatusStyle {
   label: string;
   tone: AppTone;
+  family: StatusFamily;
+  token: string;
   badgeClass: string;
 }
 
+export interface StatusBadgeStyle {
+  label: string;
+  badgeClass: string;
+}
+
+const STATUS_CLASS = {
+  neutral: "stsn-status-neutral",
+  workflowDraft: "stsn-status-workflow-draft",
+  workflowPending: "stsn-status-workflow-pending",
+  workflowReview: "stsn-status-workflow-review",
+  workflowApproved: "stsn-status-workflow-approved",
+  workflowRejected: "stsn-status-workflow-rejected",
+  workflowCancelled: "stsn-status-workflow-cancelled",
+  academicActive: "stsn-status-academic-active",
+  academicEnrolled: "stsn-status-academic-enrolled",
+  academicGraduated: "stsn-status-academic-graduated",
+  academicDropped: "stsn-status-academic-dropped",
+  academicLeave: "stsn-status-academic-leave",
+  academicSuspended: "stsn-status-academic-suspended",
+  financeCredit: "stsn-status-finance-credit",
+  financeDebit: "stsn-status-finance-debit",
+  financeBalance: "stsn-status-finance-balance",
+  financeOverdue: "stsn-status-finance-overdue",
+  financePaid: "stsn-status-finance-paid",
+  financePartial: "stsn-status-finance-partial",
+  financeWaived: "stsn-status-finance-waived",
+} as const;
+
+function style(
+  label: string,
+  tone: AppTone,
+  family: StatusFamily,
+  token: string,
+  badgeClass: string,
+): StatusStyle {
+  return { label, tone, family, token, badgeClass };
+}
+
 const STATUS_STYLES: Record<string, StatusStyle> = {
-  // ── Generic workflow ──────────────────────────────────────────────────────
-  pending: { label: "Pending", tone: "warning", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
-  "pending approval": { label: "Pending Approval", tone: "warning", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
-  "pending accounting approval": { label: "Pending Accounting Approval", tone: "warning", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
-  "for review": { label: "For Review", tone: "info", badgeClass: "bg-blue-50 text-blue-700 border-blue-200" },
-  approved: { label: "Approved", tone: "success", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  "approved for payment": { label: "Approved for Payment", tone: "success", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Rejected", tone: "danger", badgeClass: "bg-red-50 text-red-700 border-red-200" },
-  returned: { label: "Returned", tone: "warning", badgeClass: "bg-orange-50 text-orange-700 border-orange-200" },
-  "returned to registrar": { label: "Returned to Registrar", tone: "warning", badgeClass: "bg-orange-50 text-orange-700 border-orange-200" },
-  paid: { label: "Paid", tone: "success", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  unpaid: { label: "Unpaid", tone: "danger", badgeClass: "bg-red-50 text-red-700 border-red-200" },
-  partial: { label: "Partial", tone: "warning", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
-  posted: { label: "Posted", tone: "success", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  draft: { label: "Draft", tone: "neutral", badgeClass: "bg-stone-100 text-stone-600 border-stone-200" },
-  void: { label: "Void", tone: "danger", badgeClass: "bg-red-50 text-red-700 border-red-200" },
-  voided: { label: "Voided", tone: "danger", badgeClass: "bg-red-50 text-red-700 border-red-200" },
-  active: { label: "Active", tone: "success", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  inactive: { label: "Inactive", tone: "neutral", badgeClass: "bg-stone-100 text-stone-600 border-stone-200" },
-  completed: { label: "Completed", tone: "success", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  cancelled: { label: "Cancelled", tone: "neutral", badgeClass: "bg-stone-100 text-stone-600 border-stone-200" },
-  // ── Enrollment-specific statuses ─────────────────────────────────────────
-  enrolled: { label: "Enrolled", tone: "success", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  "for assessment": { label: "For Assessment", tone: "info", badgeClass: "bg-blue-50 text-blue-700 border-blue-200" },
-  assessed: { label: "Assessed", tone: "info", badgeClass: "bg-sky-50 text-sky-700 border-sky-200" },
-  "for payment": { label: "For Payment", tone: "warning", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
-  "partially paid": { label: "Partially Paid", tone: "warning", badgeClass: "bg-orange-50 text-orange-700 border-orange-200" },
-  withdrawn: { label: "Withdrawn", tone: "danger", badgeClass: "bg-red-50 text-red-600 border-red-200" },
+  // Generic workflow
+  draft: style("Draft", "neutral", "workflow", "draft", STATUS_CLASS.workflowDraft),
+  pending: style("Pending", "warning", "workflow", "pending", STATUS_CLASS.workflowPending),
+  "pending approval": style("Pending Approval", "warning", "workflow", "pending", STATUS_CLASS.workflowPending),
+  "pending accounting approval": style("Pending Accounting Approval", "warning", "workflow", "pending", STATUS_CLASS.workflowPending),
+  submitted: style("Submitted", "warning", "workflow", "pending", STATUS_CLASS.workflowPending),
+  "for review": style("For Review", "info", "workflow", "review", STATUS_CLASS.workflowReview),
+  "in review": style("In Review", "info", "workflow", "review", STATUS_CLASS.workflowReview),
+  review: style("Review", "info", "workflow", "review", STATUS_CLASS.workflowReview),
+  returned: style("Returned", "warning", "workflow", "review", STATUS_CLASS.workflowReview),
+  "returned to registrar": style("Returned to Registrar", "warning", "workflow", "review", STATUS_CLASS.workflowReview),
+  "returned for documents": style("Returned for Documents", "warning", "workflow", "review", STATUS_CLASS.workflowReview),
+  computed: style("Computed", "info", "workflow", "review", STATUS_CLASS.workflowReview),
+  queued: style("Queued", "info", "workflow", "review", STATUS_CLASS.workflowReview),
+  approved: style("Approved", "success", "workflow", "approved", STATUS_CLASS.workflowApproved),
+  completed: style("Completed", "success", "workflow", "approved", STATUS_CLASS.workflowApproved),
+  posted: style("Posted", "success", "workflow", "approved", STATUS_CLASS.workflowApproved),
+  released: style("Released", "success", "workflow", "approved", STATUS_CLASS.workflowApproved),
+  cleared: style("Cleared", "success", "workflow", "approved", STATUS_CLASS.workflowApproved),
+  rejected: style("Rejected", "danger", "workflow", "rejected", STATUS_CLASS.workflowRejected),
+  failed: style("Failed", "danger", "workflow", "rejected", STATUS_CLASS.workflowRejected),
+  void: style("Void", "danger", "workflow", "rejected", STATUS_CLASS.workflowRejected),
+  voided: style("Voided", "danger", "workflow", "rejected", STATUS_CLASS.workflowRejected),
+  cancelled: style("Cancelled", "neutral", "workflow", "cancelled", STATUS_CLASS.workflowCancelled),
+  canceled: style("Canceled", "neutral", "workflow", "cancelled", STATUS_CLASS.workflowCancelled),
+  expired: style("Expired", "neutral", "workflow", "cancelled", STATUS_CLASS.workflowCancelled),
+  inactive: style("Inactive", "neutral", "workflow", "cancelled", STATUS_CLASS.workflowCancelled),
+
+  // Academic status
+  active: style("Active", "success", "academic", "active", STATUS_CLASS.academicActive),
+  enrolled: style("Enrolled", "success", "academic", "enrolled", STATUS_CLASS.academicEnrolled),
+  graduated: style("Graduated", "purple", "academic", "graduated", STATUS_CLASS.academicGraduated),
+  dropped: style("Dropped", "danger", "academic", "dropped", STATUS_CLASS.academicDropped),
+  withdrawn: style("Withdrawn", "danger", "academic", "dropped", STATUS_CLASS.academicDropped),
+  leave: style("Leave", "warning", "academic", "leave", STATUS_CLASS.academicLeave),
+  "on leave": style("On Leave", "warning", "academic", "leave", STATUS_CLASS.academicLeave),
+  suspended: style("Suspended", "danger", "academic", "suspended", STATUS_CLASS.academicSuspended),
+  "for assessment": style("For Assessment", "info", "workflow", "review", STATUS_CLASS.workflowReview),
+  assessed: style("Assessed", "info", "workflow", "review", STATUS_CLASS.workflowReview),
+
+  // Finance status
+  credit: style("Credit", "success", "finance", "credit", STATUS_CLASS.financeCredit),
+  debit: style("Debit", "info", "finance", "debit", STATUS_CLASS.financeDebit),
+  balance: style("Balance", "neutral", "finance", "balance", STATUS_CLASS.financeBalance),
+  overdue: style("Overdue", "danger", "finance", "overdue", STATUS_CLASS.financeOverdue),
+  unpaid: style("Unpaid", "danger", "finance", "overdue", STATUS_CLASS.financeOverdue),
+  paid: style("Paid", "success", "finance", "paid", STATUS_CLASS.financePaid),
+  "approved for payment": style("Approved for Payment", "success", "workflow", "approved", STATUS_CLASS.workflowApproved),
+  partial: style("Partial", "warning", "finance", "partial", STATUS_CLASS.financePartial),
+  "partially paid": style("Partially Paid", "warning", "finance", "partial", STATUS_CLASS.financePartial),
+  waived: style("Waived", "purple", "finance", "waived", STATUS_CLASS.financeWaived),
 };
+
+export const DEFAULT_STATUS_STYLE: StatusStyle = style(
+  "Unknown",
+  "neutral",
+  "neutral",
+  "default",
+  STATUS_CLASS.neutral,
+);
 
 export function getStatusStyle(status: string): StatusStyle {
   const key = status.trim().toLowerCase();
   return STATUS_STYLES[key] ?? {
+    ...DEFAULT_STATUS_STYLE,
     label: status,
-    tone: "neutral",
-    badgeClass: "bg-stone-100 text-stone-600 border-stone-200",
   };
 }
 
-export { STATUS_STYLES };
+export function getStatusBadgeStyle(status: string, label?: string): StatusBadgeStyle {
+  const style = getStatusStyle(status);
+  return {
+    label: label ?? style.label,
+    badgeClass: style.badgeClass,
+  };
+}
+
+export { STATUS_CLASS, STATUS_STYLES };

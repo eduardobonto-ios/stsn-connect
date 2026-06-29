@@ -1,10 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  Building2, Plus, Edit2, Trash2, Search, Filter, Download,
-  CheckCircle, XCircle, Loader2
+  Building2, Plus, Edit2, Trash2, Search, Download,
+  CheckCircle, XCircle,
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbInsert, dbUpdate, dbDelete, dbSelectAll, newId } from "../../../../services/supabaseCrud";
@@ -141,7 +140,7 @@ export default function CostCentersPage() {
     };
   }, [costCenters]);
 
-  const columns: STSNColumn<CostCenter>[] = [
+  const columns: AppTableLegacyColumn<CostCenter>[] = [
     {
       title: "Code",
       data: "code",
@@ -264,13 +263,29 @@ export default function CostCentersPage() {
       </div>
 
       {/* Table */}
-      <DataTableCard
+      <AppTable
         title="Cost Centers"
-        icon={Building2}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search by code or name…"
-        actions={
+        columns={appTableColumnsFromLegacy(columns)}
+        data={filtered}
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage="No cost centers match your search."
+        initialPageSize={15}
+        pageSizeOptions={[15]}
+        getRowId={(row) => row.id}
+        toolbar={
+          <div className="relative min-w-[220px] sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by code or name..."
+              className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-9 pr-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+            />
+          </div>
+        }
+        rightToolbar={
           <>
             <select
               value={filterType}
@@ -285,22 +300,7 @@ export default function CostCentersPage() {
             </button>
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading cost centers…
-          </div>
-        ) : (
-          <STSNDataTable
-            columns={columns}
-            rows={filtered}
-            searchable={false}
-            emptyMessage="No cost centers match your search."
-            pageLength={15}
-          />
-        )}
-      </DataTableCard>
+      />
 
       {/* Add / Edit Form Modal */}
       {showForm && (

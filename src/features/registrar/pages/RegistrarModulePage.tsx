@@ -40,17 +40,22 @@ import {
   Download,
 } from "lucide-react";
 import { PreviewModal, CORPreview } from "../../../components/ModalPreviews";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
 import SLABadge from "../../../components/common/SLABadge";
 import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
+import AppTabs from "../../../components/common/AppTabs";
 import AppModal from "../../../components/common/AppModal";
 import EnrollmentWizard from "../components/EnrollmentWizard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 import AppFilterChip from "../../../components/common/AppFilterChip";
-import STSNDataTable, {
-  type STSNColumn,
-} from "../../../components/common/STSNDataTable";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import {
@@ -490,7 +495,7 @@ export default function RegistrarModule() {
     return [...onlineEnrollmentApplications].sort((a, b) => (b.submittedAt ?? "").localeCompare(a.submittedAt ?? ""));
   }, [onlineEnrollmentApplications]);
 
-  const onlineApplicationQueueColumns: STSNColumn<OnlineEnrollmentApplication>[] = useMemo(
+  const onlineApplicationQueueColumns: AppTableLegacyColumn<OnlineEnrollmentApplication>[] = useMemo(
     () => [
       {
         title: "Reference",
@@ -1142,10 +1147,9 @@ export default function RegistrarModule() {
     schoolContext === "BASIC_ED" ? "badge-basic-ed" : "badge-college";
 
   // Students directory table columns. Memoized so the columns/slots passed
-  // to STSNDataTable keep a stable identity across renders (e.g. when
-  // selecting a student updates the right-side panel), preventing the
-  // underlying DataTable from being cleared/redrawn unnecessarily.
-  const studentDirectoryColumns: STSNColumn<Student>[] = useMemo(
+  // to AppTable keep a stable identity across renders (e.g. when selecting
+  // a student updates the right-side panel).
+  const studentDirectoryColumns: AppTableLegacyColumn<Student>[] = useMemo(
     () => [
       {
         title: terms.studentIdLabel,
@@ -1218,21 +1222,7 @@ export default function RegistrarModule() {
         data: "enrollmentStatus",
         className: "text-center",
         searchable: false,
-        render: (_value, stud) => (
-          <span
-            className={`inline-block text-[9.5px] font-bold leading-none px-2 py-1 rounded-full ${
-              stud.enrollmentStatus === "Enrolled"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : stud.enrollmentStatus === "Approved"
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : stud.enrollmentStatus === "Rejected"
-                    ? "bg-red-50 text-red-700 border border-red-200"
-                    : "bg-amber-50 text-amber-700 border border-amber-200"
-            }`}
-          >
-            {stud.enrollmentStatus}
-          </span>
-        ),
+        render: (_value, stud) => <AppStatusBadge status={stud.enrollmentStatus} />,
       },
       {
         title: "COR",
@@ -1245,7 +1235,7 @@ export default function RegistrarModule() {
             ? undefined
             : `COR unavailable — status: ${stud.enrollmentStatus}. Complete enrollment first.`;
           return (
-            <button
+            <AppButton
               onClick={() => {
                 setSelectedStudent(stud);
                 if (isEnrolled) setIsCorModalOpen(true);
@@ -1256,11 +1246,12 @@ export default function RegistrarModule() {
               }}
               title={disabledReason ?? "View / print Certificate of Registration"}
               aria-label={isEnrolled ? `Open COR for ${stud.firstName} ${stud.lastName}` : disabledReason}
-              aria-disabled={!isEnrolled}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition ${isEnrolled ? (schoolContext === "BASIC_ED" ? "btn-primary-gradient text-white cursor-pointer" : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer") : "bg-stone-100 text-stone-400 cursor-not-allowed opacity-60"}`}
+              disabled={!isEnrolled}
+              size="xs"
+              variant={schoolContext === "BASIC_ED" ? "primary" : "primary-college"}
             >
               COR
-            </button>
+            </AppButton>
           );
         },
       },
@@ -1294,7 +1285,7 @@ export default function RegistrarModule() {
         meta="S.Y. 2026–2027"
         actions={
           <div className="flex flex-col sm:items-end gap-1.5">
-            <button
+            <AppButton
               onClick={() => {
                 setDept(schoolContext === "BASIC_ED" ? "Basic Education" : "College");
                 setBeProgramCategory("Senior High School");
@@ -1304,15 +1295,12 @@ export default function RegistrarModule() {
                 setCollegeYear("1st Year");
                 setIsNewStudentModalOpen(true);
               }}
-              className={`inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer ${
-                schoolContext === "BASIC_ED"
-                  ? "bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512]"
-                  : "bg-blue-400 hover:bg-blue-300 text-blue-950"
-              }`}
+              variant={schoolContext === "BASIC_ED" ? "primary" : "primary-college"}
+              size="md"
+              leftIcon={UserPlus}
             >
-              <UserPlus className="w-4 h-4" />
               Enroll New Candidate
-            </button>
+            </AppButton>
             <span className="text-[10px] text-white/25 font-mono hidden sm:block">
               {terms.studentIdLabel} &amp; {terms.trackNoun}
             </span>
@@ -1320,84 +1308,54 @@ export default function RegistrarModule() {
         }
       />
 
-      {/* SUB-TAB SELECTOR — tall segmented cards */}
-      <div className="grid grid-cols-3 gap-3">
-        {(
-          [
-            {
-              id: "directory" as const,
-              icon: Grid,
-              label: "Admissions & Directory",
-              sub: `${filteredStudents.length} student${filteredStudents.length !== 1 ? "s" : ""}`,
-              badge: 0,
-              onClick: () => { setActiveSubTab("directory"); setBulkImportSuccess(""); },
-            },
-            {
-              id: "online_queue" as const,
-              icon: Clock,
-              label: "Online Queue",
-              sub: pendingQueueCount > 0 ? `${pendingQueueCount} pending review` : "Applications inbox",
-              badge: pendingQueueCount,
-              onClick: () => { setActiveSubTab("online_queue"); setBulkImportSuccess(""); },
-            },
-            {
-              id: "bulk_import" as const,
-              icon: FileSpreadsheet,
-              label: terms.bulkImportLabel || "Bulk Import",
-              sub: "CSV / masterlist upload",
-              badge: 0,
-              onClick: () => { setActiveSubTab("bulk_import"); resetImportPreview(); },
-            },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={tab.onClick}
-            aria-selected={activeSubTab === tab.id}
-            className={`relative flex flex-col items-start gap-2.5 px-4 py-4 rounded-xl border transition-all cursor-pointer text-left group ${
-              activeSubTab === tab.id
-                ? schoolContext === "BASIC_ED"
-                  ? "bg-stsn-cream border-stsn-beige border-l-[3px] border-l-stsn-brown shadow-sm"
-                  : "bg-blue-50 border-blue-100 border-l-[3px] border-l-blue-600 shadow-sm"
-                : "bg-white border-stone-100 hover:border-stone-200 hover:shadow-sm"
-            }`}
-          >
-            <div
-              className={`p-2 rounded-lg transition-colors ${
-                activeSubTab === tab.id
-                  ? schoolContext === "BASIC_ED" ? "bg-stsn-brown/10" : "bg-blue-100"
-                  : "bg-stone-100 group-hover:bg-stone-150"
-              }`}
-            >
-              <tab.icon
-                className={`w-4 h-4 ${
-                  activeSubTab === tab.id
-                    ? schoolContext === "BASIC_ED" ? "text-stsn-brown" : "text-blue-600"
-                    : "text-stone-500"
-                }`}
-              />
-            </div>
-            <div className="min-w-0 w-full">
-              <span
-                className={`text-xs font-bold block leading-tight ${
-                  activeSubTab === tab.id
-                    ? schoolContext === "BASIC_ED" ? "text-stsn-brown-dark" : "text-blue-900"
-                    : "text-stone-700"
-                }`}
-              >
-                {tab.label}
-              </span>
-              <span className="text-[10px] font-mono text-stone-400 block mt-0.5 truncate">{tab.sub}</span>
-            </div>
-            {tab.badge > 0 && (
-              <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center leading-none shadow-sm">
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <AppCard className="overflow-hidden" padded={false}>
+        <div className="border-b border-[var(--erp-border)]/70 px-4 pt-4">
+          <AppTabs
+            items={[
+              {
+                value: "directory",
+                label: "Admissions & Directory",
+                badge: undefined,
+              },
+              {
+                value: "online_queue",
+                label: "Online Queue",
+                badge: pendingQueueCount || undefined,
+              },
+              {
+                value: "bulk_import",
+                label: terms.bulkImportLabel || "Bulk Import",
+                badge: undefined,
+              },
+            ]}
+            value={activeSubTab}
+            onChange={(value) => {
+              if (value === "bulk_import") {
+                resetImportPreview();
+              } else {
+                setBulkImportSuccess("");
+              }
+              setActiveSubTab(value);
+            }}
+            className="rounded-none border-none bg-transparent shadow-none"
+            tabsClassName="overflow-x-auto pb-1"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 px-5 py-4 text-xs text-[var(--erp-text-muted)] md:grid-cols-3">
+          <div className={`rounded-2xl border px-4 py-3 ${activeSubTab === "directory" ? "border-[var(--erp-border)] bg-[var(--erp-surface-muted)]" : "border-stone-200 bg-white"}`}>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-stone-400">Admissions & Directory</p>
+            <p className="mt-1 font-semibold text-[var(--erp-text)]">{filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""}</p>
+          </div>
+          <div className={`rounded-2xl border px-4 py-3 ${activeSubTab === "online_queue" ? "border-blue-200 bg-blue-50" : "border-stone-200 bg-white"}`}>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-stone-400">Online Queue</p>
+            <p className="mt-1 font-semibold text-[var(--erp-text)]">{pendingQueueCount > 0 ? `${pendingQueueCount} pending review` : "Applications inbox"}</p>
+          </div>
+          <div className={`rounded-2xl border px-4 py-3 ${activeSubTab === "bulk_import" ? "border-amber-200 bg-amber-50" : "border-stone-200 bg-white"}`}>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-stone-400">{terms.bulkImportLabel || "Bulk Import"}</p>
+            <p className="mt-1 font-semibold text-[var(--erp-text)]">CSV and masterlist upload staging</p>
+          </div>
+        </div>
+      </AppCard>
 
       {/* ===================== DIRECTORY TAB ===================== */}
       {activeSubTab === "directory" && (
@@ -1429,31 +1387,19 @@ export default function RegistrarModule() {
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fade-in">
           {/* Left: Students Table */}
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm lg:col-span-2 overflow-hidden">
+          <AppCard className="lg:col-span-2 overflow-hidden" padded={false}>
             {/* Search & Filter Bar */}
             <div className="px-4 py-3 border-b border-stone-100 space-y-2.5">
               <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder={`Search ${schoolContext === "BASIC_ED" ? "learners" : "students"} by name or ID…`}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    aria-label="Search students"
-                    className={`w-full h-10 bg-stone-50 border border-stone-200 rounded-xl py-0 pl-10 pr-10 text-sm focus:ring-2 focus:outline-none ${schoolContext === "BASIC_ED" ? "focus:ring-stsn-brown/20 focus:border-stsn-brown" : "focus:ring-blue-500/20 focus:border-blue-500"}`}
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      aria-label="Clear search"
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                <AppSearchInput
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onClear={() => setSearchQuery("")}
+                  placeholder={`Search ${schoolContext === "BASIC_ED" ? "learners" : "students"} by name or ID...`}
+                  aria-label="Search students"
+                  variant={schoolContext === "BASIC_ED" ? "default" : "college"}
+                  wrapperClassName="flex-1"
+                />
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
@@ -1501,18 +1447,19 @@ export default function RegistrarModule() {
               </div>
             </div>
 
-            <STSNDataTable<Student>
-              columns={studentDirectoryColumns}
-              rows={filteredStudents}
+            <AppTable<Student>
+              columns={appTableColumnsFromLegacy(studentDirectoryColumns)}
+              data={filteredStudents}
               emptyMessage="No students found."
-              searchable={false}
-              selectedId={selectedStudent?.id}
+              enableSearch={false}
+              selectedRowId={selectedStudent?.id}
+              getRowId={(stud) => stud.id}
               className="px-3 pb-3"
               onRowClick={(stud) => {
                 setSelectedStudent(stud);
                 setDetailTab("info");
               }}
-              rowColorClass={(stud) => {
+              getRowClassName={(stud) => {
                 if (stud.enrollmentStatus === "Rejected" || stud.enrollmentStatus === "Cancelled" || stud.enrollmentStatus === "Withdrawn") return "bg-red-50";
                 if (stud.enrollmentStatus === "Enrolled") return "bg-emerald-50";
                 if (stud.enrollmentStatus === "Pending" || stud.enrollmentStatus === "For Assessment") return "bg-amber-50";
@@ -1520,18 +1467,18 @@ export default function RegistrarModule() {
                 return undefined;
               }}
             />
-          </div>
+          </AppCard>
 
           {/* Right: Student Detail Panel */}
           <div className="space-y-3">
             {selectedStudent ? (
-              <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in lg:sticky lg:top-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+              <AppCard className="overflow-hidden animate-fade-in lg:sticky lg:top-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto" padded={false}>
                 {/* Profile Header — Identity Card */}
                 <div
                   className={`relative px-5 pt-5 pb-4 ${
                     schoolContext === "BASIC_ED"
-                      ? "bg-gradient-to-br from-[#1C1512] via-[#2a1a10] to-[#3a2418]"
-                      : "bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#1d4ed8]"
+                      ? "app-detail-hero"
+                      : "app-detail-hero-college"
                   }`}
                 >
                   <div className="flex items-start gap-3.5">
@@ -1539,42 +1486,35 @@ export default function RegistrarModule() {
                     <div
                       className={`w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-base font-black border ${
                         schoolContext === "BASIC_ED"
-                          ? "bg-[#C5A059]/20 border-[#C5A059]/30 text-[#C5A059]"
-                          : "bg-blue-400/20 border-blue-400/30 text-blue-300"
+                          ? "bg-[rgba(242,201,76,0.16)] border-[rgba(242,201,76,0.32)] text-[#F2C94C]"
+                          : "bg-sky-300/16 border-sky-300/28 text-sky-100"
                       }`}
                     >
                       {`${selectedStudent.firstName.charAt(0)}${selectedStudent.lastName.charAt(0)}`.toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[9px] font-mono uppercase tracking-widest text-white/40 leading-none mb-1">
+                      <p className="text-[9px] font-mono uppercase tracking-widest text-white/55 leading-none mb-1">
                         Admissions Desk · {schoolLabel}
                       </p>
                       <h3 className="text-[15px] font-black text-white leading-tight">
                         {selectedStudent.lastName}, {selectedStudent.firstName}
                         {selectedStudent.middleName ? ` ${selectedStudent.middleName.charAt(0)}.` : ""}
                       </h3>
-                      <p className="text-white/50 text-[10px] font-mono mt-0.5">
+                      <p className="text-white/65 text-[10px] font-mono mt-0.5">
                         {selectedStudent.studentNo}
                         {selectedStudent.yearLevel ? ` · ${selectedStudent.yearLevel}` : ""}
                         {selectedStudent.trackOrCourse ? ` · ${selectedStudent.trackOrCourse}` : ""}
                       </p>
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        <span
-                          className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                            selectedStudent.enrollmentStatus === "Enrolled"
-                              ? "bg-emerald-400/20 border-emerald-300/50 text-emerald-100"
-                              : selectedStudent.enrollmentStatus === "Rejected"
-                                ? "bg-red-400/20 border-red-300/50 text-red-100"
-                                : "bg-amber-400/20 border-amber-300/50 text-amber-100"
-                          }`}
-                        >
-                          {selectedStudent.enrollmentStatus}
-                        </span>
-                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-white/80">
+                        <AppStatusBadge
+                          status={selectedStudent.enrollmentStatus}
+                          className="border-white/10 bg-white/12 text-white"
+                        />
+                        <span className="app-detail-hero-badge text-[9px] font-bold uppercase px-2 py-0.5 rounded-full">
                           {selectedSourceLabel}
                         </span>
                         {selectedEnrollment?.completionStatus === "Incomplete" && (
-                          <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-300/80 text-amber-950">
+                          <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[rgba(242,201,76,0.88)] text-[#102033]">
                             Incomplete
                           </span>
                         )}
@@ -1585,30 +1525,24 @@ export default function RegistrarModule() {
                   <div
                     className={`absolute bottom-0 left-0 right-0 h-0.5 ${
                       schoolContext === "BASIC_ED"
-                        ? "bg-gradient-to-r from-[#C5A059]/0 via-[#C5A059] to-[#C5A059]/0"
-                        : "bg-gradient-to-r from-blue-400/0 via-blue-400 to-blue-400/0"
+                        ? "bg-gradient-to-r from-[rgba(242,201,76,0)] via-[#F2C94C] to-[rgba(242,201,76,0)]"
+                        : "bg-gradient-to-r from-sky-300/0 via-sky-300 to-sky-300/0"
                     }`}
                   />
                 </div>
 
                 {/* Detail Tabs — underline style */}
-                <div className="flex gap-0 bg-white border-b border-stone-100 overflow-x-auto scrollbar-hide">
-                  {getDetailTabs().map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setDetailTab(tab.id)}
-                      aria-selected={detailTab === tab.id}
-                      className={`px-3 py-2.5 text-[10px] font-bold whitespace-nowrap transition-all focus:outline-none flex-shrink-0 ${
-                        detailTab === tab.id
-                          ? schoolContext === "BASIC_ED"
-                            ? "text-stsn-brown border-b-2 border-stsn-brown -mb-px bg-stsn-cream/40"
-                            : "text-blue-600 border-b-2 border-blue-600 -mb-px bg-blue-50/40"
-                          : "text-stone-400 hover:text-stone-700 hover:bg-stone-50 border-b-2 border-transparent"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
+                <div className="app-local-panel-tabs px-3 py-3">
+                  <AppTabs
+                    items={getDetailTabs().map((tab) => ({
+                      value: tab.id,
+                      label: tab.label,
+                    }))}
+                    value={detailTab}
+                    onChange={(value) => setDetailTab(value as DetailTab)}
+                    className="rounded-xl border-none bg-transparent shadow-none"
+                    tabsClassName="overflow-x-auto pb-1"
+                  />
                 </div>
 
                 <div className="p-5 space-y-4">
@@ -3176,7 +3110,7 @@ export default function RegistrarModule() {
                     </div>
                   )}
                 </div>
-              </div>
+              </AppCard>
             ) : (
               <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
                 <div
@@ -3215,14 +3149,10 @@ export default function RegistrarModule() {
       )}
 
       {activeSubTab === "online_queue" && (
-        <div className="rounded-2xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
+        <AppCard className="overflow-hidden animate-fade-in" padded={false}>
           {/* Queue header bar */}
           <div
-            className={`px-6 pt-5 pb-5 ${
-              schoolContext === "BASIC_ED"
-                ? "bg-gradient-to-br from-[#1C1512] via-[#2a1a10] to-[#3a2418]"
-                : "bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#1d4ed8]"
-            }`}
+            className={`px-6 pt-5 pb-5 ${schoolContext === "BASIC_ED" ? "app-detail-hero" : "app-detail-hero-college"}`}
           >
             <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
               <div>
@@ -3246,7 +3176,7 @@ export default function RegistrarModule() {
           <div
             className={`h-0.5 ${
               schoolContext === "BASIC_ED"
-                ? "bg-gradient-to-r from-[#C5A059]/0 via-[#C5A059] to-[#C5A059]/0"
+                ? "bg-gradient-to-r from-[rgba(242,201,76,0)] via-[#F2C94C] to-[rgba(242,201,76,0)]"
                 : "bg-gradient-to-r from-blue-400/0 via-blue-400 to-blue-400/0"
             }`}
           />
@@ -3284,28 +3214,32 @@ export default function RegistrarModule() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <AppButton
                   onClick={handleBulkAcceptApps}
-                  className="px-3 py-1.5 text-[11px] font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition cursor-pointer"
+                  size="xs"
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
                 >
                   Accept All Pending
-                </button>
-                <button
+                </AppButton>
+                <AppButton
                   onClick={handleBulkRejectApps}
-                  className="px-3 py-1.5 text-[11px] font-bold bg-red-100 text-red-700 border border-red-200 rounded-lg hover:bg-red-200 transition cursor-pointer"
+                  size="xs"
+                  variant="danger-outline"
                 >
                   Reject All Pending
-                </button>
+                </AppButton>
               </div>
             </div>
           )}
 
-          <STSNDataTable<OnlineEnrollmentApplication>
-            columns={onlineApplicationQueueColumns}
-            rows={onlineApplicationQueue}
+          <AppTable<OnlineEnrollmentApplication>
+            columns={appTableColumnsFromLegacy(onlineApplicationQueueColumns)}
+            data={onlineApplicationQueue}
             emptyMessage="No online applications found."
-            pageLength={15}
-            rowColorClass={(app) => {
+            initialPageSize={15}
+            pageSizeOptions={[15]}
+            getRowId={(app) => app.id}
+            getRowClassName={(app) => {
               if (app.status === "Rejected" || app.status === "Cancelled") return "bg-red-50";
               if (app.status === "Accepted") return "bg-emerald-50";
               if (app.status === "Pending Registrar Review") return "bg-amber-50";
@@ -3326,25 +3260,21 @@ export default function RegistrarModule() {
             }}
           />
           </div>
-        </div>
+        </AppCard>
       )}
 
       {/* ===================== BULK IMPORT TAB ===================== */}
       {activeSubTab === "bulk_import" && (
-        <div className="rounded-2xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
+        <AppCard className="overflow-hidden animate-fade-in" padded={false}>
           {/* Import header bar */}
           <div
-            className={`px-6 pt-5 pb-5 ${
-              schoolContext === "BASIC_ED"
-                ? "bg-gradient-to-br from-[#1C1512] via-[#2a1a10] to-[#3a2418]"
-                : "bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#1d4ed8]"
-            }`}
+            className={`px-6 pt-5 pb-5 ${schoolContext === "BASIC_ED" ? "app-detail-hero" : "app-detail-hero-college"}`}
           >
             <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
               <div>
                 <span
                   className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
-                    schoolContext === "BASIC_ED" ? "text-[#C5A059]" : "text-blue-300"
+                    schoolContext === "BASIC_ED" ? "text-[#F2C94C]" : "text-blue-300"
                   }`}
                 >
                   Batch Data Entry
@@ -3375,7 +3305,7 @@ export default function RegistrarModule() {
           <div
             className={`h-0.5 ${
               schoolContext === "BASIC_ED"
-                ? "bg-gradient-to-r from-[#C5A059]/0 via-[#C5A059] to-[#C5A059]/0"
+                ? "bg-gradient-to-r from-[rgba(242,201,76,0)] via-[#F2C94C] to-[rgba(242,201,76,0)]"
                 : "bg-gradient-to-r from-blue-400/0 via-blue-400 to-blue-400/0"
             }`}
           />
@@ -3639,7 +3569,7 @@ export default function RegistrarModule() {
             </div>
           )}
           </div>
-        </div>
+        </AppCard>
       )}
 
       {/* ===================== ENROLLMENT FORM MODAL ===================== */}

@@ -309,7 +309,7 @@ export default function App() {
             </button>
             <div className="hidden sm:block">
               <span className="text-[9px] text-stone-400 uppercase font-mono tracking-widest block font-bold">
-                STSN Connect
+                Theresian Connect
               </span>
               <h2 className="text-xs font-display font-black text-stsn-brown uppercase">
                 Unified Philippine K-12 & Tertiary Academics

@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   BookMarked, Plus, Eye, Edit2, Trash2, Download,
-  CheckCircle, AlertTriangle, Loader2, Send, Ban, X,
+  CheckCircle, AlertTriangle, Send, Ban, X,
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
-import DataTableCard from "../../../../components/common/DataTableCard";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbInsert, dbUpdate, dbDelete, dbDeleteWhere, dbSelectAll, newId } from "../../../../services/supabaseCrud";
 
@@ -362,7 +361,7 @@ export default function JournalEntriesPage() {
   }
 
   // ── Main table columns ────────────────────────────────────────────────────
-  const columns: STSNColumn<JournalEntry>[] = [
+  const columns: AppTableLegacyColumn<JournalEntry>[] = [
     {
       title: "Entry No.",
       data: "entryNo",
@@ -453,7 +452,7 @@ export default function JournalEntriesPage() {
   ];
 
   // ── Detail (view) line columns ────────────────────────────────────────────
-  const lineColumns: STSNColumn<JournalEntryLine>[] = [
+  const lineColumns: AppTableLegacyColumn<JournalEntryLine>[] = [
     {
       title: "#",
       data: "lineNo",
@@ -547,13 +546,20 @@ export default function JournalEntriesPage() {
         </div>
       </div>
 
-      <DataTableCard
+      <AppTable
+        data={filtered}
+        columns={appTableColumnsFromLegacy(columns)}
         title="Journal Entries"
-        icon={BookMarked}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search by entry no., description, reference…"
-        actions={
+        toolbar={
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by entry no., description, reference..."
+            className="h-9 min-w-[220px] rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15 sm:w-72"
+          />
+        }
+        rightToolbar={
           <>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as JEStatus | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
               <option value="All">All Statuses</option>
@@ -566,22 +572,13 @@ export default function JournalEntriesPage() {
             </button>
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading journal entries…
-          </div>
-        ) : (
-          <STSNDataTable
-            columns={columns}
-            rows={filtered}
-            searchable={false}
-            emptyMessage="No journal entries match your search."
-            pageLength={10}
-          />
-        )}
-      </DataTableCard>
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage="No journal entries match your search."
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+        getRowId={(row) => row.id}
+      />
 
       {/* ── View / Detail Modal ──────────────────────────────────────────── */}
       {viewEntry && (
@@ -623,12 +620,16 @@ export default function JournalEntriesPage() {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">Journal Lines</p>
                 <div className="border border-stone-200 rounded-xl overflow-hidden">
-                  <STSNDataTable
-                    columns={lineColumns}
-                    rows={viewLines}
-                    searchable={false}
+                  <AppTable
+                    data={viewLines}
+                    columns={appTableColumnsFromLegacy(lineColumns)}
+                    loading={false}
+                    enableSearch={false}
                     emptyMessage="No lines recorded."
-                    pageLength={10}
+                    initialPageSize={10}
+                    pageSizeOptions={[10]}
+                    getRowId={(row) => row.id}
+                    compact
                   />
                 </div>
                 <div className="flex justify-end gap-6 mt-3 text-xs font-mono pr-1">
@@ -946,3 +947,4 @@ export default function JournalEntriesPage() {
     </div>
   );
 }
+
