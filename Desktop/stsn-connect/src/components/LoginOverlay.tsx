@@ -285,7 +285,7 @@ export default function LoginOverlay() {
           </div>
           <h2 className="text-4xl lg:text-5xl font-display font-bold leading-none tracking-tight">
             Welcome to{" "}
-            <span className="text-stsn-gold-light">STSN Connect</span>
+            <span className="text-stsn-gold-light">Theresian Connect</span>
           </h2>
           <p className="text-stone-300 text-sm mt-4 font-normal leading-relaxed">
             A state-of-the-art educational resource platform seamlessly

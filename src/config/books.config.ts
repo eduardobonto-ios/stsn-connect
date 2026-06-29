@@ -4,6 +4,7 @@
  */
 
 import type { BookPackage } from "../types";
+import { getStatusBadgeStyle, type StatusBadgeStyle } from "./status-style.config";
 
 /**
  * Books Setup config (Basic Education only).
@@ -20,14 +21,9 @@ export const BOOK_PACKAGE_GRADE_LEVELS: string[] = [
 
 export const BOOK_PACKAGE_STATUSES: BookPackage["status"][] = ["Active", "Inactive"];
 
-export interface StatusBadgeStyle {
-  label: string;
-  badgeClass: string;
-}
-
 export const BOOK_PACKAGE_STATUS_BADGE: Record<BookPackage["status"], StatusBadgeStyle> = {
-  Active: { label: "Active", badgeClass: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  Inactive: { label: "Inactive", badgeClass: "text-stone-500 bg-stone-50 border-stone-200" },
+  Active: getStatusBadgeStyle("Active"),
+  Inactive: getStatusBadgeStyle("Inactive"),
 };
 
 /** Notice shown wherever a Books Setup UI is rendered for Basic Education. */

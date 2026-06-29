@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FileText, ShieldCheck } from "lucide-react";
+import AppCard from "../../../components/common/AppCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { useSTSNStore } from "../../../services/store";
@@ -90,7 +91,7 @@ export default function RegistrarReportsPage() {
 
       <ReportFilterPanel filters={filters} rows={filterRows} onChange={setFilters} />
 
-      <section className="flex flex-col gap-3 rounded-xl border border-stsn-beige bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <AppCard className="border border-stsn-beige lg:flex lg:items-center lg:justify-between">
         <div>
           <p className="text-[10px] font-mono uppercase tracking-widest text-stone-400">Active Report</p>
           <h2 className="text-lg font-black text-stsn-brown">{activeReport.title}</h2>
@@ -102,7 +103,7 @@ export default function RegistrarReportsPage() {
           rows={rows}
           onPreview={() => setIsPreviewOpen(true)}
         />
-      </section>
+      </AppCard>
 
       <ReportTable columns={activeReport.columns} rows={rows} />
 

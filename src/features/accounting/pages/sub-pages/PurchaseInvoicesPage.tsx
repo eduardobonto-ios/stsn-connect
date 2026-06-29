@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   FileInput, Plus, Eye, Edit2, Trash2, Download,
-  Loader2, X, Send, Ban, PlusCircle, Trash,
+  X, Send, Ban, PlusCircle, Trash,
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
-import DataTableCard from "../../../../components/common/DataTableCard";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbDelete, dbDeleteWhere, dbInsert, dbSelectAll, dbUpdate, newId } from "../../../../services/supabaseCrud";
 
@@ -482,7 +481,7 @@ export default function PurchaseInvoicesPage() {
     }
   }
 
-  const columns: STSNColumn<PurchaseInvoice>[] = [
+  const columns: AppTableLegacyColumn<PurchaseInvoice>[] = [
     { title: "Invoice No.", data: "invoiceNo", render: (_: any, row) => <span className="font-mono text-xs font-semibold text-stone-700">{row.invoiceNo}</span>, width: "125px" },
     {
       title: "Supplier",
@@ -526,7 +525,7 @@ export default function PurchaseInvoicesPage() {
     },
   ];
 
-  const lineColumns: STSNColumn<PurchaseInvoiceLine>[] = [
+  const lineColumns: AppTableLegacyColumn<PurchaseInvoiceLine>[] = [
     { title: "#", data: "lineNo", width: "45px" },
     { title: "Item", data: "itemCode", render: (value: string) => <span className="font-mono text-xs text-stone-600">{value || "-"}</span>, width: "95px" },
     { title: "Description", data: "description" },
@@ -560,13 +559,20 @@ export default function PurchaseInvoicesPage() {
         <div className="bg-white border border-stone-200 rounded-xl px-4 py-3 text-center shadow-sm"><p className="text-[10px] font-mono uppercase tracking-wider text-stone-400">Payable</p><p className="text-xl font-bold text-blue-600 mt-0.5">PHP {fmt(stats.payable)}</p><p className="text-[9px] text-stone-400">Posted total</p></div>
       </div>
 
-      <DataTableCard
+      <AppTable
+        data={filtered}
+        columns={appTableColumnsFromLegacy(columns)}
         title="Purchase Invoices"
-        icon={FileInput}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search invoice, supplier, or notes…"
-        actions={
+        toolbar={
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search invoice, supplier, or notes..."
+            className="h-9 min-w-[220px] rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15 sm:w-72"
+          />
+        }
+        rightToolbar={
           <>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as PurchaseInvoiceStatus | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
               <option value="All">All Statuses</option>
@@ -577,13 +583,13 @@ export default function PurchaseInvoicesPage() {
             </button>
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs"><Loader2 className="w-4 h-4 animate-spin" /> Loading purchase invoices...</div>
-        ) : (
-          <STSNDataTable columns={columns} rows={filtered} searchable={false} emptyMessage="No purchase invoices match your search." pageLength={10} />
-        )}
-      </DataTableCard>
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage="No purchase invoices match your search."
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+        getRowId={(row) => row.id}
+      />
 
       {showForm && (
         <div className="app-modal-backdrop z-50 animate-fade-in">
@@ -659,7 +665,17 @@ export default function PurchaseInvoicesPage() {
                 <div className="bg-stone-50 rounded-xl border border-stone-200 p-3"><p className="text-[10px] text-stone-400 uppercase font-mono">AP Account</p><p className="text-xs font-bold text-stone-800 mt-1">{viewTarget.apGlAccountCode}</p></div>
                 <div className="bg-stone-50 rounded-xl border border-stone-200 p-3"><p className="text-[10px] text-stone-400 uppercase font-mono">Total</p><p className="text-xs font-mono font-black text-stone-900 mt-1">PHP {fmt(viewTarget.totalAmount)}</p></div>
               </div>
-              <STSNDataTable columns={lineColumns} rows={viewLines} searchable={false} emptyMessage="No invoice lines found." pageLength={10} />
+              <AppTable
+                data={viewLines}
+                columns={appTableColumnsFromLegacy(lineColumns)}
+                loading={false}
+                enableSearch={false}
+                emptyMessage="No invoice lines found."
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                getRowId={(row) => row.id}
+                compact
+              />
               {viewTarget.notes && <p className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-xl p-3">{viewTarget.notes}</p>}
             </div>
             <div className="px-6 py-4 border-t border-stone-100 flex justify-between items-center flex-shrink-0 gap-2">
@@ -675,3 +691,4 @@ export default function PurchaseInvoicesPage() {
     </div>
   );
 }
+

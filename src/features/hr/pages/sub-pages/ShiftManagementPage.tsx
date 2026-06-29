@@ -8,7 +8,7 @@ import { CalendarDays, Plus, X, ToggleLeft, ToggleRight } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import { ShiftTemplate, EmployeeShiftAssignment } from "../../../../types";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -187,7 +187,7 @@ export default function ShiftManagementPage() {
   const employeeMap = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
   const templateMap = useMemo(() => new Map(shiftTemplates.map((t) => [t.id, t])), [shiftTemplates]);
 
-  const shiftColumns: STSNColumn<ShiftTemplate>[] = [
+  const legacyShiftColumns: any[] = [
     { title: "Code", data: "code", render: (v) => <span className="font-mono text-xs font-bold text-stsn-brown">{v}</span>, width: "80px" },
     { title: "Name", data: "name", render: (v) => <span className="text-xs font-semibold">{v}</span> },
     { title: "Start", data: "startTime", render: (v) => <span className="font-mono text-xs">{v}</span>, width: "70px" },
@@ -221,7 +221,7 @@ export default function ShiftManagementPage() {
     },
   ];
 
-  const assignmentColumns: STSNColumn<EmployeeShiftAssignment>[] = [
+  const legacyAssignmentColumns: any[] = [
     {
       title: "Employee",
       render: (_, row) => {
@@ -247,6 +247,76 @@ export default function ShiftManagementPage() {
       title: "Rest Days",
       data: "restDays",
       render: (v: string[]) => <span className="text-xs text-stone-500">{v?.length ? v.map((d) => d.slice(0, 3)).join(", ") : "None"}</span>,
+    },
+  ];
+
+  void legacyShiftColumns;
+  void legacyAssignmentColumns;
+
+  const shiftColumns: AppTableColumn<ShiftTemplate>[] = [
+    { accessorKey: "code", header: "Code", cell: ({ getValue }) => <span className="font-mono text-xs font-bold text-stsn-brown">{String(getValue())}</span> },
+    { accessorKey: "name", header: "Name", cell: ({ getValue }) => <span className="text-xs font-semibold">{String(getValue())}</span> },
+    { accessorKey: "startTime", header: "Start", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    { accessorKey: "endTime", header: "End", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    {
+      id: "hours",
+      header: "Hours",
+      cell: ({ row }) => <span className="text-xs text-stone-600">{computeHours(row.original.startTime, row.original.endTime, row.original.breakMinutes, row.original.isOvernight)}</span>,
+    },
+    { accessorKey: "breakMinutes", header: "Break", cell: ({ getValue }) => <span className="text-xs text-stone-500">{String(getValue())} min</span> },
+    {
+      accessorKey: "isOvernight",
+      header: "Overnight",
+      cell: ({ getValue }) => getValue<boolean>() ? <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">Yes</span> : <span className="text-[10px] text-stone-400">No</span>,
+    },
+    {
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ getValue, row }) => (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); toggleShiftTemplateActive(row.original.id); }}
+          className="flex items-center gap-1 cursor-pointer"
+        >
+          {getValue<boolean>()
+            ? <><ToggleRight className="w-5 h-5 text-emerald-500" /><span className="text-[10px] text-emerald-600 font-semibold">Active</span></>
+            : <><ToggleLeft className="w-5 h-5 text-stone-300" /><span className="text-[10px] text-stone-400">Inactive</span></>}
+        </button>
+      ),
+    },
+  ];
+
+  const assignmentColumns: AppTableColumn<EmployeeShiftAssignment>[] = [
+    {
+      accessorKey: "employeeId",
+      header: "Employee",
+      cell: ({ row }) => {
+        const emp = employeeMap.get(row.original.employeeId);
+        return emp ? (
+          <div>
+            <p className="text-xs font-semibold text-stone-800">{emp.firstName} {emp.lastName}</p>
+            <p className="text-[10px] text-stone-400">{emp.position}</p>
+          </div>
+        ) : <span className="text-xs text-stone-400">—</span>;
+      },
+    },
+    {
+      accessorKey: "shiftTemplateId",
+      header: "Shift",
+      cell: ({ row }) => {
+        const t = templateMap.get(row.original.shiftTemplateId);
+        return t ? <span className="text-xs font-semibold">{t.name} <span className="text-stone-400 font-normal">({t.startTime}–{t.endTime})</span></span> : <span className="text-xs text-stone-400">—</span>;
+      },
+    },
+    { accessorKey: "effectiveFrom", header: "From", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    { accessorKey: "effectiveTo", header: "To", cell: ({ getValue }) => <span className="font-mono text-xs">{getValue<string | undefined>() ?? "Ongoing"}</span> },
+    {
+      accessorKey: "restDays",
+      header: "Rest Days",
+      cell: ({ getValue }) => {
+        const value = getValue<string[]>();
+        return <span className="text-xs text-stone-500">{value?.length ? value.map((d) => d.slice(0, 3)).join(", ") : "None"}</span>;
+      },
     },
   ];
 
@@ -298,21 +368,33 @@ export default function ShiftManagementPage() {
         ))}
       </div>
 
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
+      <div>
         {tab === "templates" && (
-          <STSNDataTable<ShiftTemplate>
+          <AppTable<ShiftTemplate>
+            data={shiftTemplates}
             columns={shiftColumns}
-            rows={shiftTemplates}
+            title="Shift Templates"
             emptyMessage="No shift templates found. Add one to get started."
-            pageLength={15}
+            emptyDescription="Create a shift template before assigning employee schedules."
+            loading={false}
+            enableColumnVisibility={false}
+            initialPageSize={15}
+            pageSizeOptions={[15]}
+            getRowId={(row) => row.id}
           />
         )}
         {tab === "assignments" && (
-          <STSNDataTable<EmployeeShiftAssignment>
+          <AppTable<EmployeeShiftAssignment>
+            data={employeeShiftAssignments}
             columns={assignmentColumns}
-            rows={employeeShiftAssignments}
+            title="Employee Shift Assignments"
             emptyMessage="No shift assignments yet. Assign a shift to an employee to get started."
-            pageLength={15}
+            emptyDescription="Assign a shift to begin tracking employee schedules."
+            loading={false}
+            enableColumnVisibility={false}
+            initialPageSize={15}
+            pageSizeOptions={[15]}
+            getRowId={(row) => row.id}
           />
         )}
       </div>

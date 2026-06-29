@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Truck, Plus, Edit2, Trash2, Search, Filter, Download,
-  Loader2, X, Mail, Phone,
+  Truck, Plus, Edit2, Trash2, Search, Download,
+  X, Mail, Phone,
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { useSTSNStore } from "../../../../services/store";
@@ -191,7 +190,7 @@ export default function SupplierManagementPage() {
     }
   }
 
-  const columns: STSNColumn<Supplier>[] = [
+  const columns: AppTableLegacyColumn<Supplier>[] = [
     {
       title: "Code",
       data: "supplierCode",
@@ -328,13 +327,29 @@ export default function SupplierManagementPage() {
         </div>
       </div>
 
-      <DataTableCard
+      <AppTable
         title="Supplier Registry"
-        icon={Truck}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search supplier, TIN, contact, email, or phone…"
-        actions={
+        columns={appTableColumnsFromLegacy(columns)}
+        data={filtered}
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage="No suppliers match your search."
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+        getRowId={(row) => row.id}
+        toolbar={
+          <div className="relative min-w-[220px] sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search supplier, TIN, contact, email, or phone..."
+              className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-9 pr-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+            />
+          </div>
+        }
+        rightToolbar={
           <>
             <select
               value={filterStatus}
@@ -349,22 +364,7 @@ export default function SupplierManagementPage() {
             </button>
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading suppliers…
-          </div>
-        ) : (
-          <STSNDataTable
-            columns={columns}
-            rows={filtered}
-            searchable={false}
-            emptyMessage="No suppliers match your search."
-            pageLength={10}
-          />
-        )}
-      </DataTableCard>
+      />
 
       {showForm && (
         <div className="app-modal-backdrop z-50 animate-fade-in">

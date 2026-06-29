@@ -5,6 +5,7 @@
 
 import type { AcademicUnit } from "../types/school.types";
 import type { AccountingTab, DiscountRequest, FinancialHold, StudentAssessment } from "../types";
+import { getStatusBadgeStyle, type StatusBadgeStyle } from "./status-style.config";
 
 /**
  * Centralized Accounting module config (Phase 2 foundation).
@@ -49,26 +50,21 @@ export const LEDGER_ACTION_LABELS = {
   clearHold: "Clear Financial Hold",
 } as const;
 
-export interface StatusBadgeStyle {
-  label: string;
-  badgeClass: string;
-}
-
 /** Badge styles for DiscountRequest["status"], including extended statuses. */
 export const DISCOUNT_STATUS_CONFIG: Record<DiscountRequest["status"], StatusBadgeStyle> = {
-  "Pending": { label: "Pending", badgeClass: "text-amber-700 bg-amber-50 border-amber-200" },
-  "For Review": { label: "For Review", badgeClass: "text-blue-700 bg-blue-50 border-blue-200" },
-  "Approved": { label: "Approved", badgeClass: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  "Rejected": { label: "Rejected", badgeClass: "text-red-700 bg-red-50 border-red-200" },
-  "Returned for Documents": { label: "Returned for Documents", badgeClass: "text-orange-700 bg-orange-50 border-orange-200" },
-  "Cancelled": { label: "Cancelled", badgeClass: "text-stone-500 bg-stone-50 border-stone-200" },
-  "Expired": { label: "Expired", badgeClass: "text-stone-500 bg-stone-100 border-stone-300" },
+  "Pending": getStatusBadgeStyle("Pending"),
+  "For Review": getStatusBadgeStyle("For Review"),
+  "Approved": getStatusBadgeStyle("Approved"),
+  "Rejected": getStatusBadgeStyle("Rejected"),
+  "Returned for Documents": getStatusBadgeStyle("Returned for Documents"),
+  "Cancelled": getStatusBadgeStyle("Cancelled"),
+  "Expired": getStatusBadgeStyle("Expired"),
 };
 
 /** Badge styles for FinancialHold["status"]. */
 export const FINANCIAL_HOLD_STATUS_CONFIG: Record<FinancialHold["status"], StatusBadgeStyle> = {
   "Active": { label: "Active Hold", badgeClass: "text-red-700 bg-red-50 border-red-200" },
-  "Cleared": { label: "Cleared", badgeClass: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  "Cleared": getStatusBadgeStyle("Cleared"),
 };
 
 /** Maps a FinancialHold's internal `holdType` to its user-facing "Blocked Process" label. */
@@ -89,10 +85,10 @@ export const DEFAULT_HOLD_CATEGORY: NonNullable<FinancialHold["holdCategory"]> =
  * approval workflow that gates Cashier payment collection.
  */
 export const ASSESSMENT_APPROVAL_STATUS_CONFIG: Record<NonNullable<StudentAssessment["approvalStatus"]>, StatusBadgeStyle> = {
-  "Pending Accounting Approval": { label: "Pending Accounting Approval", badgeClass: "text-amber-700 bg-amber-50 border-amber-200" },
-  "Approved for Payment": { label: "Approved for Payment", badgeClass: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  "Returned to Registrar": { label: "Returned to Registrar", badgeClass: "text-orange-700 bg-orange-50 border-orange-200" },
-  "Rejected": { label: "Rejected", badgeClass: "text-red-700 bg-red-50 border-red-200" },
+  "Pending Accounting Approval": getStatusBadgeStyle("Pending Accounting Approval"),
+  "Approved for Payment": getStatusBadgeStyle("Approved for Payment"),
+  "Returned to Registrar": getStatusBadgeStyle("Returned to Registrar"),
+  "Rejected": getStatusBadgeStyle("Rejected"),
 };
 
 /** Status assumed for assessments that predate the approval workflow / have no `approvalStatus`. */

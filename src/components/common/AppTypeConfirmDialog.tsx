@@ -5,6 +5,8 @@
 
 import React, { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
+import AppButton from "./AppButton";
+import AppInput from "./AppInput";
 import AppModal from "./AppModal";
 
 export interface TypeConfirmDialogState {
@@ -52,25 +54,18 @@ export default function AppTypeConfirmDialog({
       bodyClassName="p-5 space-y-3"
       footer={
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-xs font-bold rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-100 transition cursor-pointer"
-          >
+          <AppButton type="button" variant="secondary" size="sm" onClick={onCancel}>
             {cancelText}
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             type="button"
             onClick={onConfirm}
             disabled={!matches}
-            className={`px-4 py-2 text-xs font-bold rounded-lg text-white transition ${
-              matches
-                ? "bg-red-600 hover:bg-red-700 cursor-pointer"
-                : "bg-stone-300 cursor-not-allowed"
-            }`}
+            variant="destructive"
+            size="sm"
           >
             {confirmText}
-          </button>
+          </AppButton>
         </div>
       }
     >
@@ -87,19 +82,20 @@ export default function AppTypeConfirmDialog({
           Type <span className="font-mono font-bold text-red-700 select-all">"{confirmPhrase}"</span> to confirm:
         </p>
       </div>
-      <input
+      <AppInput
         autoFocus
         type="text"
         value={typed}
         onChange={(e) => setTyped(e.target.value)}
         placeholder={confirmPhrase}
-        className={`w-full px-3 py-2 text-sm font-mono rounded-lg border focus:outline-none focus:ring-2 text-stone-800 transition ${
+        className={`font-mono ${
           typed.length > 0 && !matches
             ? "border-red-300 focus:ring-red-200 bg-red-50"
             : matches
             ? "border-emerald-400 focus:ring-emerald-100 bg-emerald-50"
-            : "border-stone-300 focus:ring-stsn-gold/50 focus:border-stsn-gold"
+            : ""
         }`}
+        uiSize="md"
       />
     </AppModal>
   );

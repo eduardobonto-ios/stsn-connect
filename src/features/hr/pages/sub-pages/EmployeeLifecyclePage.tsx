@@ -7,8 +7,10 @@ import React, { useState, useMemo } from "react";
 import { Users, ChevronRight, X, Clock } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../../components/common/AppTable";
 import { Employee, EmployeeLifecycleEvent } from "../../../../types";
 import { EMPLOYMENT_STATUSES } from "../../utils/payrollCalculations";
 import { createPortal } from "react-dom";
@@ -219,7 +221,7 @@ export default function EmployeeLifecyclePage() {
 
   const departments = useMemo(() => ["All", ...Array.from(new Set(employees.map((e) => e.department)))], [employees]);
 
-  const columns: STSNColumn<Employee>[] = [
+  const columns: AppTableLegacyColumn<Employee>[] = [
     {
       title: "EE #",
       data: "employeeNo",
@@ -307,14 +309,19 @@ export default function EmployeeLifecyclePage() {
 
       {/* Main content */}
       <div className={`flex gap-4 ${selectedEmployee ? "flex-col lg:flex-row" : ""}`}>
-        <DataTableCard
+        <AppTable<Employee>
           title="Employee Records"
-          icon={Users}
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
           searchPlaceholder="Search name, position, EE #…"
-          actions={
+          enableSearch={false}
+          toolbar={
             <>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name, position, EE #..."
+                className="h-9 min-w-[220px] rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+              />
               <select
                 value={filterDept}
                 onChange={(e) => setFilterDept(e.target.value)}
@@ -333,17 +340,16 @@ export default function EmployeeLifecyclePage() {
             </>
           }
           className={selectedEmployee ? "lg:flex-1" : "w-full"}
-        >
-          <STSNDataTable<Employee>
-            columns={columns}
-            rows={filtered}
-            emptyMessage="No employees found matching the current filters."
-            searchable={false}
-            pageLength={15}
-            onRowClick={(row) => setSelectedEmployee(row)}
-            selectedId={selectedEmployee?.id}
-          />
-        </DataTableCard>
+          data={filtered}
+          columns={appTableColumnsFromLegacy(columns)}
+          emptyMessage="No employees found matching the current filters."
+          loading={false}
+          initialPageSize={15}
+          pageSizeOptions={[15]}
+          getRowId={(row) => row.id}
+          onRowClick={(row) => setSelectedEmployee(row)}
+          selectedRowId={selectedEmployee?.id}
+        />
 
         {selectedEmployee && (
           <div className="lg:w-80 xl:w-96 flex-shrink-0">

@@ -132,7 +132,7 @@ export default function PayrollDashboardPage() {
     () => new Set(latestPayrollLines.map((line) => line.employeeId)),
     [latestPayrollLines],
   );
-  const headcount = latestPayrollEmployeeIds.size || scopedEmployees.filter((employee) => employee.status !== "Inactive").length;
+  const headcount = latestPayrollEmployeeIds.size || scopedEmployees.filter((employee) => employee.employmentStatus !== "Inactive").length;
   const totalPayroll = latestPayrollLines.reduce((sum, line) => sum + line.netPay, 0);
   const approvedOrReleasedRuns = scopedPayrollRuns.filter((run) => run.status === "Approved" || run.status === "Released");
   const releasedRunIds = new Set(scopedPayoutBatches.filter((batch) => batch.status === "Released").map((batch) => batch.payrollRunId));

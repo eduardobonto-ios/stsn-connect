@@ -78,7 +78,7 @@ export function AppToastContainer({ toasts, onDismiss }: AppToastContainerProps)
         return (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-start gap-3 rounded-xl border shadow-lg p-3.5 pr-2 animate-fade-in ${style.bg} ${style.border}`}
+            className={`pointer-events-auto flex items-start gap-3 rounded-2xl border p-3.5 pr-2 shadow-[0_18px_40px_rgba(45,36,30,0.14)] animate-fade-in ${style.bg} ${style.border}`}
           >
             <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${style.iconColor}`} />
             <div className="flex-1 min-w-0">
@@ -91,7 +91,7 @@ export function AppToastContainer({ toasts, onDismiss }: AppToastContainerProps)
             </div>
             <button
               onClick={() => onDismiss(t.id)}
-              className="p-1 rounded-lg hover:bg-black/5 text-stone-400 hover:text-stone-600 cursor-pointer flex-shrink-0"
+              className="flex-shrink-0 rounded-xl border border-transparent p-1.5 text-stone-400 transition hover:border-black/5 hover:bg-black/5 hover:text-stone-600 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>

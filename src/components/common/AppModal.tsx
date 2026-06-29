@@ -43,23 +43,23 @@ export default function AppModal({
   if (!open) return null;
 
   const header = (
-    <div className={`px-5 py-4 flex items-center justify-between gap-3 ${headerClassName}`}>
+    <div className={`flex items-center justify-between gap-3 border-b border-black/5 px-5 py-4 ${headerClassName}`}>
       <div className="min-w-0 flex items-center gap-2.5">
-        {Icon && <Icon className="w-5 h-5 text-stsn-gold flex-shrink-0" />}
+        {Icon && <Icon className="w-5 h-5 text-[var(--erp-accent)] flex-shrink-0" />}
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-[11px] font-mono uppercase tracking-widest opacity-90">
+            <p className="text-[10px] font-mono uppercase tracking-[0.18em] opacity-80">
               {eyebrow}
             </p>
           )}
-          <h3 className="text-[15px] font-bold tracking-tight truncate">{title}</h3>
+          <h3 className="truncate text-[15px] font-bold tracking-tight">{title}</h3>
         </div>
       </div>
       <button
         type="button"
         onClick={onClose}
         aria-label={closeLabel}
-        className="rounded-lg p-1.5 text-current opacity-80 hover:opacity-100 hover:bg-white/10 transition cursor-pointer flex-shrink-0"
+        className="flex-shrink-0 rounded-xl border border-transparent p-2 text-current opacity-80 transition cursor-pointer hover:border-white/10 hover:bg-white/10 hover:opacity-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
       >
         <X className="w-4 h-4" />
       </button>
@@ -70,11 +70,11 @@ export default function AppModal({
     <>
       {header}
       <div className={bodyClassName}>{children}</div>
-      {footer && <div className="px-5 py-3.5 bg-stsn-cream border-t border-stsn-beige">{footer}</div>}
+      {footer && <div className="border-t border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-5 py-3.5">{footer}</div>}
     </>
   );
 
-  const panelClass = `bg-white rounded-xl shadow-2xl w-full ${maxWidthClass} overflow-hidden border border-stone-200`;
+  const panelClass = `w-full overflow-hidden rounded-[1.1rem] border border-[var(--erp-border)] bg-white shadow-[0_28px_80px_rgba(45,36,30,0.24)] ${maxWidthClass}`;
 
   return createPortal(
     <div className="app-modal-backdrop z-[110] animate-fade-in">
