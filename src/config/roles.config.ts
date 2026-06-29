@@ -28,6 +28,7 @@ export const ROLES: RoleDefinition[] = [
   { id: "guidance", label: "Guidance", description: "Accesses the Guidance Office module only" },
   { id: "nurse", label: "Nurse", description: "Accesses the Clinic module only" },
   { id: "payroll", label: "Payroll", description: "Manages payroll runs, salary payouts, taxes and benefits" },
+  { id: "guardian", label: "Parent / Guardian", description: "Read-only parent portal for linked student records, grades, fees, and notices" },
 ];
 
 export { toCanonicalRole, ROLE_TO_CANONICAL } from "../types/role.types";

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppCard from "../../../components/common/AppCard";
+import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppFilterChip from "../../../components/common/AppFilterChip";
 import { CHART_SERIES_COLORS, CHART_THEME } from "../../../config/chart-theme.config";
 
@@ -173,6 +174,7 @@ export default function PayrollDashboardPage() {
     })
     : monthlyData;
   const maxBar = Math.max(...displayedMonthlyData, 1);
+  const hasPayrollHistory = displayedMonthlyData.some((value) => value > 0);
 
   const deptSalaries = useMemo(() => {
     const grouped: Record<string, number> = {};
@@ -196,6 +198,7 @@ export default function PayrollDashboardPage() {
   const highestDept = deptSalaries[0];
   const lowestDept = deptSalaries[deptSalaries.length - 1];
   const totalDeptSalary = deptSalaries.reduce((s, d) => s + d.salary, 0);
+  const hasDeptSalaryData = deptSalaries.length > 0 && totalDeptSalary > 0;
   const selectedMonthRunIds = useMemo(() => {
     const periodIds = scopedPayrollPeriods
       .filter((period) => {
@@ -343,6 +346,8 @@ export default function PayrollDashboardPage() {
             </button>
           </div>
 
+          {hasPayrollHistory ? (
+            <>
           {/* Bars */}
           <div className="relative mt-8">
             {/* Hover tooltip */}
@@ -456,6 +461,17 @@ export default function PayrollDashboardPage() {
               </div>
             ))}
           </div>
+            </>
+          ) : (
+            <AppEmptyState
+              icon={Banknote}
+              title="No payroll history yet"
+              description="This chart will populate after payroll runs generate approved or released payroll lines for the current scope."
+              compact
+              tone="brand"
+              className="mt-6"
+            />
+          )}
         </div>
 
         {/* Salary Pie Chart — Department Breakdown */}
@@ -465,6 +481,8 @@ export default function PayrollDashboardPage() {
             <p className="text-[11px] text-stone-400 mt-0.5">Department salary distribution</p>
           </div>
 
+          {hasDeptSalaryData ? (
+            <>
           <div className="flex items-center gap-4 mb-4">
             <DonutChart
               slices={deptSalaries.map((d) => ({ label: d.label, pct: d.pct, hex: d.hex }))}
@@ -522,6 +540,16 @@ export default function PayrollDashboardPage() {
                 {selectedDeptData.pct}% of tracked payroll allocation.
               </p>
             </div>
+          )}
+            </>
+          ) : (
+            <AppEmptyState
+              icon={FileText}
+              title="No department salary split yet"
+              description="Department allocation will appear here after payroll lines are generated for employees in the current scope."
+              compact
+              tone="brand"
+            />
           )}
         </div>
       </div>
