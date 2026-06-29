@@ -10,8 +10,10 @@ import { supabase } from "../../../lib/supabase";
 import type { Teacher } from "../../../types";
 import GradingModule from "../../grading/pages/GradingModulePage";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
-import DataTableCard from "../../../components/common/DataTableCard";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
@@ -647,7 +649,7 @@ export default function FacultyAdminPage() {
     setActiveModal({ teacher, type }), []);
   const closeModal = useCallback(() => setActiveModal(null), []);
 
-  const facultyColumns: STSNColumn<Teacher>[] = useMemo(() => [
+  const facultyColumns: AppTableLegacyColumn<Teacher>[] = useMemo(() => [
     {
       title: "Teacher",
       data: "lastName",
@@ -724,26 +726,27 @@ export default function FacultyAdminPage() {
       </div>
 
       {/* Table */}
-      <DataTableCard
+      <AppTable<Teacher>
         title="Faculty Members"
-        icon={Users}
-        searchValue={searchQ}
-        onSearchChange={setSearchQ}
-        searchPlaceholder="Search by name or specialization…"
-        actions={
-          <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">
-            {filtered.length} teacher{filtered.length !== 1 ? "s" : ""}
-          </span>
+        description={`${filtered.length} teacher${filtered.length !== 1 ? "s" : ""}`}
+        columns={appTableColumnsFromLegacy(facultyColumns)}
+        data={filtered}
+        enableSearch={false}
+        emptyMessage="No teachers found."
+        getRowId={(teacher) => teacher.id}
+        toolbar={
+          <div className="relative min-w-60 flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
+            <input
+              type="search"
+              value={searchQ}
+              onChange={(event) => setSearchQ(event.target.value)}
+              placeholder="Search by name or specialization..."
+              className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-8 pr-3 text-xs text-[var(--erp-text)] outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+            />
+          </div>
         }
-        bodyClassName="p-4"
-      >
-        <STSNDataTable<Teacher>
-          columns={facultyColumns}
-          rows={filtered}
-          searchable={false}
-          emptyMessage="No teachers found."
-        />
-      </DataTableCard>
+      />
 
       {/* Modals */}
       {activeModal?.type === "dashboard" && (

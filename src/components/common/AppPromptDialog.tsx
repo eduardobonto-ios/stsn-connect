@@ -5,6 +5,8 @@
 
 import React, { useEffect, useState } from "react";
 import { VARIANT_STYLES, type DialogVariant } from "./AppToast";
+import AppButton from "./AppButton";
+import AppInput from "./AppInput";
 import AppModal from "./AppModal";
 
 export interface PromptDialogState {
@@ -61,19 +63,17 @@ export default function AppPromptDialog({
       bodyClassName="p-5 space-y-2"
       footer={
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-xs font-bold rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-100 transition cursor-pointer"
-          >
+          <AppButton type="button" variant="secondary" size="sm" onClick={onCancel}>
             {cancelText}
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             type="submit"
-            className={`px-4 py-2 text-xs font-bold rounded-lg text-white transition cursor-pointer ${style.button}`}
+            variant={variant === "danger" ? "destructive" : "primary"}
+            size="sm"
+            className={variant === "warning" ? "bg-amber-500 text-white hover:bg-amber-600" : ""}
           >
             {confirmText}
-          </button>
+          </AppButton>
         </div>
       }
     >
@@ -82,13 +82,13 @@ export default function AppPromptDialog({
           {message}
         </p>
       )}
-      <input
+      <AppInput
         autoFocus
         type="text"
         value={value}
         placeholder={placeholder}
         onChange={(e) => setValue(e.target.value)}
-        className="w-full px-3 py-2 text-sm rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-stsn-gold/50 focus:border-stsn-gold text-stone-800"
+        uiSize="md"
       />
     </AppModal>
   );

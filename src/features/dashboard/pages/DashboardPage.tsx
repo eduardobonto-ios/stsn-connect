@@ -26,8 +26,13 @@ import {
   Plus,
 } from "lucide-react";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../components/common/AppTable";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
+import AppEmptyState from "../../../components/common/AppEmptyState";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppTabs from "../../../components/common/AppTabs";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 // ── SVG smooth line chart ────────────────────────────────────────────────
@@ -618,7 +623,7 @@ export default function Dashboard({
     };
   }), [modalStudents, scopedAssessments, scopedEnrollments]);
 
-  const modalColumns: STSNColumn<ModalRow>[] = [
+  const modalColumns: AppTableLegacyColumn<ModalRow>[] = [
     { title: "Student ID",       data: "studentNo",       render: (v) => <span className="font-mono font-bold text-stsn-brown">{v}</span> },
     { title: "Student Name",     data: "fullName",        render: (v) => <span className="font-semibold text-stone-800">{v}</span> },
     { title: "Grade / Year",     data: "yearLevel" },
@@ -729,6 +734,36 @@ export default function Dashboard({
         meta="S.Y. 2026–2027"
       />
 
+      <AppCard className="overflow-hidden bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(255,253,246,0.98)_48%,rgba(248,242,228,0.96)_100%)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--erp-text-muted)]">
+              Executive Overview
+            </p>
+            <h2 className="text-lg font-bold tracking-tight text-[var(--erp-text)]">
+              Institutional performance at a glance.
+            </h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-[var(--erp-text-muted)]">
+              Dashboard remains focused on analytics and operational visibility while approval decisions stay inside Action Center.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+            <div className="rounded-2xl border border-[var(--erp-border)] bg-white/88 px-4 py-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--erp-text-muted)]">Enrolled</p>
+              <p className="mt-1 text-2xl font-black text-[var(--erp-brand)]">{totalEnrolled}</p>
+            </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-amber-700">Pending Actions</p>
+              <p className="mt-1 text-2xl font-black text-amber-800">{totalPending}</p>
+            </div>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-blue-700">Collections</p>
+              <p className="mt-1 text-2xl font-black text-blue-800">P{totalPayments.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      </AppCard>
+
       {/* ── Row 1: KPI Cards + Promo ───────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -760,25 +795,22 @@ export default function Dashboard({
               chip: "bg-emerald-100", iconColor: "text-emerald-600", trendColor: "text-emerald-600",
             },
           ].map((kpi) => (
-            <div key={kpi.label} className={`relative overflow-hidden rounded-2xl border ${kpi.bg} ${kpi.border} p-5 shadow-sm flex items-start justify-between`}>
-              <div className={`absolute inset-x-0 top-0 h-1 ${kpi.accent}`} />
-              <div>
-                <p className="text-2xl font-display font-black text-stone-900">{kpi.value}</p>
-                <p className="text-[11px] font-semibold text-stone-500 mt-1">{kpi.label}</p>
-                <p className={`text-[10px] mt-1 flex items-center gap-0.5 ${kpi.trendColor}`}>
-                  {kpi.trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {kpi.sub}
-                </p>
-              </div>
-              <div className={`w-10 h-10 rounded-xl ${kpi.chip} flex items-center justify-center flex-shrink-0`}>
-                <span className={kpi.iconColor}>{kpi.icon}</span>
-              </div>
-            </div>
+            <AppKpiCard
+              key={kpi.label}
+              label={kpi.label}
+              value={kpi.value}
+              hint={kpi.sub}
+              icon={() => <span className={kpi.iconColor}>{kpi.icon}</span>}
+              className={`relative overflow-hidden ${kpi.bg} ${kpi.border}`}
+            />
           ))}
         </div>
 
         {/* Promo card — quick access to enrollment portal */}
-        <div className="bg-gradient-to-br from-stsn-brown via-stsn-brown to-amber-700 rounded-2xl p-6 shadow-sm flex flex-col justify-between text-white relative overflow-hidden">
+        <AppCard
+          className="relative flex flex-col justify-between overflow-hidden border-[rgba(7,28,52,0.18)] bg-gradient-to-br from-stsn-brown via-stsn-brown to-amber-700 p-6 text-white"
+          padded={false}
+        >
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/10 -mr-8 -mt-8" />
           <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 -ml-6 -mb-6" />
           <div className="relative">
@@ -792,45 +824,37 @@ export default function Dashboard({
               Process enrollment applications faster and more efficiently. Real-time status tracking available.
             </p>
           </div>
-          <button
+          <AppButton
             onClick={() => onViewStudentList?.()}
-            className="relative mt-6 bg-white text-stsn-brown font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-stsn-cream transition cursor-pointer self-start shadow"
+            variant="outline-dark"
+            size="md"
+            className="relative mt-6 self-start border-white/18 bg-white text-stsn-brown hover:bg-stsn-cream"
           >
             View Enrollment
-          </button>
-        </div>
+          </AppButton>
+        </AppCard>
       </div>
 
       {/* ── Row 2: School Performance + Upcoming Events ────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
         {/* School Performance annual chart */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-stone-100 shadow-sm p-5">
+        <AppCard className="lg:col-span-3">
           <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
             <div>
               <h3 className="text-sm font-bold text-stone-900">Annual Enrollment Analysis</h3>
               <p className="text-[10px] text-stone-400 mt-0.5">Academic-year trend, not weekly or monthly snapshots.</p>
             </div>
-            <div className="flex items-center gap-1 rounded-xl bg-stone-50 border border-stone-200 p-1">
-              {[
-                { key: "total", label: "Total" },
-                { key: "stsn", label: "STSN" },
-                { key: "cdsta", label: "CSTA" },
-              ].map((metric) => (
-                <button
-                  key={metric.key}
-                  type="button"
-                  onClick={() => setAnnualMetric(metric.key as AnnualMetric)}
-                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer transition ${
-                    annualMetric === metric.key
-                      ? "bg-stsn-brown text-white shadow-sm"
-                      : "text-stone-500 hover:text-stsn-brown hover:bg-white"
-                  }`}
-                >
-                  {metric.label}
-                </button>
-              ))}
-            </div>
+            <AppTabs
+              items={[
+                { value: "total", label: "Total" },
+                { value: "stsn", label: "STSN" },
+                { value: "cdsta", label: "CSTA" },
+              ]}
+              value={annualMetric}
+              onChange={(value) => setAnnualMetric(value as AnnualMetric)}
+              className="rounded-2xl"
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-4">
@@ -950,10 +974,10 @@ export default function Dashboard({
               </button>
             ))}
           </div>
-        </div>
+        </AppCard>
 
         {/* Upcoming Events */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-stone-100 shadow-sm p-5 flex flex-col">
+        <AppCard className="lg:col-span-2 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
               <Bell className="w-4 h-4 text-stsn-brown" />
@@ -962,7 +986,13 @@ export default function Dashboard({
           </div>
           <div className="space-y-3 flex-1">
             {events.slice(0, 4).length === 0 ? (
-              <p className="text-[11px] text-stone-400 text-center py-4">No upcoming events.</p>
+              <AppEmptyState
+                icon={Bell}
+                title="No upcoming events"
+                description="Calendar-driven events will appear here once they are scheduled."
+                compact
+                tone="brand"
+              />
             ) : (
               events.slice(0, 4).map((ev) => {
                 const d = new Date(ev.date + "T00:00:00");
@@ -986,19 +1016,22 @@ export default function Dashboard({
               })
             )}
           </div>
-          <button
-            className="mt-3 w-full bg-stsn-brown hover:bg-stsn-brown-dark text-white font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition"
+          <AppButton
+            className="mt-3 w-full"
+            variant="primary-college"
+            size="md"
+            leftIcon={Plus}
           >
-            <Plus className="w-3.5 h-3.5" /> New Event
-          </button>
-        </div>
+            New Event
+          </AppButton>
+        </AppCard>
       </div>
 
       {/* ── Row 3: Calendar + School Finance ───────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* School Event Calendar */}
-        <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-5">
+        <AppCard>
           <div className="mb-4">
             <h3 className="text-sm font-bold text-stone-900">School Event Calendar</h3>
             <p className="text-[11px] text-stone-400 mt-0.5">
@@ -1006,10 +1039,10 @@ export default function Dashboard({
             </p>
           </div>
           <MiniCalendar eventDates={eventDates} />
-        </div>
+        </AppCard>
 
         {/* School Finance */}
-        <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-5">
+        <AppCard>
           <div className="flex items-start justify-between mb-4">
             <h3 className="text-sm font-bold text-stone-900">School Finance</h3>
             <div className="flex items-center gap-2">
@@ -1066,7 +1099,7 @@ export default function Dashboard({
               <span key={d} className="text-[9px] font-mono text-stone-400">{d}</span>
             ))}
           </div>
-        </div>
+        </AppCard>
       </div>
 
       {/* ── Row 4: Oversight Queue + Notices + Events ──────── */}
@@ -1078,7 +1111,7 @@ export default function Dashboard({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Oversight Queue */}
-          <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-5">
+          <AppCard>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-stone-800">Oversight Queue</h3>
               <span className="text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-full border badge-basic-ed">Cross-office</span>
@@ -1095,10 +1128,10 @@ export default function Dashboard({
                 </div>
               ))}
             </div>
-          </div>
+          </AppCard>
 
           {/* Live Notice Board */}
-          <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-5">
+          <AppCard>
             <div className="flex items-center gap-2 mb-4">
               <Bell className="w-3.5 h-3.5 text-stsn-gold" />
               <h3 className="text-sm font-semibold text-stone-800">Live Notice Board</h3>
@@ -1124,10 +1157,10 @@ export default function Dashboard({
                 </div>
               ))}
             </div>
-          </div>
+          </AppCard>
 
           {/* Quick Stats */}
-          <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-5">
+          <AppCard>
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="w-3.5 h-3.5 text-stsn-gold" />
               <h3 className="text-sm font-semibold text-stone-800">Quick Stats</h3>
@@ -1146,13 +1179,15 @@ export default function Dashboard({
                 </div>
               ))}
             </div>
-            <button
+            <AppButton
               onClick={() => setAnalyticsView({ school: "BASIC_ED" })}
-              className="mt-4 w-full text-center text-[10px] font-mono uppercase text-stsn-brown hover:text-stsn-brown-dark cursor-pointer transition underline underline-offset-2"
+              className="mt-4 w-full"
+              variant="secondary"
+              size="sm"
             >
-              View Enrollment Analytics →
-            </button>
-          </div>
+              View Enrollment Analytics
+            </AppButton>
+          </AppCard>
         </div>
       </div>
 
@@ -1175,12 +1210,15 @@ export default function Dashboard({
               </button>
             </div>
             <div className="p-4">
-              <STSNDataTable<ModalRow>
-                columns={modalColumns}
-                rows={modalTableRows}
+              <AppTable<ModalRow>
+                columns={appTableColumnsFromLegacy(modalColumns)}
+                data={modalTableRows}
                 emptyMessage="No students found for this status."
-                pageLength={10}
-                searchable
+                emptyDescription="Try another enrollment status."
+                getRowId={(row) => row.id}
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                searchPlaceholder="Search students..."
               />
             </div>
           </div>

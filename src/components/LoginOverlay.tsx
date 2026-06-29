@@ -95,7 +95,7 @@ export default function LoginOverlay() {
           />
           <div>
             <h1 className="font-display font-bold text-xl tracking-tight text-stsn-brown-dark leading-none">
-              STSN <span className="text-stsn-gold">Connect</span>
+              Theresian <span className="text-stsn-gold">Connect</span>
             </h1>
             <p className="text-[10px] text-stone-400 uppercase tracking-widest font-mono mt-1">
               St. Theresa's School of Novaliches
@@ -380,7 +380,7 @@ export default function LoginOverlay() {
           </div>
           <h2 className="text-4xl lg:text-5xl font-display font-bold leading-none tracking-tight">
             Welcome to{" "}
-            <span className="text-stsn-gold-light">STSN Connect</span>
+            <span className="text-stsn-gold-light">Theresian Connect</span>
           </h2>
           <p className="text-stone-300 text-sm mt-4 font-normal leading-relaxed max-w-md">
             A state-of-the-art educational resource platform seamlessly
@@ -406,7 +406,7 @@ export default function LoginOverlay() {
 
         {/* Legal Disclaimer */}
         <div className="text-xs text-stone-400/90 z-10 border-t border-white/5 pt-4">
-          <p>© St. Theresa's School of Novaliches (STSN Connect) • All rights reserved.</p>
+          <p>© Theresian Connect() • All rights reserved.</p>
         </div>
       </div>
     </div>

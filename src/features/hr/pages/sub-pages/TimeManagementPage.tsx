@@ -8,7 +8,7 @@ import { Clock, Plus, CheckCircle, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import { EmployeeTimeLog } from "../../../../types";
 
 const LOG_SOURCES = ["Manual", "Biometric", "System"] as const;
@@ -137,7 +137,7 @@ export default function TimeManagementPage() {
     toast(`${pending.length} time log(s) approved.`);
   };
 
-  const columns: STSNColumn<EmployeeTimeLog>[] = [
+  const legacyColumns: any[] = [
     {
       title: "Employee",
       render: (_, row) => {
@@ -174,6 +174,51 @@ export default function TimeManagementPage() {
         </button>
       ),
       width: "130px",
+    },
+  ];
+
+  void legacyColumns;
+
+  const columns: AppTableColumn<EmployeeTimeLog>[] = [
+    {
+      accessorKey: "employeeId",
+      header: "Employee",
+      cell: ({ row }) => {
+        const e = employeeMap.get(row.original.employeeId);
+        return e ? (
+          <div>
+            <p className="text-xs font-semibold text-stone-800">{e.firstName} {e.lastName}</p>
+            <p className="text-[10px] text-stone-400">{e.position}</p>
+          </div>
+        ) : <span className="text-xs text-stone-400">—</span>;
+      },
+    },
+    { accessorKey: "logDate", header: "Date", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    { accessorKey: "timeIn", header: "Time In", cell: ({ getValue }) => <span className="font-mono text-xs">{getValue<string | undefined>() ?? "—"}</span> },
+    { accessorKey: "timeOut", header: "Time Out", cell: ({ getValue }) => <span className="font-mono text-xs">{getValue<string | undefined>() ?? "—"}</span> },
+    {
+      accessorKey: "source",
+      header: "Source",
+      cell: ({ getValue }) => {
+        const value = String(getValue());
+        return <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${SOURCE_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>;
+      },
+    },
+    { accessorKey: "remarks", header: "Remarks", cell: ({ getValue }) => <span className="text-xs text-stone-500">{getValue<string | undefined>() ?? "—"}</span> },
+    {
+      accessorKey: "isApproved",
+      header: "Status",
+      cell: ({ getValue, row }) => getValue<boolean>() ? (
+        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Approved</span>
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleApprove(row.original.id); }}
+          className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold hover:bg-amber-200 cursor-pointer transition-all"
+        >
+          Pending → Approve
+        </button>
+      ),
     },
   ];
 
@@ -224,14 +269,18 @@ export default function TimeManagementPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden p-1">
-        <STSNDataTable<EmployeeTimeLog>
+      <AppTable<EmployeeTimeLog>
+          data={filtered}
           columns={columns}
-          rows={filtered}
+          title="Employee Time Logs"
           emptyMessage="No time logs found for the selected period."
-          pageLength={20}
-        />
-      </div>
+          emptyDescription="Adjust the employee or date filters to find time logs."
+          loading={false}
+          enableColumnVisibility={false}
+          initialPageSize={20}
+          pageSizeOptions={[20]}
+          getRowId={(row) => row.id}
+      />
 
       {showLogModal && <LogTimeModal onClose={() => setShowLogModal(false)} onSave={handleLogTime} />}
     </div>

@@ -4,21 +4,34 @@
  */
 
 import React, { useState } from "react";
-import { useSTSNStore } from "../../../services/store";
-import type { User, UserRole } from "../../../types";
 import {
-  Shield, ShieldOff, Search, ToggleLeft, ToggleRight,
-  Award, ArrowRightLeft, History, UserCircle2, Mail, Lock, Unlock,
+  ArrowRightLeft,
+  Award,
+  History,
+  Lock,
+  Mail,
+  Shield,
+  ToggleLeft,
+  ToggleRight,
+  Unlock,
+  UserCircle2,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
-import { useAppDialog } from "../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
-import DataTableCard from "../../../components/common/DataTableCard";
-import AppModal from "../../../components/common/AppModal";
+import AppButton from "../../../components/common/AppButton";
 import AppFormField from "../../../components/common/AppFormField";
+import AppInput from "../../../components/common/AppInput";
+import AppModal from "../../../components/common/AppModal";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
+import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
+import AppTabs from "../../../components/common/AppTabs";
 import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
-import DelegationManagementPage from "../../admin/pages/DelegationManagementPage";
+import { useAppDialog } from "../../../components/common/useAppDialog";
+import { useSTSNStore } from "../../../services/store";
+import type { User, UserRole } from "../../../types";
 import AuditLogPage from "../../admin/pages/AuditLogPage";
+import DelegationManagementPage from "../../admin/pages/DelegationManagementPage";
 
 export type AccountsSubPage = "user-security" | "delegation-management" | "audit-log";
 
@@ -28,70 +41,74 @@ interface AccountsManagementProps {
 }
 
 const TABS: { id: AccountsSubPage; label: string; icon: React.ElementType }[] = [
-  { id: "user-security",         label: "User Security",    icon: Shield         },
-  { id: "delegation-management", label: "Delegation Mgmt",  icon: ArrowRightLeft },
-  { id: "audit-log",             label: "Audit Log",        icon: History        },
+  { id: "user-security", label: "User Security", icon: Shield },
+  { id: "delegation-management", label: "Delegation Mgmt", icon: ArrowRightLeft },
+  { id: "audit-log", label: "Audit Log", icon: History },
 ];
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
-  { value: "SUPER_ADMIN", label: "SUPER_ADMIN — General Chancellor"     },
-  { value: "REGISTRAR",   label: "REGISTRAR — Admissions Dean"          },
-  { value: "ACCOUNTING",  label: "ACCOUNTING — Treasurer Bureau"        },
-  { value: "CASHIER",     label: "CASHIER — Collection Window"          },
-  { value: "PAYROLL",     label: "PAYROLL — Payroll Officer"            },
-  { value: "TEACHER",     label: "TEACHER — Licensed Faculty LPT"       },
-  { value: "HR",          label: "HR — Personnel Lead"                  },
-  { value: "GUIDANCE",    label: "GUIDANCE — Guidance Office"           },
-  { value: "NURSE",       label: "NURSE — Clinic Office"                },
-  { value: "STUDENT",     label: "STUDENT — Admitted Candidate"         },
-  { value: "EMPLOYEE",    label: "EMPLOYEE — Support Staff"             },
+  { value: "SUPER_ADMIN", label: "SUPER_ADMIN - General Chancellor" },
+  { value: "REGISTRAR", label: "REGISTRAR - Admissions Dean" },
+  { value: "ACCOUNTING", label: "ACCOUNTING - Treasurer Bureau" },
+  { value: "CASHIER", label: "CASHIER - Collection Window" },
+  { value: "PAYROLL", label: "PAYROLL - Payroll Officer" },
+  { value: "TEACHER", label: "TEACHER - Licensed Faculty LPT" },
+  { value: "HR", label: "HR - Personnel Lead" },
+  { value: "GUIDANCE", label: "GUIDANCE - Guidance Office" },
+  { value: "NURSE", label: "NURSE - Clinic Office" },
+  { value: "STUDENT", label: "STUDENT - Admitted Candidate" },
+  { value: "EMPLOYEE", label: "EMPLOYEE - Support Staff" },
 ];
 
-export default function AccountsManagement({ subPage = "user-security", onSubPageChange }: AccountsManagementProps) {
+export default function AccountsManagement({
+  subPage = "user-security",
+  onSubPageChange,
+}: AccountsManagementProps) {
   const { users, toggleUserStatus, addUser } = useSTSNStore();
   const { toast, confirm } = useAppDialog();
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Provisioning modal state
-  const [isFormOpen, setIsFormOpen]   = useState(false);
-  const [isSaving, setIsSaving]       = useState(false);
-  const [email, setEmail]             = useState("");
-  const [name, setName]               = useState("");
-  const [role, setRole]               = useState<UserRole>("STUDENT");
-
-  // Drilldown drawer state
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [role, setRole] = useState<UserRole>("STUDENT");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const activeTab = subPage;
   const setActiveTab = (tab: AccountsSubPage) => onSubPageChange?.(tab);
 
-  const filteredUsers = users.filter((u) =>
-    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.role.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredUsers = users.filter((user) =>
+    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const handleToggleStatus = async (u: User) => {
-    const action = u.isActive ? "block" : "restore";
+  const handleToggleStatus = async (user: User) => {
+    const action = user.isActive ? "block" : "restore";
     const ok = await confirm(
-      `${u.isActive ? "Block" : "Grant"} access for ${u.name ?? u.email}?\n\nThis will immediately ${u.isActive ? "prevent" : "restore"} their ability to sign in.`,
+      `${user.isActive ? "Block" : "Grant"} access for ${user.name ?? user.email}?\n\nThis will immediately ${
+        user.isActive ? "prevent" : "restore"
+      } their ability to sign in.`,
     );
     if (!ok) return;
-    toggleUserStatus(u.email);
-    toast(`Access ${action === "block" ? "blocked" : "granted"} for ${u.email}`, {
+
+    toggleUserStatus(user.email);
+    toast(`Access ${action === "block" ? "blocked" : "granted"} for ${user.email}`, {
       variant: action === "block" ? "warning" : "success",
     });
-    if (selectedUser?.id === u.id) {
-      setSelectedUser((prev) => prev ? { ...prev, isActive: !prev.isActive } : null);
+
+    if (selectedUser?.id === user.id) {
+      setSelectedUser((previous) => (previous ? { ...previous, isActive: !previous.isActive } : null));
     }
   };
 
-  const handleCreateCredential = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleCreateCredential = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!email || !name) return;
+
     setIsSaving(true);
     addUser({
-      id: "user-" + Math.random().toString(36).substring(2, 9),
+      id: `user-${Math.random().toString(36).substring(2, 9)}`,
       name,
       email,
       role,
@@ -105,61 +122,74 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
     setIsSaving(false);
   };
 
-  const inputClass =
-    "w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 focus:border-stsn-gold/60 placeholder:text-stone-400 transition";
-
-  const userColumns: STSNColumn<User>[] = [
+  const userColumns: AppTableColumn<User>[] = [
     {
-      title: "Email",
-      data: "email",
-      className: "font-mono font-bold text-stsn-brown text-xs",
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ getValue }) => (
+        <span className="font-mono font-bold text-stsn-brown text-xs">{String(getValue())}</span>
+      ),
     },
     {
-      title: "Name",
-      data: "name",
-      className: "font-semibold text-stone-900",
-      render: (v: string) => v || "—",
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ getValue }) => (
+        <span className="font-semibold text-stone-900">{getValue<string | undefined>() || "-"}</span>
+      ),
     },
     {
-      title: "Role",
-      data: "role",
-      render: (v: string) => (
+      accessorKey: "role",
+      header: "Role",
+      cell: ({ getValue }) => (
         <span className="bg-stsn-beige text-stsn-brown font-mono text-[9px] font-bold rounded px-2.5 py-0.5 uppercase tracking-wide">
-          {v.replace("_", " ")}
+          {String(getValue()).replace("_", " ")}
         </span>
       ),
     },
     {
-      title: "Status",
-      data: "isActive",
-      className: "text-center",
-      render: (v: boolean) => (
-        <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full ${
-          v ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
-        }`}>
-          {v ? "Active" : "Deactivated"}
-        </span>
-      ),
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ getValue }) => {
+        const isActive = getValue<boolean>();
+        return (
+          <AppStatusBadge status={isActive ? "Active" : "Inactive"} className="inline-flex text-[9px]">
+            {isActive ? "Active" : "Deactivated"}
+          </AppStatusBadge>
+        );
+      },
     },
     {
-      title: "Actions",
-      className: "text-right",
-      orderable: false,
-      searchable: false,
-      render: (_v: unknown, u: User) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleToggleStatus(u); }}
-          className={`text-xs font-semibold py-1 px-3 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition ml-auto ${
-            u.isActive
-              ? "bg-red-50 hover:bg-red-100 border border-red-200 text-red-700"
-              : "bg-green-50 hover:bg-green-100 border border-green-200 text-green-700"
-          }`}
-        >
-          {u.isActive
-            ? <><ToggleRight className="w-4 h-4" />Block</>
-            : <><ToggleLeft className="w-4 h-4" />Restore</>}
-        </button>
-      ),
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      enableGlobalFilter: false,
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <AppButton
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleToggleStatus(user);
+            }}
+            variant={user.isActive ? "danger-outline" : "secondary"}
+            size="xs"
+            className={user.isActive ? "" : "text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200"}
+          >
+            {user.isActive ? (
+              <>
+                <ToggleRight className="w-4 h-4" />
+                Block
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="w-4 h-4" />
+                Restore
+              </>
+            )}
+          </AppButton>
+        );
+      },
     },
   ];
 
@@ -172,139 +202,123 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
         subtitle="Audit credential levels, activate/deactivate user records, manage delegation, and review audit history."
         actions={
           activeTab === "user-security" ? (
-            <button
-              onClick={() => setIsFormOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] rounded-xl text-sm font-bold shadow-lg transition cursor-pointer"
-            >
-              <Award className="w-4 h-4" />
+            <AppButton onClick={() => setIsFormOpen(true)} leftIcon={Award}>
               Provision New Authority
-            </button>
+            </AppButton>
           ) : undefined
         }
       />
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-stone-200">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-t-lg border border-b-0 transition -mb-px ${
-                isActive
-                  ? "bg-white border-stone-200 text-stsn-brown shadow-sm"
-                  : "bg-transparent border-transparent text-stone-400 hover:text-stone-600"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <AppTabs<AccountsSubPage>
+        items={TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+        value={activeTab}
+        onChange={setActiveTab}
+        variant="pill"
+      />
 
-      {/* User Security tab */}
       {activeTab === "user-security" && (
-        <DataTableCard
+        <AppTable<User>
+          data={filteredUsers}
+          columns={userColumns}
           title="Provisioned User Profiles"
-          icon={Shield}
-          subtitle="All credentialed system users — click a row to view details"
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder="Search by email, name, or role…"
-          actions={
-            <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">
-              {filteredUsers.length} profile{filteredUsers.length !== 1 ? "s" : ""}
-            </span>
+          description="All credentialed system users - click a row to view details"
+          enableSearch={false}
+          enableColumnVisibility={false}
+          initialPageSize={10}
+          pageSizeOptions={[10]}
+          loading={false}
+          emptyMessage="No login profiles found."
+          emptyDescription="Adjust the search query to find user profiles."
+          getRowId={(row) => row.id}
+          onRowClick={(row) => setSelectedUser(row)}
+          searchPlaceholder="Search by email, name, or role..."
+          toolbar={
+            <>
+              <AppSearchInput
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onClear={() => setSearchQuery("")}
+                placeholder="Search by email, name, or role..."
+                aria-label="Search user profiles"
+                uiSize="sm"
+                wrapperClassName="min-w-[256px]"
+              />
+              <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">
+                {filteredUsers.length} profile{filteredUsers.length !== 1 ? "s" : ""}
+              </span>
+            </>
           }
-          bodyClassName="p-4"
-        >
-          <STSNDataTable<User>
-            columns={userColumns}
-            rows={filteredUsers}
-            searchable={false}
-            emptyMessage="No login profiles found."
-            onRowClick={(u) => setSelectedUser(u)}
-            tableId="accounts-users"
-          />
-        </DataTableCard>
+        />
       )}
 
-      {/* Delegation Management tab */}
       {activeTab === "delegation-management" && <DelegationManagementPage />}
-
-      {/* Audit Log tab */}
       {activeTab === "audit-log" && <AuditLogPage />}
 
-      {/* Provisioning modal — AppModal with panelAs="form" */}
       <AppModal
         open={isFormOpen}
         title="Provision Workspace Credentials"
         eyebrow="User Management"
         icon={Shield}
-        onClose={() => { setIsFormOpen(false); setEmail(""); setName(""); setRole("STUDENT"); }}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEmail("");
+          setName("");
+          setRole("STUDENT");
+        }}
         panelAs="form"
         onSubmit={handleCreateCredential}
         maxWidthClass="max-w-md"
         bodyClassName="p-5 bg-stsn-cream space-y-4"
         footer={
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setIsFormOpen(false)}
-              className="px-4 py-2 text-xs font-bold rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-100 transition cursor-pointer"
-            >
+            <AppButton type="button" onClick={() => setIsFormOpen(false)} variant="secondary" size="sm">
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving || !email || !name}
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? "Provisioning…" : "Provision User"}
-            </button>
+            </AppButton>
+            <AppButton type="submit" loading={isSaving} disabled={!email || !name} size="sm">
+              Provision User
+            </AppButton>
           </div>
         }
       >
         <AppFormField label="Display Name *">
-          <input
+          <AppInput
             type="text"
             required
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Vice Chancellor of Academics"
-            className={inputClass}
+            className="w-full"
           />
         </AppFormField>
         <AppFormField
           label="Academic Email Address *"
-          hint='Default password will be "password123" — instruct user to change immediately.'
+          hint='Default password will be "password123" - instruct user to change immediately.'
         >
-          <input
+          <AppInput
             type="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             placeholder="chancellor@stsn.edu.ph"
-            className={inputClass}
+            className="w-full"
           />
         </AppFormField>
         <AppFormField label="Assigned Security Clearance Role *">
-          <select
+          <AppSelect
             value={role}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value as UserRole)}
-            className={inputClass}
+            onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setRole(event.target.value as UserRole)}
+            className="w-full"
           >
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
+            {ROLE_OPTIONS.map((roleOption) => (
+              <option key={roleOption.value} value={roleOption.value}>
+                {roleOption.label}
+              </option>
             ))}
-          </select>
+          </AppSelect>
         </AppFormField>
       </AppModal>
 
-      {/* User detail drilldown drawer */}
       <DrilldownDrawer
         open={!!selectedUser}
         onClose={() => setSelectedUser(null)}
@@ -320,7 +334,7 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
                   <UserCircle2 className="w-6 h-6 text-stsn-brown" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-stone-800 truncate">{selectedUser.name ?? "—"}</p>
+                  <p className="text-sm font-bold text-stone-800 truncate">{selectedUser.name ?? "-"}</p>
                   <p className="text-[10px] font-mono text-stone-400 truncate">{selectedUser.email}</p>
                 </div>
               </div>
@@ -336,13 +350,12 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
                 <div className="flex items-center justify-between">
                   <dt className="text-[10px] font-mono font-bold uppercase text-stone-400">Status</dt>
                   <dd>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                      selectedUser.isActive
-                        ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-red-50 text-red-700 border border-red-200"
-                    }`}>
+                    <AppStatusBadge
+                      status={selectedUser.isActive ? "Active" : "Inactive"}
+                      className="text-[9px]"
+                    >
                       {selectedUser.isActive ? "Active" : "Deactivated"}
-                    </span>
+                    </AppStatusBadge>
                   </dd>
                 </div>
                 <div className="flex items-center justify-between">
@@ -353,18 +366,25 @@ export default function AccountsManagement({ subPage = "user-security", onSubPag
             </div>
 
             <div className="space-y-2">
-              <button
+              <AppButton
                 onClick={() => handleToggleStatus(selectedUser)}
-                className={`w-full flex items-center justify-center gap-2 text-xs font-bold py-2.5 px-4 rounded-xl border transition cursor-pointer ${
-                  selectedUser.isActive
-                    ? "bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
-                    : "bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                }`}
+                fullWidth
+                variant={selectedUser.isActive ? "danger-outline" : "secondary"}
+                size="sm"
+                className={
+                  selectedUser.isActive ? "" : "text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200"
+                }
               >
-                {selectedUser.isActive
-                  ? <><Lock className="w-3.5 h-3.5" /> Block Access</>
-                  : <><Unlock className="w-3.5 h-3.5" /> Grant Access</>}
-              </button>
+                {selectedUser.isActive ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5" /> Block Access
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-3.5 h-3.5" /> Grant Access
+                  </>
+                )}
+              </AppButton>
               <p className="text-[10px] text-stone-400 text-center leading-snug">
                 {selectedUser.isActive
                   ? "Blocking prevents this user from signing in immediately."

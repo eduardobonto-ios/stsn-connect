@@ -1,10 +1,13 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  List, Plus, Edit2, Trash2, Search, ChevronRight, ChevronDown,
-  CheckCircle, XCircle, Filter, Download, Loader2
+  List, Plus, Edit2, Trash2, ChevronRight, ChevronDown,
+  CheckCircle, XCircle, Download
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppButton from "../../../../components/common/AppButton";
+import AppCard from "../../../../components/common/AppCard";
+import AppSearchInput from "../../../../components/common/AppSearchInput";
+import AppSelect from "../../../../components/common/AppSelect";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbInsert, dbUpdate, dbDelete, dbSelectAll, newId } from "../../../../services/supabaseCrud";
@@ -183,7 +186,7 @@ export default function ChartOfAccountsPage() {
   }, [accounts]);
 
   // Tree-mode columns — sorting disabled on all (would break hierarchy).
-  const treeColumns: STSNColumn<ChartAccount>[] = [
+  const treeColumns: AppTableLegacyColumn<ChartAccount>[] = [
     {
       title: "Code",
       data: "code",
@@ -288,7 +291,7 @@ export default function ChartOfAccountsPage() {
   ];
 
   // Search/filter-mode columns — sorting enabled.
-  const flatColumns: STSNColumn<ChartAccount>[] = [
+  const flatColumns: AppTableLegacyColumn<ChartAccount>[] = [
     {
       title: "Code",
       data: "code",
@@ -381,72 +384,70 @@ export default function ChartOfAccountsPage() {
         title="Chart of Accounts"
         subtitle="General Ledger account codes and hierarchy. All Journal Entries, Invoices, and Financial Reports reference these accounts."
         actions={
-          <button
-            onClick={() => openAdd()}
-            className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512]"
-          >
-            <Plus className="w-4 h-4" /> New Account
-          </button>
+          <AppButton onClick={() => openAdd()} leftIcon={Plus} size="md">
+            New Account
+          </AppButton>
         }
       />
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white border border-stone-200 rounded-xl px-4 py-3 text-center shadow-sm">
+        <AppCard className="px-4 py-3 text-center" padded={false}>
           <p className="text-[10px] font-mono uppercase tracking-wider text-stone-400">Total</p>
           <p className="text-xl font-bold text-stone-800 mt-0.5">{stats.total}</p>
           <p className="text-[9px] text-stone-400">Accounts</p>
-        </div>
+        </AppCard>
         {ACCOUNT_TYPES.map((t) => {
           const cfg = TYPE_CONFIG[t];
           return (
-            <div key={t} className="bg-white border border-stone-200 rounded-xl px-4 py-3 text-center shadow-sm">
+            <AppCard key={t} className="px-4 py-3 text-center" padded={false}>
               <p className="text-[10px] font-mono uppercase tracking-wider text-stone-400">{t}</p>
               <p className={`text-xl font-bold mt-0.5 ${cfg.color}`}>{stats.byType[t]}</p>
               <p className="text-[9px] text-stone-400">Accounts</p>
-            </div>
+            </AppCard>
           );
         })}
       </div>
 
       {/* Table */}
-      <DataTableCard
+      <AppTable
+        data={isSearching ? flatFiltered : treeRows}
+        columns={appTableColumnsFromLegacy(isSearching ? flatColumns : treeColumns)}
         title="Chart of Accounts"
-        icon={List}
-        searchValue={search}
-        onSearchChange={setSearch}
+        toolbar={
+          <AppSearchInput
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by code or name..."
+            wrapperClassName="min-w-[220px] sm:w-72"
+            uiSize="sm"
+          />
+        }
         searchPlaceholder="Search by code or name…"
-        actions={
+        rightToolbar={
           <>
-            <select
+            <AppSelect
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as AccountType | "All")}
-              className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer"
+              uiSize="sm"
+              className="min-w-[140px]"
             >
               <option value="All">All Types</option>
               {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 hover:text-stone-700 border border-stone-200 rounded-lg hover:bg-stone-50 transition cursor-pointer">
-              <Download className="w-3.5 h-3.5" /> Export
-            </button>
+            </AppSelect>
+            <AppButton variant="outline" size="sm" leftIcon={Download}>
+              Export
+            </AppButton>
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading accounts…
-          </div>
-        ) : (
-          <STSNDataTable
-            columns={isSearching ? flatColumns : treeColumns}
-            rows={isSearching ? flatFiltered : treeRows}
-            searchable={false}
-            emptyMessage={isSearching ? "No accounts match your search." : "No accounts found."}
-            pageLength={50}
-          />
-        )}
-      </DataTableCard>
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage={isSearching ? "No accounts match your search." : "No accounts found."}
+        initialPageSize={50}
+        pageSizeOptions={[50]}
+        getRowId={(row) => row.id}
+      />
 
       {/* Add / Edit Form Modal */}
       {showForm && (

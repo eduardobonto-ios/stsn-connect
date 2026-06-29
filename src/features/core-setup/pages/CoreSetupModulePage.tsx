@@ -6,6 +6,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useSTSNStore } from "../../../services/store";
 import { useAppDialog } from "../../../components/common/useAppDialog";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
+import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import { SetupItem } from "../../../types";
 import {
   Settings, BookOpen, GraduationCap, Building2, Clock, Users, Coins,
@@ -205,13 +207,10 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
   const [searchQ, setSearchQ] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SetupItem | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 10;
 
   // Reset state when switching categories
   useEffect(() => {
     setSearchQ("");
-    setCurrentPage(1);
     setIsFormOpen(false);
     setEditingItem(null);
   }, [categoryKey]);
@@ -226,9 +225,6 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
     }),
     [items, searchQ]
   );
-
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
-  const pagedItems = filteredItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const openCreate = () => {
     setEditingItem(null);
@@ -276,6 +272,84 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
   };
 
   const Icon = config.icon;
+  const visibleExtraFields = config.extraFields?.slice(0, 2) ?? [];
+
+  const resolveFieldDisplayValue = (item: SetupItem, field: FieldConfig) => {
+    const value = item[field.key];
+    if (field.type === "toggle") return value ? "Yes" : "No";
+    if (field.type === "number") return Number(value || 0).toLocaleString();
+    if (field.dataSourceKey) {
+      return (setupData[field.dataSourceKey] ?? []).find((candidate) => candidate.code === String(value || ""))?.name ?? String(value || "—");
+    }
+    return String(value || "—");
+  };
+
+  const columns = useMemo<AppTableColumn<SetupItem>[]>(() => {
+    const extraFieldColumns: AppTableColumn<SetupItem>[] = visibleExtraFields.map((field) => ({
+      id: field.key,
+      header: field.label,
+      cell: ({ row }) => {
+        const content = resolveFieldDisplayValue(row.original, field);
+        if (field.type === "toggle") {
+          return (
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${row.original[field.key] ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-stone-500 bg-stone-50 border-stone-200"}`}>
+              {content}
+            </span>
+          );
+        }
+        return <span className="text-stone-600">{content}</span>;
+      },
+    }));
+
+    return [
+      {
+        accessorKey: "code",
+        header: "Code",
+        cell: ({ getValue }) => <span className="font-mono font-bold text-stsn-brown text-[11px]">{String(getValue())}</span>,
+      },
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ getValue }) => <span className="font-semibold text-stone-800">{String(getValue())}</span>,
+      },
+      ...extraFieldColumns,
+      {
+        accessorKey: "description",
+        header: "Description",
+        cell: ({ getValue }) => <span className="text-stone-500 text-[11px]">{getValue<string | undefined>() || "—"}</span>,
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <button
+            type="button"
+            onClick={() => toggleSetupItemActive(categoryKey, row.original.id)}
+            title="Toggle Active/Inactive"
+            className="cursor-pointer"
+          >
+            <AppStatusBadge status={row.original.isActive ? "Active" : "Inactive"} className="text-[9px]" />
+          </button>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        enableGlobalFilter: false,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-1">
+            <button onClick={() => openEdit(row.original)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="Edit">
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => handleDelete(row.original.id, row.original.name)} className="p-1.5 hover:bg-red-50 rounded text-stone-400 hover:text-red-600 cursor-pointer transition" title="Delete">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ),
+      },
+    ];
+  }, [categoryKey, handleDelete, toggleSetupItemActive, visibleExtraFields, setupData]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -304,7 +378,7 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
             type="text"
             placeholder={`Search ${config.label.toLowerCase()}...`}
             value={searchQ}
-            onChange={(e) => { setSearchQ(e.target.value); setCurrentPage(1); }}
+            onChange={(e) => { setSearchQ(e.target.value); }}
             className="w-full bg-white border border-stone-200 rounded-lg py-2 pl-8 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none"
           />
         </div>
@@ -317,85 +391,25 @@ function GenericSetupTable({ categoryKey, config }: GenericSetupTableProps) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-200">
-                <th className="text-left py-2.5 px-4 font-bold text-stone-500 uppercase tracking-wider text-[10px] w-24">Code</th>
-                <th className="text-left py-2.5 px-4 font-bold text-stone-500 uppercase tracking-wider text-[10px]">Name</th>
-                {config.extraFields && config.extraFields.slice(0, 2).map((f) => (
-                  <th key={f.key} className="text-left py-2.5 px-4 font-bold text-stone-500 uppercase tracking-wider text-[10px] hidden md:table-cell">{f.label}</th>
-                ))}
-                <th className="text-left py-2.5 px-4 font-bold text-stone-500 uppercase tracking-wider text-[10px] hidden lg:table-cell">Description</th>
-                <th className="text-center py-2.5 px-4 font-bold text-stone-500 uppercase tracking-wider text-[10px] w-24">Status</th>
-                <th className="text-center py-2.5 px-4 font-bold text-stone-500 uppercase tracking-wider text-[10px] w-28">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {pagedItems.map((item) => (
-                <tr key={item.id} className="hover:bg-stone-50 transition">
-                  <td className="py-3 px-4 font-mono font-bold text-stsn-brown text-[11px]">{item.code}</td>
-                  <td className="py-3 px-4 font-semibold text-stone-800">{item.name}</td>
-                  {config.extraFields && config.extraFields.slice(0, 2).map((f) => (
-                    <td key={f.key} className="py-3 px-4 text-stone-600 hidden md:table-cell">
-                      {f.type === "toggle"
-                        ? <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${item[f.key] ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-stone-500 bg-stone-50 border-stone-200"}`}>{item[f.key] ? "Yes" : "No"}</span>
-                        : f.type === "number" ? (item[f.key] || 0).toLocaleString()
-                        : f.dataSourceKey
-                          ? (setupData[f.dataSourceKey] ?? []).find((c) => c.code === String(item[f.key] || ""))?.name ?? String(item[f.key] || "—")
-                          : String(item[f.key] || "—")}
-                    </td>
-                  ))}
-                  <td className="py-3 px-4 text-stone-500 text-[11px] hidden lg:table-cell max-w-xs truncate">{item.description || "—"}</td>
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={() => toggleSetupItemActive(categoryKey, item.id)}
-                      title="Toggle Active/Inactive"
-                      className={`text-[9px] font-bold px-2.5 py-1 rounded-full border cursor-pointer transition ${item.isActive ? "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100" : "text-stone-500 bg-stone-50 border-stone-200 hover:bg-stone-100"}`}
-                    >
-                      {item.isActive ? "Active" : "Inactive"}
-                    </button>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openEdit(item)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="Edit">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDelete(item.id, item.name)} className="p-1.5 hover:bg-red-50 rounded text-stone-400 hover:text-red-600 cursor-pointer transition" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {pagedItems.length === 0 && (
-                <tr>
-                  <td colSpan={6 + Math.min(2, config.extraFields?.length || 0)} className="py-12 text-center text-xs text-stone-400">
-                    <Settings className="w-8 h-8 text-stone-200 mx-auto mb-2" />
-                    {searchQ ? `No results for "${searchQ}"` : `No ${config.label.toLowerCase()} configured yet. Click "Add" to create the first entry.`}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-stone-100 flex items-center justify-between text-xs">
-            <span className="text-stone-500">Showing {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, filteredItems.length)} of {filteredItems.length}</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2.5 py-1 rounded border border-stone-200 text-stone-600 disabled:opacity-40 cursor-pointer hover:bg-stone-50">‹ Prev</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).filter((p) => Math.abs(p - currentPage) <= 2).map((p) => (
-                <button key={p} onClick={() => setCurrentPage(p)} className={`w-8 py-1 rounded border text-xs font-bold cursor-pointer ${p === currentPage ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-600 hover:bg-stone-50"}`}>{p}</button>
-              ))}
-              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2.5 py-1 rounded border border-stone-200 text-stone-600 disabled:opacity-40 cursor-pointer hover:bg-stone-50">Next ›</button>
-            </div>
-          </div>
-        )}
-      </div>
-
+      <AppTable<SetupItem>
+        data={filteredItems}
+        columns={columns}
+        title={config.label}
+        description={config.description}
+        enableSearch={false}
+        enableColumnVisibility={false}
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+        loading={false}
+        emptyMessage={searchQ ? `No results for "${searchQ}"` : `No ${config.label.toLowerCase()} configured yet.`}
+        emptyDescription={searchQ ? "Adjust the search query to find matching setup records." : `Click "Add ${config.label.replace(/s$/, "")}" to create the first entry.`}
+        getRowId={(row) => row.id}
+        toolbar={
+          <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">
+            {filteredItems.length} record{filteredItems.length !== 1 ? "s" : ""}
+          </span>
+        }
+      />
       {/* Audit info footer */}
       <p className="text-[10px] text-stone-400 font-mono">Last updated by: {items[0]?.createdBy || "System"} • {items.length} record{items.length !== 1 ? "s" : ""} total</p>
 

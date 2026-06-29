@@ -6,6 +6,8 @@
 import React from "react";
 import { AlertTriangle, CheckCircle, ClipboardList, Clock } from "lucide-react";
 import ApprovalInbox, { type NavigateTarget } from "../../../components/common/ApprovalInbox";
+import AppCard from "../../../components/common/AppCard";
+import AppKpiCard from "../../../components/common/AppKpiCard";
 import { usePendingCounts } from "../../../hooks/usePendingCounts";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
@@ -58,29 +60,48 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((card) => {
-          const Icon = card.icon;
           return (
-            <div key={card.label} className={`rounded-xl border p-4 shadow-sm ${card.tone}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-mono uppercase tracking-wider opacity-75">
-                    {card.label}
-                  </p>
-                  <p className="text-2xl font-display font-black mt-1">
-                    {card.value}
-                  </p>
-                  <p className="text-[10px] font-semibold opacity-75 mt-1">
-                    {card.hint}
-                  </p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-white/70 border border-white/70 flex items-center justify-center">
-                  <Icon className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
+            <AppKpiCard
+              key={card.label}
+              label={card.label}
+              value={card.value}
+              hint={card.hint}
+              icon={card.icon}
+              className={card.tone}
+            />
           );
         })}
       </section>
+
+      <AppCard className="bg-[linear-gradient(135deg,rgba(7,28,52,0.98)_0%,rgba(10,39,72,0.96)_55%,rgba(18,58,99,0.92)_100%)] text-white">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-[rgba(242,201,76,0.82)]">
+              Operational Focus
+            </p>
+            <h2 className="text-lg font-bold tracking-tight text-white">
+              Keep approvals moving without leaving the work queue.
+            </h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-white/72">
+              Counts, filters, tabs, and drawer actions remain unchanged. This pass only strengthens the visual hierarchy so reviewers can scan priority work faster.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+            <div className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-white/55">Approvals</p>
+              <p className="mt-1 text-2xl font-black text-white">{counts.totalForRole}</p>
+            </div>
+            <div className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-white/55">Overdue Risk</p>
+              <p className="mt-1 text-2xl font-black text-[var(--color-stsn-gold-light)]">{counts.pendingVoidRequests + counts.pendingPayrollRuns}</p>
+            </div>
+            <div className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-white/55">Academic Queue</p>
+              <p className="mt-1 text-2xl font-black text-white">{counts.pendingEnrollments + counts.pendingApplications + counts.pendingGrades}</p>
+            </div>
+          </div>
+        </div>
+      </AppCard>
 
       <ApprovalInbox onNavigate={onNavigate} />
     </div>

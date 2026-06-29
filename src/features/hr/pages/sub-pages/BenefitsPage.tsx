@@ -6,8 +6,7 @@
 import React, { useMemo, useState } from "react";
 import { Award, ToggleLeft, ToggleRight } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import { BenefitPlan, StatutoryContributionRule } from "../../../../types";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -34,94 +33,116 @@ export default function BenefitsPage() {
   const activeCount = benefitPlans.filter((benefit) => benefit.isActive).length;
   const benefitPlanMap = useMemo(() => new Map(benefitPlans.map((plan) => [plan.id, plan])), [benefitPlans]);
 
-  const columns: STSNColumn<BenefitPlan>[] = [
-    { title: "Code", data: "code", render: (value) => <span className="font-mono text-xs font-bold text-stsn-brown">{value}</span>, width: "90px" },
-    { title: "Name", data: "name", render: (value) => <span className="text-xs font-semibold">{value}</span> },
+  const columns: AppTableColumn<BenefitPlan>[] = [
     {
-      title: "Category",
-      data: "category",
-      render: (value) => <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${CATEGORY_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>,
-      width: "120px",
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ getValue }) => <span className="font-mono text-xs font-bold text-stsn-brown">{String(getValue())}</span>,
     },
     {
-      title: "Employee Share",
-      render: (_, row) => (
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ getValue }) => <span className="text-xs font-semibold">{String(getValue())}</span>,
+    },
+    {
+      accessorKey: "category",
+      header: "Category",
+      cell: ({ getValue }) => {
+        const value = String(getValue());
+        return <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${CATEGORY_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>;
+      },
+    },
+    {
+      id: "employeeShare",
+      header: "Employee Share",
+      cell: ({ row }) => (
         <span className="text-xs text-stone-600">
-          {formatShare(row.employeeShareType, row.employeeShareValue)}
-          <span className="text-[10px] text-stone-400 ml-1">({row.employeeShareType})</span>
+          {formatShare(row.original.employeeShareType, row.original.employeeShareValue)}
+          <span className="text-[10px] text-stone-400 ml-1">({row.original.employeeShareType})</span>
         </span>
       ),
-      width: "140px",
     },
     {
-      title: "Employer Share",
-      render: (_, row) => (
+      id: "employerShare",
+      header: "Employer Share",
+      cell: ({ row }) => (
         <span className="text-xs text-stone-600">
-          {formatShare(row.employerShareType, row.employerShareValue)}
-          <span className="text-[10px] text-stone-400 ml-1">({row.employerShareType})</span>
+          {formatShare(row.original.employerShareType, row.original.employerShareValue)}
+          <span className="text-[10px] text-stone-400 ml-1">({row.original.employerShareType})</span>
         </span>
       ),
-      width: "140px",
     },
     {
-      title: "Taxable",
-      data: "isTaxable",
-      render: (value) => <span className={`text-[10px] font-semibold ${value ? "text-amber-600" : "text-stone-400"}`}>{value ? "Yes" : "No"}</span>,
-      width: "65px",
+      accessorKey: "isTaxable",
+      header: "Taxable",
+      cell: ({ getValue }) => {
+        const value = getValue<boolean>();
+        return <span className={`text-[10px] font-semibold ${value ? "text-amber-600" : "text-stone-400"}`}>{value ? "Yes" : "No"}</span>;
+      },
     },
     {
-      title: "Status",
-      data: "isActive",
-      render: (value, row) => (
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ getValue, row }) => (
         <button
-          onClick={(event) => { event.stopPropagation(); toggleBenefitPlanActive(row.id); }}
+          type="button"
+          onClick={(event) => { event.stopPropagation(); toggleBenefitPlanActive(row.original.id); }}
           className="flex items-center gap-1 cursor-pointer"
         >
-          {value
+          {getValue<boolean>()
             ? <><ToggleRight className="w-5 h-5 text-emerald-500" /><span className="text-[10px] text-emerald-600 font-semibold">Active</span></>
             : <><ToggleLeft className="w-5 h-5 text-stone-300" /><span className="text-[10px] text-stone-400">Inactive</span></>}
         </button>
       ),
-      width: "90px",
     },
   ];
 
-  const statutoryRuleColumns: STSNColumn<StatutoryContributionRule>[] = [
+  const statutoryRuleColumns: AppTableColumn<StatutoryContributionRule>[] = [
     {
-      title: "Plan",
-      render: (_, row) => {
-        const plan = benefitPlanMap.get(row.benefitPlanId);
-        return <span className="text-xs font-semibold text-stone-800">{plan?.name ?? row.benefitPlanId}</span>;
+      accessorKey: "benefitPlanId",
+      header: "Plan",
+      cell: ({ row }) => {
+        const plan = benefitPlanMap.get(row.original.benefitPlanId);
+        return <span className="text-xs font-semibold text-stone-800">{plan?.name ?? row.original.benefitPlanId}</span>;
       },
     },
-    { title: "Year", data: "effectiveYear", render: (value) => <span className="font-mono text-xs text-stsn-brown">{value}</span>, width: "70px" },
     {
-      title: "Salary Range",
-      render: (_, row) => (
+      accessorKey: "effectiveYear",
+      header: "Year",
+      cell: ({ getValue }) => <span className="font-mono text-xs text-stsn-brown">{String(getValue())}</span>,
+    },
+    {
+      id: "salaryRange",
+      header: "Salary Range",
+      cell: ({ row }) => (
         <span className="font-mono text-xs text-stone-600">
-          PHP {row.minSalary.toLocaleString()} - {row.maxSalary != null ? row.maxSalary.toLocaleString() : "above"}
+          PHP {row.original.minSalary.toLocaleString()} - {row.original.maxSalary != null ? row.original.maxSalary.toLocaleString() : "above"}
         </span>
       ),
     },
     {
-      title: "Employee Share",
-      render: (_, row) => (
+      id: "employeeShare",
+      header: "Employee Share",
+      cell: ({ row }) => (
         <span className="text-xs text-stone-600">
-          {row.employeeFixed > 0 ? `PHP ${row.employeeFixed.toLocaleString()}` : `${(row.employeeRate * 100).toFixed(2)}%`}
+          {row.original.employeeFixed > 0 ? `PHP ${row.original.employeeFixed.toLocaleString()}` : `${(row.original.employeeRate * 100).toFixed(2)}%`}
         </span>
       ),
-      width: "130px",
     },
     {
-      title: "Employer Share",
-      render: (_, row) => (
+      id: "employerShare",
+      header: "Employer Share",
+      cell: ({ row }) => (
         <span className="text-xs text-stone-600">
-          {row.employerFixed > 0 ? `PHP ${row.employerFixed.toLocaleString()}` : `${(row.employerRate * 100).toFixed(2)}%`}
+          {row.original.employerFixed > 0 ? `PHP ${row.original.employerFixed.toLocaleString()}` : `${(row.original.employerRate * 100).toFixed(2)}%`}
         </span>
       ),
-      width: "130px",
     },
-    { title: "Notes", data: "notes", render: (value) => <span className="text-xs text-stone-400">{value ?? "Effective-dated statutory rule"}</span> },
+    {
+      accessorKey: "notes",
+      header: "Notes",
+      cell: ({ getValue }) => <span className="text-xs text-stone-400">{getValue<string | undefined>() ?? "Effective-dated statutory rule"}</span>,
+    },
   ];
 
   return (
@@ -152,27 +173,32 @@ export default function BenefitsPage() {
         ))}
       </div>
 
-      <DataTableCard title="Benefit Plans" icon={Award}>
-        <STSNDataTable<BenefitPlan>
-          columns={columns}
-          rows={filtered}
-          emptyMessage="No benefit plans configured."
-          pageLength={15}
-        />
-      </DataTableCard>
+      <AppTable<BenefitPlan>
+        data={filtered}
+        columns={columns}
+        title="Benefit Plans"
+        emptyMessage="No benefit plans configured."
+        emptyDescription="Adjust the search or category filter to find benefit plans."
+        loading={false}
+        enableColumnVisibility={false}
+        initialPageSize={15}
+        pageSizeOptions={[15]}
+        getRowId={(row) => row.id}
+      />
 
-      <DataTableCard
+      <AppTable<StatutoryContributionRule>
+        data={statutoryContributionRules}
+        columns={statutoryRuleColumns}
         title="Statutory Contribution Rules"
-        icon={Award}
-        subtitle="Payroll computation reads these rules first, then falls back to simplified defaults only when no active configured rule matches."
-      >
-        <STSNDataTable<StatutoryContributionRule>
-          columns={statutoryRuleColumns}
-          rows={statutoryContributionRules}
-          emptyMessage="No statutory contribution rules configured yet."
-          pageLength={10}
-        />
-      </DataTableCard>
+        description="Payroll computation reads these rules first, then falls back to simplified defaults only when no active configured rule matches."
+        emptyMessage="No statutory contribution rules configured yet."
+        emptyDescription="Add effective-dated rules to drive statutory payroll computation."
+        loading={false}
+        enableColumnVisibility={false}
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+        getRowId={(row) => row.id}
+      />
 
       <div className="bg-stsn-cream border border-stsn-beige rounded-xl p-4 text-xs text-stone-600">
         <p className="font-semibold mb-1">Configuration Note</p>

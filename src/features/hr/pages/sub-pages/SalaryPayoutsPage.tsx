@@ -7,17 +7,15 @@ import React, { useState, useMemo } from "react";
 import { Wallet, ChevronRight, X, CheckCircle } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppButton from "../../../../components/common/AppButton";
+import AppCard from "../../../../components/common/AppCard";
+import AppStatusBadge from "../../../../components/common/AppStatusBadge";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../../components/common/AppTable";
+import AppTabs from "../../../../components/common/AppTabs";
 import { SalaryPayoutBatch, SalaryPayoutLine } from "../../../../types";
-
-const BATCH_STATUS_COLORS: Record<string, string> = {
-  Pending: "bg-stone-100 text-stone-500",
-  Queued: "bg-blue-100 text-blue-700",
-  Released: "bg-emerald-100 text-emerald-700",
-  Failed: "bg-red-100 text-red-700",
-  Cancelled: "bg-stone-100 text-stone-400",
-};
 
 const METHOD_COLORS: Record<string, string> = {
   "Bank Transfer": "bg-blue-50 text-blue-600",
@@ -40,7 +38,7 @@ function BatchDetail({ batch, onClose, onRelease }: BatchDetailProps) {
 
   const totalAmount = batchLines.reduce((sum, l) => sum + l.amount, 0);
 
-  const lineColumns: STSNColumn<SalaryPayoutLine>[] = [
+  const lineColumns: AppTableLegacyColumn<SalaryPayoutLine>[] = [
     {
       title: "Employee",
       render: (_, row) => {
@@ -53,13 +51,13 @@ function BatchDetail({ batch, onClose, onRelease }: BatchDetailProps) {
     {
       title: "Status",
       data: "status",
-      render: (v) => <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${BATCH_STATUS_COLORS[v] ?? "bg-gray-100 text-gray-600"}`}>{v}</span>,
+      render: (v) => <AppStatusBadge status={String(v)} className="text-[10px]" />,
       width: "90px",
     },
   ];
 
   return (
-    <div className="bg-white border border-stsn-beige rounded-xl shadow-sm flex flex-col h-full">
+    <AppCard className="border border-stsn-beige flex h-full flex-col" padded={false}>
       <div className="p-4 border-b border-stone-100 flex items-center justify-between">
         <div>
           <p className="text-sm font-bold text-stone-800">Payout #{batch.payoutNo}</p>
@@ -69,11 +67,15 @@ function BatchDetail({ batch, onClose, onRelease }: BatchDetailProps) {
       </div>
       <div className="flex-1 overflow-y-auto">
         {batchLines.length > 0 ? (
-          <STSNDataTable<SalaryPayoutLine>
-            columns={lineColumns}
-            rows={batchLines}
+          <AppTable<SalaryPayoutLine>
+            columns={appTableColumnsFromLegacy(lineColumns)}
+            data={batchLines}
             emptyMessage="No payout lines."
-            pageLength={10}
+            loading={false}
+            initialPageSize={10}
+            pageSizeOptions={[10]}
+            compact
+            getRowId={(row) => row.id}
           />
         ) : (
           <div className="p-8 text-center text-xs text-stone-400">No payout lines in this batch.</div>
@@ -85,15 +87,18 @@ function BatchDetail({ batch, onClose, onRelease }: BatchDetailProps) {
           <span className="text-sm font-bold text-emerald-700 font-mono">₱{totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
         </div>
         {(batch.status === "Pending" || batch.status === "Queued") && (
-          <button
+          <AppButton
             onClick={() => onRelease(batch.id)}
-            className="w-full btn-primary-gradient text-white text-xs font-semibold py-2 rounded-lg cursor-pointer flex items-center justify-center gap-2"
+            variant="primary"
+            size="sm"
+            fullWidth
+            leftIcon={CheckCircle}
           >
-            <CheckCircle className="w-4 h-4" /> Release Payout
-          </button>
+            Release Payout
+          </AppButton>
         )}
       </div>
-    </div>
+    </AppCard>
   );
 }
 
@@ -111,8 +116,12 @@ export default function SalaryPayoutsPage() {
   }, [salaryPayoutBatches, filterStatus]);
 
   const pendingCount = useMemo(() => salaryPayoutBatches.filter((b) => b.status === "Pending" || b.status === "Queued").length, [salaryPayoutBatches]);
+  const statusTabItems = useMemo(
+    () => ["All", "Pending", "Queued", "Released", "Failed", "Cancelled"].map((status) => ({ value: status, label: status })),
+    [],
+  );
 
-  const batchColumns: STSNColumn<SalaryPayoutBatch>[] = [
+  const batchColumns: AppTableLegacyColumn<SalaryPayoutBatch>[] = [
     { title: "Payout #", data: "payoutNo", render: (v) => <span className="font-mono text-xs font-bold text-stsn-brown">{v}</span>, width: "90px" },
     {
       title: "Method",
@@ -123,7 +132,7 @@ export default function SalaryPayoutsPage() {
     {
       title: "Status",
       data: "status",
-      render: (v) => <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${BATCH_STATUS_COLORS[v] ?? "bg-gray-100 text-gray-600"}`}>{v}</span>,
+      render: (v) => <AppStatusBadge status={String(v)} className="text-[10px]" />,
       width: "90px",
     },
     { title: "Released By", data: "releasedBy", render: (v) => <span className="text-xs text-stone-500">{v ?? "—"}</span> },
@@ -150,7 +159,7 @@ export default function SalaryPayoutsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
+      <AppCard className="border border-stsn-beige sm:flex sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <Wallet className="w-5 h-5 text-stsn-brown" />
@@ -163,36 +172,33 @@ export default function SalaryPayoutsPage() {
             <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full font-semibold">{pendingCount} pending release{pendingCount > 1 ? "s" : ""}</span>
           )}
         </div>
-      </div>
+      </AppCard>
 
       <div className={`flex gap-4 ${selectedBatch ? "flex-col lg:flex-row" : ""}`}>
-        <DataTableCard
+        <AppTable<SalaryPayoutBatch>
           title="Salary Payout Batches"
-          icon={Wallet}
-          actions={
-            <div className="flex gap-1 bg-stone-100 p-0.5 rounded-lg">
-              {["All", "Pending", "Queued", "Released", "Failed", "Cancelled"].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setFilterStatus(s)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${filterStatus === s ? "bg-white text-stsn-brown shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+          enableSearch={false}
+          toolbar={
+            <AppTabs
+              items={statusTabItems}
+              value={filterStatus}
+              onChange={setFilterStatus}
+              variant="pill"
+              className="border-none bg-transparent shadow-none"
+              tabsClassName="p-0"
+            />
           }
           className={selectedBatch ? "lg:flex-1" : "w-full"}
-        >
-          <STSNDataTable<SalaryPayoutBatch>
-            columns={batchColumns}
-            rows={filtered}
-            emptyMessage="No payout batches found."
-            pageLength={15}
-            onRowClick={(row) => setSelectedBatch(row)}
-            selectedId={selectedBatch?.id}
-          />
-        </DataTableCard>
+          data={filtered}
+          columns={appTableColumnsFromLegacy(batchColumns)}
+          emptyMessage="No payout batches found."
+          loading={false}
+          initialPageSize={15}
+          pageSizeOptions={[15]}
+          getRowId={(row) => row.id}
+          onRowClick={(row) => setSelectedBatch(row)}
+          selectedRowId={selectedBatch?.id}
+        />
 
         {selectedBatch && (
           <div className="lg:w-96 flex-shrink-0">

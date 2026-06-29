@@ -8,8 +8,7 @@ import { ClipboardList, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import { EmployeeAttendance } from "../../../../types";
 import { ATTENDANCE_STATUSES } from "../../utils/payrollCalculations";
 
@@ -150,7 +149,7 @@ export default function AttendancePage() {
     return counts;
   }, [filtered]);
 
-  const columns: STSNColumn<EmployeeAttendance>[] = [
+  const legacyColumns: any[] = [
     {
       title: "Employee",
       render: (_, row) => {
@@ -173,6 +172,55 @@ export default function AttendancePage() {
     { title: "Remarks", data: "remarks", render: (v) => <span className="text-xs text-stone-400">{v ?? "—"}</span> },
   ];
 
+  void legacyColumns;
+
+  const columns: AppTableColumn<EmployeeAttendance>[] = [
+    {
+      accessorKey: "employeeId",
+      header: "Employee",
+      cell: ({ row }) => {
+        const e = employeeMap.get(row.original.employeeId);
+        return e ? <span className="text-xs font-semibold text-stone-800">{e.firstName} {e.lastName}</span> : <span className="text-xs text-stone-400">—</span>;
+      },
+    },
+    { accessorKey: "attendanceDate", header: "Date", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ getValue }) => {
+        const value = String(getValue());
+        return <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>;
+      },
+    },
+    { accessorKey: "timeIn", header: "Time In", cell: ({ getValue }) => <span className="font-mono text-xs">{getValue<string | undefined>() ?? "—"}</span> },
+    { accessorKey: "timeOut", header: "Time Out", cell: ({ getValue }) => <span className="font-mono text-xs">{getValue<string | undefined>() ?? "—"}</span> },
+    {
+      accessorKey: "lateMinutes",
+      header: "Late",
+      cell: ({ getValue }) => {
+        const value = getValue<number>();
+        return <span className={`text-xs ${value > 0 ? "text-amber-600 font-semibold" : "text-stone-400"}`}>{value > 0 ? `${value} min` : "—"}</span>;
+      },
+    },
+    {
+      accessorKey: "undertimeMinutes",
+      header: "Undertime",
+      cell: ({ getValue }) => {
+        const value = getValue<number>();
+        return <span className={`text-xs ${value > 0 ? "text-orange-600 font-semibold" : "text-stone-400"}`}>{value > 0 ? `${value} min` : "—"}</span>;
+      },
+    },
+    {
+      accessorKey: "overtimeMinutes",
+      header: "OT",
+      cell: ({ getValue }) => {
+        const value = getValue<number>();
+        return <span className={`text-xs ${value > 0 ? "text-emerald-600 font-semibold" : "text-stone-400"}`}>{value > 0 ? `${value} min` : "—"}</span>;
+      },
+    },
+    { accessorKey: "remarks", header: "Remarks", cell: ({ getValue }) => <span className="text-xs text-stone-400">{getValue<string | undefined>() ?? "—"}</span> },
+  ];
+
   const handleSave = (data: Parameters<RecordAttendanceModalProps["onSave"]>[0]) => {
     addEmployeeAttendance(data);
     toast("Attendance record saved.");
@@ -193,10 +241,33 @@ export default function AttendancePage() {
         </button>
       </div>
 
-      <DataTableCard
+      {Object.keys(summary).length > 0 && (
+        <div className="flex flex-wrap gap-2 rounded-lg border border-[var(--erp-border)] bg-white px-4 py-2">
+          {Object.entries(summary).map(([s, count]) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(filterStatus === s ? "All" : s)}
+              className={`text-[10px] px-2.5 py-1 rounded-full font-semibold border cursor-pointer transition-all ${STATUS_COLORS[s] ?? "bg-gray-100 text-gray-600"} ${filterStatus === s ? "ring-2 ring-offset-1 ring-stsn-gold" : ""}`}
+            >
+              {s}: {count}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <AppTable<EmployeeAttendance>
+        data={filtered}
+        columns={columns}
         title="Attendance Records"
-        icon={ClipboardList}
-        actions={
+        searchPlaceholder="Search attendance records..."
+        emptyMessage="No attendance records found for the selected period."
+        emptyDescription="Adjust the month, employee, status, or search filters."
+        loading={false}
+        enableColumnVisibility={false}
+        initialPageSize={20}
+        pageSizeOptions={[20]}
+        getRowId={(row) => row.id}
+        toolbar={
           <>
             <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold bg-stone-50" />
             <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50">
@@ -210,27 +281,7 @@ export default function AttendancePage() {
             <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">{filtered.length} records</span>
           </>
         }
-      >
-        {Object.keys(summary).length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 py-2 border-b border-stone-100">
-            {Object.entries(summary).map(([s, count]) => (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(filterStatus === s ? "All" : s)}
-                className={`text-[10px] px-2.5 py-1 rounded-full font-semibold border cursor-pointer transition-all ${STATUS_COLORS[s] ?? "bg-gray-100 text-gray-600"} ${filterStatus === s ? "ring-2 ring-offset-1 ring-stsn-gold" : ""}`}
-              >
-                {s}: {count}
-              </button>
-            ))}
-          </div>
-        )}
-        <STSNDataTable<EmployeeAttendance>
-          columns={columns}
-          rows={filtered}
-          emptyMessage="No attendance records found for the selected period."
-          pageLength={20}
-        />
-      </DataTableCard>
+      />
 
       {showModal && <RecordAttendanceModal onClose={() => setShowModal(false)} onSave={handleSave} />}
     </div>

@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FileText, Filter, Search, ShieldCheck } from "lucide-react";
+import { FileText, Filter, ShieldCheck } from "lucide-react";
+import AppCard from "../../../components/common/AppCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { filterStudentLinkedRecords, getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { dbSelectAll } from "../../../services/supabaseCrud";
@@ -137,7 +140,7 @@ export default function ClinicReportsPage() {
         })}
       </section>
 
-      <section className="bg-white border border-stsn-beige rounded-xl p-4 shadow-sm">
+      <AppCard className="border border-stsn-beige">
         <div className="flex items-center gap-2 mb-3">
           <Filter className="w-4 h-4 text-stsn-gold" />
           <h3 className="text-sm font-black text-stsn-brown uppercase">Report Filters</h3>
@@ -145,35 +148,32 @@ export default function ClinicReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className={showDispositionFilter ? "md:col-span-2" : "md:col-span-3"}>
             <span className="block text-[10px] uppercase font-mono text-stone-400 mb-1">Search</span>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-stone-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-stsn-beige bg-white pl-8 pr-3 py-2 text-xs font-semibold text-stone-700 outline-none focus:border-stsn-gold"
-                placeholder="Student name, complaint, keyword..."
-              />
-            </div>
+            <AppSearchInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Student name, complaint, keyword..."
+              uiSize="sm"
+            />
           </div>
           {showDispositionFilter && (
             <div>
               <span className="block text-[10px] uppercase font-mono text-stone-400 mb-1">Disposition</span>
-              <select
+              <AppSelect
                 value={dispositionFilter}
                 onChange={(e) => setDispositionFilter(e.target.value)}
-                className="w-full rounded-lg border border-stsn-beige bg-white px-3 py-2 text-xs font-semibold text-stone-700 outline-none focus:border-stsn-gold"
+                uiSize="sm"
               >
                 <option value="All">All</option>
                 {DISPOSITIONS.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
           )}
         </div>
-      </section>
+      </AppCard>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-stsn-beige bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <AppCard className="border border-stsn-beige lg:flex lg:items-center lg:justify-between">
         <div>
           <p className="text-[10px] font-mono uppercase tracking-widest text-stone-400">Active Report</p>
           <h2 className="text-lg font-black text-stsn-brown">{activeReport.title}</h2>
@@ -187,7 +187,7 @@ export default function ClinicReportsPage() {
           rows={rows}
           onPreview={() => setIsPreviewOpen(true)}
         />
-      </section>
+      </AppCard>
 
       <ReportTable columns={activeReport.columns} rows={rows} />
 

@@ -9,6 +9,7 @@ import {
   ChevronRight, MessageSquare, AlertCircle, CheckCircle,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import EmptyState from "../../../components/common/EmptyState";
 
 export default function GuardianPortalPage() {
@@ -75,7 +76,7 @@ export default function GuardianPortalPage() {
                   {a.priority === "urgent" && <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />}
                   <div className="min-w-0">
                     <p className="text-[11px] font-bold text-stone-700">{a.title}</p>
-                    <p className="text-[10px] text-stone-500 mt-0.5">{a.body}</p>
+                    <p className="text-[10px] text-stone-500 mt-0.5">{a.content}</p>
                   </div>
                 </div>
               </div>
@@ -121,15 +122,10 @@ export default function GuardianPortalPage() {
               {selectedStudent.studentNo} · {selectedStudent.yearLevel} {selectedStudent.trackOrCourse} · Section {selectedStudent.section}
             </p>
           </div>
-          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${
-            selectedStudent.enrollmentStatus === "Enrolled"
-              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-              : selectedStudent.enrollmentStatus === "Pending" || selectedStudent.enrollmentStatus === "For Assessment"
-              ? "bg-amber-50 text-amber-700 border-amber-100"
-              : "bg-stone-100 text-stone-600 border-stone-200"
-          }`}>
-            {selectedStudent.enrollmentStatus}
-          </span>
+          <AppStatusBadge
+            status={selectedStudent.enrollmentStatus}
+            className="flex-shrink-0 text-[9px]"
+          />
         </div>
 
         {/* KPI strip */}

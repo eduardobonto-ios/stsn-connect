@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 export type AppButtonVariant =
   | "primary"
@@ -24,32 +25,34 @@ export interface AppButtonProps
   loading?: boolean;
   leftIcon?: React.ElementType;
   rightIcon?: React.ElementType;
+  fullWidth?: boolean;
+  iconOnly?: boolean;
 }
 
 const VARIANT: Record<AppButtonVariant, string> = {
   primary:
-    "bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] shadow-lg font-bold",
+    "border border-transparent bg-[linear-gradient(135deg,#F2C94C_0%,#E7B82F_45%,#D6A21E_100%)] text-[#071C34] shadow-[0_10px_24px_rgba(231,184,47,0.26)] hover:-translate-y-px hover:brightness-[1.03]",
   "primary-college":
-    "bg-blue-400 hover:bg-blue-300 text-blue-950 shadow-lg font-bold",
+    "border border-transparent bg-[linear-gradient(135deg,#0A2748_0%,#123A63_55%,#184A79_100%)] text-white shadow-[0_10px_24px_rgba(7,28,52,0.24)] hover:-translate-y-px hover:brightness-[1.06]",
   secondary:
-    "bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 font-semibold",
+    "border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] text-[var(--erp-text)] hover:bg-white hover:border-[var(--erp-accent)]/55",
   ghost:
-    "bg-transparent hover:bg-stone-100 text-stone-600 font-semibold",
+    "border border-transparent bg-transparent text-[var(--erp-text-muted)] hover:bg-[var(--erp-surface-muted)] hover:text-[var(--erp-text)]",
   outline:
-    "bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 font-semibold",
+    "border border-[var(--erp-border)] bg-white text-[var(--erp-text)] hover:bg-[var(--erp-surface-muted)] hover:border-[var(--erp-accent)]/55",
   "outline-dark":
-    "bg-white/10 hover:bg-white/20 border border-white/25 text-white font-bold",
+    "border border-white/18 bg-white/10 text-white hover:bg-white/16",
   destructive:
-    "bg-red-600 hover:bg-red-700 text-white shadow-sm font-bold",
+    "border border-transparent bg-red-600 text-white shadow-[0_10px_24px_rgba(220,38,38,0.18)] hover:-translate-y-px hover:bg-red-700",
   "danger-outline":
-    "bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 font-semibold",
+    "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
 };
 
 const SIZE: Record<AppButtonSize, string> = {
-  xs: "text-[10px] px-3 py-1.5 rounded-lg gap-1",
-  sm: "text-xs px-4 py-2 rounded-xl gap-1.5",
-  md: "text-sm px-5 py-2.5 rounded-xl gap-2",
-  lg: "text-sm px-6 py-3 rounded-xl gap-2",
+  xs: "min-h-8 rounded-lg px-3 py-1.5 text-[10px] gap-1",
+  sm: "min-h-9 rounded-xl px-4 py-2 text-xs gap-1.5",
+  md: "min-h-11 rounded-xl px-[18px] py-2.5 text-sm gap-2",
+  lg: "min-h-12 rounded-2xl px-6 py-3 text-sm gap-2",
 };
 
 const ICON_SIZE: Record<AppButtonSize, string> = {
@@ -65,6 +68,8 @@ export default function AppButton({
   loading = false,
   leftIcon: LeftIcon,
   rightIcon: RightIcon,
+  fullWidth = false,
+  iconOnly = false,
   children,
   className = "",
   disabled,
@@ -77,13 +82,21 @@ export default function AppButton({
     <button
       {...props}
       disabled={isDisabled}
-      className={`inline-flex items-center justify-center transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${VARIANT[variant]} ${SIZE[size]} ${className}`}
+      className={[
+        "inline-flex items-center justify-center font-semibold tracking-[0.01em] transition duration-150 ease-out cursor-pointer",
+        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--erp-brand)]/12",
+        "disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:transform-none",
+        fullWidth ? "w-full" : "",
+        iconOnly ? "aspect-square px-0" : "",
+        VARIANT[variant],
+        SIZE[size],
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       {loading ? (
-        <svg className={`animate-spin ${iconClass}`} fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
+        <Loader2 className={`animate-spin ${iconClass}`} />
       ) : LeftIcon ? (
         <LeftIcon className={iconClass} />
       ) : null}
