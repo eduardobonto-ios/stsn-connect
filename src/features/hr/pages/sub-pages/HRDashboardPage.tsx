@@ -7,6 +7,7 @@ import React from "react";
 import { Users, Banknote, FileCheck, CalendarDays, Clock, Award, CalendarCheck, AlertTriangle, CheckCircle2, TrendingDown } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import AppCard from "../../../../components/common/AppCard";
+import AppEmptyState from "../../../../components/common/AppEmptyState";
 
 export default function HRDashboardPage() {
   const {
@@ -229,7 +230,13 @@ export default function HRDashboardPage() {
             </div>
           </div>
           {filteredEmployees.length === 0 && (
-            <p className="text-xs text-stone-400 text-center py-4">No employee records found.</p>
+            <AppEmptyState
+              icon={Users}
+              title="No employee records found"
+              description="Workforce distribution will appear here once employee records exist for the active school scope."
+              compact
+              tone="brand"
+            />
           )}
         </AppCard>
 

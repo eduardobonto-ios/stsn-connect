@@ -699,3 +699,66 @@ Audit date: 2026-06-29
 
 - Use Phase 7 as a focused consistency pass for remaining workflow-heavy modals, drawers, and high-density transactional forms now that the major module shells are aligned.
 - Keep official print/generated output fidelity work separated from shell modernization so report and document surfaces remain stable.
+
+## Phase 6H Dashboard and Action Center Display Fix Notes
+
+### Files Reviewed
+
+- `src/features/dashboard/pages/DashboardPage.tsx`
+- `src/features/action-center/pages/ActionCenterPage.tsx`
+- `src/components/common/AppCard.tsx`
+- `src/components/common/AppEmptyState.tsx`
+- `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`
+- `docs/uiux/STSN_CONNECT_METRONIC_PHASE_0_5_AUDIT_TRACKER.md`
+
+### Files Changed
+
+- `src/features/dashboard/pages/DashboardPage.tsx`
+- `src/features/action-center/pages/ActionCenterPage.tsx`
+- `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`
+- `docs/uiux/STSN_CONNECT_METRONIC_PHASE_0_5_AUDIT_TRACKER.md`
+
+### Dashboard Blank Widget Root Cause
+
+- The Dashboard `Live Notice Board` card rendered a header shell without any empty-state fallback when `announcements` was empty, which could leave the highlighted widget area looking blank even though the card itself still mounted.
+- The School Finance sparkline also still used a hardcoded fallback average when `totalPayments` was zero, which masked the intended empty-state path with non-real display values.
+
+### Dashboard Fix Applied
+
+- Added a shared `AppEmptyState` fallback to `Live Notice Board` so the card now explains when there are no posted announcements instead of appearing blank.
+- Removed the fake School Finance fallback average so the existing finance empty-state branch now activates only when real payment trend data is unavailable.
+- Kept the existing Dashboard data sources, counts, routing, drill-down behavior, and KPI calculations intact.
+
+### Action Center Stray Number Root Cause
+
+- The `Operational Focus` panel was surfacing all summary metrics together even when only one queue metric was non-zero, which left a lone real count visually reading like an unexplained standalone number during QA.
+
+### Action Center Fix Applied
+
+- Limited `Operational Focus` to active non-zero metrics only and adjusted the grid layout to match the number of meaningful metrics being shown.
+- Preserved the same underlying pending-count hook, approval queue behavior, workflow logic, routing, and role-based visibility.
+
+### Behavior Preserved
+
+- No routing was changed.
+- No business logic was changed.
+- No approval logic or queue workflow was changed.
+- No dashboard counts, statuses, permissions, or role behavior were changed.
+- No table behavior was changed.
+- No data sources were changed beyond safe display binding correction for empty-state handling.
+- No `STSNDataTable`, `DataTableCard`, DataTables.net, Metronic, Bootstrap, jQuery, Material UI, Redux, or new framework dependency was added.
+
+### Validation Results
+
+- `npm.cmd run lint`: passed
+- `npm.cmd run build`: blocked in the sandbox because Vite could not read the repo config path; an unsandboxed rerun was requested in-session and not approved
+- Targeted code-path confirmation:
+  - Dashboard still loads with the same KPI/count sources
+  - Dashboard blank card path now resolves to visible content or an explicit empty state
+  - Action Center still loads with the same pending-count source
+  - Operational Focus no longer renders a low-context standalone number state
+  - no fake/mock data was added
+
+### Phase 7 Readiness
+
+- Phase 7 can start next if lint/build pass and runtime QA confirms the updated Dashboard empty states and Action Center Operational Focus presentation behave as expected.

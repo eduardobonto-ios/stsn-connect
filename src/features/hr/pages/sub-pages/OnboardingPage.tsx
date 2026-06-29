@@ -8,6 +8,7 @@ import { UserCheck, CheckCircle, Clock, SkipForward, X, ChevronRight } from "luc
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import AppCard from "../../../../components/common/AppCard";
+import AppEmptyState from "../../../../components/common/AppEmptyState";
 import AppTable, {
   appTableColumnsFromLegacy,
   type AppTableLegacyColumn,
@@ -65,7 +66,14 @@ function EmployeeChecklist({ employeeId, onClose }: EmployeeChecklistProps) {
       </div>
       <div className="flex-1 overflow-y-auto max-h-96">
         {sorted.length === 0 ? (
-          <p className="text-xs text-stone-400 text-center py-8">No onboarding tasks assigned.</p>
+          <AppEmptyState
+            icon={UserCheck}
+            title="No onboarding tasks assigned"
+            description="Checklist steps will appear here once a template or manual onboarding task is linked to this employee."
+            compact
+            tone="brand"
+            className="m-4"
+          />
         ) : (
           <div className="divide-y divide-stone-50">
             {sorted.map((empTask) => {

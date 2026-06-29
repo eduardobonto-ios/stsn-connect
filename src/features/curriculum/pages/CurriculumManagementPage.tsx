@@ -512,7 +512,13 @@ export default function CurriculumManagement() {
               <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest pl-1 block">Curricula</span>
               <div className="space-y-1 max-h-[450px] overflow-y-auto">
                 {curriculums.length === 0 ? (
-                  <p className="text-[11px] text-stone-400 italic text-center py-6">No curricula yet. Create one above.</p>
+                  <EmptyState
+                    icon={Layers}
+                    title="No curricula yet"
+                    description="Create a curriculum above to start organizing subject groupings and year-level requirements."
+                    compact
+                    tone="brand"
+                  />
                 ) : (
                   curriculums.map((c) => {
                     const isSelected = selectedCurriculumId === c.id;

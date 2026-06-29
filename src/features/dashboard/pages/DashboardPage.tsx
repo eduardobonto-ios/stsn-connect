@@ -688,7 +688,7 @@ export default function Dashboard({
   const annualRange = annualMax - annualMin || 1;
 
   // School finance — daily income vs expenses (Sun–Sat)
-  const avgDaily = totalPayments / 7 || 5000;
+  const avgDaily = totalPayments > 0 ? totalPayments / 7 : 0;
   const dailyIncome   = [0.8, 1.1, 1.4, 1.2, 0.9, 0.6, 0.7].map((m) => Math.round(avgDaily * m));
   const dailyExpenses = [0.5, 0.7, 0.9, 0.8, 0.6, 0.4, 0.5].map((m) => Math.round(avgDaily * m));
 
@@ -704,6 +704,8 @@ export default function Dashboard({
     () => new Set(events.map((e) => e.date)),
     [events]
   );
+  const visibleEvents = events.slice(0, 4);
+  const visibleAnnouncements = announcements.slice(0, 3);
 
   void terms;
   void totalFaculty;
@@ -986,7 +988,7 @@ export default function Dashboard({
             </h3>
           </div>
           <div className="space-y-3 flex-1">
-            {events.slice(0, 4).length === 0 ? (
+            {visibleEvents.length === 0 ? (
               <AppEmptyState
                 icon={Bell}
                 title="No upcoming events"
@@ -995,7 +997,7 @@ export default function Dashboard({
                 tone="brand"
               />
             ) : (
-              events.slice(0, 4).map((ev) => {
+              visibleEvents.map((ev) => {
                 const d = new Date(ev.date + "T00:00:00");
                 const dayNum = d.getDate();
                 const dayName = d.toLocaleString("en-US", { weekday: "short" }).toUpperCase();
@@ -1150,25 +1152,35 @@ export default function Dashboard({
               <h3 className="text-sm font-semibold text-stone-800">Live Notice Board</h3>
             </div>
             <div className="space-y-3">
-              {announcements.slice(0, 3).map((ann) => (
-                <div key={ann.id} className="p-3.5 bg-stone-50 hover:bg-stsn-cream border border-stone-100 hover:border-stsn-beige rounded-xl transition-all duration-200">
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="text-[11px] font-semibold text-stsn-brown leading-tight">{ann.title}</span>
-                    <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${
-                      ann.category === "Billing" ? "bg-amber-50 text-amber-700 border border-amber-200"
-                      : ann.category === "Academic" ? "bg-blue-50 text-blue-700 border border-blue-200"
-                      : "bg-stone-100 text-stone-600 border border-stone-200"
-                    }`}>
-                      {ann.category}
-                    </span>
+              {visibleAnnouncements.length === 0 ? (
+                <AppEmptyState
+                  icon={Bell}
+                  title="No live notices"
+                  description="Announcements will appear here after they are posted to the notice board."
+                  compact
+                  tone="brand"
+                />
+              ) : (
+                visibleAnnouncements.map((ann) => (
+                  <div key={ann.id} className="p-3.5 bg-stone-50 hover:bg-stsn-cream border border-stone-100 hover:border-stsn-beige rounded-xl transition-all duration-200">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-[11px] font-semibold text-stsn-brown leading-tight">{ann.title}</span>
+                      <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                        ann.category === "Billing" ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        : ann.category === "Academic" ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : "bg-stone-100 text-stone-600 border border-stone-200"
+                      }`}>
+                        {ann.category}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-stone-500 mt-1.5 line-clamp-2 leading-relaxed">{ann.content}</p>
+                    <div className="flex justify-between items-center mt-2 text-[9px] text-stone-400 font-mono">
+                      <span>{ann.author}</span>
+                      <span>{ann.date}</span>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-stone-500 mt-1.5 line-clamp-2 leading-relaxed">{ann.content}</p>
-                  <div className="flex justify-between items-center mt-2 text-[9px] text-stone-400 font-mono">
-                    <span>{ann.author}</span>
-                    <span>{ann.date}</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </AppCard>
 

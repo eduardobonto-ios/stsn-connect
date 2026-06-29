@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import GradeEncodingPage from "../../grading/pages/GradeEncodingPage";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppEmptyState from "../../../components/common/AppEmptyState";
 import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { ClassSchedule } from "../../../types";
@@ -567,7 +568,13 @@ export default function FacultyPortal() {
                 </h3>
 
                 {gradeSubmissionQueue.length === 0 ? (
-                  <p className="text-xs text-stone-400 italic text-center py-4">No teaching loads assigned yet.</p>
+                  <AppEmptyState
+                    icon={FileCheck}
+                    title="No teaching loads assigned yet"
+                    description="Teaching milestones will appear here after class loads and grading assignments are linked to this faculty profile."
+                    compact
+                    tone="brand"
+                  />
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {gradeSubmissionQueue.map((item) => {

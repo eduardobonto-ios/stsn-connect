@@ -69,7 +69,14 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
       emphasis: "text-white",
     },
   ];
+  const activeOperationalMetrics = operationalMetrics.filter((metric) => metric.value > 0);
   const hasOperationalWork = operationalMetrics.some((metric) => metric.value > 0);
+  const operationalGridColumns =
+    activeOperationalMetrics.length >= 3
+      ? "grid-cols-1 sm:grid-cols-3"
+      : activeOperationalMetrics.length === 2
+        ? "grid-cols-1 sm:grid-cols-2"
+        : "grid-cols-1";
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
@@ -110,8 +117,8 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
           </div>
           <div className="lg:min-w-[420px]">
             {hasOperationalWork ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {operationalMetrics.map((metric) => (
+              <div className={`grid gap-3 ${operationalGridColumns}`}>
+                {activeOperationalMetrics.map((metric) => (
                   <div key={metric.label} className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3">
                     <p className="text-[10px] font-mono uppercase tracking-wider text-white/55">{metric.label}</p>
                     <p className={`mt-1 text-2xl font-black ${metric.emphasis}`}>{metric.value}</p>
