@@ -4,6 +4,8 @@ Audit date: 2026-06-28
 
 Status: Completed for Phase 0.5 audit/inventory. No application source files were modified.
 
+Phase 8 cross-reference: Data-source and Supabase wiring findings are tracked in `docs/uiux/STSN_CONNECT_PHASE_8_DATA_SOURCE_SUPABASE_AUDIT_TRACKER.md` (audit dated 2026-06-30). That pass confirmed the app is mostly Supabase-backed through the shared loader/store, with remaining follow-up concentrated in dashboard synthetic analytics, student-portal demo overlays, and unresolved guardian-to-student account linkage.
+
 ## Completed Items
 
 - [x] Verified frontend stack against `package.json` and Vite/Tailwind entry points.
@@ -469,3 +471,38 @@ Audit date: 2026-06-29
 
 - Phase 6G modernized the remaining Admin, User Access, Core Setup, Books Setup, and Reports shell surfaces with shared banners, cards, forms, filters, statuses, and setup/report presentation while preserving roles, permissions, audit, setup CRUD, books setup, routing, and report/export behavior.
 - Detailed review notes, intentionally skipped preview/print/export surfaces, and validation results are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`.
+
+## Phase 6H Cross-Reference
+
+- Phase 6H was a targeted display-fix pass for the Dashboard and Action Center that corrected empty-state rendering and low-context summary presentation without changing routing, business logic, counts, approvals, or data sources beyond safe display binding cleanup.
+- Detailed root-cause notes, changed files, preserved behavior, and validation status are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`.
+
+## Phase 7 Cross-Reference
+
+- Phase 7 was the full UI consistency and regression QA pass across the post-modernization app, limited to safe visual cleanup such as shared empty-state adoption and zero-data analytics presentation while preserving routing, workflows, data sources, calculations, reports, and table behavior.
+- Detailed module review coverage, safe fixes, deferred issues, data-dependent validation notes, and final readiness recommendation are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_7_FINAL_UI_QA_TRACKER.md`.
+
+## Phase 7B Cross-Reference
+
+- Phase 7B was the final demo-readiness visual pass, limited to remaining safe empty-state polish on Accounting and HR dashboard cards without changing routing, data sources, workflows, calculations, tables, or report/export surfaces.
+- Detailed fixes, intentional deferrals, and validation results are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_7_FINAL_UI_QA_TRACKER.md` under `Phase 7B Final Visual Fixes and Demo Readiness Notes`.
+
+## Phase 9 Cross-Reference
+
+- Phase 9 focused on build stability, frontend performance, and bundle loading behavior only, using safe module-level lazy loading and conservative Vite chunking without changing routing, data sources, workflows, or table behavior.
+- Detailed findings, chunk notes, applied optimizations, deferred risks, and validation results are tracked in `docs/uiux/STSN_CONNECT_PHASE_9_PERFORMANCE_BUILD_SIZE_TRACKER.md`.
+
+## Phase 10 Cross-Reference
+
+- Phase 10 is the final documentation, demo, UAT, and handoff pass only. It does not reopen modernization, routing, data-source, or workflow scope.
+- Final executive summary, module coverage, preserved-behavior notes, deferred items, demo flow, UAT checklist, release notes, and validation status are tracked in `docs/uiux/STSN_CONNECT_PHASE_10_FINAL_HANDOFF.md`.
+
+## Phase 11 Cross-Reference
+
+- Phase 11 promotes the existing guardian-facing route into a fuller Parent Portal experience using existing shared components, existing route/permission patterns, and store-backed student, grade, finance, announcement, schedule, and document records only.
+- Detailed audit findings, reused components, linkage notes, deferred attendance handling, files changed, and validation results are tracked in `docs/uiux/STSN_CONNECT_PHASE_11_PARENT_PORTAL_TRACKER.md`.
+
+## Phase 11D Cross-Reference
+
+- Phase 11D added a demo-only Supabase seed migration (`supabase/migrations/0037_parent_portal_demo_seed.sql`) that creates one demo GUARDIAN account (`parent.demo@stsn.edu.ph`) and links it to two existing demo students via `public.student_guardians.email`, so the Parent Portal can display linked student data. Purely additive and idempotent; no UI, routing, role/permission config, business logic, calculations, or table behavior were changed.
+- Full schema review, linkage mechanism, seed records, manual/auth notes, test steps, and the Admin-preview deferral to Phase 11E are tracked in `docs/uiux/STSN_CONNECT_PHASE_11_PARENT_PORTAL_TRACKER.md` under `Phase 11D Parent Portal Demo Seed Migration Notes`.

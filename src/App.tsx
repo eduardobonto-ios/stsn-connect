@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSTSNStore } from "./services/store";
 import {
@@ -36,7 +36,6 @@ import NotificationBell, {
   UrgentAnnouncementBanner,
 } from "./components/common/NotificationBell";
 import UserProfileDropdown from "./components/common/UserProfileDropdown";
-import GlobalSearch from "./components/common/GlobalSearch";
 import BreadcrumbBar, {
   type BreadcrumbCrumb,
 } from "./components/common/BreadcrumbBar";
@@ -51,6 +50,7 @@ import { usePendingCounts } from "./hooks/usePendingCounts";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 const APP_SIDEBAR_WIDTH_CLASS = "w-[280px] min-w-[280px] max-w-[280px]";
+const GlobalSearch = lazy(() => import("./components/common/GlobalSearch"));
 
 function PendingBadge({
   count,
@@ -1119,10 +1119,14 @@ export default function App() {
           </div>
         </div>
       )}
-      <GlobalSearch
-        open={globalSearchOpen}
-        onClose={() => setGlobalSearchOpen(false)}
-      />
+      {globalSearchOpen && (
+        <Suspense fallback={null}>
+          <GlobalSearch
+            open={globalSearchOpen}
+            onClose={() => setGlobalSearchOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
