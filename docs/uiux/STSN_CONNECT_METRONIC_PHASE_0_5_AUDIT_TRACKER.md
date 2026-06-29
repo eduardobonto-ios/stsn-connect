@@ -449,3 +449,23 @@ Audit date: 2026-06-29
 
 - Phase 6C modernized the Accounting and Cashiering shell surfaces with shared cards, buttons, filters, KPI tiles, and status treatment while preserving accounting calculations, cashiering workflows, receipts, reports, routing, and data sources.
 - Detailed review notes, changed files, intentionally skipped print/output surfaces, and validation results are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`.
+
+## Phase 6D Cross-Reference
+
+- Phase 6D modernized Payroll and HR shell surfaces and included a small Dashboard/Action Center QA cleanup without changing payroll calculations, HR workflows, routing, or data sources.
+- Detailed review notes, changed files, intentionally skipped import/print/payslip surfaces, and validation results are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`.
+
+## Phase 6E Cross-Reference
+
+- Phase 6E modernized Faculty, Grades Directory, Curriculum, Scheduling, and Class Sectioning shell surfaces using shared cards, buttons, search, badges, and KPI presentation while preserving grading logic, curriculum mappings, scheduling rules, section assignment behavior, routing, and data sources.
+- Detailed review notes, changed files, intentionally skipped grade-matrix/print/output surfaces, and validation results are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`.
+
+## Phase 6F Cross-Reference
+
+- Phase 6F modernized Clinic, Guidance, Consultation, Student Portal, Guardian Portal, and Online Learning shell surfaces using shared cards, buttons, search, tabs, badges, and empty/loading states while preserving support workflows, portal behavior, LMS behavior, routing, and data sources.
+- Detailed review notes, intentionally skipped print/export/upload-preview surfaces, and validation results are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`.
+
+## Phase 6G Cross-Reference
+
+- Phase 6G modernized the remaining Admin, User Access, Core Setup, Books Setup, and Reports shell surfaces with shared banners, cards, forms, filters, statuses, and setup/report presentation while preserving roles, permissions, audit, setup CRUD, books setup, routing, and report/export behavior.
+- Detailed review notes, intentionally skipped preview/print/export surfaces, and validation results are tracked in `docs/uiux/STSN_CONNECT_METRONIC_PHASE_6_MODULE_MODERNIZATION_TRACKER.md`.

@@ -3,55 +3,63 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from "react";
-import { ArrowRightLeft, Plus, X, CheckCircle, Clock, Calendar, Info } from "lucide-react";
-import { useSTSNStore } from "../../../services/store";
-import { useAppDialog } from "../../../components/common/useAppDialog";
+import React, { useMemo, useState } from "react";
+import { ArrowRightLeft, Calendar, CheckCircle, Clock, Info, Plus, X } from "lucide-react";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
+import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppFormField from "../../../components/common/AppFormField";
+import AppInput from "../../../components/common/AppInput";
+import AppSelect from "../../../components/common/AppSelect";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
-import type { DelegationScope, ApprovalDelegation } from "../../../types";
+import { useAppDialog } from "../../../components/common/useAppDialog";
+import { useSTSNStore } from "../../../services/store";
+import type { ApprovalDelegation, DelegationScope } from "../../../types";
 
 const SCOPE_OPTIONS: DelegationScope[] = ["ASSESSMENT", "LEAVE", "GRADE", "VOID", "ALL"];
 
 const SCOPE_LABEL: Record<DelegationScope, string> = {
   ASSESSMENT: "Assessment Approvals",
-  LEAVE:      "Leave Approvals",
-  GRADE:      "Grade Finalization",
-  VOID:       "Void Request Approvals",
-  ALL:        "All Approval Scopes",
+  LEAVE: "Leave Approvals",
+  GRADE: "Grade Finalization",
+  VOID: "Void Request Approvals",
+  ALL: "All Approval Scopes",
 };
 
-const selectClass =
-  "w-full text-xs font-semibold border border-stone-200 rounded-lg px-3 py-2 bg-stone-50 outline-none focus:ring-1 focus:ring-stsn-gold/50 focus:border-stsn-gold/60 text-stone-800 transition cursor-pointer";
-const inputClass =
-  "w-full text-xs font-semibold border border-stone-200 rounded-lg px-3 py-2 bg-stone-50 outline-none focus:ring-1 focus:ring-stsn-gold/50 focus:border-stsn-gold/60 placeholder:text-stone-400 text-stone-800 transition";
+const statusLabel = (delegation: ApprovalDelegation, today: string) => {
+  if (delegation.isActive && delegation.endDate >= today) return "Active";
+  if (delegation.isActive) return "Expired";
+  return "Revoked";
+};
 
 export default function DelegationManagementPage() {
   const { delegations, users, currentUser, addDelegation, revokeDelegation } = useSTSNStore();
   const { confirm, toast } = useAppDialog();
 
-  const [showForm, setShowForm]       = useState(false);
-  const [delegateId, setDelegateId]   = useState("");
-  const [scope, setScope]             = useState<DelegationScope>("ASSESSMENT");
-  const [startDate, setStartDate]     = useState("");
-  const [endDate, setEndDate]         = useState("");
-  const [reason, setReason]           = useState("");
-
+  const [showForm, setShowForm] = useState(false);
+  const [delegateId, setDelegateId] = useState("");
+  const [scope, setScope] = useState<DelegationScope>("ASSESSMENT");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [reason, setReason] = useState("");
   const [selectedDelegation, setSelectedDelegation] = useState<ApprovalDelegation | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
 
   const eligibleDelegates = useMemo(
-    () => users.filter((u) => u.id !== currentUser?.id && u.isActive),
+    () => users.filter((user) => user.id !== currentUser?.id && user.isActive),
     [users, currentUser],
   );
 
-  const activeDelegations = delegations.filter(
-    (d) => d.isActive && d.endDate >= today,
+  const activeDelegations = useMemo(
+    () => delegations.filter((delegation) => delegation.isActive && delegation.endDate >= today),
+    [delegations, today],
   );
 
-  const pastDelegations = delegations.filter(
-    (d) => !d.isActive || d.endDate < today,
+  const pastDelegations = useMemo(
+    () => delegations.filter((delegation) => !delegation.isActive || delegation.endDate < today),
+    [delegations, today],
   );
 
   const handleAdd = () => {
@@ -64,22 +72,26 @@ export default function DelegationManagementPage() {
       return;
     }
     if (!currentUser) return;
+
     addDelegation({
-      schoolId:      currentUser.schoolId,
-      delegatorId:   currentUser.id,
+      schoolId: currentUser.schoolId,
+      delegatorId: currentUser.id,
       delegatorRole: currentUser.role,
       delegateId,
-      delegateRole:  users.find((u) => u.id === delegateId)?.role ?? currentUser.role,
+      delegateRole: users.find((user) => user.id === delegateId)?.role ?? currentUser.role,
       scope,
       startDate,
       endDate,
       reason: reason.trim(),
       isActive: true,
     });
+
     toast("Delegation created.", { variant: "success" });
     setShowForm(false);
-    setDelegateId(""); setReason("");
-    setStartDate(""); setEndDate("");
+    setDelegateId("");
+    setReason("");
+    setStartDate("");
+    setEndDate("");
   };
 
   const handleRevoke = async (id: string, label: string) => {
@@ -93,277 +105,374 @@ export default function DelegationManagementPage() {
   };
 
   const selectedDelegator = selectedDelegation
-    ? users.find((u) => u.id === selectedDelegation.delegatorId)
+    ? users.find((user) => user.id === selectedDelegation.delegatorId)
     : null;
   const selectedDelegate = selectedDelegation
-    ? users.find((u) => u.id === selectedDelegation.delegateId)
+    ? users.find((user) => user.id === selectedDelegation.delegateId)
     : null;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
-            <ArrowRightLeft className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-sm font-display font-bold text-stsn-brown-dark">Approval Delegation</h2>
-            <p className="text-[10px] text-stone-400 mt-0.5">Temporarily transfer approval authority — click a row to inspect details</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 btn-primary-gradient text-white rounded-xl shadow-sm cursor-pointer transition"
-        >
-          <Plus className="w-3.5 h-3.5" /> New Delegation
-        </button>
-      </div>
-
-      {/* Create form */}
-      {showForm && (
-        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-5 space-y-4 animate-fade-in">
-          <h3 className="text-xs font-bold text-stsn-brown-dark uppercase">New Delegation</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AppFormField label="Delegate To *">
-              <select
-                value={delegateId}
-                onChange={(e) => setDelegateId(e.target.value)}
-                className={selectClass}
-              >
-                <option value="">Select user…</option>
-                {eligibleDelegates.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                ))}
-              </select>
-            </AppFormField>
-
-            <AppFormField label="Approval Scope *">
-              <select
-                value={scope}
-                onChange={(e) => setScope(e.target.value as DelegationScope)}
-                className={selectClass}
-              >
-                {SCOPE_OPTIONS.map((s) => (
-                  <option key={s} value={s}>{SCOPE_LABEL[s]}</option>
-                ))}
-              </select>
-            </AppFormField>
-
-            <AppFormField label="Start Date *">
-              <input
-                type="date"
-                value={startDate}
-                min={today}
-                onChange={(e) => setStartDate(e.target.value)}
-                className={inputClass}
-              />
-            </AppFormField>
-
-            <AppFormField label="End Date *">
-              <input
-                type="date"
-                value={endDate}
-                min={startDate || today}
-                onChange={(e) => setEndDate(e.target.value)}
-                className={inputClass}
-              />
-            </AppFormField>
-
-            <div className="col-span-full">
-              <AppFormField
-                label="Reason / Justification *"
-                hint="Briefly explain why authority is being delegated."
-              >
-                <input
-                  type="text"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Annual leave — principal unavailable June 25–30"
-                  className={inputClass}
-                />
-              </AppFormField>
+      <AppCard tone="brand" className="border border-[var(--erp-border)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--erp-border)] bg-white shadow-sm">
+                <ArrowRightLeft className="h-5 w-5 text-[var(--erp-brand)]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold tracking-tight text-[var(--erp-text)]">
+                  Approval Delegation
+                </h3>
+                <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--erp-text-muted)]">
+                  Temporarily transfer approval authority while preserving the existing delegation,
+                  audit, and revocation workflow.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  Active Now
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--erp-text)]">
+                  {activeDelegations.length}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  Eligible Delegates
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--erp-text)]">
+                  {eligibleDelegates.length}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  Past Records
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--erp-text)]">
+                  {pastDelegations.length}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              onClick={() => setShowForm(false)}
-              className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 cursor-pointer transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAdd}
-              className="text-xs font-bold px-4 py-1.5 rounded-lg btn-primary-gradient text-white shadow-sm cursor-pointer transition"
-            >
-              Create Delegation
-            </button>
-          </div>
+          <AppButton
+            type="button"
+            onClick={() => setShowForm((value) => !value)}
+            leftIcon={Plus}
+            className="self-start"
+          >
+            {showForm ? "Hide Form" : "New Delegation"}
+          </AppButton>
         </div>
+      </AppCard>
+
+      {showForm && (
+        <AppCard className="border border-[var(--erp-border)]">
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Delegation Setup
+              </p>
+              <h4 className="mt-1 text-base font-semibold text-[var(--erp-text)]">
+                Create a Temporary Approval Transfer
+              </h4>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <AppFormField label="Delegate To *">
+                <AppSelect
+                  value={delegateId}
+                  onChange={(event) => setDelegateId(event.target.value)}
+                  uiSize="sm"
+                >
+                  <option value="">Select user...</option>
+                  {eligibleDelegates.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.role})
+                    </option>
+                  ))}
+                </AppSelect>
+              </AppFormField>
+
+              <AppFormField label="Approval Scope *">
+                <AppSelect
+                  value={scope}
+                  onChange={(event) => setScope(event.target.value as DelegationScope)}
+                  uiSize="sm"
+                >
+                  {SCOPE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {SCOPE_LABEL[option]}
+                    </option>
+                  ))}
+                </AppSelect>
+              </AppFormField>
+
+              <AppFormField label="Start Date *">
+                <AppInput
+                  type="date"
+                  value={startDate}
+                  min={today}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  uiSize="sm"
+                />
+              </AppFormField>
+
+              <AppFormField label="End Date *">
+                <AppInput
+                  type="date"
+                  value={endDate}
+                  min={startDate || today}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  uiSize="sm"
+                />
+              </AppFormField>
+
+              <div className="sm:col-span-2">
+                <AppFormField
+                  label="Reason / Justification *"
+                  hint="Briefly explain why authority is being delegated."
+                >
+                  <AppInput
+                    type="text"
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    placeholder="e.g. Annual leave - principal unavailable June 25-30"
+                    uiSize="sm"
+                  />
+                </AppFormField>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <AppButton type="button" variant="secondary" size="sm" onClick={() => setShowForm(false)}>
+                Cancel
+              </AppButton>
+              <AppButton type="button" size="sm" onClick={handleAdd}>
+                Create Delegation
+              </AppButton>
+            </div>
+          </div>
+        </AppCard>
       )}
 
-      {/* Active delegations */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-stone-100 bg-stone-50/60 flex items-center gap-2">
-          <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-          <span className="text-xs font-bold text-stone-700">Active Delegations</span>
-          <span className="ml-auto text-[10px] font-mono text-stone-400">{activeDelegations.length}</span>
-        </div>
-        {activeDelegations.length === 0 ? (
-          <p className="text-xs text-stone-400 italic text-center py-8">No active delegations.</p>
-        ) : (
-          <div className="divide-y divide-stone-50">
-            {activeDelegations.map((d) => {
-              const delegator = users.find((u) => u.id === d.delegatorId);
-              const delegate  = users.find((u) => u.id === d.delegateId);
-              return (
-                <div
-                  key={d.id}
-                  onClick={() => setSelectedDelegation(d)}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-stone-50/70 cursor-pointer transition group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-stone-800 truncate">
-                      {delegator?.name ?? "Unknown"} → {delegate?.name ?? "Unknown"}
-                    </p>
-                    <p className="text-[10px] text-stone-500 mt-0.5">
-                      {SCOPE_LABEL[d.scope]} · {d.startDate} to {d.endDate}
-                    </p>
-                    <p className="text-[10px] text-stone-400 truncate">{d.reason}</p>
-                  </div>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 flex-shrink-0">
-                    Active
-                  </span>
-                  <Info className="w-3.5 h-3.5 text-stone-300 group-hover:text-stsn-gold transition flex-shrink-0" />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleRevoke(d.id, delegate?.name ?? "delegate"); }}
-                    className="p-1 hover:bg-red-50 rounded-lg text-stone-400 hover:text-red-500 transition cursor-pointer flex-shrink-0"
-                    title="Revoke delegation"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })}
+      <div className="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
+        <AppCard className="border border-[var(--erp-border)]" padded={false}>
+          <div className="flex items-center justify-between border-b border-[var(--erp-border)] px-5 py-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+              <div>
+                <h4 className="text-sm font-semibold text-[var(--erp-text)]">Active Delegations</h4>
+                <p className="text-[11px] text-[var(--erp-text-muted)]">
+                  Click a delegation to inspect details or revoke it.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+              {activeDelegations.length} active
+            </span>
           </div>
-        )}
+          <div className="divide-y divide-[var(--erp-border)]">
+            {activeDelegations.length === 0 ? (
+              <AppEmptyState
+                icon={ArrowRightLeft}
+                title="No active delegations"
+                description="Create a temporary delegation to transfer approval authority while a leader is away."
+                compact
+                className="m-5"
+              />
+            ) : (
+              activeDelegations.map((delegation) => {
+                const delegator = users.find((user) => user.id === delegation.delegatorId);
+                const delegate = users.find((user) => user.id === delegation.delegateId);
+                return (
+                  <button
+                    key={delegation.id}
+                    type="button"
+                    onClick={() => setSelectedDelegation(delegation)}
+                    className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-[var(--erp-surface-muted)]"
+                  >
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)]">
+                      <ArrowRightLeft className="h-4 w-4 text-[var(--erp-brand)]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-[var(--erp-text)]">
+                          {delegator?.name ?? "Unknown"} to {delegate?.name ?? "Unknown"}
+                        </p>
+                        <AppStatusBadge status="Active" />
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--erp-text-muted)]">
+                        {SCOPE_LABEL[delegation.scope]} • {delegation.startDate} to {delegation.endDate}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-xs text-[var(--erp-text-muted)]">
+                        {delegation.reason}
+                      </p>
+                    </div>
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      <Info className="h-4 w-4 text-[var(--erp-text-muted)]" />
+                      <AppButton
+                        type="button"
+                        size="xs"
+                        variant="danger-outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRevoke(delegation.id, delegate?.name ?? "delegate");
+                        }}
+                      >
+                        Revoke
+                      </AppButton>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </AppCard>
+
+        <AppCard className="border border-[var(--erp-border)]" padded={false}>
+          <div className="flex items-center gap-2 border-b border-[var(--erp-border)] px-5 py-4">
+            <Clock className="h-4 w-4 text-[var(--erp-text-muted)]" />
+            <div>
+              <h4 className="text-sm font-semibold text-[var(--erp-text)]">Past and Revoked</h4>
+              <p className="text-[11px] text-[var(--erp-text-muted)]">
+                Historical delegation records remain read-only.
+              </p>
+            </div>
+          </div>
+          <div className="divide-y divide-[var(--erp-border)]">
+            {pastDelegations.length === 0 ? (
+              <AppEmptyState
+                icon={Clock}
+                title="No historical delegations"
+                description="Expired or revoked delegations will appear here automatically."
+                compact
+                tone="neutral"
+                className="m-5"
+              />
+            ) : (
+              pastDelegations.slice(0, 10).map((delegation) => {
+                const delegator = users.find((user) => user.id === delegation.delegatorId);
+                const delegate = users.find((user) => user.id === delegation.delegateId);
+                return (
+                  <button
+                    key={delegation.id}
+                    type="button"
+                    onClick={() => setSelectedDelegation(delegation)}
+                    className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition hover:bg-[var(--erp-surface-muted)]"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-[var(--erp-text)]">
+                        {delegator?.name ?? "Unknown"} to {delegate?.name ?? "Unknown"}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--erp-text-muted)]">
+                        {SCOPE_LABEL[delegation.scope]} • {delegation.startDate} to {delegation.endDate}
+                      </p>
+                    </div>
+                    <AppStatusBadge status={statusLabel(delegation, today)} />
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </AppCard>
       </div>
 
-      {/* Past delegations */}
-      {pastDelegations.length > 0 && (
-        <div className="bg-white rounded-xl border border-stone-100 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-stone-100 bg-stone-50/60 flex items-center gap-2">
-            <Clock className="w-3.5 h-3.5 text-stone-400" />
-            <span className="text-xs font-bold text-stone-400">Past / Revoked Delegations</span>
-          </div>
-          <div className="divide-y divide-stone-50">
-            {pastDelegations.slice(0, 10).map((d) => {
-              const delegator = users.find((u) => u.id === d.delegatorId);
-              const delegate  = users.find((u) => u.id === d.delegateId);
-              return (
-                <div
-                  key={d.id}
-                  onClick={() => setSelectedDelegation(d)}
-                  className="flex items-center gap-4 px-4 py-2.5 opacity-60 hover:opacity-80 cursor-pointer transition"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-stone-600 truncate">
-                      {delegator?.name ?? "Unknown"} → {delegate?.name ?? "Unknown"}
-                    </p>
-                    <p className="text-[10px] text-stone-400">
-                      {SCOPE_LABEL[d.scope]} · {d.startDate} to {d.endDate}
-                    </p>
-                  </div>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 border border-stone-200 flex-shrink-0">
-                    {d.isActive ? "Expired" : "Revoked"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Delegation detail drilldown drawer */}
       <DrilldownDrawer
         open={!!selectedDelegation}
         onClose={() => setSelectedDelegation(null)}
         title="Delegation Detail"
         subtitle={
           selectedDelegation
-            ? `${selectedDelegator?.name ?? "Unknown"} → ${selectedDelegate?.name ?? "Unknown"}`
+            ? `${selectedDelegator?.name ?? "Unknown"} to ${selectedDelegate?.name ?? "Unknown"}`
             : ""
         }
         width="sm"
       >
         {selectedDelegation && (
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+            <AppCard className="border border-[var(--erp-border)]">
               <dl className="space-y-3 text-xs">
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Delegator (From)</dt>
-                  <dd className="font-semibold text-stone-800">
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Delegator
+                  </dt>
+                  <dd className="mt-1 font-semibold text-[var(--erp-text)]">
                     {selectedDelegator?.name ?? "Unknown"}
-                    <span className="ml-1.5 text-[9px] font-mono text-stone-400">
+                    <span className="ml-1.5 text-[10px] font-mono text-[var(--erp-text-muted)]">
                       ({selectedDelegation.delegatorRole})
                     </span>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Delegate (To)</dt>
-                  <dd className="font-semibold text-stone-800">
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Delegate
+                  </dt>
+                  <dd className="mt-1 font-semibold text-[var(--erp-text)]">
                     {selectedDelegate?.name ?? "Unknown"}
-                    <span className="ml-1.5 text-[9px] font-mono text-stone-400">
+                    <span className="ml-1.5 text-[10px] font-mono text-[var(--erp-text-muted)]">
                       ({selectedDelegation.delegateRole})
                     </span>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Scope</dt>
-                  <dd className="font-semibold text-stone-700">{SCOPE_LABEL[selectedDelegation.scope]}</dd>
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Scope
+                  </dt>
+                  <dd className="mt-1 text-[var(--erp-text)]">{SCOPE_LABEL[selectedDelegation.scope]}</dd>
                 </div>
-                <div className="flex gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Start</dt>
-                    <dd className="font-mono text-stone-600 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />{selectedDelegation.startDate}
+                    <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                      Start
+                    </dt>
+                    <dd className="mt-1 flex items-center gap-1 text-[var(--erp-text)]">
+                      <Calendar className="h-3.5 w-3.5 text-[var(--erp-text-muted)]" />
+                      {selectedDelegation.startDate}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">End</dt>
-                    <dd className="font-mono text-stone-600 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />{selectedDelegation.endDate}
+                    <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                      End
+                    </dt>
+                    <dd className="mt-1 flex items-center gap-1 text-[var(--erp-text)]">
+                      <Calendar className="h-3.5 w-3.5 text-[var(--erp-text-muted)]" />
+                      {selectedDelegation.endDate}
                     </dd>
                   </div>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Status</dt>
-                  <dd>
-                    {selectedDelegation.isActive && selectedDelegation.endDate >= today ? (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">Active</span>
-                    ) : selectedDelegation.isActive ? (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 border border-stone-200">Expired</span>
-                    ) : (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-100">Revoked</span>
-                    )}
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Status
+                  </dt>
+                  <dd className="mt-1">
+                    <AppStatusBadge status={statusLabel(selectedDelegation, today)} />
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1">Reason</dt>
-                  <dd className="text-xs text-stone-700 leading-relaxed bg-stone-50 rounded-lg p-2.5 border border-stone-100">
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Reason
+                  </dt>
+                  <dd className="mt-1 rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 py-2.5 leading-relaxed text-[var(--erp-text)]">
                     {selectedDelegation.reason}
                   </dd>
                 </div>
               </dl>
-            </div>
+            </AppCard>
 
             {selectedDelegation.isActive && selectedDelegation.endDate >= today && (
-              <button
-                onClick={() => handleRevoke(selectedDelegation.id, selectedDelegate?.name ?? "delegate")}
-                className="w-full flex items-center justify-center gap-2 text-xs font-bold py-2.5 px-4 rounded-xl border bg-red-50 hover:bg-red-100 border-red-200 text-red-700 transition cursor-pointer"
+              <AppButton
+                type="button"
+                fullWidth
+                variant="danger-outline"
+                size="sm"
+                onClick={() =>
+                  handleRevoke(selectedDelegation.id, selectedDelegate?.name ?? "delegate")
+                }
+                leftIcon={X}
               >
-                <X className="w-3.5 h-3.5" /> Revoke Delegation
-              </button>
+                Revoke Delegation
+              </AppButton>
             )}
           </div>
         )}

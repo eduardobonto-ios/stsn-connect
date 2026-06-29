@@ -697,6 +697,7 @@ export default function Dashboard({
   const incArea    = buildArea(dailyIncome,    W, H, PAD);
   const expPath    = buildLine(dailyExpenses,  W, H, PAD);
   const expArea    = buildArea(dailyExpenses,  W, H, PAD);
+  const hasSchoolFinanceTrend = dailyIncome.some((value) => value > 0) || dailyExpenses.some((value) => value > 0);
 
   // Calendar event dates
   const eventDates = useMemo(
@@ -1076,29 +1077,41 @@ export default function Dashboard({
             </div>
           </div>
 
-          <div className="w-full overflow-hidden rounded-xl bg-stone-50 border border-stone-100 p-2">
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "110px" }} preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
-                </linearGradient>
-                <linearGradient id="expGrad2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.02" />
-                </linearGradient>
-              </defs>
-              <path d={incArea} fill="url(#incGrad)" />
-              <path d={expArea} fill="url(#expGrad2)" />
-              <path d={incPath} fill="none" stroke="#10b981" strokeWidth="2.5" />
-              <path d={expPath} fill="none" stroke="#f59e0b" strokeWidth="2.5" />
-            </svg>
-          </div>
-          <div className="flex justify-between mt-2 px-1">
-            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
-              <span key={d} className="text-[9px] font-mono text-stone-400">{d}</span>
-            ))}
-          </div>
+          {hasSchoolFinanceTrend ? (
+            <>
+              <div className="w-full overflow-hidden rounded-xl bg-stone-50 border border-stone-100 p-2">
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "110px" }} preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
+                    </linearGradient>
+                    <linearGradient id="expGrad2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  <path d={incArea} fill="url(#incGrad)" />
+                  <path d={expArea} fill="url(#expGrad2)" />
+                  <path d={incPath} fill="none" stroke="#10b981" strokeWidth="2.5" />
+                  <path d={expPath} fill="none" stroke="#f59e0b" strokeWidth="2.5" />
+                </svg>
+              </div>
+              <div className="flex justify-between mt-2 px-1">
+                {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
+                  <span key={d} className="text-[9px] font-mono text-stone-400">{d}</span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <AppEmptyState
+              icon={CreditCard}
+              title="No finance trend available yet"
+              description="This keeps the finance surface visible without showing a blank chart until live payment activity produces trend data."
+              compact
+              tone="neutral"
+            />
+          )}
         </AppCard>
       </div>
 

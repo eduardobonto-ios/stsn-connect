@@ -4,14 +4,16 @@
  */
 
 import React, { useMemo, useState } from "react";
-import { Download } from "lucide-react";
-import { useSTSNStore } from "../../../services/store";
-import type { AuditAction, AuditEntityType, AuditLogEntry } from "../../../types";
+import { Download, History, ShieldCheck } from "lucide-react";
 import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
 import AppSearchInput from "../../../components/common/AppSearchInput";
 import AppSelect from "../../../components/common/AppSelect";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
+import { useSTSNStore } from "../../../services/store";
+import type { AuditAction, AuditEntityType, AuditLogEntry } from "../../../types";
 
 const ACTION_BADGE: Record<AuditAction, string> = {
   created: "bg-blue-50 text-blue-700 border-blue-200",
@@ -43,7 +45,7 @@ const ALL_ENTITY_TYPES: AuditEntityType[] = [
 function ActionBadge({ action }: { action: AuditAction }) {
   return (
     <span
-      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize ${
+      className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
         ACTION_BADGE[action] ?? "bg-stone-100 text-stone-600 border-stone-200"
       }`}
     >
@@ -60,15 +62,15 @@ export default function AuditLogPage() {
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const query = search.toLowerCase();
     return auditLog.filter((entry) => {
       if (filterEntity && entry.entityType !== filterEntity) return false;
       if (filterAction && entry.action !== filterAction) return false;
       if (
-        q &&
-        !entry.actorName.toLowerCase().includes(q) &&
-        !entry.entityId.includes(q) &&
-        !(entry.remarks ?? "").toLowerCase().includes(q)
+        query &&
+        !entry.actorName.toLowerCase().includes(query) &&
+        !entry.entityId.includes(query) &&
+        !(entry.remarks ?? "").toLowerCase().includes(query)
       ) {
         return false;
       }
@@ -115,7 +117,7 @@ export default function AuditLogPage() {
         accessorKey: "timestamp",
         header: "Timestamp",
         cell: ({ getValue }) => (
-          <span className="font-mono text-[10px] text-stone-400">
+          <span className="font-mono text-[10px] text-[var(--erp-text-muted)]">
             {String(getValue()).replace("T", " ").substring(0, 16)}
           </span>
         ),
@@ -124,21 +126,23 @@ export default function AuditLogPage() {
         accessorKey: "actorName",
         header: "Actor",
         cell: ({ getValue }) => (
-          <span className="font-semibold text-stone-700">{String(getValue())}</span>
+          <span className="font-semibold text-[var(--erp-text)]">{String(getValue())}</span>
         ),
       },
       {
         accessorKey: "actorRole",
         header: "Role",
         cell: ({ getValue }) => (
-          <span className="text-[10px] font-mono text-stone-500">{String(getValue())}</span>
+          <span className="text-[10px] font-mono text-[var(--erp-text-muted)]">{String(getValue())}</span>
         ),
       },
       {
         accessorKey: "entityType",
         header: "Entity Type",
         cell: ({ getValue }) => (
-          <span className="text-[10px] capitalize text-stone-500">{String(getValue())}</span>
+          <span className="text-[10px] capitalize text-[var(--erp-text-muted)]">
+            {String(getValue())}
+          </span>
         ),
       },
       {
@@ -151,7 +155,7 @@ export default function AuditLogPage() {
         header: "Remarks",
         enableSorting: false,
         cell: ({ getValue }) => (
-          <span className="text-[10px] text-stone-400 truncate max-w-[160px] block">
+          <span className="block max-w-[180px] truncate text-[10px] text-[var(--erp-text-muted)]">
             {getValue<string | undefined>() ?? "-"}
           </span>
         ),
@@ -162,11 +166,65 @@ export default function AuditLogPage() {
 
   return (
     <div className="space-y-4">
+      <AppCard tone="brand" className="border border-[var(--erp-border)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--erp-border)] bg-white shadow-sm">
+                <History className="h-5 w-5 text-[var(--erp-brand)]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold tracking-tight text-[var(--erp-text)]">
+                  Central Audit Log
+                </h3>
+                <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--erp-text-muted)]">
+                  Immutable record of approval-sensitive actions, delegation changes, and user access
+                  activity across the system.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  Visible Entries
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--erp-text)]">{filtered.length}</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  Total Logged
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--erp-text)]">{auditLog.length}</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Audit Integrity
+                  </p>
+                </div>
+                <p className="mt-1 text-sm font-semibold text-[var(--erp-text)]">Read-only review surface</p>
+              </div>
+            </div>
+          </div>
+          <AppButton
+            type="button"
+            variant="outline"
+            size="sm"
+            leftIcon={Download}
+            onClick={handleExport}
+            className="self-start"
+          >
+            Export CSV
+          </AppButton>
+        </div>
+      </AppCard>
+
       <AppTable<AuditLogEntry>
         data={filtered}
         columns={columns}
-        title="Central Audit Log"
-        description="Immutable record of all approval-sensitive actions - click a row to inspect details"
+        title="Audit Entries"
+        description="Use the filters below to narrow the log, then click a row to inspect the immutable payload."
         enableSearch={false}
         enableColumnVisibility={false}
         initialPageSize={25}
@@ -214,12 +272,9 @@ export default function AuditLogPage() {
                 </option>
               ))}
             </AppSelect>
-            <span className="text-[10px] text-[var(--erp-text-muted)] font-mono whitespace-nowrap">
+            <span className="whitespace-nowrap text-[10px] font-mono text-[var(--erp-text-muted)]">
               {filtered.length} entries
             </span>
-            <AppButton type="button" variant="outline" size="sm" leftIcon={Download} onClick={handleExport}>
-              Export CSV
-            </AppButton>
           </>
         }
       />
@@ -228,76 +283,106 @@ export default function AuditLogPage() {
         open={!!selectedEntry}
         onClose={() => setSelectedEntry(null)}
         title="Audit Entry Detail"
-        subtitle={selectedEntry ? `${selectedEntry.actorName} · ${selectedEntry.action}` : ""}
+        subtitle={selectedEntry ? `${selectedEntry.actorName} • ${selectedEntry.action}` : ""}
         width="md"
       >
         {selectedEntry && (
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+            <AppCard className="border border-[var(--erp-border)]">
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Timestamp</dt>
-                  <dd className="font-mono text-stone-700">
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Timestamp
+                  </dt>
+                  <dd className="mt-1 font-mono text-[var(--erp-text)]">
                     {selectedEntry.timestamp.replace("T", " ").substring(0, 19)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">School</dt>
-                  <dd className="font-semibold text-stone-700">{selectedEntry.schoolId ?? "ALL"}</dd>
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    School
+                  </dt>
+                  <dd className="mt-1 font-semibold text-[var(--erp-text)]">
+                    {selectedEntry.schoolId ?? "ALL"}
+                  </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Actor</dt>
-                  <dd className="font-semibold text-stone-700">{selectedEntry.actorName}</dd>
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Actor
+                  </dt>
+                  <dd className="mt-1 font-semibold text-[var(--erp-text)]">{selectedEntry.actorName}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Role</dt>
-                  <dd className="font-mono text-stone-600">{selectedEntry.actorRole}</dd>
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Role
+                  </dt>
+                  <dd className="mt-1 font-mono text-[var(--erp-text)]">{selectedEntry.actorRole}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Entity Type</dt>
-                  <dd className="capitalize text-stone-700">{selectedEntry.entityType}</dd>
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Entity Type
+                  </dt>
+                  <dd className="mt-1 capitalize text-[var(--erp-text)]">{selectedEntry.entityType}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-0.5">Entity ID</dt>
-                  <dd className="font-mono text-[10px] text-stone-500 break-all">{selectedEntry.entityId}</dd>
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Entity ID
+                  </dt>
+                  <dd className="mt-1 break-all font-mono text-[10px] text-[var(--erp-text-muted)]">
+                    {selectedEntry.entityId}
+                  </dd>
                 </div>
               </dl>
-              <div className="pt-1">
-                <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1.5">Action</dt>
-                <dd><ActionBadge action={selectedEntry.action} /></dd>
+              <div className="mt-4">
+                <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  Action
+                </dt>
+                <dd className="mt-1">
+                  <ActionBadge action={selectedEntry.action} />
+                </dd>
               </div>
               {selectedEntry.remarks && (
-                <div className="pt-1">
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1">Remarks</dt>
-                  <dd className="text-xs text-stone-700 leading-relaxed bg-stone-50 rounded-lg p-2.5 border border-stone-100">
+                <div className="mt-4">
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Remarks
+                  </dt>
+                  <dd className="mt-1 rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 py-2.5 text-[var(--erp-text)]">
                     {selectedEntry.remarks}
                   </dd>
                 </div>
               )}
               {selectedEntry.ipAddress && (
-                <div className="pt-1">
-                  <dt className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-1">IP Address</dt>
-                  <dd className="font-mono text-xs text-stone-500">{selectedEntry.ipAddress}</dd>
+                <div className="mt-4">
+                  <dt className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    IP Address
+                  </dt>
+                  <dd className="mt-1 font-mono text-xs text-[var(--erp-text-muted)]">
+                    {selectedEntry.ipAddress}
+                  </dd>
                 </div>
               )}
-            </div>
+            </AppCard>
 
             {selectedEntry.previousValue && Object.keys(selectedEntry.previousValue).length > 0 && (
-              <div className="bg-white rounded-xl border border-stone-200 p-4">
-                <h3 className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-2">Previous Value</h3>
-                <pre className="text-[10px] font-mono text-stone-600 whitespace-pre-wrap break-all bg-stone-50 rounded-lg p-3 border border-stone-100 overflow-x-auto">
+              <AppCard className="border border-[var(--erp-border)]">
+                <h3 className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  Previous Value
+                </h3>
+                <pre className="mt-2 overflow-x-auto rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] p-3 text-[10px] text-[var(--erp-text-muted)]">
                   {JSON.stringify(selectedEntry.previousValue, null, 2)}
                 </pre>
-              </div>
+              </AppCard>
             )}
 
             {selectedEntry.newValue && Object.keys(selectedEntry.newValue).length > 0 && (
-              <div className="bg-white rounded-xl border border-stone-200 p-4">
-                <h3 className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-2">New Value</h3>
-                <pre className="text-[10px] font-mono text-stone-600 whitespace-pre-wrap break-all bg-stone-50 rounded-lg p-3 border border-stone-100 overflow-x-auto">
+              <AppCard className="border border-[var(--erp-border)]">
+                <h3 className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                  New Value
+                </h3>
+                <pre className="mt-2 overflow-x-auto rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] p-3 text-[10px] text-[var(--erp-text-muted)]">
                   {JSON.stringify(selectedEntry.newValue, null, 2)}
                 </pre>
-              </div>
+              </AppCard>
             )}
           </div>
         )}

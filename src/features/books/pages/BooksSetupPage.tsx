@@ -5,22 +5,39 @@
 
 import React, { useMemo, useState } from "react";
 import {
-  Library, BookOpen, AlertCircle, Eye, ToggleLeft, ToggleRight, X, Check, GraduationCap, Package, Coins, Plus, Trash2, Search,
+  AlertCircle,
+  BookOpen,
+  Check,
+  Coins,
+  Eye,
+  GraduationCap,
+  Library,
+  Package,
+  Plus,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  X,
 } from "lucide-react";
-import { useSTSNStore } from "../../../services/store";
-import PageHeader from "../../../components/common/PageHeader";
-import StatCard from "../../../components/common/StatCard";
-import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
+import AppEmptyState from "../../../components/common/AppEmptyState";
+import AppModal from "../../../components/common/AppModal";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
+import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
+import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../components/common/useAppDialog";
-import type { BookPackage, BookPackageItem } from "../../../types";
-import type { AcademicUnit } from "../../../types/school.types";
 import {
   BOOK_PACKAGE_GRADE_LEVELS,
-  BOOKS_PACKAGE_ASSIGNMENT_NOTICE,
   BOOKS_NOT_APPLICABLE_NOTICE,
+  BOOKS_PACKAGE_ASSIGNMENT_NOTICE,
   computeBookPackageTotal,
 } from "../../../config/books.config";
+import { useSTSNStore } from "../../../services/store";
+import type { BookPackage, BookPackageItem } from "../../../types";
+import type { AcademicUnit } from "../../../types/school.types";
 
 const ACADEMIC_UNIT_OPTIONS: { value: AcademicUnit | "All"; label: string }[] = [
   { value: "All", label: "All" },
@@ -29,28 +46,40 @@ const ACADEMIC_UNIT_OPTIONS: { value: AcademicUnit | "All"; label: string }[] = 
 ];
 
 export default function BooksSetupPage() {
-  const { academicUnit, activeSchool, bookPackages: packages, subjects, addBookPackage, updateBookPackage, setupData } = useSTSNStore();
+  const {
+    academicUnit,
+    activeSchool,
+    bookPackages: packages,
+    subjects,
+    addBookPackage,
+    updateBookPackage,
+    setupData,
+  } = useSTSNStore();
   const { toast } = useAppDialog();
 
-  const SCHOOL_YEAR_OPTIONS = useMemo(() => setupData.school_years?.map((sy) => sy.name) || [], [setupData]);
-  const CURRENT_SCHOOL_YEAR = useMemo(
-    () => setupData.school_years?.find((sy: any) => sy.isCurrent)?.name || SCHOOL_YEAR_OPTIONS[0] || "2026-2027",
-    [setupData, SCHOOL_YEAR_OPTIONS]
+  const schoolYearOptions = useMemo(
+    () => setupData.school_years?.map((schoolYear) => schoolYear.name) || [],
+    [setupData],
+  );
+  const currentSchoolYear = useMemo(
+    () =>
+      setupData.school_years?.find((schoolYear: any) => schoolYear.isCurrent)?.name ||
+      schoolYearOptions[0] ||
+      "2026-2027",
+    [setupData, schoolYearOptions],
   );
 
-  // ---- Filters ----
-  const [filterSchoolYear, setFilterSchoolYear] = useState(CURRENT_SCHOOL_YEAR);
+  const [filterSchoolYear, setFilterSchoolYear] = useState(currentSchoolYear);
   const [filterSchool, setFilterSchool] = useState<"All" | "STSN" | "CDSTA">(
-    activeSchool === "STSN" || activeSchool === "CDSTA" ? activeSchool : "All"
+    activeSchool === "STSN" || activeSchool === "CDSTA" ? activeSchool : "All",
   );
   const [filterAcademicUnit, setFilterAcademicUnit] = useState<AcademicUnit | "All">(
-    academicUnit || "All"
+    academicUnit || "All",
   );
   const [filterGradeLevel, setFilterGradeLevel] = useState("All");
   const [filterStatus, setFilterStatus] = useState<"All" | BookPackage["status"]>("All");
   const [filterSearch, setFilterSearch] = useState("");
 
-  // ---- Detail / Edit modal ----
   const [selectedPackage, setSelectedPackage] = useState<BookPackage | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -61,22 +90,35 @@ export default function BooksSetupPage() {
 
   const filteredPackages = useMemo(() => {
     if (isCollegeView) return [];
-    const q = filterSearch.toLowerCase();
-    return packages.filter((p) => {
-      const matchYear = filterSchoolYear === "All" || p.schoolYear === filterSchoolYear;
-      const matchSchool = filterSchool === "All" || p.schoolId === filterSchool;
-      const matchUnit = filterAcademicUnit === "All" || p.academicUnit === filterAcademicUnit;
-      const matchGrade = filterGradeLevel === "All" || p.gradeLevel === filterGradeLevel;
-      const matchStatus = filterStatus === "All" || p.status === filterStatus;
-      const matchSearch = !q || p.packageName.toLowerCase().includes(q) || p.gradeLevel.toLowerCase().includes(q) || p.schoolYear.includes(q);
+    const query = filterSearch.toLowerCase();
+    return packages.filter((pkg) => {
+      const matchYear = filterSchoolYear === "All" || pkg.schoolYear === filterSchoolYear;
+      const matchSchool = filterSchool === "All" || pkg.schoolId === filterSchool;
+      const matchUnit = filterAcademicUnit === "All" || pkg.academicUnit === filterAcademicUnit;
+      const matchGrade = filterGradeLevel === "All" || pkg.gradeLevel === filterGradeLevel;
+      const matchStatus = filterStatus === "All" || pkg.status === filterStatus;
+      const matchSearch =
+        !query ||
+        pkg.packageName.toLowerCase().includes(query) ||
+        pkg.gradeLevel.toLowerCase().includes(query) ||
+        pkg.schoolYear.includes(query);
       return matchYear && matchSchool && matchUnit && matchGrade && matchStatus && matchSearch;
     });
-  }, [packages, filterSchoolYear, filterSchool, filterAcademicUnit, filterGradeLevel, filterStatus, isCollegeView, filterSearch]);
+  }, [
+    packages,
+    filterSchoolYear,
+    filterSchool,
+    filterAcademicUnit,
+    filterGradeLevel,
+    filterStatus,
+    isCollegeView,
+    filterSearch,
+  ]);
 
   const totalPackages = packages.length;
-  const activePackages = packages.filter((p) => p.status === "Active").length;
-  const gradeLevelsCovered = new Set(packages.map((p) => p.gradeLevel)).size;
-  const totalCatalogValue = packages.reduce((sum, p) => sum + p.totalAmount, 0);
+  const activePackages = packages.filter((pkg) => pkg.status === "Active").length;
+  const gradeLevelsCovered = new Set(packages.map((pkg) => pkg.gradeLevel)).size;
+  const totalCatalogValue = packages.reduce((sum, pkg) => sum + pkg.totalAmount, 0);
 
   const openView = (pkg: BookPackage) => {
     setSelectedPackage(pkg);
@@ -89,13 +131,16 @@ export default function BooksSetupPage() {
     setSelectedPackage(pkg);
     setIsEditing(true);
     setIsCreating(false);
-    setEditDraft({ ...pkg, books: pkg.books.map((b) => ({ ...b })) });
+    setEditDraft({ ...pkg, books: pkg.books.map((book) => ({ ...book })) });
   };
 
   const openCreate = () => {
-    const schoolId = activeSchool === "STSN" || activeSchool === "CDSTA"
-      ? activeSchool
-      : filterSchool === "STSN" || filterSchool === "CDSTA" ? filterSchool : "STSN";
+    const schoolId =
+      activeSchool === "STSN" || activeSchool === "CDSTA"
+        ? activeSchool
+        : filterSchool === "STSN" || filterSchool === "CDSTA"
+          ? filterSchool
+          : "STSN";
     setSelectedPackage(null);
     setIsEditing(false);
     setIsCreating(true);
@@ -105,7 +150,7 @@ export default function BooksSetupPage() {
       gradeLevel: BOOK_PACKAGE_GRADE_LEVELS[0],
       schoolId,
       academicUnit: "basic-ed",
-      schoolYear: filterSchoolYear === "All" ? CURRENT_SCHOOL_YEAR : filterSchoolYear,
+      schoolYear: filterSchoolYear === "All" ? currentSchoolYear : filterSchoolYear,
       books: [{ id: crypto.randomUUID(), title: "", subjectCode: "", quantity: 1, unitPrice: 0 }],
       totalAmount: 0,
       isRequired: true,
@@ -121,9 +166,13 @@ export default function BooksSetupPage() {
     setEditDraft(null);
   };
 
-  const updateDraftBook = (bookId: string, field: keyof Pick<BookPackageItem, "title" | "subjectCode" | "quantity" | "unitPrice">, value: string | number) => {
+  const updateDraftBook = (
+    bookId: string,
+    field: keyof Pick<BookPackageItem, "title" | "subjectCode" | "quantity" | "unitPrice">,
+    value: string | number,
+  ) => {
     if (!editDraft) return;
-    const books = editDraft.books.map((b) => (b.id === bookId ? { ...b, [field]: value } : b));
+    const books = editDraft.books.map((book) => (book.id === bookId ? { ...book, [field]: value } : book));
     setEditDraft({ ...editDraft, books, totalAmount: computeBookPackageTotal(books) });
   };
 
@@ -131,7 +180,10 @@ export default function BooksSetupPage() {
     if (!editDraft) return;
     setEditDraft({
       ...editDraft,
-      books: [...editDraft.books, { id: crypto.randomUUID(), title: "", subjectCode: "", quantity: 1, unitPrice: 0 }],
+      books: [
+        ...editDraft.books,
+        { id: crypto.randomUUID(), title: "", subjectCode: "", quantity: 1, unitPrice: 0 },
+      ],
     });
   };
 
@@ -146,7 +198,10 @@ export default function BooksSetupPage() {
     if (field === "isRequired") {
       setEditDraft({ ...editDraft, isRequired: !editDraft.isRequired });
     } else {
-      setEditDraft({ ...editDraft, status: editDraft.status === "Active" ? "Inactive" : "Active" });
+      setEditDraft({
+        ...editDraft,
+        status: editDraft.status === "Active" ? "Inactive" : "Active",
+      });
     }
   };
 
@@ -156,10 +211,18 @@ export default function BooksSetupPage() {
       toast("Package name and all book titles are required.", { variant: "warning" });
       return;
     }
-    if (isCreating && packages.some((pkg) =>
-      pkg.schoolId === editDraft.schoolId && pkg.schoolYear === editDraft.schoolYear && pkg.gradeLevel === editDraft.gradeLevel
-    )) {
-      toast(`A book package already exists for ${editDraft.gradeLevel} in ${editDraft.schoolYear}.`, { variant: "warning" });
+    if (
+      isCreating &&
+      packages.some(
+        (pkg) =>
+          pkg.schoolId === editDraft.schoolId &&
+          pkg.schoolYear === editDraft.schoolYear &&
+          pkg.gradeLevel === editDraft.gradeLevel,
+      )
+    ) {
+      toast(`A book package already exists for ${editDraft.gradeLevel} in ${editDraft.schoolYear}.`, {
+        variant: "warning",
+      });
       return;
     }
     const today = new Date().toISOString().slice(0, 10);
@@ -174,119 +237,68 @@ export default function BooksSetupPage() {
   };
 
   const quickToggleStatus = (pkgId: string) => {
-    const pkg = packages.find((p) => p.id === pkgId);
+    const pkg = packages.find((entry) => entry.id === pkgId);
     if (!pkg) return;
-    updateBookPackage(pkgId, { status: pkg.status === "Active" ? "Inactive" : "Active", lastUpdated: new Date().toISOString().slice(0, 10) });
+    updateBookPackage(pkgId, {
+      status: pkg.status === "Active" ? "Inactive" : "Active",
+      lastUpdated: new Date().toISOString().slice(0, 10),
+    });
   };
 
   const displayPackage = isEditing || isCreating ? editDraft : selectedPackage;
-
-  const legacyPackageColumns: any[] = [
-    {
-      accessorKey: "gradeLevel",
-      header: "Grade Level",
-      cell: ({ getValue }) => <span className="font-bold text-stsn-brown">{String(getValue())}</span>,
-    },
-    {
-      accessorKey: "packageName",
-      header: "Package Name",
-      cell: ({ getValue }) => <span className="font-semibold text-stone-800">{String(getValue())}</span>,
-    },
-    {
-      accessorKey: "books",
-      header: "Included Books",
-      cell: ({ getValue }) => (
-        <span className="block text-center text-stone-600">{(getValue() as BookPackageItem[]).length}</span>
-      ),
-    },
-    {
-      accessorFn: (row) => `₱${row.totalAmount.toLocaleString()}`,
-      id: "totalAmount",
-      header: "Total Amount",
-      render: (value: number) => `₱${value.toLocaleString()}`,
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ getValue }) => <AppStatusBadge status={String(getValue())} className="mx-auto flex w-fit text-[9px]" />,
-    },
-    {
-      accessorKey: "schoolYear",
-      header: "Effective SY",
-      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue())}</span>,
-    } as AppTableColumn<BookPackage>,
-    {
-      accessorKey: "lastUpdated",
-      header: "Last Updated",
-      cell: ({ getValue }) => <span className="text-stone-500 text-[11px]">{String(getValue())}</span>,
-    } as AppTableColumn<BookPackage>,
-    {
-      title: "Actions",
-      className: "text-center",
-      orderable: false,
-      searchable: false,
-      render: (_value, pkg) => (
-        <div className="flex items-center justify-center gap-1">
-          <button onClick={() => openView(pkg)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="View details">
-            <Eye className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={() => openEdit(pkg)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="Edit package">
-            <Package className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => quickToggleStatus(pkg.id)}
-            title={pkg.status === "Active" ? "Set Inactive" : "Set Active"}
-            className="p-1.5 hover:bg-emerald-50 rounded text-stone-400 hover:text-emerald-600 cursor-pointer transition"
-          >
-            {pkg.status === "Active" ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-          </button>
-        </div>
-      ),
-    },
-  ];
-
-  void legacyPackageColumns;
 
   const packageColumns: AppTableColumn<BookPackage>[] = [
     {
       accessorKey: "gradeLevel",
       header: "Grade Level",
-      cell: ({ getValue }) => <span className="font-bold text-stsn-brown">{String(getValue())}</span>,
+      cell: ({ getValue }) => (
+        <span className="font-bold text-[var(--erp-brand)]">{String(getValue())}</span>
+      ),
     },
     {
       accessorKey: "packageName",
       header: "Package Name",
-      cell: ({ getValue }) => <span className="font-semibold text-stone-800">{String(getValue())}</span>,
+      cell: ({ getValue }) => (
+        <span className="font-semibold text-[var(--erp-text)]">{String(getValue())}</span>
+      ),
     },
     {
       accessorKey: "books",
       header: "Included Books",
       cell: ({ getValue }) => (
-        <span className="block text-center text-stone-600">{getValue<BookPackageItem[]>().length}</span>
+        <span className="block text-center text-[var(--erp-text-muted)]">
+          {getValue<BookPackageItem[]>().length}
+        </span>
       ),
     },
     {
-      accessorFn: (row) => `₱${row.totalAmount.toLocaleString()}`,
+      accessorFn: (row) => `PHP ${row.totalAmount.toLocaleString()}`,
       id: "totalAmount",
       header: "Total Amount",
       cell: ({ getValue }) => (
-        <span className="block text-right font-mono font-bold text-stone-800">{String(getValue())}</span>
+        <span className="block text-right font-mono font-bold text-[var(--erp-text)]">
+          {String(getValue())}
+        </span>
       ),
     },
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ getValue }) => <AppStatusBadge status={String(getValue())} className="mx-auto flex w-fit text-[9px]" />,
+      cell: ({ getValue }) => (
+        <AppStatusBadge status={String(getValue())} className="mx-auto flex w-fit text-[9px]" />
+      ),
     },
     {
       accessorKey: "schoolYear",
       header: "Effective SY",
-      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue())}</span>,
+      cell: ({ getValue }) => <span className="text-[var(--erp-text-muted)]">{String(getValue())}</span>,
     },
     {
       accessorKey: "lastUpdated",
       header: "Last Updated",
-      cell: ({ getValue }) => <span className="text-stone-500 text-[11px]">{String(getValue())}</span>,
+      cell: ({ getValue }) => (
+        <span className="text-[11px] text-[var(--erp-text-muted)]">{String(getValue())}</span>
+      ),
     },
     {
       id: "actions",
@@ -296,21 +308,22 @@ export default function BooksSetupPage() {
       cell: ({ row }) => {
         const pkg = row.original;
         return (
-          <div className="flex items-center justify-center gap-1">
-            <button type="button" onClick={() => openView(pkg)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="View details">
-              <Eye className="w-3.5 h-3.5" />
-            </button>
-            <button type="button" onClick={() => openEdit(pkg)} className="p-1.5 hover:bg-blue-50 rounded text-stone-400 hover:text-blue-600 cursor-pointer transition" title="Edit package">
-              <Package className="w-3.5 h-3.5" />
-            </button>
-            <button
+          <div className="flex items-center justify-center gap-2">
+            <AppButton type="button" size="xs" variant="outline" onClick={() => openView(pkg)} leftIcon={Eye}>
+              View
+            </AppButton>
+            <AppButton type="button" size="xs" variant="outline" onClick={() => openEdit(pkg)} leftIcon={Package}>
+              Edit
+            </AppButton>
+            <AppButton
               type="button"
+              size="xs"
+              variant={pkg.status === "Active" ? "danger-outline" : "secondary"}
               onClick={() => quickToggleStatus(pkg.id)}
-              title={pkg.status === "Active" ? "Set Inactive" : "Set Active"}
-              className="p-1.5 hover:bg-emerald-50 rounded text-stone-400 hover:text-emerald-600 cursor-pointer transition"
+              leftIcon={pkg.status === "Active" ? ToggleRight : ToggleLeft}
             >
-              {pkg.status === "Active" ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-            </button>
+              {pkg.status === "Active" ? "Deactivate" : "Activate"}
+            </AppButton>
           </div>
         );
       },
@@ -318,115 +331,188 @@ export default function BooksSetupPage() {
   ];
 
   return (
-    <div className="animate-fade-in font-sans space-y-4">
-      <PageHeader
-        icon={Library}
-        title="Books Setup"
-        description="Configure required book packages by Basic Education grade level."
-      >
-        <button
-          type="button"
-          onClick={openCreate}
-          disabled={isCollegeView}
-          className="flex items-center gap-2 bg-stsn-brown hover:bg-stsn-brown-dark disabled:opacity-50 disabled:cursor-not-allowed text-stsn-cream font-bold text-xs px-4 py-2.5 rounded-lg shadow cursor-pointer transition"
-        >
-          <Plus className="w-4 h-4" /> Add Book Package
-        </button>
-      </PageHeader>
+    <div className="space-y-4">
+      <ModulePageHeader
+        badge="Books Setup"
+        badgeIcon={Library}
+        title="Books and Package Setup"
+        subtitle="Configure required Basic Education book packages by school, school year, and grade level while preserving the existing package assignment workflow."
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5">
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/55">Active Packages</p>
+              <p className="mt-1 text-lg font-semibold text-white">{activePackages}</p>
+            </div>
+            <AppButton
+              type="button"
+              onClick={openCreate}
+              disabled={isCollegeView}
+              leftIcon={Plus}
+            >
+              Add Book Package
+            </AppButton>
+          </div>
+        }
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Packages" value={totalPackages} icon={Library} tone="brand" />
-        <StatCard label="Active Packages" value={activePackages} icon={ToggleRight} tone="success" />
-        <StatCard label="Grade Levels Covered" value={gradeLevelsCovered} icon={GraduationCap} tone="warning" />
-        <StatCard label="Total Catalog Value" value={`₱${totalCatalogValue.toLocaleString()}`} icon={Coins} tone="info" />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Total Packages", value: totalPackages, icon: Library },
+          { label: "Grade Levels Covered", value: gradeLevelsCovered, icon: GraduationCap },
+          { label: "Catalog Value", value: `PHP ${totalCatalogValue.toLocaleString()}`, icon: Coins },
+          { label: "Current School Year", value: currentSchoolYear, icon: BookOpen },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <AppCard key={stat.label} tone="brand" className="border border-[var(--erp-border)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    {stat.label}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-[var(--erp-text)]">{stat.value}</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--erp-border)] bg-white shadow-sm">
+                  <Icon className="h-4.5 w-4.5 text-[var(--erp-brand)]" />
+                </div>
+              </div>
+            </AppCard>
+          );
+        })}
       </div>
 
-      {/* UI Rule Notice */}
-      <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-        <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-        <p className="text-[11px] text-blue-700 font-semibold">{BOOKS_PACKAGE_ASSIGNMENT_NOTICE}</p>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <AppCard className="border border-blue-200 bg-blue-50">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
           <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">School Year</label>
-            <select
-              value={filterSchoolYear}
-              onChange={(e) => setFilterSchoolYear(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-            >
-              <option value="All">All</option>
-              {SCHOOL_YEAR_OPTIONS.map((sy) => <option key={sy} value={sy}>{sy}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">School</label>
-            <select
-              value={filterSchool}
-              onChange={(e) => setFilterSchool(e.target.value as "All" | "STSN" | "CDSTA")}
-              className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-            >
-              <option value="All">All</option>
-              <option value="STSN">St. Theresa's School of Novaliches</option>
-              <option value="CDSTA">Colegio de Sta. Teresa de Avila</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Academic Unit</label>
-            <select
-              value={filterAcademicUnit}
-              onChange={(e) => {
-                const value = e.target.value as AcademicUnit | "All";
-                setFilterAcademicUnit(value);
-                if (value !== "basic-ed") setFilterGradeLevel("All");
-              }}
-              className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-            >
-              {ACADEMIC_UNIT_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Grade Level</label>
-            <select
-              value={filterGradeLevel}
-              onChange={(e) => setFilterGradeLevel(e.target.value)}
-              disabled={isCollegeView}
-              className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown disabled:opacity-50"
-            >
-              <option value="All">All</option>
-              {BOOK_PACKAGE_GRADE_LEVELS.map((gl) => <option key={gl} value={gl}>{gl}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Status</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as "All" | BookPackage["status"])}
-              disabled={isCollegeView}
-              className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 px-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown disabled:opacity-50"
-            >
-              <option value="All">All</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+            <p className="text-xs font-semibold text-blue-900">Assignment Notice</p>
+            <p className="mt-1 text-xs leading-relaxed text-blue-800">
+              {BOOKS_PACKAGE_ASSIGNMENT_NOTICE}
+            </p>
           </div>
         </div>
-      </div>
+      </AppCard>
 
-      {/* Table or College empty state */}
+      <AppCard className="border border-[var(--erp-border)]">
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+              Package Filters
+            </p>
+            <h3 className="mt-1 text-base font-semibold text-[var(--erp-text)]">
+              Narrow the Books Catalog
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Search
+              </span>
+              <AppSearchInput
+                value={filterSearch}
+                onChange={(event) => setFilterSearch(event.target.value)}
+                onClear={() => setFilterSearch("")}
+                placeholder="Package name or grade level..."
+                aria-label="Search book packages"
+                uiSize="sm"
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                School Year
+              </span>
+              <AppSelect value={filterSchoolYear} onChange={(event) => setFilterSchoolYear(event.target.value)} uiSize="sm">
+                <option value="All">All</option>
+                {schoolYearOptions.map((schoolYear) => (
+                  <option key={schoolYear} value={schoolYear}>
+                    {schoolYear}
+                  </option>
+                ))}
+              </AppSelect>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                School
+              </span>
+              <AppSelect
+                value={filterSchool}
+                onChange={(event) => setFilterSchool(event.target.value as "All" | "STSN" | "CDSTA")}
+                uiSize="sm"
+              >
+                <option value="All">All</option>
+                <option value="STSN">St. Theresa's School of Novaliches</option>
+                <option value="CDSTA">Colegio de Sta. Teresa de Avila</option>
+              </AppSelect>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Academic Unit
+              </span>
+              <AppSelect
+                value={filterAcademicUnit}
+                onChange={(event) => {
+                  const value = event.target.value as AcademicUnit | "All";
+                  setFilterAcademicUnit(value);
+                  if (value !== "basic-ed") setFilterGradeLevel("All");
+                }}
+                uiSize="sm"
+              >
+                {ACADEMIC_UNIT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </AppSelect>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Grade Level
+              </span>
+              <AppSelect
+                value={filterGradeLevel}
+                onChange={(event) => setFilterGradeLevel(event.target.value)}
+                disabled={isCollegeView}
+                uiSize="sm"
+              >
+                <option value="All">All</option>
+                {BOOK_PACKAGE_GRADE_LEVELS.map((gradeLevel) => (
+                  <option key={gradeLevel} value={gradeLevel}>
+                    {gradeLevel}
+                  </option>
+                ))}
+              </AppSelect>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Status
+              </span>
+              <AppSelect
+                value={filterStatus}
+                onChange={(event) => setFilterStatus(event.target.value as "All" | BookPackage["status"])}
+                disabled={isCollegeView}
+                uiSize="sm"
+              >
+                <option value="All">All</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </AppSelect>
+            </label>
+          </div>
+        </div>
+      </AppCard>
+
       {isCollegeView ? (
-        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-16 text-center">
-          <BookOpen className="w-12 h-12 text-stone-200 mx-auto mb-3" />
-          <p className="text-sm text-stone-500 font-semibold">{BOOKS_NOT_APPLICABLE_NOTICE}</p>
-        </div>
+        <AppEmptyState
+          icon={BookOpen}
+          title="Books Setup does not apply to College"
+          description={BOOKS_NOT_APPLICABLE_NOTICE}
+        />
       ) : (
         <AppTable<BookPackage>
           data={filteredPackages}
           columns={packageColumns}
           title="Book Packages"
+          description="Configured grade-level packages remain read and edited through the existing books setup workflow."
           enableSearch={false}
           enableColumnVisibility={false}
           initialPageSize={10}
@@ -436,290 +522,336 @@ export default function BooksSetupPage() {
           emptyDescription="Adjust the search or filters to find book packages."
           getRowId={(row) => row.id}
           toolbar={
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400 pointer-events-none" />
-              <input
-                type="search"
-                value={filterSearch}
-                onChange={(e) => setFilterSearch(e.target.value)}
-                placeholder="Search package name or grade level…"
-                className="h-9 w-64 rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-9 pr-8 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
-                aria-label="Search book packages"
-              />
-              {filterSearch && (
-                <button
-                  type="button"
-                  onClick={() => setFilterSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 transition hover:text-stone-600"
-                  aria-label="Clear book package search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+            <span className="whitespace-nowrap text-[10px] font-mono text-[var(--erp-text-muted)]">
+              {filteredPackages.length} package{filteredPackages.length !== 1 ? "s" : ""}
+            </span>
           }
-          searchPlaceholder="Search package name or grade level…"
         />
       )}
 
-      {/* Detail / Edit Modal */}
       {displayPackage && (
-        <div className="app-modal-backdrop z-50 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[85vh] flex flex-col">
-            <div className="bg-gradient-to-r from-stsn-brown to-stsn-brown-dark text-white p-4 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Library className="w-5 h-5" />
-                <h3 className="font-display font-bold text-sm">
-                  {isCreating ? "Add Book Package" : isEditing ? "Edit Book Package" : "Book Package Details"}
-                </h3>
+        <AppModal
+          open
+          title={
+            isCreating ? "Add Book Package" : isEditing ? "Edit Book Package" : "Book Package Details"
+          }
+          eyebrow="Books Setup"
+          icon={Library}
+          onClose={closeModal}
+          maxWidthClass="max-w-5xl"
+          bodyClassName="max-h-[80vh] space-y-4 overflow-auto bg-[var(--erp-surface)] p-5"
+          footer={
+            isEditing || isCreating ? (
+              <div className="flex justify-end gap-2">
+                <AppButton type="button" variant="secondary" size="sm" onClick={closeModal}>
+                  Cancel
+                </AppButton>
+                <AppButton type="button" size="sm" onClick={saveDraft}>
+                  {isCreating ? "Create Book Package" : "Save Changes"}
+                </AppButton>
               </div>
-              <button onClick={closeModal} className="cursor-pointer hover:bg-white/20 rounded p-1 transition">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 bg-stsn-cream space-y-4 overflow-y-auto flex-1">
-              {/* Header fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Package Name</label>
-                  {isCreating ? (
-                    <input
-                      required
-                      value={displayPackage.packageName}
-                      onChange={(e) => setEditDraft({ ...displayPackage, packageName: e.target.value })}
-                      placeholder="e.g. Grade 5 Book Package"
-                      className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                    />
-                  ) : (
-                    <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stone-800">{displayPackage.packageName}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Grade Level</label>
-                  {isCreating ? (
-                    <select
-                      value={displayPackage.gradeLevel}
-                      onChange={(e) => setEditDraft({ ...displayPackage, gradeLevel: e.target.value })}
-                      className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stsn-brown focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                    >
-                      {BOOK_PACKAGE_GRADE_LEVELS.map((gradeLevel) => <option key={gradeLevel}>{gradeLevel}</option>)}
-                    </select>
-                  ) : (
-                    <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-bold text-stsn-brown">{displayPackage.gradeLevel}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">School Year</label>
-                  {isCreating ? (
-                    <select
-                      value={displayPackage.schoolYear}
-                      onChange={(e) => setEditDraft({ ...displayPackage, schoolYear: e.target.value })}
-                      className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                    >
-                      {SCHOOL_YEAR_OPTIONS.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}
-                    </select>
-                  ) : (
-                    <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800">{displayPackage.schoolYear}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Total Price</label>
-                  <p className="bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-mono font-bold text-stone-800">₱{displayPackage.totalAmount.toLocaleString()}</p>
-                </div>
-              </div>
-              {isCreating && (
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">School</label>
-                  <select
-                    value={displayPackage.schoolId}
-                    onChange={(e) => setEditDraft({ ...displayPackage, schoolId: e.target.value as BookPackage["schoolId"] })}
-                    className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                  >
-                    <option value="STSN">St. Theresa's School of Novaliches</option>
-                    <option value="CDSTA">Colegio de Sta. Teresa de Avila</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Required / Active toggles */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Required / Included</label>
-                  {isEditing || isCreating ? (
-                    <button
-                      type="button"
-                      onClick={() => toggleDraftFlag("isRequired")}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold cursor-pointer transition ${displayPackage.isRequired ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-stone-50 border-stone-200 text-stone-500"}`}
-                    >
-                      {displayPackage.isRequired ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                      {displayPackage.isRequired ? "Required / Included" : "Optional"}
-                    </button>
-                  ) : (
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold ${displayPackage.isRequired ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-stone-50 border-stone-200 text-stone-500"}`}>
-                      {displayPackage.isRequired ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                      {displayPackage.isRequired ? "Required / Included" : "Optional"}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Active / Inactive</label>
-                  {isEditing || isCreating ? (
-                    <button
-                      type="button"
-                      onClick={() => toggleDraftFlag("status")}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold cursor-pointer transition ${displayPackage.status === "Active" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-stone-50 border-stone-200 text-stone-500"}`}
-                    >
-                      {displayPackage.status === "Active" ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                      {displayPackage.status}
-                    </button>
-                  ) : (
-                    <AppStatusBadge status={displayPackage.status} className="gap-1.5 px-3 py-2 text-xs">
-                      {displayPackage.status === "Active" ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                      {displayPackage.status}
-                    </AppStatusBadge>
-                  )}
-                </div>
-              </div>
-
-              {/* Book list */}
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Book List</label>
-                <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-stone-50 border-b border-stone-200">
-                        <th className="text-left py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px]">Title</th>
-                        <th className="text-left py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px]">Subject</th>
-                        <th className="text-center py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px] w-20">Qty</th>
-                        <th className="text-right py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px] w-28">Unit Price</th>
-                        <th className="text-right py-2 px-3 font-bold text-stone-500 uppercase tracking-wider text-[9px] w-28">Line Total</th>
-                        {(isEditing || isCreating) && <th className="w-10" aria-label="Actions" />}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      {displayPackage.books.map((book: BookPackageItem) => (
-                        <tr key={book.id}>
-                          <td className="py-2 px-3 font-semibold text-stone-800">
-                            {isEditing || isCreating ? (
-                              <input
-                                required
-                                value={book.title}
-                                onChange={(e) => updateDraftBook(book.id, "title", e.target.value)}
-                                placeholder="Book title"
-                                className="w-full min-w-36 bg-stone-50 border border-stone-200 rounded py-1 px-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                              />
-                            ) : book.title}
-                          </td>
-                          <td className="py-2 px-3 text-stone-500 font-mono text-[10px]">
-                            {isEditing || isCreating ? (
-                              <select
-                                value={book.subjectCode || ""}
-                                onChange={(e) => updateDraftBook(book.id, "subjectCode", e.target.value)}
-                                className="w-full min-w-28 bg-stone-50 border border-stone-200 rounded py-1 px-2 text-[10px] focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                              >
-                                <option value="">— General —</option>
-                                {basicEdSubjects.map((subject) => <option key={subject.id} value={subject.code}>{subject.code}</option>)}
-                              </select>
-                            ) : book.subjectCode || "—"}
-                          </td>
-                          <td className="py-2 px-3 text-center">
-                            {isEditing || isCreating ? (
-                              <input
-                                type="number"
-                                min={0}
-                                value={book.quantity}
-                                onChange={(e) => updateDraftBook(book.id, "quantity", Math.max(0, Number(e.target.value)))}
-                                className="w-16 bg-stone-50 border border-stone-200 rounded py-1 px-1.5 text-xs text-center font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                              />
-                            ) : book.quantity}
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono">
-                            {isEditing || isCreating ? (
-                              <input
-                                type="number"
-                                min={0}
-                                value={book.unitPrice}
-                                onChange={(e) => updateDraftBook(book.id, "unitPrice", Math.max(0, Number(e.target.value)))}
-                                className="w-24 bg-stone-50 border border-stone-200 rounded py-1 px-1.5 text-xs text-right font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
-                              />
-                            ) : `₱${book.unitPrice.toLocaleString()}`}
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-stone-800">
-                            ₱{(book.quantity * book.unitPrice).toLocaleString()}
-                          </td>
-                          {(isEditing || isCreating) && (
-                            <td className="py-2 pr-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => removeDraftBook(book.id)}
-                                disabled={displayPackage.books.length === 1}
-                                className="p-1.5 rounded text-stone-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                                title="Remove book"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-stone-50 border-t border-stone-200">
-                        <td colSpan={4} className="py-2 px-3 text-right font-bold text-stone-600 uppercase text-[10px]">Total Price</td>
-                        <td className="py-2 px-3 text-right font-mono font-black text-stsn-brown">₱{displayPackage.totalAmount.toLocaleString()}</td>
-                        {(isEditing || isCreating) && <td />}
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                {(isEditing || isCreating) && (
-                  <button
-                    type="button"
-                    onClick={addDraftBook}
-                    className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-stsn-brown hover:text-stsn-brown-dark cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Book
-                  </button>
-                )}
-              </div>
-
-              {(isEditing || isCreating) && (
-                <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                  <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-blue-600">The package and its book list will be saved to Book Setup.</p>
-                </div>
-              )}
-
-              {isEditing || isCreating ? (
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="flex-1 bg-white border border-stone-200 text-stone-600 font-bold text-xs py-2.5 rounded-lg shadow cursor-pointer transition hover:bg-stone-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={saveDraft}
-                    className="flex-1 bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream font-bold text-xs py-2.5 rounded-lg shadow cursor-pointer transition"
-                  >
-                    {isCreating ? "Create Book Package" : "Save Changes"}
-                  </button>
-                </div>
-              ) : (
-                <button
+            ) : (
+              <div className="flex justify-end">
+                <AppButton
                   type="button"
+                  size="sm"
+                  leftIcon={Package}
                   onClick={() => openEdit(selectedPackage as BookPackage)}
-                  className="w-full bg-stsn-brown hover:bg-stsn-brown-dark text-stsn-cream font-bold text-xs py-2.5 rounded-lg shadow cursor-pointer transition"
                 >
                   Edit Package
-                </button>
+                </AppButton>
+              </div>
+            )
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Package Name
+              </span>
+              {isCreating ? (
+                <input
+                  required
+                  value={displayPackage.packageName}
+                  onChange={(event) =>
+                    setEditDraft({ ...displayPackage, packageName: event.target.value })
+                  }
+                  placeholder="e.g. Grade 5 Book Package"
+                  className="w-full rounded-2xl border border-[var(--erp-border)] bg-white px-3 py-2.5 text-xs font-semibold text-[var(--erp-text)] outline-none transition focus:border-[var(--erp-brand)] focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+                />
+              ) : (
+                <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-3 py-2.5 text-xs font-semibold text-[var(--erp-text)]">
+                  {displayPackage.packageName}
+                </div>
               )}
-            </div>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Grade Level
+              </span>
+              {isCreating ? (
+                <AppSelect
+                  value={displayPackage.gradeLevel}
+                  onChange={(event) => setEditDraft({ ...displayPackage, gradeLevel: event.target.value })}
+                  uiSize="sm"
+                >
+                  {BOOK_PACKAGE_GRADE_LEVELS.map((gradeLevel) => (
+                    <option key={gradeLevel}>{gradeLevel}</option>
+                  ))}
+                </AppSelect>
+              ) : (
+                <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-3 py-2.5 text-xs font-semibold text-[var(--erp-brand)]">
+                  {displayPackage.gradeLevel}
+                </div>
+              )}
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                School Year
+              </span>
+              {isCreating ? (
+                <AppSelect
+                  value={displayPackage.schoolYear}
+                  onChange={(event) => setEditDraft({ ...displayPackage, schoolYear: event.target.value })}
+                  uiSize="sm"
+                >
+                  {schoolYearOptions.map((schoolYear) => (
+                    <option key={schoolYear}>{schoolYear}</option>
+                  ))}
+                </AppSelect>
+              ) : (
+                <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-3 py-2.5 text-xs text-[var(--erp-text)]">
+                  {displayPackage.schoolYear}
+                </div>
+              )}
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Total Price
+              </span>
+              <div className="rounded-2xl border border-[var(--erp-border)] bg-white px-3 py-2.5 text-xs font-mono font-bold text-[var(--erp-text)]">
+                PHP {displayPackage.totalAmount.toLocaleString()}
+              </div>
+            </label>
           </div>
-        </div>
+
+          {isCreating && (
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                School
+              </span>
+              <AppSelect
+                value={displayPackage.schoolId}
+                onChange={(event) =>
+                  setEditDraft({ ...displayPackage, schoolId: event.target.value as BookPackage["schoolId"] })
+                }
+                uiSize="sm"
+              >
+                <option value="STSN">St. Theresa's School of Novaliches</option>
+                <option value="CDSTA">Colegio de Sta. Teresa de Avila</option>
+              </AppSelect>
+            </label>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <AppCard className="border border-[var(--erp-border)]">
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Required / Included
+              </p>
+              <div className="mt-3">
+                {isEditing || isCreating ? (
+                  <AppButton
+                    type="button"
+                    variant={displayPackage.isRequired ? "secondary" : "outline"}
+                    size="sm"
+                    leftIcon={displayPackage.isRequired ? Check : X}
+                    onClick={() => toggleDraftFlag("isRequired")}
+                  >
+                    {displayPackage.isRequired ? "Required / Included" : "Optional"}
+                  </AppButton>
+                ) : (
+                  <AppStatusBadge status={displayPackage.isRequired ? "Active" : "Inactive"}>
+                    {displayPackage.isRequired ? "Required / Included" : "Optional"}
+                  </AppStatusBadge>
+                )}
+              </div>
+            </AppCard>
+            <AppCard className="border border-[var(--erp-border)]">
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                Package Status
+              </p>
+              <div className="mt-3">
+                {isEditing || isCreating ? (
+                  <AppButton
+                    type="button"
+                    variant={displayPackage.status === "Active" ? "secondary" : "outline"}
+                    size="sm"
+                    leftIcon={displayPackage.status === "Active" ? ToggleRight : ToggleLeft}
+                    onClick={() => toggleDraftFlag("status")}
+                  >
+                    {displayPackage.status}
+                  </AppButton>
+                ) : (
+                  <AppStatusBadge status={displayPackage.status}>{displayPackage.status}</AppStatusBadge>
+                )}
+              </div>
+            </AppCard>
+          </div>
+
+          <AppCard className="border border-[var(--erp-border)]" padded={false}>
+            <div className="border-b border-[var(--erp-border)] px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                    Book List
+                  </p>
+                  <h4 className="mt-1 text-sm font-semibold text-[var(--erp-text)]">
+                    Included Books and Pricing
+                  </h4>
+                </div>
+                {(isEditing || isCreating) && (
+                  <AppButton type="button" size="xs" variant="outline" leftIcon={Plus} onClick={addDraftBook}>
+                    Add Book
+                  </AppButton>
+                )}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--erp-border)] bg-[var(--erp-surface-muted)]">
+                    <th className="px-4 py-3 text-left text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                      Title
+                    </th>
+                    <th className="px-4 py-3 text-left text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                      Subject
+                    </th>
+                    <th className="px-4 py-3 text-center text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                      Qty
+                    </th>
+                    <th className="px-4 py-3 text-right text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                      Unit Price
+                    </th>
+                    <th className="px-4 py-3 text-right text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">
+                      Line Total
+                    </th>
+                    {(isEditing || isCreating) && <th className="w-14" aria-label="Actions" />}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--erp-border)]">
+                  {displayPackage.books.map((book: BookPackageItem) => (
+                    <tr key={book.id}>
+                      <td className="px-4 py-3 font-semibold text-[var(--erp-text)]">
+                        {isEditing || isCreating ? (
+                          <input
+                            required
+                            value={book.title}
+                            onChange={(event) => updateDraftBook(book.id, "title", event.target.value)}
+                            placeholder="Book title"
+                            className="w-full min-w-40 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 py-2 text-xs outline-none transition focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+                          />
+                        ) : (
+                          book.title
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[10px] text-[var(--erp-text-muted)]">
+                        {isEditing || isCreating ? (
+                          <AppSelect
+                            value={book.subjectCode || ""}
+                            onChange={(event) => updateDraftBook(book.id, "subjectCode", event.target.value)}
+                            uiSize="sm"
+                            className="min-w-[140px]"
+                          >
+                            <option value="">— General —</option>
+                            {basicEdSubjects.map((subject) => (
+                              <option key={subject.id} value={subject.code}>
+                                {subject.code}
+                              </option>
+                            ))}
+                          </AppSelect>
+                        ) : (
+                          book.subjectCode || "—"
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {isEditing || isCreating ? (
+                          <input
+                            type="number"
+                            min={0}
+                            value={book.quantity}
+                            onChange={(event) =>
+                              updateDraftBook(book.id, "quantity", Math.max(0, Number(event.target.value)))
+                            }
+                            className="w-16 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-2 py-2 text-center text-xs outline-none transition focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+                          />
+                        ) : (
+                          book.quantity
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-[var(--erp-text)]">
+                        {isEditing || isCreating ? (
+                          <input
+                            type="number"
+                            min={0}
+                            value={book.unitPrice}
+                            onChange={(event) =>
+                              updateDraftBook(book.id, "unitPrice", Math.max(0, Number(event.target.value)))
+                            }
+                            className="w-24 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-2 py-2 text-right text-xs outline-none transition focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+                          />
+                        ) : (
+                          `PHP ${book.unitPrice.toLocaleString()}`
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-[var(--erp-text)]">
+                        PHP {(book.quantity * book.unitPrice).toLocaleString()}
+                      </td>
+                      {(isEditing || isCreating) && (
+                        <td className="px-4 py-3 text-center">
+                          <AppButton
+                            type="button"
+                            size="xs"
+                            variant="danger-outline"
+                            onClick={() => removeDraftBook(book.id)}
+                            disabled={displayPackage.books.length === 1}
+                            leftIcon={Trash2}
+                          >
+                            Remove
+                          </AppButton>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-[var(--erp-border)] bg-[var(--erp-surface-muted)]">
+                    <td
+                      colSpan={4}
+                      className="px-4 py-3 text-right text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]"
+                    >
+                      Total Price
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-[var(--erp-brand)]">
+                      PHP {displayPackage.totalAmount.toLocaleString()}
+                    </td>
+                    {(isEditing || isCreating) && <td />}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </AppCard>
+
+          {(isEditing || isCreating) && (
+            <AppCard className="border border-blue-200 bg-blue-50">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                <p className="text-xs leading-relaxed text-blue-800">
+                  The package and its book list will continue to save through the existing Book Setup flow.
+                </p>
+              </div>
+            </AppCard>
+          )}
+        </AppModal>
       )}
     </div>
   );

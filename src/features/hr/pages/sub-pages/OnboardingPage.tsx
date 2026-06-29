@@ -7,6 +7,7 @@ import React, { useState, useMemo } from "react";
 import { UserCheck, CheckCircle, Clock, SkipForward, X, ChevronRight } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
+import AppCard from "../../../../components/common/AppCard";
 import AppTable, {
   appTableColumnsFromLegacy,
   type AppTableLegacyColumn,
@@ -45,7 +46,7 @@ function EmployeeChecklist({ employeeId, onClose }: EmployeeChecklistProps) {
   });
 
   return (
-    <div className="bg-white border border-stsn-beige rounded-xl shadow-sm flex flex-col">
+    <AppCard className="flex flex-col" padded={false} tone="brand">
       <div className="p-4 border-b border-stone-100 flex items-center justify-between">
         <div>
           <p className="text-sm font-bold text-stone-800">{employee?.firstName} {employee?.lastName}</p>
@@ -114,7 +115,7 @@ function EmployeeChecklist({ employeeId, onClose }: EmployeeChecklistProps) {
           </div>
         )}
       </div>
-    </div>
+    </AppCard>
   );
 }
 
@@ -204,7 +205,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
+      <AppCard className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" tone="brand">
         <div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-stsn-brown" />
@@ -216,10 +217,10 @@ export default function OnboardingPage() {
           <p className="text-2xl font-display font-bold text-stsn-brown">{onboardingEmployees.length}</p>
           <p className="text-[10px] text-stone-400 uppercase font-mono tracking-wider">Employees Onboarding</p>
         </div>
-      </div>
+      </AppCard>
 
       {onboardingTemplates.length > 0 && (
-        <div className="bg-stsn-cream border border-stsn-beige rounded-xl p-4 text-xs text-stone-600">
+        <AppCard className="text-xs text-stone-600" tone="brand">
           <p className="font-semibold mb-1">Onboarding Templates</p>
           <div className="flex flex-wrap gap-2 mt-1">
             {onboardingTemplates.filter((t) => t.isActive).map((tmpl) => {
@@ -231,7 +232,7 @@ export default function OnboardingPage() {
               );
             })}
           </div>
-        </div>
+        </AppCard>
       )}
 
       <div className={`flex gap-4 ${selectedEmployeeId ? "flex-col lg:flex-row" : ""}`}>

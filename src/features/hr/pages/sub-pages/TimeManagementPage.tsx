@@ -8,6 +8,8 @@ import { Clock, Plus, CheckCircle, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
+import AppButton from "../../../../components/common/AppButton";
+import AppCard from "../../../../components/common/AppCard";
 import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import { EmployeeTimeLog } from "../../../../types";
 
@@ -229,7 +231,7 @@ export default function TimeManagementPage() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
+      <AppCard className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" tone="brand">
         <div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <Clock className="w-5 h-5 text-stsn-brown" />
@@ -239,18 +241,18 @@ export default function TimeManagementPage() {
         </div>
         <div className="flex gap-2">
           {pendingCount > 0 && (
-            <button onClick={handleApproveAll} className="flex items-center gap-2 px-4 py-2 text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold rounded-xl hover:bg-emerald-100 cursor-pointer">
-              <CheckCircle className="w-4 h-4" /> Approve All ({pendingCount})
-            </button>
+            <AppButton onClick={handleApproveAll} variant="secondary" size="sm" leftIcon={CheckCircle}>
+              Approve All ({pendingCount})
+            </AppButton>
           )}
-          <button onClick={() => setShowLogModal(true)} className="btn-primary-gradient text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 cursor-pointer">
-            <Plus className="w-4 h-4" /> Log Time
-          </button>
+          <AppButton onClick={() => setShowLogModal(true)} size="sm" leftIcon={Plus}>
+            Log Time
+          </AppButton>
         </div>
-      </div>
+      </AppCard>
 
       {/* Filters */}
-      <div className="bg-white border border-stsn-beige rounded-xl px-4 py-3 shadow-sm flex flex-wrap gap-3 items-center">
+      <AppCard className="flex flex-wrap gap-3 items-center px-4 py-3" padded={false} tone="brand">
         <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)} className="border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-stsn-gold/30">
           <option value="All">All Employees</option>
           {employees.map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
@@ -267,7 +269,7 @@ export default function TimeManagementPage() {
           <span className="font-semibold text-stone-700">{filtered.length}</span> entries
           {pendingCount > 0 && <span className="text-amber-600 font-semibold">· {pendingCount} pending</span>}
         </div>
-      </div>
+      </AppCard>
 
       <AppTable<EmployeeTimeLog>
           data={filtered}

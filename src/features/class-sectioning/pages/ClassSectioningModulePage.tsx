@@ -20,7 +20,11 @@ import AppTable, {
   appTableColumnsFromLegacy,
   type AppTableLegacyColumn,
 } from "../../../components/common/AppTable";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
 import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 
@@ -340,11 +344,7 @@ function AddStudentsModal({ sectionId, sectionName, sectionYearLevel, sectionDep
       className: "text-center",
       searchable: false,
       render: (v: string) => (
-        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-          v === "Enrolled" ? "bg-green-50 text-green-700 border-green-200" :
-          v === "Approved" ? "bg-blue-50 text-blue-700 border-blue-200" :
-          "bg-amber-50 text-amber-700 border-amber-200"
-        }`}>{v}</span>
+        <AppStatusBadge status={v}>{v}</AppStatusBadge>
       ),
     },
   ];
@@ -487,7 +487,7 @@ export default function ClassSectioningModule() {
       title: "Dept",
       data: "department",
       render: (value: SchoolSection["department"]) => (
-        <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${value === "Basic Education" ? "bg-stsn-cream text-stsn-brown border-stsn-beige" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
+        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${value === "Basic Education" ? "border-[var(--erp-accent)]/35 bg-[var(--erp-surface-muted)] text-[var(--erp-brand)]" : "border-blue-200 bg-blue-50 text-blue-700"}`}>
           {value === "Basic Education" ? "Basic Ed" : "College"}
         </span>
       ),
@@ -532,8 +532,10 @@ export default function ClassSectioningModule() {
       title: "Status",
       data: "isActive",
       render: (value: boolean, sec) => (
-        <button onClick={() => toggleSectionActive(sec.id)} className={`text-[9px] font-bold px-2 py-0.5 rounded-full border cursor-pointer transition ${value ? "bg-green-50 text-green-700 border-green-200" : "bg-stone-50 text-stone-500 border-stone-200"}`}>
-          {value ? "Active" : "Inactive"}
+        <button onClick={() => toggleSectionActive(sec.id)} className="cursor-pointer transition">
+          <AppStatusBadge status={value ? "Active" : "Inactive"}>
+            {value ? "Active" : "Inactive"}
+          </AppStatusBadge>
         </button>
       ),
     },
@@ -575,9 +577,9 @@ export default function ClassSectioningModule() {
         title="Class Sectioning"
         subtitle={`Master ${terms.groupNoun} Repository — CRUD management for all school ${terms.groupNoun.toLowerCase()}s, ${terms.groupLeaderNoun.toLowerCase()}s, and student assignments.`}
         actions={
-          <button onClick={openCreate} className="inline-flex items-center gap-2 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer">
-            <Plus className="w-4 h-4" /> New {terms.groupNoun}
-          </button>
+          <AppButton onClick={openCreate} variant="primary" size="md" leftIcon={Plus}>
+            New {terms.groupNoun}
+          </AppButton>
         }
       />
 
@@ -588,6 +590,27 @@ export default function ClassSectioningModule() {
         <AppKpiCard label="Total Enrolled" value={totalEnrolled} icon={Users} tone="info" hint="Across all sections" />
         <AppKpiCard label="Total Capacity" value={totalCapacity} icon={GraduationCap} tone="neutral" hint="Combined seat limit" />
       </div>
+
+      <AppCard className="grid gap-3 border border-[var(--erp-border)] lg:grid-cols-3" tone="brand">
+        <div className="space-y-1">
+          <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-[var(--erp-text-muted)]">Section Registry</p>
+          <p className="text-sm font-semibold text-[var(--erp-text)]">
+            Maintain section capacity, adviser ownership, and student assignment from one academic operations surface.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--erp-border)] bg-white/80 px-4 py-3">
+          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">Current Scope</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--erp-text)]">
+            {filtered.length} visible {terms.groupNoun.toLowerCase()}{filtered.length !== 1 ? "s" : ""} across the active academic view
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--erp-border)] bg-white/80 px-4 py-3">
+          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">Seat Utilization</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--erp-text)]">
+            {totalEnrolled} enrolled against {totalCapacity} configured seats
+          </p>
+        </div>
+      </AppCard>
 
       {/* Sections Table */}
       <AppTable<SchoolSection>
@@ -600,16 +623,14 @@ export default function ClassSectioningModule() {
         getRowId={(section) => section.id}
         toolbar={
           <>
-            <div className="relative min-w-52 flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
-              <input
-                type="search"
-                value={searchQ}
-                onChange={(event) => setSearchQ(event.target.value)}
-                placeholder={`Search by ${terms.groupNoun.toLowerCase()} name, code, adviser...`}
-                className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-8 pr-3 text-xs text-[var(--erp-text)] outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
-              />
-            </div>
+            <AppSearchInput
+              value={searchQ}
+              onChange={(event) => setSearchQ(event.target.value)}
+              onClear={searchQ ? () => setSearchQ("") : undefined}
+              placeholder={`Search by ${terms.groupNoun.toLowerCase()} name, code, adviser...`}
+              wrapperClassName="min-w-52 flex-1"
+              uiSize="sm"
+            />
             {lockedDept ? (
               <span className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 px-3 text-xs font-semibold text-stone-500">
                 {lockedDept}
@@ -798,15 +819,13 @@ export default function ClassSectioningModule() {
                   </span>
                   <div className="flex gap-2">
                     {enrolledStudents.length > 0 && (
-                      <button
-                        onClick={handlePrint}
-                        className="px-4 py-2 text-xs font-bold text-white btn-primary-gradient rounded-lg shadow cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
+                      <AppButton onClick={handlePrint} variant="primary" size="sm" leftIcon={Printer}>
                         Print Class List
-                      </button>
+                      </AppButton>
                     )}
-                    <button onClick={() => setViewStudentsSection(null)} className="px-4 py-2 text-xs font-bold text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer">Close</button>
+                    <AppButton type="button" variant="secondary" size="sm" onClick={() => setViewStudentsSection(null)}>
+                      Close
+                    </AppButton>
                   </div>
                 </div>
               </div>

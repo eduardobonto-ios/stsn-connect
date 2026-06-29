@@ -23,7 +23,11 @@ import {
   FileCheck,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
 import AppFilterChip from "../../../components/common/AppFilterChip";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import { useSTSNStore } from "../../../services/store";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import type { UserRole } from "../../../types";
@@ -248,33 +252,28 @@ function SectionDetailView({
                       <span className="text-[10px] font-mono font-bold text-stone-600 w-24 flex-shrink-0">{period.label}</span>
                       <span className="text-[10px] text-stone-400 flex-1">{period.subjectCode}</span>
                       {!period.isFinalized && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-stone-50 text-stone-400 border-stone-200">
-                          Not Finalized
-                        </span>
+                        <AppStatusBadge status="Inactive">Not Finalized</AppStatusBadge>
                       )}
                       {status === "Submitted" && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" /> Awaiting Approval
-                        </span>
+                        <AppStatusBadge status="Submitted">Awaiting Approval</AppStatusBadge>
                       )}
                       {status === "Approved" && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
-                          <CheckCircle className="w-2.5 h-2.5" /> Approved
-                        </span>
+                        <AppStatusBadge status="Approved">Approved</AppStatusBadge>
                       )}
                       {status === "Returned" && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200 flex items-center gap-1 mr-1" title={period.returnRemarks}>
-                          <AlertTriangle className="w-2.5 h-2.5" /> Returned
+                        <span title={period.returnRemarks}>
+                          <AppStatusBadge status="Returned">Returned</AppStatusBadge>
                         </span>
                       )}
                       {canSubmit && onSubmitPeriod && (
-                        <button
+                        <AppButton
                           onClick={() => onSubmitPeriod(period.id)}
-                          className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold bg-stsn-brown text-white rounded-lg hover:opacity-90 transition cursor-pointer"
+                          variant="primary"
+                          size="xs"
+                          leftIcon={Send}
                         >
-                          <Send className="w-2.5 h-2.5" />
                           {status === "Returned" ? "Re-submit" : "Submit for Approval"}
-                        </button>
+                        </AppButton>
                       )}
                     </div>
                   );
@@ -529,56 +528,10 @@ export default function GradesDirectoryPage() {
 
       {/* ── Overview Quick Stats ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          {
-            label: "Class Loads",
-            value: overviewStats.totalLoads,
-            icon: BookOpen,
-            color: isBasicEd ? "text-stsn-brown" : "text-blue-600",
-            bg: isBasicEd ? "bg-stsn-cream" : "bg-blue-50",
-          },
-          {
-            label: `${terms.groupNoun}s`,
-            value: overviewStats.totalSections,
-            icon: Users,
-            color: "text-stone-700",
-            bg: "bg-stone-50",
-          },
-          {
-            label: "Periods Finalized",
-            value: overviewStats.finalizedPeriods,
-            icon: CheckCircle,
-            color: "text-emerald-600",
-            bg: "bg-emerald-50",
-          },
-          {
-            label: "Pending Periods",
-            value: Math.max(0, overviewStats.totalPeriods - overviewStats.finalizedPeriods),
-            icon: Clock,
-            color: "text-amber-600",
-            bg: "bg-amber-50",
-          },
-        ].map(stat => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.label}
-              className="bg-white border border-stsn-beige rounded-xl p-4 flex items-start gap-3"
-            >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${stat.bg}`}>
-                <Icon className={`w-4 h-4 ${stat.color}`} />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wide leading-tight">
-                  {stat.label}
-                </p>
-                <p className={`text-2xl font-display font-bold mt-0.5 ${stat.color}`}>
-                  {stat.value}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+        <AppKpiCard label="Class Loads" value={overviewStats.totalLoads} icon={BookOpen} tone={isBasicEd ? "brand" : "info"} hint="Scoped teaching loads" />
+        <AppKpiCard label={`${terms.groupNoun}s`} value={overviewStats.totalSections} icon={Users} tone="neutral" hint="Visible class groups" />
+        <AppKpiCard label="Periods Finalized" value={overviewStats.finalizedPeriods} icon={CheckCircle} tone="success" hint="Closed grading periods" />
+        <AppKpiCard label="Pending Periods" value={Math.max(0, overviewStats.totalPeriods - overviewStats.finalizedPeriods)} icon={Clock} tone="warning" hint="Still awaiting completion" />
       </div>
 
       {/* ── Principal Grade Approval Queue ── */}
@@ -586,7 +539,7 @@ export default function GradesDirectoryPage() {
         const submittedPeriods = scopedPeriods.filter(p => p.gradeApprovalStatus === "Submitted");
         if (submittedPeriods.length === 0) return null;
         return (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm overflow-hidden">
+          <AppCard className="overflow-hidden border border-amber-200 bg-amber-50/80 p-0">
             <div className="px-5 py-4 border-b border-amber-200 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono uppercase font-bold text-amber-600 tracking-wide">
@@ -642,7 +595,7 @@ export default function GradesDirectoryPage() {
                 );
               })}
             </div>
-          </div>
+          </AppCard>
         );
       })()}
 
