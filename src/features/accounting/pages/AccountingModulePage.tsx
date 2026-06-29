@@ -18,6 +18,7 @@ import {
 import { PreviewModal, ReceiptPreview } from "../../../components/ModalPreviews";
 import AppButton from "../../../components/common/AppButton";
 import AppCard from "../../../components/common/AppCard";
+import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppSearchInput from "../../../components/common/AppSearchInput";
 import AppSelect from "../../../components/common/AppSelect";
@@ -254,7 +255,15 @@ function AccountingDashboard() {
                 </div>
               );
             })}
-            {collectionByMethod.length === 0 && <p className="text-xs text-stone-400 text-center py-4">No collections recorded.</p>}
+            {collectionByMethod.length === 0 && (
+              <AppEmptyState
+                icon={BarChart3}
+                title="No collections recorded"
+                description="Collection breakdowns will appear here once verified payments are posted."
+                compact
+                tone="brand"
+              />
+            )}
           </div>
         </div>
 
@@ -285,7 +294,13 @@ function AccountingDashboard() {
               );
             })}
             {receivables.length === 0 && (
-              <p className="text-xs text-stone-400 text-center py-6">All accounts cleared.</p>
+              <AppEmptyState
+                icon={CheckCircle}
+                title="All accounts cleared"
+                description="Outstanding balances will surface here when active receivables need follow-up."
+                compact
+                tone="success"
+              />
             )}
           </div>
         </div>
@@ -333,7 +348,15 @@ function AccountingDashboard() {
                 </div>
               );
             })}
-            {recentPayments.length === 0 && <p className="text-xs text-stone-400 text-center py-4">No recent payments.</p>}
+            {recentPayments.length === 0 && (
+              <AppEmptyState
+                icon={Receipt}
+                title="No recent payments"
+                description="New collection activity will populate this feed as payments are posted."
+                compact
+                tone="brand"
+              />
+            )}
           </div>
         </div>
 
@@ -357,7 +380,15 @@ function AccountingDashboard() {
                 </div>
               );
             })}
-            {financialHolds.length === 0 && <p className="text-xs text-stone-400 text-center py-6">No financial holds on record.</p>}
+            {financialHolds.length === 0 && (
+              <AppEmptyState
+                icon={Unlock}
+                title="No financial holds on record"
+                description="Student hold alerts will appear here only when account restrictions are active."
+                compact
+                tone="success"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -1483,7 +1514,16 @@ function DiscountManagement() {
                 </div>
                 );
               })}
-              {filteredRequests.length === 0 && <p className="text-center text-xs text-stone-400 py-10">No discount requests found.</p>}
+              {filteredRequests.length === 0 && (
+                <AppEmptyState
+                  icon={Percent}
+                  title="No discount requests found"
+                  description="Matching requests will appear here once submissions reach the accounting queue."
+                  compact
+                  tone="brand"
+                  className="mx-4 my-6"
+                />
+              )}
             </div>
           </div>
       </div>
@@ -2282,7 +2322,14 @@ function AssessmentApprovalDetail({
             </div>
           ))}
           {(!assessment.auditTrail || assessment.auditTrail.length === 0) && (
-            <p className="text-xs text-stone-400 text-center py-2">No audit entries yet.</p>
+            <AppEmptyState
+              icon={History}
+              title="No audit entries yet"
+              description="Assessment review activity will appear here after registrar or accounting actions are logged."
+              compact
+              tone="brand"
+              className="py-6"
+            />
           )}
         </div>
       </div>
