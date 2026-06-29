@@ -44,7 +44,12 @@ import {
 } from "lucide-react";
 import { PreviewModal, CORPreview, IDCardPreview } from "../../../components/ModalPreviews";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
+import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppFilterChip from "../../../components/common/AppFilterChip";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import {
   computeMockAssessment,
@@ -626,15 +631,15 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
             actions={
               <div className="flex flex-col sm:items-end gap-2">
                 {isRecordsView && (
-                  <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
-                    <input
+                  <div className="w-full sm:w-64">
+                    <AppSearchInput
                       type="text"
                       list="student-portal-records-list"
                       value={studentSearchInput}
                       onChange={(e) => handleStudentSearchChange(e.target.value)}
-                      placeholder="Search student…"
-                      className="w-full bg-white/10 border border-white/20 text-white placeholder-white/40 text-xs font-semibold rounded-xl pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#C5A059]"
+                      placeholder="Search student..."
+                      uiSize="sm"
+                      className="border-white/20 bg-white/10 text-white placeholder:text-white/40"
                     />
                     <datalist id="student-portal-records-list">
                       {recordsViewStudents.map((s) => (
@@ -643,27 +648,29 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                     </datalist>
                   </div>
                 )}
-                <button
+                <AppButton
                   onClick={() => setIsCorModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg transition cursor-pointer whitespace-nowrap"
+                  variant="primary"
+                  size="sm"
+                  leftIcon={Award}
+                  className="whitespace-nowrap"
                 >
-                  <Award className="w-4 h-4" />
                   Official COR PDF
-                </button>
+                </AppButton>
               </div>
             }
           />
 
           {/* ENROLLMENT STEPPER BAR */}
-          <div className="bg-white p-5 rounded-xl border border-stsn-beige shadow-sm">
+          <AppCard className="p-5" tone="brand">
             <div className="flex justify-between items-center pb-2.5 mb-4 border-b border-stone-100">
               <div>
                 <span className="text-[9.5px] font-mono text-stone-400 font-bold uppercase block">Enrollment Progress Tracker</span>
                 <span className="text-xs font-bold text-stone-900 uppercase">Interactive Enrollment Milestone</span>
               </div>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stsn-gold/20 text-[#603513] border border-stsn-gold/30">
+              <AppStatusBadge status={currentStatusString} className="text-[10px] normal-case tracking-normal">
                 Active Status: {currentStatusString}
-              </span>
+              </AppStatusBadge>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               {statuses.map((item, idx) => {
@@ -694,7 +701,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                 );
               })}
             </div>
-          </div>
+          </AppCard>
         </>
       )}
 
@@ -975,7 +982,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
           )}
 
           {/* Header Banner */}
-          <div className="flex items-center gap-4 bg-gradient-to-r from-stsn-brown to-stsn-brown-dark rounded-2xl p-5 text-white">
+          <AppCard className="flex items-center gap-4 bg-gradient-to-r from-stsn-brown to-stsn-brown-dark p-5 text-white" tone="brand">
             <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
               <Monitor className="w-5 h-5 text-stsn-gold" />
             </div>
@@ -989,20 +996,16 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
               </p>
               <p className="text-[10px] font-mono text-stone-300">Available Lessons</p>
             </div>
-          </div>
+          </AppCard>
 
           {/* Search + Filter */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Search lessons, subjects, teachers..."
-                value={lmsSearch}
-                onChange={(e) => setLmsSearch(e.target.value)}
-                className="w-full bg-white border border-stone-200 rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-stsn-brown/20 focus:border-stsn-brown"
-              />
-            </div>
+          <AppCard className="flex flex-wrap items-center gap-2 p-4" tone="brand">
+            <AppSearchInput
+              value={lmsSearch}
+              onChange={(e) => setLmsSearch(e.target.value)}
+              placeholder="Search lessons, subjects, teachers..."
+              wrapperClassName="min-w-[200px] flex-1"
+            />
             <div className="flex gap-1.5">
               {(["All", "Video", "Module", "Document"] as const).map((t) => (
                 <AppFilterChip
@@ -1013,7 +1016,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                 />
               ))}
             </div>
-          </div>
+          </AppCard>
 
           {/* Materials Grid - published materials scoped to the student's enrolled subjects/profile */}
           {(() => {
@@ -1038,11 +1041,11 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
 
             if (publishedMaterials.length === 0) {
               return (
-                <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
-                  <Monitor className="w-10 h-10 text-stone-300 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-stone-500">No learning materials found</p>
-                  <p className="text-xs text-stone-400 mt-1">Try adjusting your search or filters</p>
-                </div>
+                <AppEmptyState
+                  icon={Monitor}
+                  title="No learning materials found"
+                  description="Try adjusting your search or filters."
+                />
               );
             }
 

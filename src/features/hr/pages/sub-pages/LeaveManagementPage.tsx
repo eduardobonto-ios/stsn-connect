@@ -8,6 +8,9 @@ import { FileCheck, Plus, X, CheckCircle, XCircle } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
+import AppButton from "../../../../components/common/AppButton";
+import AppCard from "../../../../components/common/AppCard";
+import AppTabs from "../../../../components/common/AppTabs";
 import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import SLABadge from "../../../../components/common/SLABadge";
 import { LeaveRequest, LeaveType } from "../../../../types";
@@ -297,7 +300,7 @@ export default function LeaveManagementPage() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
+      <AppCard className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" tone="brand">
         <div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <FileCheck className="w-5 h-5 text-stsn-brown" />
@@ -310,25 +313,21 @@ export default function LeaveManagementPage() {
             <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full font-semibold">{pendingCount} pending approval{pendingCount > 1 ? "s" : ""}</span>
           )}
           {tab === "requests" && (
-            <button onClick={() => setShowModal(true)} className="btn-primary-gradient text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 cursor-pointer">
-              <Plus className="w-4 h-4" /> File Leave
-            </button>
+            <AppButton onClick={() => setShowModal(true)} size="sm" leftIcon={Plus}>
+              File Leave
+            </AppButton>
           )}
         </div>
-      </div>
+      </AppCard>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-stone-100 p-1 rounded-xl w-fit">
-        {(["requests", "types"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${tab === t ? "bg-white text-stsn-brown shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
-          >
-            {t === "requests" ? `Leave Requests (${leaveRequests.length})` : `Leave Types (${leaveTypes.length})`}
-          </button>
-        ))}
-      </div>
+      <AppTabs
+        items={[
+          { value: "requests", label: "Requests", badge: leaveRequests.length },
+          { value: "types", label: "Leave Types", badge: leaveTypes.length },
+        ]}
+        value={tab}
+        onChange={(value) => setTab(value)}
+      />
 
       {tab === "requests" && (
         <AppTable<LeaveRequest>

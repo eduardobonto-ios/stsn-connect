@@ -15,7 +15,6 @@ import {
   FileCheck,
   LayoutDashboard,
   Percent,
-  Search,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -23,6 +22,8 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import AppCard from "../../../components/common/AppCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useSTSNStore } from "../../../services/store";
 import HRDashboardPage from "./sub-pages/HRDashboardPage";
@@ -338,7 +339,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
         meta={`${activeEmployees} staff · ${pendingLeave + pendingTimeLogs} pending approvals`}
       />
 
-      <section className="overflow-hidden rounded-xl border border-stsn-beige bg-white shadow-sm">
+      <AppCard className="overflow-hidden" padded={false} tone="brand">
         <div className="p-5 sm:p-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
             {[
@@ -358,18 +359,15 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-            <div className="rounded-lg border border-stsn-beige bg-stsn-cream p-3">
+            <div className="rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-stone-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search HR workflows, payroll, leave, attendance..."
-                    className="w-full rounded-lg border border-stone-200 bg-white py-2 pl-9 pr-3 text-xs font-medium text-stone-700 outline-none transition focus:border-stsn-brown focus:ring-2 focus:ring-stsn-brown/10"
-                  />
-                </div>
+                <AppSearchInput
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search HR workflows, payroll, leave, attendance..."
+                  wrapperClassName="flex-1"
+                  uiSize="sm"
+                />
                 <div className="flex flex-wrap gap-1.5">
                   {(["All", ...GROUPS] as const).map((group) => (
                     <button
@@ -421,7 +419,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
               </div>
             </div>
 
-            <div className="rounded-lg border border-stsn-beige bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface)] p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3 border-b border-stone-100 pb-3">
                 <div>
                   <p className="text-sm font-display font-bold text-stone-900">Priority Queue</p>
@@ -449,7 +447,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
                   </button>
                 ))}
               </div>
-              <div className="mt-4 rounded-lg border border-stsn-beige bg-stsn-cream p-3">
+              <div className="mt-4 rounded-2xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] p-3">
                 <p className="text-xs font-bold text-stsn-brown">Best-practice HR operating rhythm</p>
                 <p className="mt-1 text-[11px] leading-5 text-stone-600">
                   Resolve time and leave exceptions before payroll, then review coverage and onboarding so staffing decisions stay accurate.
@@ -458,7 +456,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
             </div>
           </div>
         </div>
-      </section>
+      </AppCard>
 
       <div
         ref={activeSectionRef}

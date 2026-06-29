@@ -7,6 +7,8 @@ import React, { useState, useMemo } from "react";
 import { Users, ChevronRight, X, Clock } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
+import AppCard from "../../../../components/common/AppCard";
+import AppSearchInput from "../../../../components/common/AppSearchInput";
 import AppTable, {
   appTableColumnsFromLegacy,
   type AppTableLegacyColumn,
@@ -114,7 +116,7 @@ interface ProfilePanelProps {
 function ProfilePanel({ employee, lifecycleEvents, onClose, onChangeStatus }: ProfilePanelProps) {
   const empEvents = lifecycleEvents.filter((e) => e.employeeId === employee.id);
   return (
-    <div className="bg-white border border-stsn-beige rounded-xl shadow-sm flex flex-col h-full">
+    <AppCard className="flex flex-col h-full" padded={false} tone="brand">
       <div className="p-4 border-b border-stsn-beige flex items-center justify-between">
         <div>
           <p className="text-sm font-bold text-stone-800">{employee.firstName} {employee.lastName}</p>
@@ -184,7 +186,7 @@ function ProfilePanel({ employee, lifecycleEvents, onClose, onChangeStatus }: Pr
           Change Status
         </button>
       </div>
-    </div>
+    </AppCard>
   );
 }
 
@@ -291,7 +293,7 @@ export default function EmployeeLifecyclePage() {
   return (
     <div className="space-y-6 animate-fade-in font-sans">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white border border-stsn-beige rounded-xl shadow-sm gap-4">
+      <AppCard className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" tone="brand">
         <div>
           <h2 className="text-xl font-display font-semibold text-stone-900 tracking-tight flex items-center gap-2">
             <Users className="w-5 h-5 text-stsn-brown" />
@@ -305,7 +307,7 @@ export default function EmployeeLifecyclePage() {
           <p className="text-2xl font-display font-bold text-stsn-brown">{employees.length}</p>
           <p className="text-[10px] text-stone-400 uppercase font-mono tracking-wider">Total Employees</p>
         </div>
-      </div>
+      </AppCard>
 
       {/* Main content */}
       <div className={`flex gap-4 ${selectedEmployee ? "flex-col lg:flex-row" : ""}`}>
@@ -315,12 +317,12 @@ export default function EmployeeLifecyclePage() {
           enableSearch={false}
           toolbar={
             <>
-              <input
-                type="search"
+              <AppSearchInput
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search name, position, EE #..."
-                className="h-9 min-w-[220px] rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+                wrapperClassName="min-w-[220px]"
+                uiSize="sm"
               />
               <select
                 value={filterDept}
