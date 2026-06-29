@@ -7,8 +7,10 @@ import React, { useState, useMemo } from "react";
 import { UserCheck, CheckCircle, Clock, SkipForward, X, ChevronRight } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../../components/common/AppTable";
 import { EmployeeOnboardingTask, OnboardingTask } from "../../../../types";
 
 const TASK_STATUS_COLORS: Record<string, string> = {
@@ -142,7 +144,7 @@ export default function OnboardingPage() {
 
   type EmpRow = typeof onboardingEmployees[0];
 
-  const empColumns: STSNColumn<EmpRow>[] = [
+  const empColumns: AppTableLegacyColumn<EmpRow>[] = [
     {
       title: "Employee",
       render: (_, row) => (
@@ -233,26 +235,11 @@ export default function OnboardingPage() {
       )}
 
       <div className={`flex gap-4 ${selectedEmployeeId ? "flex-col lg:flex-row" : ""}`}>
-        <DataTableCard
-          title="Onboarding Employees"
-          icon={UserCheck}
-          actions={
-            <>
-              {["All", "In Progress", "Complete"].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setFilterStatus(s)}
-                  className={`text-xs px-3 py-1 rounded-full border font-semibold cursor-pointer transition-all ${filterStatus === s ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-500 hover:border-stsn-gold"}`}
-                >
-                  {s}
-                </button>
-              ))}
-              <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">{filtered.length} employee(s)</span>
-            </>
-          }
-          className={selectedEmployeeId ? "lg:flex-1" : "w-full"}
-        >
-          {onboardingEmployees.length === 0 ? (
+        {onboardingEmployees.length === 0 ? (
+          <section className={`overflow-hidden rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface)] shadow-sm ${selectedEmployeeId ? "lg:flex-1" : "w-full"}`}>
+            <div className="border-b border-[var(--erp-border)] px-4 py-3">
+              <h3 className="text-sm font-bold text-[var(--erp-text)]">Onboarding Employees</h3>
+            </div>
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <UserCheck className="w-10 h-10 text-stone-200" />
               <p className="text-sm font-semibold text-stone-500">No employees in onboarding</p>
@@ -260,18 +247,37 @@ export default function OnboardingPage() {
                 Employees with "For Onboarding" status or assigned onboarding tasks will appear here. Set an employee's status to "For Onboarding" from the Employee Life Cycles page.
               </p>
             </div>
-          ) : (
-            <STSNDataTable<EmpRow>
-              columns={empColumns}
-              rows={filtered}
-              emptyMessage="No employees match the current filter."
-              pageLength={10}
-              searchable={false}
-              onRowClick={(row) => setSelectedEmployeeId(row.id)}
-              selectedId={selectedEmployeeId ?? undefined}
-            />
-          )}
-        </DataTableCard>
+          </section>
+        ) : (
+          <AppTable<EmpRow>
+            title="Onboarding Employees"
+            enableSearch={false}
+            toolbar={
+              <>
+                {["All", "In Progress", "Complete"].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setFilterStatus(s)}
+                    className={`text-xs px-3 py-1 rounded-full border font-semibold cursor-pointer transition-all ${filterStatus === s ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-500 hover:border-stsn-gold"}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+                <span className="text-[11px] font-mono text-stone-400 whitespace-nowrap">{filtered.length} employee(s)</span>
+              </>
+            }
+            className={selectedEmployeeId ? "lg:flex-1" : "w-full"}
+            data={filtered}
+            columns={appTableColumnsFromLegacy(empColumns)}
+            emptyMessage="No employees match the current filter."
+            loading={false}
+            initialPageSize={10}
+            pageSizeOptions={[10]}
+            getRowId={(row) => row.id}
+            onRowClick={(row) => setSelectedEmployeeId(row.id)}
+            selectedRowId={selectedEmployeeId ?? undefined}
+          />
+        )}
         {selectedEmployeeId && (
           <div className="lg:w-96 flex-shrink-0">
             <EmployeeChecklist

@@ -8,8 +8,7 @@ import { FileCheck, Plus, X, CheckCircle, XCircle } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, { type AppTableColumn } from "../../../../components/common/AppTable";
 import SLABadge from "../../../../components/common/SLABadge";
 import { LeaveRequest, LeaveType } from "../../../../types";
 
@@ -122,7 +121,7 @@ export default function LeaveManagementPage() {
 
   const pendingCount = useMemo(() => leaveRequests.filter((r) => r.status === "For Approval" || r.status === "Submitted").length, [leaveRequests]);
 
-  const requestColumns: STSNColumn<LeaveRequest>[] = [
+  const legacyRequestColumns: any[] = [
     {
       title: "Employee",
       render: (_, row) => {
@@ -180,7 +179,7 @@ export default function LeaveManagementPage() {
     },
   ];
 
-  const typeColumns: STSNColumn<LeaveType>[] = [
+  const legacyTypeColumns: any[] = [
     { title: "Code", data: "code", render: (v) => <span className="font-mono text-xs font-bold text-stsn-brown">{v}</span>, width: "80px" },
     { title: "Name", data: "name", render: (v) => <span className="text-xs font-semibold">{v}</span> },
     { title: "Paid", data: "isPaid", render: (v) => <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${v ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-500"}`}>{v ? "Paid" : "Unpaid"}</span>, width: "70px" },
@@ -194,6 +193,88 @@ export default function LeaveManagementPage() {
         ? <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Active</span>
         : <span className="text-[10px] bg-stone-100 text-stone-400 px-2 py-0.5 rounded-full font-semibold">Inactive</span>,
       width: "75px",
+    },
+  ];
+
+  void legacyRequestColumns;
+  void legacyTypeColumns;
+
+  const requestColumns: AppTableColumn<LeaveRequest>[] = [
+    {
+      accessorKey: "employeeId",
+      header: "Employee",
+      cell: ({ row }) => {
+        const e = employeeMap.get(row.original.employeeId);
+        return e ? <span className="text-xs font-semibold text-stone-800">{e.firstName} {e.lastName}</span> : <span className="text-xs text-stone-400">—</span>;
+      },
+    },
+    {
+      accessorKey: "leaveTypeId",
+      header: "Leave Type",
+      cell: ({ row }) => {
+        const t = leaveTypeMap.get(row.original.leaveTypeId);
+        return t ? <span className="text-xs">{t.name} <span className="text-[10px] text-stone-400">{t.isPaid ? "• Paid" : "• Unpaid"}</span></span> : <span className="text-xs text-stone-400">—</span>;
+      },
+    },
+    { accessorKey: "startDate", header: "Start", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    { accessorKey: "endDate", header: "End", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    { accessorKey: "totalDays", header: "Days", cell: ({ getValue }) => <span className="text-xs font-semibold">{String(getValue())}</span> },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ getValue }) => {
+        const value = String(getValue());
+        return <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${REQUEST_STATUS_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>;
+      },
+    },
+    {
+      id: "sla",
+      header: "SLA",
+      enableSorting: false,
+      enableGlobalFilter: false,
+      cell: ({ row }) => (row.original.status === "Submitted" || row.original.status === "For Approval")
+        ? <SLABadge dateStr={row.original.createdAt} />
+        : <span className="text-[9px] text-stone-300">—</span>,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      enableGlobalFilter: false,
+      cell: ({ row }) => {
+        const req = row.original;
+        const canAct = req.status === "Submitted" || req.status === "For Approval";
+        const canCancel = req.status !== "Cancelled" && req.status !== "Approved";
+        return (
+          <div className="flex gap-1">
+            {canAct && (
+              <>
+                <button type="button" onClick={(e) => { e.stopPropagation(); handleApprove(req.id); }} className="p-1 rounded hover:bg-emerald-50 cursor-pointer" title="Approve"><CheckCircle className="w-4 h-4 text-emerald-500" /></button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); handleReject(req.id); }} className="p-1 rounded hover:bg-red-50 cursor-pointer" title="Reject"><XCircle className="w-4 h-4 text-red-400" /></button>
+              </>
+            )}
+            {canCancel && (
+              <button type="button" onClick={(e) => { e.stopPropagation(); handleCancel(req.id); }} className="text-[10px] px-2 py-0.5 rounded border border-stone-200 text-stone-400 hover:bg-stone-50 cursor-pointer">Cancel</button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  const typeColumns: AppTableColumn<LeaveType>[] = [
+    { accessorKey: "code", header: "Code", cell: ({ getValue }) => <span className="font-mono text-xs font-bold text-stsn-brown">{String(getValue())}</span> },
+    { accessorKey: "name", header: "Name", cell: ({ getValue }) => <span className="text-xs font-semibold">{String(getValue())}</span> },
+    { accessorKey: "isPaid", header: "Paid", cell: ({ getValue }) => getValue<boolean>() ? <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">Paid</span> : <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-stone-100 text-stone-500">Unpaid</span> },
+    { accessorKey: "defaultCredits", header: "Credits/yr", cell: ({ getValue }) => <span className="text-xs">{String(getValue())} days</span> },
+    { accessorKey: "maxDaysPerRequest", header: "Max/Request", cell: ({ getValue }) => <span className="text-xs">{getValue<number | undefined>() ? `${getValue<number>()} days` : "—"}</span> },
+    { accessorKey: "requiresApproval", header: "Approval Req.", cell: ({ getValue }) => <span className={`text-[10px] ${getValue<boolean>() ? "text-amber-600 font-semibold" : "text-stone-400"}`}>{getValue<boolean>() ? "Yes" : "No"}</span> },
+    {
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ getValue }) => getValue<boolean>()
+        ? <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Active</span>
+        : <span className="text-[10px] bg-stone-100 text-stone-400 px-2 py-0.5 rounded-full font-semibold">Inactive</span>,
     },
   ];
 
@@ -250,10 +331,26 @@ export default function LeaveManagementPage() {
       </div>
 
       {tab === "requests" && (
-        <DataTableCard
+        <AppTable<LeaveRequest>
+          data={filteredRequests}
+          columns={requestColumns}
           title="Leave Requests"
-          icon={FileCheck}
-          actions={
+          searchPlaceholder="Search leave requests..."
+          emptyMessage="No leave requests found."
+          emptyDescription="Adjust the employee, status, or search filters."
+          loading={false}
+          enableColumnVisibility={false}
+          initialPageSize={15}
+          pageSizeOptions={[15]}
+          getRowId={(row) => row.id}
+          getRowClassName={(req) => {
+            if (req.status === "Rejected" || req.status === "Cancelled") return "bg-red-50";
+            if (req.status === "Approved") return "bg-emerald-50";
+            if (req.status === "Submitted" || req.status === "For Approval") return "bg-amber-50";
+            if (req.status === "Draft") return "bg-blue-50";
+            return undefined;
+          }}
+          toolbar={
             <>
               <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)} className="border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-stsn-gold cursor-pointer bg-stone-50">
                 <option value="All">All Employees</option>
@@ -265,32 +362,23 @@ export default function LeaveManagementPage() {
               </select>
             </>
           }
-        >
-          <STSNDataTable<LeaveRequest>
-            columns={requestColumns}
-            rows={filteredRequests}
-            emptyMessage="No leave requests found."
-            pageLength={15}
-            rowColorClass={(req) => {
-              if (req.status === "Rejected" || req.status === "Cancelled") return "bg-red-50";
-              if (req.status === "Approved") return "bg-emerald-50";
-              if (req.status === "Submitted" || req.status === "For Approval") return "bg-amber-50";
-              if (req.status === "Draft") return "bg-blue-50";
-              return undefined;
-            }}
-          />
-        </DataTableCard>
+        />
       )}
 
       {tab === "types" && (
-        <DataTableCard title="Leave Types" icon={FileCheck}>
-          <STSNDataTable<LeaveType>
-            columns={typeColumns}
-            rows={leaveTypes}
-            emptyMessage="No leave types configured."
-            pageLength={10}
-          />
-        </DataTableCard>
+        <AppTable<LeaveType>
+          data={leaveTypes}
+          columns={typeColumns}
+          title="Leave Types"
+          searchPlaceholder="Search leave types..."
+          emptyMessage="No leave types configured."
+          emptyDescription="Add leave types before filing leave requests."
+          loading={false}
+          enableColumnVisibility={false}
+          initialPageSize={10}
+          pageSizeOptions={[10]}
+          getRowId={(row) => row.id}
+        />
       )}
 
       {showModal && <FileLeaveModal onClose={() => setShowModal(false)} onSave={handleFile} />}

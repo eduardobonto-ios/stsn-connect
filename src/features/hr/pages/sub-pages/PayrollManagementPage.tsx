@@ -31,7 +31,11 @@ import {
   ShieldAlert
 } from "lucide-react";
 import { PreviewModal, PayslipPreview } from "../../../../components/ModalPreviews";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../../components/common/AppTable";
+import AppStatusBadge from "../../../../components/common/AppStatusBadge";
 import EmptyState from "../../../../components/common/EmptyState";
 import { calculatePayrollLine } from "../../utils/payrollCalculations";
 
@@ -471,7 +475,7 @@ export default function PayrollManagementPage() {
     toast("Legacy bi-weekly payroll ledger processed. Use Generate Payroll Run for the approved payout workflow.");
   };
 
-  const payrollRunColumns = useMemo<STSNColumn<PayrollRun>[]>(() => [
+  const payrollRunColumns = useMemo<AppTableLegacyColumn<PayrollRun>[]>(() => [
     { title: "Run #", data: "runNo", render: (value) => <span className="font-mono text-xs font-bold text-stsn-brown">{value}</span> },
     {
       title: "Period",
@@ -483,7 +487,7 @@ export default function PayrollManagementPage() {
     {
       title: "Status",
       data: "status",
-      render: (value) => <span className="text-[10px] px-2 py-0.5 rounded-full bg-stsn-cream text-stsn-brown font-bold border border-stsn-beige">{value}</span>,
+      render: (value) => <AppStatusBadge status={String(value)} className="text-[10px]" />,
       width: "95px",
     },
     {
@@ -525,7 +529,7 @@ export default function PayrollManagementPage() {
     },
   ], [payrollLines, payrollPeriods, salaryPayoutBatches]);
 
-  const payrollLineColumns = useMemo<STSNColumn<PayrollLine>[]>(() => [
+  const payrollLineColumns = useMemo<AppTableLegacyColumn<PayrollLine>[]>(() => [
     {
       title: "Employee",
       render: (_, row) => {
@@ -553,10 +557,10 @@ export default function PayrollManagementPage() {
       render: (value) => <span className="payroll-money-cell font-mono text-xs font-bold text-stsn-brown">PHP {Number(value).toLocaleString()}</span>,
       width: "120px",
     },
-    { title: "Status", data: "status", render: (value) => <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-semibold">{value}</span>, width: "90px" },
+    { title: "Status", data: "status", render: (value) => <AppStatusBadge status={String(value)} className="text-[10px]" />, width: "90px" },
   ], [employeeMap]);
 
-  const payrollExceptionColumns = useMemo<STSNColumn<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>[]>(() => [
+  const payrollExceptionColumns = useMemo<AppTableLegacyColumn<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>[]>(() => [
     { title: "Issue", data: "issue", render: (value) => <span className="text-xs font-bold text-stone-800">{value}</span> },
     { title: "Detail", data: "detail", render: (value) => <span className="text-xs text-stone-500">{value}</span> },
     {
@@ -571,7 +575,7 @@ export default function PayrollManagementPage() {
     },
   ], []);
 
-  const payrollColumns = useMemo<STSNColumn<PayrollRow>[]>(() => [
+  const payrollColumns = useMemo<AppTableLegacyColumn<PayrollRow>[]>(() => [
     { title: "Period Range", data: "period", className: "text-stone-800 font-semibold" },
     {
       title: "Gross Pay",
@@ -789,11 +793,14 @@ export default function PayrollManagementPage() {
               {payrollExceptionRows.length} issue(s)
             </span>
           </div>
-          <STSNDataTable<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>
-            columns={payrollExceptionColumns}
-            rows={payrollExceptionRows}
+          <AppTable<{ issue: string; detail: string; severity: "Warning" | "Blocking" }>
+            columns={appTableColumnsFromLegacy(payrollExceptionColumns)}
+            data={payrollExceptionRows}
             emptyMessage="No payroll exceptions detected."
-            pageLength={5}
+            loading={false}
+            initialPageSize={5}
+            pageSizeOptions={[5]}
+            compact
           />
         </div>
 
@@ -804,11 +811,15 @@ export default function PayrollManagementPage() {
                 Payroll runs
               </p>
             </div>
-            <STSNDataTable<PayrollRun>
-              columns={payrollRunColumns}
-              rows={scopedPayrollRuns}
+            <AppTable<PayrollRun>
+              columns={appTableColumnsFromLegacy(payrollRunColumns)}
+              data={scopedPayrollRuns}
               emptyMessage="No payroll runs yet. Generate a payroll run to start the controlled workflow."
-              pageLength={5}
+              loading={false}
+              initialPageSize={5}
+              pageSizeOptions={[5]}
+              getRowId={(row) => row.id}
+              compact
               className="payroll-workflow-table"
             />
           </div>
@@ -818,11 +829,15 @@ export default function PayrollManagementPage() {
                 Latest run lines {latestPayrollRun ? `for ${latestPayrollRun.runNo}` : ""}
               </p>
             </div>
-            <STSNDataTable<PayrollLine>
-              columns={payrollLineColumns}
-              rows={latestPayrollRunLines}
+            <AppTable<PayrollLine>
+              columns={appTableColumnsFromLegacy(payrollLineColumns)}
+              data={latestPayrollRunLines}
               emptyMessage="No computed payroll lines for the latest run."
-              pageLength={5}
+              loading={false}
+              initialPageSize={5}
+              pageSizeOptions={[5]}
+              getRowId={(row) => row.id}
+              compact
               className="payroll-workflow-table"
             />
           </div>
@@ -960,10 +975,14 @@ export default function PayrollManagementPage() {
               </h3>
 
               <div className="mt-4">
-                <STSNDataTable<PayrollRow>
-                  columns={payrollColumns}
-                  rows={employeePayrollList}
+                <AppTable<PayrollRow>
+                  columns={appTableColumnsFromLegacy(payrollColumns)}
+                  data={employeePayrollList}
                   emptyMessage='No payroll schedules logged. Try hitting "Process Global Payroll" in the header bar above.'
+                  loading={false}
+                  initialPageSize={10}
+                  pageSizeOptions={[10]}
+                  getRowId={(row) => row.id}
                 />
               </div>
             </div>

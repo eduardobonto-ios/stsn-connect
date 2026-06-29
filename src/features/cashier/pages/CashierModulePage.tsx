@@ -13,10 +13,12 @@ import {
   TrendingUp, CalendarDays,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppButton from "../../../components/common/AppButton";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import { ReceiptPreview } from "../../../components/ModalPreviews";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import EmptyState from "../../../components/common/EmptyState";
 import { PreviewModal } from "../../../components/ModalPreviews";
 import { getAccountingLabels, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
@@ -108,6 +110,7 @@ const CASHIER_REPORT_COLUMNS: Record<CashierReportId, ReportColumn[]> = {
 };
 
 type CashierPaymentRow = { payment: Payment; student?: Student; assessment?: StudentAssessment };
+type CashierHistoryRow = { payment: Payment; student?: Student; assessment?: StudentAssessment };
 
 function formatMoney(value: number): string {
   return `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -432,11 +435,14 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       .sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate)) || String(a.cashier).localeCompare(String(b.cashier)));
   }, [reportPaymentRows, scopedAssessments, selectedReportId]);
 
-  const cashierReportTableColumns = useMemo<STSNColumn<ReportRow>[]>(() => reportColumns.map((column) => ({
-    title: column.label,
-    data: column.key,
-    className: column.align === "right" ? "text-right" : column.align === "center" ? "text-center" : undefined,
-    render: (value) => <span className="text-xs text-stone-700">{String(value ?? "")}</span>,
+  const cashierReportTableColumns = useMemo<AppTableColumn<ReportRow>[]>(() => reportColumns.map((column) => ({
+    accessorKey: column.key,
+    header: column.label,
+    cell: ({ getValue }) => (
+      <span className={`block text-xs text-stone-700 ${column.align === "right" ? "text-right" : column.align === "center" ? "text-center" : ""}`}>
+        {String(getValue() ?? "")}
+      </span>
+    ),
   })), [reportColumns]);
 
   const exportCurrentReport = (format: "print" | "csv" | "excel" | "pdf") => {
@@ -503,16 +509,17 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     setReceipt({ payment: row.payment, student: row.student, assessment: row.assessment });
   };
 
-  const historyColumns: STSNColumn<{ payment: Payment; student?: Student; assessment?: StudentAssessment }>[] = [
+  const historyColumns: AppTableColumn<CashierHistoryRow>[] = [
     {
-      title: "OR Number",
-      data: "payment.orNumber",
-      className: "font-mono font-bold text-stsn-brown",
-      render: (value, row) => {
-        const existingVoid = voidRequests.find((v) => v.paymentId === row.payment.id);
+      id: "orNumber",
+      header: "OR Number",
+      accessorFn: (row) => row.payment.orNumber,
+      cell: ({ row, getValue }) => {
+        const original = row.original;
+        const existingVoid = voidRequests.find((v) => v.paymentId === original.payment.id);
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="font-mono font-bold text-stsn-brown">{String(value)}</span>
+            <span className="font-mono font-bold text-stsn-brown">{String(getValue())}</span>
             {existingVoid && (
               <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-md w-fit ${
                 existingVoid.status === "Pending Void Approval"
@@ -530,43 +537,63 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       },
     },
     {
-      title: "Student",
-      data: "student.lastName",
-      render: (_value, row) => (
+      id: "student",
+      header: "Student",
+      accessorFn: (row) => row.student ? `${row.student.lastName}, ${row.student.firstName}` : "Unknown Student",
+      cell: ({ row }) => (
         <>
-          <span className="font-semibold text-stone-800">{row.student ? `${row.student.lastName}, ${row.student.firstName}` : "Unknown Student"}</span>
-          <span className="text-[10px] text-stone-400 block font-mono">{row.student?.studentNo}</span>
+          <span className="font-semibold text-stone-800">{row.original.student ? `${row.original.student.lastName}, ${row.original.student.firstName}` : "Unknown Student"}</span>
+          <span className="text-[10px] text-stone-400 block font-mono">{row.original.student?.studentNo}</span>
         </>
       ),
     },
-    { title: "Date", data: "payment.paymentDate", className: "font-mono text-stone-600" },
-    { title: "Method", data: "payment.paymentMethod", className: "text-stone-600" },
-    { title: "Term", data: "payment.term", className: "text-stone-600" },
     {
-      title: "Amount",
-      data: "payment.amount",
-      className: "text-right font-mono font-bold text-stone-800",
-      render: (value: number) => `₱${value.toLocaleString()}`,
+      id: "date",
+      header: "Date",
+      accessorFn: (row) => row.payment.paymentDate,
+      cell: ({ getValue }) => <span className="font-mono text-stone-600">{String(getValue() ?? "")}</span>,
     },
     {
-      title: "Actions",
-      className: "text-right",
-      orderable: false,
-      searchable: false,
-      render: (_value, row) => {
-        const existingVoid = voidRequests.find((v) => v.paymentId === row.payment.id);
+      id: "method",
+      header: "Method",
+      accessorFn: (row) => row.payment.paymentMethod,
+      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue() ?? "")}</span>,
+    },
+    {
+      id: "term",
+      header: "Term",
+      accessorFn: (row) => row.payment.term,
+      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue() ?? "")}</span>,
+    },
+    {
+      id: "amount",
+      header: "Amount",
+      accessorFn: (row) => row.payment.amount,
+      cell: ({ getValue }) => (
+        <span className="block text-right font-mono font-bold text-stone-800">
+          {formatMoney(Number(getValue() ?? 0))}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const original = row.original;
+        const existingVoid = voidRequests.find((v) => v.paymentId === original.payment.id);
         const canRequestVoid = !existingVoid || existingVoid.status === "Rejected";
         return (
           <div className="flex items-center justify-end gap-1.5">
             <button
-              onClick={() => reprintReceipt(row)}
+              onClick={() => reprintReceipt(original)}
               className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-stsn-cream text-stsn-brown border border-stsn-beige hover:bg-stsn-beige cursor-pointer transition"
             >
               <Printer className="w-3 h-3" /> View
             </button>
             {canRequestVoid && (
               <button
-                onClick={() => { setVoidModalPaymentId(row.payment.id); setVoidReason(""); }}
+                onClick={() => { setVoidModalPaymentId(original.payment.id); setVoidReason(""); }}
                 className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 cursor-pointer transition"
                 title="Request void / cancellation"
               >
@@ -730,9 +757,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                         {/* Left — student + assessment info */}
                         <div className="flex-1 p-4 bg-stone-50/60">
                           <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].badgeClass}`}>
-                              {ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].label}
-                            </span>
+                            <AppStatusBadge status={ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].label} />
                             {books && (
                               <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border text-purple-700 bg-purple-50 border-purple-200 flex items-center gap-1">
                                 <Package className="w-3 h-3" /> {books.packageName}
@@ -767,13 +792,9 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                               ₱{assessment.balance.toLocaleString()}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => openCollect(assessment.id)}
-                            className="stsn-btn stsn-btn-primary stsn-btn-sm w-full justify-center flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Banknote className="w-3.5 h-3.5" /> Collect Payment
-                          </button>
+                          <AppButton type="button" onClick={() => openCollect(assessment.id)} leftIcon={Banknote} variant="primary" size="sm" fullWidth>
+                            Collect Payment
+                          </AppButton>
                         </div>
                       </div>
                     );
@@ -807,7 +828,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                           <p className="text-[10px] font-mono text-stone-400">{student?.studentNo} • {getAcademicLine(student, academicUnit)}</p>
                         </div>
                         <div className="text-right">
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${cfg.badgeClass}`}>{cfg.label}</span>
+                          <AppStatusBadge status={cfg.label} />
                           <p className="text-[10px] text-stone-400 mt-1 font-mono">₱{assessment.balance.toLocaleString()}</p>
                         </div>
                       </div>
@@ -845,10 +866,14 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 compact
               />
             ) : (
-              <STSNDataTable
+              <AppTable<CashierHistoryRow>
                 columns={historyColumns}
-                rows={filteredHistoryRows}
+                data={filteredHistoryRows}
                 emptyMessage="No payments recorded yet."
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                enableSearch={false}
+                getRowId={(row) => row.payment.id}
               />
             )}
           </div>
@@ -910,18 +935,10 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 <p className="text-xs text-stone-500 mt-0.5 ml-6">{selectedReport.desc}</p>
               </div>
               <div className="flex flex-wrap gap-2 flex-shrink-0">
-                <button type="button" onClick={() => exportCurrentReport("print")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
-                  <Printer className="w-3.5 h-3.5" /> Print
-                </button>
-                <button type="button" onClick={() => exportCurrentReport("csv")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
-                  <Download className="w-3.5 h-3.5" /> CSV
-                </button>
-                <button type="button" onClick={() => exportCurrentReport("excel")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
-                  <Download className="w-3.5 h-3.5" /> Excel
-                </button>
-                <button type="button" onClick={() => exportCurrentReport("pdf")} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">
-                  <Download className="w-3.5 h-3.5" /> PDF
-                </button>
+                <AppButton type="button" onClick={() => exportCurrentReport("print")} leftIcon={Printer} variant="outline" size="sm">Print</AppButton>
+                <AppButton type="button" onClick={() => exportCurrentReport("csv")} leftIcon={Download} variant="outline" size="sm">CSV</AppButton>
+                <AppButton type="button" onClick={() => exportCurrentReport("excel")} leftIcon={Download} variant="outline" size="sm">Excel</AppButton>
+                <AppButton type="button" onClick={() => exportCurrentReport("pdf")} leftIcon={Download} variant="outline" size="sm">PDF</AppButton>
               </div>
             </div>
             <div className="p-4">
@@ -931,11 +948,14 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                   <span>Shows all receipts with an active void request (Pending, Approved, or Rejected). Cashiers can submit void requests from Collection History; Accounting approves via the Approval Queue.</span>
                 </div>
               )}
-              <STSNDataTable
+              <AppTable<ReportRow>
                 columns={cashierReportTableColumns}
-                rows={reportRows}
-                searchable={false}
+                data={reportRows}
+                enableSearch={false}
                 emptyMessage="No report rows for the selected filters."
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                getRowId={(_row, index) => `${selectedReportId}-${index}`}
               />
             </div>
           </div>

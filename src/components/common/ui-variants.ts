@@ -16,11 +16,11 @@ export const APP_TONE_STYLES: Record<
   }
 > = {
   neutral: {
-    card: "bg-white border-stone-200 text-stone-800",
-    icon: "bg-stone-100 text-stone-600 border-stone-200",
-    text: "text-stone-700",
-    accent: "text-stone-500",
-    button: "bg-stone-700 hover:bg-stone-800",
+    card: "bg-white border-[var(--erp-border)] text-[var(--erp-text)]",
+    icon: "bg-slate-100 text-slate-600 border-slate-200",
+    text: "text-[var(--erp-text)]",
+    accent: "text-[var(--erp-text-muted)]",
+    button: "bg-[var(--erp-brand)] hover:bg-[#123A63]",
   },
   info: {
     card: "bg-blue-50 border-blue-200 text-blue-900",
@@ -51,10 +51,10 @@ export const APP_TONE_STYLES: Record<
     button: "bg-red-600 hover:bg-red-700",
   },
   brand: {
-    card: "bg-stsn-cream border-stsn-beige text-stsn-brown-dark",
-    icon: "bg-stsn-gold/15 text-stsn-brown border-stsn-gold/30",
-    text: "text-stsn-brown-dark",
-    accent: "text-stsn-brown",
+    card: "bg-[linear-gradient(180deg,#ffffff_0%,#fffdf6_100%)] border-[var(--erp-border)] text-[var(--erp-text)]",
+    icon: "bg-[rgba(231,184,47,0.14)] text-[var(--erp-brand)] border-[rgba(231,184,47,0.28)]",
+    text: "text-[var(--erp-text)]",
+    accent: "text-[var(--erp-brand)]",
     button: "btn-primary-gradient",
   },
   purple: {

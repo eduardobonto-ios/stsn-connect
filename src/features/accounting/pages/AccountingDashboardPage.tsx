@@ -81,7 +81,7 @@ export default function AccountingDashboardPage() {
   const monthlyRevenue = useMemo(() => {
     const byMonth = Array(12).fill(0);
     scopedPayments.forEach((p) => {
-      const m = new Date(p.date ?? Date.now()).getMonth();
+      const m = new Date(p.paymentDate ?? Date.now()).getMonth();
       byMonth[m] += p.amount;
     });
     return byMonth;

@@ -17,12 +17,18 @@ import {
   Layers,
   GraduationCap,
 } from "lucide-react";
-import DataTableCard from "../../../components/common/DataTableCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
+import AppButton from "../../../components/common/AppButton";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppTabs from "../../../components/common/AppTabs";
 import EmptyState from "../../../components/common/EmptyState";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableColumn,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 
 export default function CurriculumManagement() {
   const {
@@ -125,6 +131,52 @@ export default function CurriculumManagement() {
   };
 
   const currentCurriculumSubjects = getCurriculumSubjectList();
+
+  type CurriculumSubjectRow = (typeof currentCurriculumSubjects)[number];
+
+  const curriculumSubjectColumns: AppTableColumn<CurriculumSubjectRow>[] = [
+    {
+      accessorKey: "code",
+      header: "Subject Code",
+      cell: ({ getValue }) => (
+        <span className="font-mono font-bold text-[#4A3728]">{String(getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: "Subject Name",
+      cell: ({ getValue }) => (
+        <span className="font-semibold text-[#2D241E]">{String(getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "units",
+      header: "Units",
+      cell: ({ getValue }) => (
+        <span className="font-mono font-semibold">{Number(getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "yearLevel",
+      header: "Year Level",
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <button
+            onClick={() => handleRemoveSubjectFromCurriculum(row.original.code, row.original.yearLevel)}
+            className="text-red-600 hover:text-red-700 p-1 rounded-md hover:bg-red-50 inline-flex items-center transition cursor-pointer"
+            title="Remove subject from this curriculum"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -246,7 +298,7 @@ export default function CurriculumManagement() {
 
   // ── Table Column Definitions ───────────────────────────────────────────────
 
-  const courseColumns: STSNColumn<Course>[] = [
+  const courseColumns: AppTableLegacyColumn<Course>[] = [
     {
       title: "Course Code",
       data: "code",
@@ -301,7 +353,7 @@ export default function CurriculumManagement() {
     },
   ];
 
-  const subjectColumns: STSNColumn<Subject>[] = [
+  const subjectColumns: AppTableLegacyColumn<Subject>[] = [
     {
       title: "Subject Code",
       data: "code",
@@ -395,19 +447,18 @@ export default function CurriculumManagement() {
         title="Curriculum & Syllabus Registry"
         subtitle="Configure courses, subjects, and curricula. Changes propagate to student enrollees on the fly."
         actions={
-          <div className="flex bg-white/10 p-1 rounded-xl border border-white/20">
-            {(["courses", "curriculum", "subjects"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeTab === tab ? "bg-[#C5A059] text-[#1C1512] shadow-sm" : "text-white/70 hover:text-white"
-                }`}
-              >
-                {tab === "courses" ? "Courses" : tab === "curriculum" ? "Curriculum" : "Subjects"}
-              </button>
-            ))}
-          </div>
+          <AppTabs
+            items={[
+              { value: "courses", label: "Courses" },
+              { value: "curriculum", label: "Curriculum" },
+              { value: "subjects", label: "Subjects" },
+            ]}
+            value={activeTab}
+            onChange={(value) => setActiveTab(value as "courses" | "curriculum" | "subjects")}
+            variant="pill"
+            className="border-white/20 bg-white/8"
+            tabsClassName="gap-1 p-1"
+          />
         }
       />
 
@@ -442,16 +493,19 @@ export default function CurriculumManagement() {
 
           {/* Left: Curricula list */}
           <div className="lg:col-span-3 bg-white p-5 rounded-2xl border border-stsn-beige shadow-sm space-y-4">
-            <button
+            <AppButton
               onClick={() => {
                 setCurrForm({ courseCode: courses[0]?.code || "BSIT", schoolYear: "2026-2027", description: "", customName: "" });
                 setIsCurriculumModalOpen(true);
               }}
-              className="w-full bg-[#C5A059] text-white py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm hover:bg-[#C5A059]/90 transition-all cursor-pointer"
+              variant="primary"
+              size="md"
+              leftIcon={Plus}
+              fullWidth
+              className="uppercase tracking-wider"
             >
-              <Plus className="w-4 h-4" />
               New Curriculum
-            </button>
+            </AppButton>
             <div className="space-y-2">
               <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest pl-1 block">Curricula</span>
               <div className="space-y-1 max-h-[450px] overflow-y-auto">
@@ -549,36 +603,16 @@ export default function CurriculumManagement() {
                     }
                   />
                 ) : (
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-[#F9F8F5] border-b border-stsn-beige text-[10px] text-[#A39184] uppercase tracking-wider font-bold">
-                        <th className="px-6 py-3">Code</th>
-                        <th className="px-6 py-3">Subject</th>
-                        <th className="px-6 py-3 text-center">Units</th>
-                        <th className="px-6 py-3 text-center">Year Level</th>
-                        <th className="px-6 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F5F2ED] text-stone-700 font-semibold">
-                      {currentCurriculumSubjects.map((sub, idx) => (
-                        <tr key={`${sub.code}-${sub.yearLevel}-${idx}`} className="hover:bg-[#FFFDF5]/70">
-                          <td className="px-6 py-4 font-mono font-bold text-[#4A3728]">{sub.code}</td>
-                          <td className="px-6 py-4 text-[#2D241E]">{sub.name}</td>
-                          <td className="px-6 py-4 text-center font-mono">{sub.units}</td>
-                          <td className="px-6 py-4 text-center">{sub.yearLevel}</td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => handleRemoveSubjectFromCurriculum(sub.code, sub.yearLevel)}
-                              className="text-red-600 hover:text-red-700 p-1 rounded-md hover:bg-red-50 inline-flex items-center transition cursor-pointer"
-                              title="Remove subject from this curriculum"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <AppTable<CurriculumSubjectRow>
+                    columns={curriculumSubjectColumns}
+                    data={currentCurriculumSubjects}
+                    emptyMessage="No subjects assigned."
+                    enableSearch={false}
+                    initialPageSize={15}
+                    pageSizeOptions={[15]}
+                    compact
+                    getRowId={(row, index) => `${row.code}-${row.yearLevel}-${index}`}
+                  />
                 )}
               </div>
             </div>
@@ -588,56 +622,54 @@ export default function CurriculumManagement() {
 
       {/* Courses Tab */}
       {activeTab === "courses" && (
-        <DataTableCard
+        <AppTable<Course>
           title="Course Programs"
-          icon={GraduationCap}
-          searchValue={courseSearch}
-          onSearchChange={setCourseSearch}
-          searchPlaceholder="Search registered courses…"
-          actions={
-            <button
-              onClick={() => handleOpenCourseModal(null)}
-              className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm inline-flex items-center gap-1 cursor-pointer transition flex-shrink-0"
-            >
-              <Plus className="w-4 h-4" />
+          columns={appTableColumnsFromLegacy(courseColumns)}
+          data={filteredCoursesList}
+          enableSearch={false}
+          emptyMessage="No courses found. Add a course program to get started."
+          getRowId={(course) => course.id}
+          toolbar={
+            <>
+            <AppSearchInput
+              value={courseSearch}
+              onChange={(event) => setCourseSearch(event.target.value)}
+              placeholder="Search registered courses..."
+              wrapperClassName="min-w-52 flex-1"
+              uiSize="sm"
+            />
+            <AppButton onClick={() => handleOpenCourseModal(null)} variant="primary" size="sm" leftIcon={Plus} className="flex-shrink-0">
               Add Course Program
-            </button>
+            </AppButton>
+            </>
           }
-        >
-          <STSNDataTable<Course>
-            columns={courseColumns}
-            rows={filteredCoursesList}
-            searchable={false}
-            emptyMessage="No courses found. Add a course program to get started."
-          />
-        </DataTableCard>
+        />
       )}
 
       {/* Subjects Tab */}
       {activeTab === "subjects" && (
-        <DataTableCard
+        <AppTable<Subject>
           title="Subject Catalog"
-          icon={BookOpen}
-          searchValue={subjectSearch}
-          onSearchChange={setSubjectSearch}
-          searchPlaceholder="Search registered subjects catalog…"
-          actions={
-            <button
-              onClick={() => handleOpenSubjectModal(null)}
-              className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm inline-flex items-center gap-1 cursor-pointer transition flex-shrink-0"
-            >
-              <Plus className="w-4 h-4" />
+          columns={appTableColumnsFromLegacy(subjectColumns)}
+          data={filteredSubjectsList}
+          enableSearch={false}
+          emptyMessage="No subjects found in the catalog."
+          getRowId={(subject) => subject.id}
+          toolbar={
+            <>
+            <AppSearchInput
+              value={subjectSearch}
+              onChange={(event) => setSubjectSearch(event.target.value)}
+              placeholder="Search registered subjects catalog..."
+              wrapperClassName="min-w-52 flex-1"
+              uiSize="sm"
+            />
+            <AppButton onClick={() => handleOpenSubjectModal(null)} variant="primary" size="sm" leftIcon={Plus} className="flex-shrink-0">
               New Subject Catalog
-            </button>
+            </AppButton>
+            </>
           }
-        >
-          <STSNDataTable<Subject>
-            columns={subjectColumns}
-            rows={filteredSubjectsList}
-            searchable={false}
-            emptyMessage="No subjects found in the catalog."
-          />
-        </DataTableCard>
+        />
       )}
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
@@ -653,12 +685,12 @@ export default function CurriculumManagement() {
         onSubmit={handleCreateCurriculum}
         footer={
           <div className="flex gap-3">
-            <button type="submit" className="flex-1 bg-stsn-brown hover:bg-stsn-brown-dark text-white py-2.5 rounded-xl font-bold text-xs transition cursor-pointer">
+            <AppButton type="submit" variant="primary" size="sm" fullWidth>
               Create Curriculum
-            </button>
-            <button type="button" onClick={() => setIsCurriculumModalOpen(false)} className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer">
+            </AppButton>
+            <AppButton type="button" variant="secondary" size="sm" fullWidth onClick={() => setIsCurriculumModalOpen(false)}>
               Cancel
-            </button>
+            </AppButton>
           </div>
         }
       >

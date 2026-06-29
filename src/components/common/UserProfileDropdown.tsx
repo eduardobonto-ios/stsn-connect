@@ -60,7 +60,7 @@ export default function UserProfileDropdown() {
         {/* Initials avatar */}
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm"
-          style={{ background: "linear-gradient(135deg, #c5a059 0%, #9a7a44 100%)" }}
+          style={{ background: "linear-gradient(135deg, #f2c94c 0%, #d6a21e 100%)" }}
         >
           <span className="text-[11px] font-black text-white tracking-wide leading-none select-none">
             {initials}
@@ -85,7 +85,7 @@ export default function UserProfileDropdown() {
             <div className="flex items-center gap-3">
               <div
                 className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow-md"
-                style={{ background: "linear-gradient(135deg, #c5a059 0%, #9a7a44 100%)" }}
+                style={{ background: "linear-gradient(135deg, #f2c94c 0%, #d6a21e 100%)" }}
               >
                 <span className="text-sm font-black text-white tracking-wide leading-none select-none">
                   {initials}

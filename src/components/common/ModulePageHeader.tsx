@@ -18,7 +18,7 @@ export interface ModulePageHeaderProps {
   meta?: string;
   /** Action button(s) rendered on the right side of the banner */
   actions?: React.ReactNode;
-  /** Color variant: "default" = dark brown (Basic Ed), "college" = dark navy/blue */
+  /** Color variant: "default" = shared academic navy, "college" = brighter navy accent */
   variant?: "default" | "college";
 }
 
@@ -34,13 +34,13 @@ export default function ModulePageHeader({
   const isCollege = variant === "college";
 
   const badgeClasses = isCollege
-    ? "bg-blue-400/15 border-blue-400/35 text-blue-300"
-    : "bg-[#C5A059]/15 border-[#C5A059]/35 text-[#C5A059]";
+    ? "bg-sky-300/12 border-sky-300/30 text-sky-100"
+    : "bg-[rgba(242,201,76,0.14)] border-[rgba(242,201,76,0.34)] text-[#F2C94C]";
 
   return (
-    <div className="rounded-2xl overflow-hidden shadow-md border border-stone-900/20">
-      <div className={`px-6 pt-5 pb-5 ${isCollege ? "module-page-banner-college" : "module-page-banner"}`}>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5">
+    <div className="rounded-2xl overflow-hidden shadow-md border border-[rgba(7,28,52,0.18)]">
+      <div className={`px-6 py-5 sm:px-7 ${isCollege ? "module-page-banner-college" : "module-page-banner"}`}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-5 sm:gap-6">
           <div className="min-w-0">
             {(badge || meta) && (
               <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -51,17 +51,17 @@ export default function ModulePageHeader({
                   </span>
                 )}
                 {meta && (
-                  <span className="text-white/35 text-[10px] font-mono uppercase tracking-widest">
+                  <span className="text-white/50 text-[10px] font-mono uppercase tracking-widest">
                     {meta}
                   </span>
                 )}
               </div>
             )}
-            <h2 className="text-2xl font-bold text-[#FFFDF5] tracking-tight leading-none">
+            <h2 className="text-2xl font-bold text-[var(--stsn-banner-text)] tracking-tight leading-tight">
               {title}
             </h2>
             {subtitle && (
-              <p className="text-white/55 text-xs mt-2 leading-relaxed">
+              <p className="text-[var(--stsn-banner-subtitle)] text-xs mt-2.5 leading-relaxed max-w-3xl">
                 {subtitle}
               </p>
             )}

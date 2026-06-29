@@ -8,8 +8,10 @@ import { Briefcase, Plus, X, ChevronRight, UserCheck } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../../services/store";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../../components/common/AppTable";
 import { JobRequisition, JobApplicant, ApplicantInterview } from "../../../../types";
 
 const REQ_STATUS_COLORS: Record<string, string> = {
@@ -225,7 +227,7 @@ function RequisitionDetail({ requisition, onClose, onStatusChange }: Requisition
     Cancelled: [],
   };
 
-  const applicantCols: STSNColumn<JobApplicant>[] = [
+  const applicantCols: AppTableLegacyColumn<JobApplicant>[] = [
     { title: "Name", render: (_, r) => <span className="text-xs font-semibold">{r.firstName} {r.lastName}</span> },
     { title: "Applied", data: "appliedAt", render: (v) => <span className="font-mono text-xs">{v}</span>, width: "90px" },
     {
@@ -295,12 +297,16 @@ function RequisitionDetail({ requisition, onClose, onStatusChange }: Requisition
       </div>
       <div className="overflow-y-auto max-h-72">
         {reqApplicants.length > 0 ? (
-          <STSNDataTable<JobApplicant>
-            columns={applicantCols}
-            rows={reqApplicants}
+          <AppTable<JobApplicant>
+            columns={appTableColumnsFromLegacy(applicantCols)}
+            data={reqApplicants}
             emptyMessage="No applicants yet."
-            pageLength={5}
-            searchable={false}
+            loading={false}
+            initialPageSize={5}
+            pageSizeOptions={[5]}
+            enableSearch={false}
+            compact
+            getRowId={(row) => row.id}
           />
         ) : (
           <p className="text-xs text-stone-400 text-center py-6">No applicants yet. Add one to begin tracking.</p>
@@ -335,7 +341,7 @@ export default function RecruitmentPage() {
     return jobRequisitions.filter((r) => r.status === filterStatus);
   }, [jobRequisitions, filterStatus]);
 
-  const reqColumns: STSNColumn<JobRequisition>[] = [
+  const reqColumns: AppTableLegacyColumn<JobRequisition>[] = [
     { title: "Req #", data: "requisitionNo", render: (v) => <span className="font-mono text-xs font-bold text-stsn-brown">{v}</span>, width: "110px" },
     { title: "Position", data: "positionTitle", render: (v) => <span className="text-xs font-semibold">{v}</span> },
     { title: "Department", data: "department", render: (v) => <span className="text-xs">{v}</span> },
@@ -366,7 +372,7 @@ export default function RecruitmentPage() {
     },
   ];
 
-  const applicantColumns: STSNColumn<JobApplicant>[] = [
+  const applicantColumns: AppTableLegacyColumn<JobApplicant>[] = [
     {
       title: "Name",
       render: (_, r) => (
@@ -433,10 +439,10 @@ export default function RecruitmentPage() {
       {tab === "requisitions" && (
         <>
           <div className={`flex gap-4 ${selectedReq ? "flex-col lg:flex-row" : ""}`}>
-            <DataTableCard
+            <AppTable<JobRequisition>
               title="Job Requisitions"
-              icon={Briefcase}
-              actions={
+              enableSearch={false}
+              toolbar={
                 <>
                   <label className="text-xs text-stone-500">Status:</label>
                   {["All", "Draft", "Approved", "Posted", "Screening", "Interview", "Offered", "Closed", "Cancelled"].map((s) => (
@@ -451,17 +457,16 @@ export default function RecruitmentPage() {
                 </>
               }
               className={selectedReq ? "lg:flex-1" : "w-full"}
-            >
-              <STSNDataTable<JobRequisition>
-                columns={reqColumns}
-                rows={filteredReqs}
-                emptyMessage="No job requisitions found. Create one to start the hiring process."
-                pageLength={10}
-                searchable={false}
-                onRowClick={(row) => setSelectedReq(row)}
-                selectedId={selectedReq?.id}
-              />
-            </DataTableCard>
+              data={filteredReqs}
+              columns={appTableColumnsFromLegacy(reqColumns)}
+              emptyMessage="No job requisitions found. Create one to start the hiring process."
+              loading={false}
+              initialPageSize={10}
+              pageSizeOptions={[10]}
+              getRowId={(row) => row.id}
+              onRowClick={(row) => setSelectedReq(row)}
+              selectedRowId={selectedReq?.id}
+            />
             {selectedReq && (
               <div className="lg:w-96 flex-shrink-0">
                 <RequisitionDetail
@@ -476,14 +481,16 @@ export default function RecruitmentPage() {
       )}
 
       {tab === "applicants" && (
-        <DataTableCard title="All Applicants" icon={Briefcase}>
-          <STSNDataTable<JobApplicant>
-            columns={applicantColumns}
-            rows={jobApplicants}
-            emptyMessage="No applicants found."
-            pageLength={15}
-          />
-        </DataTableCard>
+        <AppTable<JobApplicant>
+          title="All Applicants"
+          data={jobApplicants}
+          columns={appTableColumnsFromLegacy(applicantColumns)}
+          emptyMessage="No applicants found."
+          loading={false}
+          initialPageSize={15}
+          pageSizeOptions={[15]}
+          getRowId={(row) => row.id}
+        />
       )}
 
       {showAddReq && <AddRequisitionModal onClose={() => setShowAddReq(false)} onSave={(data) => { addJobRequisition(data); toast("Job requisition created."); }} />}

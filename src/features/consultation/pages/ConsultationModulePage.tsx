@@ -12,7 +12,11 @@ import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbUpdate, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppButton from "../../../components/common/AppButton";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,6 +38,11 @@ interface ConsultationAppointment {
   remarks?: string;
   teacherNotes?: string;
 }
+
+type ConsultationAppointmentRow = ConsultationAppointment & {
+  studentLabel: string;
+  teacherLabel: string;
+};
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -217,7 +226,7 @@ export default function ConsultationModule() {
     return true;
   };
 
-  const columns: STSNColumn<ConsultationAppointment & { studentLabel: string; teacherLabel: string }>[] = [
+  const columns: AppTableLegacyColumn<ConsultationAppointmentRow>[] = [
     { title: "Requested By", data: "requestedBy", className: "font-semibold text-stone-800" },
     { title: "Student", data: "studentLabel", className: "text-xs text-stone-600" },
     { title: "Teacher / Adviser", data: "teacherLabel", className: "text-xs text-stone-500" },
@@ -252,12 +261,14 @@ export default function ConsultationModule() {
         title="Consultation Management"
         subtitle="Teacher–parent and adviser–student consultation appointment booking and tracking."
         actions={
-          <button
+          <AppButton
             onClick={() => { setShowForm(true); setForm(DEFAULT_FORM); }}
-            className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition cursor-pointer bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512]"
+            variant="primary"
+            size="md"
+            leftIcon={Plus}
           >
-            <Plus className="w-4 h-4" /> Request Consultation
-          </button>
+            Request Consultation
+          </AppButton>
         }
       />
 
@@ -397,12 +408,15 @@ export default function ConsultationModule() {
           })()}
 
           {(activeTab === "appointments" || filteredItems.length === 0) && (
-            <STSNDataTable
-              columns={columns}
-              rows={activeTab === "appointments" ? tableData : []}
+            <AppTable<ConsultationAppointmentRow>
+              columns={appTableColumnsFromLegacy(columns)}
+              data={activeTab === "appointments" ? tableData : []}
               emptyMessage={activeTab === "requests" ? "No pending consultation requests." : "No confirmed appointments."}
-              pageLength={10}
-              searchable={false}
+              loading={loading}
+              initialPageSize={10}
+              pageSizeOptions={[10]}
+              enableSearch={false}
+              getRowId={(appointment) => appointment.id}
             />
           )}
         </div>

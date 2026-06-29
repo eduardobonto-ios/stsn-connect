@@ -44,7 +44,10 @@ import {
   getRating,
   getRatingBadgeClass,
 } from "../utils/gradeCalculations";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -147,7 +150,7 @@ function SectionDetailView({
     [loadsForSection, scopedPeriods, allStudents, entries, selectedPeriodLabel]
   );
 
-  const columns = useMemo((): STSNColumn<StudentGradeRow>[] => [
+  const columns = useMemo((): AppTableLegacyColumn<StudentGradeRow>[] => [
     { title: "Student No.", data: "studentNo", width: "110px" },
     {
       title: "Student Name",
@@ -299,13 +302,16 @@ function SectionDetailView({
             </div>
           </div>
 
-          <STSNDataTable<StudentGradeRow>
+          <AppTable<StudentGradeRow>
             key={cacheKey}
-            columns={columns}
-            rows={rows}
+            columns={appTableColumnsFromLegacy(columns)}
+            data={rows}
             emptyMessage="No graded students found for this selection."
-            pageLength={50}
-            searchable={false}
+            initialPageSize={50}
+            pageSizeOptions={[50]}
+            enableSearch={false}
+            getRowId={(row) => row.id}
+            compact
           />
         </div>
       </td>
@@ -644,7 +650,7 @@ export default function GradesDirectoryPage() {
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
 
         {/* Table header bar */}
-        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b ${isBasicEd ? "border-stsn-beige" : "border-blue-100"}`}>
+        <div className={`app-local-toolbar flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b ${isBasicEd ? "border-stsn-beige" : "border-blue-100"}`}>
           <div>
             <span className="text-[10px] font-mono uppercase font-bold text-stone-400 block">
               {isTeacher ? "My Teaching Sections" : "Principal Overview"}
@@ -685,8 +691,8 @@ export default function GradesDirectoryPage() {
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead>
-              <tr className={`text-white text-[10px] uppercase font-bold ${isBasicEd ? "bg-stsn-brown" : "bg-blue-700"}`}>
+            <thead className="app-local-table-head">
+              <tr>
                 <th className="pl-5 pr-3 py-3 text-left w-6" />
                 <th className="px-3 py-3 text-left">{terms.groupNoun}</th>
                 <th className="px-3 py-3 text-left">Class Adviser</th>

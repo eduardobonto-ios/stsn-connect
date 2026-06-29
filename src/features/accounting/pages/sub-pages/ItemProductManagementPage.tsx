@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  PackageOpen, Plus, Edit2, Trash2, Search, Filter, Download,
-  Loader2, X, CheckCircle, XCircle,
+  PackageOpen, Plus, Edit2, Trash2, Search, Download,
+  X, CheckCircle, XCircle,
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../../components/common/STSNDataTable";
-import DataTableCard from "../../../../components/common/DataTableCard";
+import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../../components/common/AppTable";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { dbDelete, dbInsert, dbSelectAll, dbUpdate, newId } from "../../../../services/supabaseCrud";
@@ -195,7 +194,7 @@ export default function ItemProductManagementPage() {
     }
   }
 
-  const columns: STSNColumn<AccountingItem>[] = [
+  const columns: AppTableLegacyColumn<AccountingItem>[] = [
     {
       title: "Code",
       data: "itemCode",
@@ -347,13 +346,29 @@ export default function ItemProductManagementPage() {
         </div>
       </div>
 
-      <DataTableCard
+      <AppTable
         title="Item & Product Catalog"
-        icon={PackageOpen}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search item code, name, unit, or description…"
-        actions={
+        columns={appTableColumnsFromLegacy(columns)}
+        data={filtered}
+        loading={isLoading}
+        enableSearch={false}
+        emptyMessage="No items match your search."
+        initialPageSize={10}
+        pageSizeOptions={[10]}
+        getRowId={(row) => row.id}
+        toolbar={
+          <div className="relative min-w-[220px] sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search item code, name, unit, or description..."
+              className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] pl-9 pr-3 text-xs text-[var(--erp-text)] outline-none transition placeholder:text-stone-400 focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+            />
+          </div>
+        }
+        rightToolbar={
           <>
             <select value={filterType} onChange={(e) => setFilterType(e.target.value as ItemType | "All")} className="text-xs border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-stsn-gold/50 bg-stone-50 cursor-pointer">
               <option value="All">All Types</option>
@@ -368,22 +383,7 @@ export default function ItemProductManagementPage() {
             </button>
           </>
         }
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-stone-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading items...
-          </div>
-        ) : (
-          <STSNDataTable
-            columns={columns}
-            rows={filtered}
-            searchable={false}
-            emptyMessage="No items match your search."
-            pageLength={10}
-          />
-        )}
-      </DataTableCard>
+      />
 
       {showForm && (
         <div className="app-modal-backdrop z-50 animate-fade-in">

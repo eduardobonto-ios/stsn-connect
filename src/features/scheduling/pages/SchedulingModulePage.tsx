@@ -15,9 +15,11 @@ import {
   CheckCircle, Clock, Building2, Users, BookOpen, ChevronDown, List,
   LayoutGrid, GraduationCap, MapPin, RefreshCw
 } from "lucide-react";
-import STSNDataTable, { type STSNColumn } from "../../../components/common/STSNDataTable";
+import AppTable, {
+  appTableColumnsFromLegacy,
+  type AppTableLegacyColumn,
+} from "../../../components/common/AppTable";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
-import DataTableCard from "../../../components/common/DataTableCard";
 
 /** Inverse of academicUnitToDepartment — used to derive terminology from a teacher's department. */
 function departmentToAcademicUnit(dept: "Basic Education" | "College"): AcademicUnit {
@@ -549,7 +551,7 @@ export default function SchedulingModule() {
   const openEdit = (s: ClassSchedule) => { setEditingSchedule(s); setIsFormOpen(true); };
   const handleDelete = async (id: string, name: string) => { if (await confirm(`Delete schedule for "${name}"?`, { variant: "danger" })) deleteClassSchedule(id); };
 
-  const scheduleColumns: STSNColumn<ClassSchedule>[] = [
+  const scheduleColumns: AppTableLegacyColumn<ClassSchedule>[] = [
     {
       title: "Subject",
       data: "subjectCode",
@@ -581,7 +583,11 @@ export default function SchedulingModule() {
           <>
             <div className="flex items-center gap-1 mb-0.5">
               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${DAY_COLORS[value] || ""}`}>{DAY_SHORT[value]}</span>
-              {isConflict && <AlertTriangle className="w-3.5 h-3.5 text-red-500" title="Conflict detected" />}
+              {isConflict && (
+                <span title="Conflict detected" aria-label="Conflict detected">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                </span>
+              )}
             </div>
             <p className="font-mono text-stone-600 text-[10px]">{sched.startTime} – {sched.endTime}</p>
           </>
@@ -722,19 +728,27 @@ export default function SchedulingModule() {
           {viewMode === "grid" ? (
             <CalendarGridView schedules={displaySchedules} conflictIds={conflictIds} />
           ) : (
-            <DataTableCard
+            <>
+            <AppTable<ClassSchedule>
               title="Class Schedules"
-              icon={CalendarDays}
-              searchValue={searchQ}
-              onSearchChange={setSearchQ}
-              searchPlaceholder="Search subject, section, teacher, room…"
-            >
-              <STSNDataTable<ClassSchedule>
-                columns={scheduleColumns}
-                rows={displaySchedules}
-                searchable={false}
-                emptyMessage={showConflictsOnly ? "No conflicts detected in the current view." : "No schedules found. Adjust filters or create a new schedule."}
-              />
+              description={`${displaySchedules.length} schedule${displaySchedules.length !== 1 ? "s" : ""} displayed`}
+              columns={appTableColumnsFromLegacy(scheduleColumns)}
+              data={displaySchedules}
+              enableSearch={false}
+              emptyMessage={showConflictsOnly ? "No conflicts detected in the current view." : "No schedules found. Adjust filters or create a new schedule."}
+              getRowId={(schedule) => schedule.id}
+              toolbar={
+                <div className="relative min-w-60 flex-1">
+                  <input
+                    type="search"
+                    value={searchQ}
+                    onChange={(event) => setSearchQ(event.target.value)}
+                    placeholder="Search subject, section, teacher, room..."
+                    className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 text-xs text-[var(--erp-text)] outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
+                  />
+                </div>
+              }
+            />
               <div className="px-4 py-3 border-t border-stone-100 text-xs text-stone-400 flex justify-between">
                 <span>{displaySchedules.length} schedule{displaySchedules.length !== 1 ? "s" : ""} displayed</span>
                 {conflictIds.size > 0 && (
@@ -743,7 +757,7 @@ export default function SchedulingModule() {
                   </span>
                 )}
               </div>
-            </DataTableCard>
+            </>
           )}
         </div>
 
