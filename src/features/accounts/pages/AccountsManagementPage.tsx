@@ -16,6 +16,7 @@ import {
   Unlock,
   UserCircle2,
 } from "lucide-react";
+import AppCard from "../../../components/common/AppCard";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppButton from "../../../components/common/AppButton";
 import AppFormField from "../../../components/common/AppFormField";
@@ -141,9 +142,9 @@ export default function AccountsManagement({
       accessorKey: "role",
       header: "Role",
       cell: ({ getValue }) => (
-        <span className="bg-stsn-beige text-stsn-brown font-mono text-[9px] font-bold rounded px-2.5 py-0.5 uppercase tracking-wide">
+        <AppStatusBadge status={String(getValue()).replace("_", " ")} className="text-[9px]">
           {String(getValue()).replace("_", " ")}
-        </span>
+        </AppStatusBadge>
       ),
     },
     {
@@ -202,9 +203,17 @@ export default function AccountsManagement({
         subtitle="Audit credential levels, activate/deactivate user records, manage delegation, and review audit history."
         actions={
           activeTab === "user-security" ? (
-            <AppButton onClick={() => setIsFormOpen(true)} leftIcon={Award}>
-              Provision New Authority
-            </AppButton>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5">
+                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/55">
+                  Provisioned Users
+                </p>
+                <p className="mt-1 text-lg font-semibold text-white">{users.length}</p>
+              </div>
+              <AppButton onClick={() => setIsFormOpen(true)} leftIcon={Award}>
+                Provision New Authority
+              </AppButton>
+            </div>
           ) : undefined
         }
       />
@@ -328,7 +337,7 @@ export default function AccountsManagement({
       >
         {selectedUser && (
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+            <AppCard className="border border-[var(--erp-border)]">
               <div className="flex items-center gap-3 pb-2 border-b border-stone-100">
                 <div className="w-11 h-11 rounded-full bg-stsn-cream border border-stsn-beige flex items-center justify-center flex-shrink-0">
                   <UserCircle2 className="w-6 h-6 text-stsn-brown" />
@@ -342,9 +351,9 @@ export default function AccountsManagement({
                 <div className="flex items-center justify-between">
                   <dt className="text-[10px] font-mono font-bold uppercase text-stone-400">Role</dt>
                   <dd>
-                    <span className="bg-stsn-beige text-stsn-brown font-mono text-[9px] font-bold rounded px-2 py-0.5 uppercase tracking-wide">
+                    <AppStatusBadge status={selectedUser.role.replace("_", " ")} className="text-[9px]">
                       {selectedUser.role.replace("_", " ")}
-                    </span>
+                    </AppStatusBadge>
                   </dd>
                 </div>
                 <div className="flex items-center justify-between">
@@ -363,7 +372,7 @@ export default function AccountsManagement({
                   <dd className="font-mono text-[10px] text-stone-400">{selectedUser.id}</dd>
                 </div>
               </dl>
-            </div>
+            </AppCard>
 
             <div className="space-y-2">
               <AppButton
@@ -392,7 +401,7 @@ export default function AccountsManagement({
               </p>
             </div>
 
-            <div className="bg-white rounded-xl border border-stone-200 p-4">
+            <AppCard className="border border-[var(--erp-border)]">
               <h3 className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-2 flex items-center gap-1.5">
                 <Mail className="w-3 h-3" /> Contact
               </h3>
@@ -402,7 +411,7 @@ export default function AccountsManagement({
               >
                 {selectedUser.email}
               </a>
-            </div>
+            </AppCard>
           </div>
         )}
       </DrilldownDrawer>

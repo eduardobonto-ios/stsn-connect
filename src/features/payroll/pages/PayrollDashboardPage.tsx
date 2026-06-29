@@ -9,6 +9,7 @@ import {
   Banknote, Clock, FileText, AlertTriangle, Download, CheckCircle2,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
+import AppCard from "../../../components/common/AppCard";
 import AppFilterChip from "../../../components/common/AppFilterChip";
 import { CHART_SERIES_COLORS, CHART_THEME } from "../../../config/chart-theme.config";
 
@@ -304,7 +305,7 @@ export default function PayrollDashboardPage() {
       </div>
 
       {/* ── Charts Row ──────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <AppCard className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" tone="brand">
         <div>
           <p className="text-[9px] font-mono uppercase tracking-widest text-stone-400">Focused Metric</p>
           <p className="text-sm font-bold text-stone-900 mt-1">{activeKpiData.label}</p>
@@ -321,7 +322,7 @@ export default function PayrollDashboardPage() {
             />
           ))}
         </div>
-      </div>
+      </AppCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 

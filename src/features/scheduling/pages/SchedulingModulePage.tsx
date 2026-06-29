@@ -19,6 +19,11 @@ import AppTable, {
   appTableColumnsFromLegacy,
   type AppTableLegacyColumn,
 } from "../../../components/common/AppTable";
+import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
+import AppKpiCard from "../../../components/common/AppKpiCard";
+import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 /** Inverse of academicUnitToDepartment — used to derive terminology from a teacher's department. */
@@ -608,8 +613,10 @@ export default function SchedulingModule() {
       title: "Status",
       data: "isActive",
       render: (value: boolean, sched) => (
-        <button onClick={() => toggleClassScheduleActive(sched.id)} className={`text-[9px] font-bold px-2 py-0.5 rounded-full border cursor-pointer transition ${value ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-stone-500 bg-stone-50 border-stone-200"}`}>
-          {value ? "Active" : "Inactive"}
+        <button onClick={() => toggleClassScheduleActive(sched.id)} className="cursor-pointer transition">
+          <AppStatusBadge status={value ? "Active" : "Inactive"}>
+            {value ? "Active" : "Inactive"}
+          </AppStatusBadge>
         </button>
       ),
     },
@@ -647,44 +654,32 @@ export default function SchedulingModule() {
         actions={
           <div className="flex items-center gap-2">
             {conflictIds.size > 0 && (
-              <button
+              <AppButton
                 onClick={() => setShowConflictsOnly((p) => !p)}
-                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border cursor-pointer transition ${showConflictsOnly ? "bg-red-600 text-white border-red-600" : "bg-white/10 text-white border-white/25 hover:bg-white/20"}`}
+                variant={showConflictsOnly ? "destructive" : "outline-dark"}
+                size="sm"
+                leftIcon={AlertTriangle}
               >
-                <AlertTriangle className="w-4 h-4" />
                 {conflictIds.size / 2} Conflict{conflictIds.size / 2 !== 1 ? "s" : ""}
-              </button>
+              </AppButton>
             )}
-            <button onClick={openCreate} className="inline-flex items-center gap-1.5 bg-[#C5A059] hover:bg-[#d4af68] text-[#1C1512] text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg cursor-pointer transition">
-              <Plus className="w-4 h-4" /> New Schedule
-            </button>
+            <AppButton onClick={openCreate} variant="primary" size="md" leftIcon={Plus}>
+              New Schedule
+            </AppButton>
           </div>
         }
       />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Total Schedules", value: filteredSchedules.length, icon: CalendarDays, color: "text-stsn-brown" },
-          { label: `${terms.groupNoun}s`, value: new Set(filteredSchedules.map((s) => s.section)).size, icon: GraduationCap, color: "text-blue-600" },
-          { label: "Faculty Assigned", value: new Set(filteredSchedules.map((s) => s.teacherId)).size, icon: Users, color: "text-emerald-600" },
-          { label: "Rooms Used", value: new Set(filteredSchedules.map((s) => s.roomName)).size, icon: Building2, color: "text-purple-600" },
-        ].map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 flex items-center gap-3">
-              <Icon className={`w-8 h-8 ${stat.color} opacity-80`} />
-              <div>
-                <p className="text-[10px] text-stone-400 uppercase font-mono">{stat.label}</p>
-                <p className="text-xl font-display font-black text-stone-900">{stat.value}</p>
-              </div>
-            </div>
-          );
-        })}
+        <AppKpiCard label="Total Schedules" value={filteredSchedules.length} icon={CalendarDays} tone="brand" hint="Filtered working set" />
+        <AppKpiCard label={`${terms.groupNoun}s`} value={new Set(filteredSchedules.map((s) => s.section)).size} icon={GraduationCap} tone="info" hint="Unique class groups" />
+        <AppKpiCard label="Faculty Assigned" value={new Set(filteredSchedules.map((s) => s.teacherId)).size} icon={Users} tone="success" hint="With active loads" />
+        <AppKpiCard label="Rooms Used" value={new Set(filteredSchedules.map((s) => s.roomName)).size} icon={Building2} tone="neutral" hint="Distinct venues" />
       </div>
 
       {/* Filters & View Toggle */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+      <AppCard className="border border-[var(--erp-border)]" tone="brand">
         <div className="flex flex-wrap gap-3 items-center">
           <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none">
             {schoolYearOptions.map((y) => <option key={y.id}>{y.name}</option>)}
@@ -720,7 +715,7 @@ export default function SchedulingModule() {
             </button>
           </div>
         </div>
-      </div>
+      </AppCard>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-5">
         {/* Main Content */}
@@ -738,15 +733,14 @@ export default function SchedulingModule() {
               emptyMessage={showConflictsOnly ? "No conflicts detected in the current view." : "No schedules found. Adjust filters or create a new schedule."}
               getRowId={(schedule) => schedule.id}
               toolbar={
-                <div className="relative min-w-60 flex-1">
-                  <input
-                    type="search"
-                    value={searchQ}
-                    onChange={(event) => setSearchQ(event.target.value)}
-                    placeholder="Search subject, section, teacher, room..."
-                    className="h-9 w-full rounded-lg border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-3 text-xs text-[var(--erp-text)] outline-none focus:border-[var(--erp-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--erp-brand)]/15"
-                  />
-                </div>
+                <AppSearchInput
+                  value={searchQ}
+                  onChange={(event) => setSearchQ(event.target.value)}
+                  onClear={searchQ ? () => setSearchQ("") : undefined}
+                  placeholder="Search subject, section, teacher, room..."
+                  wrapperClassName="min-w-60 flex-1"
+                  uiSize="sm"
+                />
               }
             />
               <div className="px-4 py-3 border-t border-stone-100 text-xs text-stone-400 flex justify-between">
@@ -763,7 +757,7 @@ export default function SchedulingModule() {
 
         {/* Right Panel: Room Utilization */}
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+          <AppCard className="border border-[var(--erp-border)]">
             <h3 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700 mb-3 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-stsn-gold" /> Room Utilization
             </h3>
@@ -785,10 +779,10 @@ export default function SchedulingModule() {
               })}
               {roomUsage.length === 0 && <p className="text-xs text-stone-400 text-center py-4">No data.</p>}
             </div>
-          </div>
+          </AppCard>
 
           {/* Faculty Load */}
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+          <AppCard className="border border-[var(--erp-border)]">
             <h3 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700 mb-3 flex items-center gap-2">
               <Users className="w-4 h-4 text-stsn-gold" /> Faculty Load
             </h3>
@@ -799,18 +793,18 @@ export default function SchedulingModule() {
                 return (
                   <div key={tid} className="flex justify-between items-center p-2 bg-stone-50 rounded-lg">
                     <span className="text-[11px] font-semibold text-stone-700 truncate max-w-[140px]">{teacherName}</span>
-                    <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full ${sched.length > 6 ? "bg-red-50 text-red-600 border border-red-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}>
+                    <AppStatusBadge status={sched.length > 6 ? "Pending" : "Active"}>
                       {sched.length} class{sched.length !== 1 ? "es" : ""}
-                    </span>
+                    </AppStatusBadge>
                   </div>
                 );
               })}
               {filteredSchedules.length === 0 && <p className="text-xs text-stone-400 text-center py-4">No schedules.</p>}
             </div>
-          </div>
+          </AppCard>
 
           {/* Section / Group Load */}
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4">
+          <AppCard className="border border-[var(--erp-border)]">
             <h3 className="text-xs font-display font-bold uppercase tracking-wider text-stone-700 mb-3 flex items-center gap-2">
               <GraduationCap className="w-4 h-4 text-stsn-gold" /> {terms.groupNoun} Load
             </h3>
@@ -827,9 +821,9 @@ export default function SchedulingModule() {
                         {sec.currentCount}/{sec.capacity}
                       </span>
                       {fillPct >= 100 ? (
-                        <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">Full</span>
+                        <AppStatusBadge status="Rejected">Full</AppStatusBadge>
                       ) : fillPct >= 80 ? (
-                        <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">Near Full</span>
+                        <AppStatusBadge status="Pending">Near Full</AppStatusBadge>
                       ) : null}
                     </div>
                   </div>
@@ -837,7 +831,7 @@ export default function SchedulingModule() {
               })}
               {filteredSchedules.length === 0 && <p className="text-xs text-stone-400 text-center py-4">No schedules.</p>}
             </div>
-          </div>
+          </AppCard>
 
           {/* Conflict Legend */}
           {conflictIds.size > 0 && (

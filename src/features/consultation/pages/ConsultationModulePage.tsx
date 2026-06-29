@@ -5,14 +5,17 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import {
-  PhoneCall, Plus, Search, Eye, X, Calendar, User,
+  PhoneCall, Plus, Search, X, Calendar,
   CheckCircle, Clock, AlertCircle,
 } from "lucide-react";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbUpdate, dbSelectAll, newId } from "../../../services/supabaseCrud";
 import { useAppDialog } from "../../../components/common/useAppDialog";
+import AppCard from "../../../components/common/AppCard";
 import AppButton from "../../../components/common/AppButton";
+import AppEmptyState from "../../../components/common/AppEmptyState";
+import AppLoadingState from "../../../components/common/AppLoadingState";
 import AppTable, {
   appTableColumnsFromLegacy,
   type AppTableLegacyColumn,
@@ -273,20 +276,24 @@ export default function ConsultationModule() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {loading ? (
+        <AppLoadingState title="Loading consultations..." description="Preparing appointment requests and confirmed consultations." />
+      ) : (
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.label} className={`border rounded-xl shadow-sm p-4 ${kpi.bg}`}>
+            <AppCard key={kpi.label} className={`border-none p-4 ${kpi.bg}`} tone="brand">
               <div className="flex items-center gap-2 mb-1">
                 <Icon className={`w-4 h-4 ${kpi.color}`} />
                 <p className="text-[10px] uppercase font-mono tracking-wider text-stone-500">{kpi.label}</p>
               </div>
               <p className="text-2xl font-display font-black text-stone-800">{kpi.value}</p>
-            </div>
+            </AppCard>
           );
         })}
       </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white border border-stsn-beige rounded-xl shadow-sm overflow-hidden">
@@ -329,10 +336,12 @@ export default function ConsultationModule() {
             return (
               <div className="space-y-3">
                 {filteredItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-2 py-12 px-4 border border-stsn-beige rounded-xl bg-stsn-cream/50 text-center">
-                    <PhoneCall className="w-8 h-8 text-stsn-gold/50" />
-                    <p className="text-sm text-stone-500">No pending consultation requests.</p>
-                  </div>
+                  <AppEmptyState
+                    icon={PhoneCall}
+                    title="No pending consultation requests."
+                    description="New guardian, student, or faculty requests will appear here."
+                    compact
+                  />
                 ) : (
                   <>
                     {pageItems.map((a) => {
@@ -340,7 +349,7 @@ export default function ConsultationModule() {
                       const tea = scopedTeachers.find((t) => t.id === a.teacherId);
                       const cfg = STATUS_CONFIG[a.status];
                       return (
-                        <div key={a.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4">
+                        <AppCard key={a.id} className="border border-stone-200 bg-stone-50 p-4" tone="muted">
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <div className="flex items-center gap-2 mb-0.5">
@@ -369,7 +378,7 @@ export default function ConsultationModule() {
                               </button>
                             </div>
                           </div>
-                        </div>
+                        </AppCard>
                       );
                     })}
                     {/* DataTables-style pagination footer */}

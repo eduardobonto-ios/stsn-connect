@@ -5,15 +5,14 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import {
-  NotebookPen, Plus, Search, Eye, X, Calendar, User,
+  NotebookPen, Plus, Search, X, Calendar, User,
   MessageSquare, CheckCircle, Clock, AlertCircle, Lock,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import PersonIdentityCell from "../../../components/common/PersonIdentityCell";
+import AppCard from "../../../components/common/AppCard";
 import AppButton from "../../../components/common/AppButton";
-import AppSearchInput from "../../../components/common/AppSearchInput";
-import AppSelect from "../../../components/common/AppSelect";
-import AppTabs from "../../../components/common/AppTabs";
+import AppLoadingState from "../../../components/common/AppLoadingState";
 import { useSTSNStore } from "../../../services/store";
 import { getAcademicScopedData, filterStudentLinkedRecords } from "../../../services/academicUnitScopeService";
 import { dbInsert, dbSelectAll, newId } from "../../../services/supabaseCrud";
@@ -335,21 +334,19 @@ export default function GuidanceModule() {
 
       {/* KPI Cards */}
       {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map((i) => <div key={i} className="bg-white rounded-xl border border-stsn-beige shadow-sm p-4 h-20 animate-pulse" />)}
-        </div>
+        <AppLoadingState title="Loading guidance records..." description="Preparing anecdotal records and counseling sessions." />
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {kpis.map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <div key={kpi.label} className={`border rounded-xl shadow-sm p-4 ${kpi.bg}`}>
+              <AppCard key={kpi.label} className={`border-none p-4 ${kpi.bg}`} tone="brand">
                 <div className="flex items-center gap-2 mb-1">
                   <Icon className={`w-4 h-4 ${kpi.color}`} />
                   <p className="text-[10px] uppercase font-mono tracking-wider text-stone-500">{kpi.label}</p>
                 </div>
                 <p className="text-2xl font-display font-black text-stone-800">{kpi.value}</p>
-              </div>
+              </AppCard>
             );
           })}
         </div>
@@ -357,7 +354,7 @@ export default function GuidanceModule() {
 
       {/* Pending Follow-up Reminder Strip */}
       {!loading && scopedRecords.filter((r) => !r.followUpDone && r.followUpDate).length > 0 && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+        <AppCard className="flex items-start gap-2.5 border border-amber-200 bg-amber-50 p-3" tone="muted">
           <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="min-w-0">
             <p className="text-xs font-bold text-amber-800">Pending Follow-ups</p>
@@ -366,7 +363,7 @@ export default function GuidanceModule() {
               {" "}Review the <strong>Anecdotal Records</strong> tab and mark them done.
             </p>
           </div>
-        </div>
+        </AppCard>
       )}
 
       {/* Tabs */}
