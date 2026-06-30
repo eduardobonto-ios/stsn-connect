@@ -38,6 +38,7 @@ import TaxesPage from "./sub-pages/TaxesPage";
 import BenefitsPage from "./sub-pages/BenefitsPage";
 import RecruitmentPage from "./sub-pages/RecruitmentPage";
 import OnboardingPage from "./sub-pages/OnboardingPage";
+import NewEmployeeProfilePage from "./sub-pages/NewEmployeeProfilePage";
 
 interface Props {
   subPage: string;
@@ -160,6 +161,16 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
         desc: "Manage employee records, movements, and employment status.",
         metric: activeEmployees,
         metricLabel: "active staff",
+        tone: GROUP_TONES.Workforce,
+      },
+      {
+        id: "new-employee-profile",
+        label: "New Employee Profile",
+        group: "Workforce",
+        icon: UserCheck,
+        desc: "Complete profile, requirements, and onboarding-ready records for new hires.",
+        metric: scopedEmployees.filter((employee) => employee.employmentStatus === "For Onboarding").length,
+        metricLabel: "for onboarding",
         tone: GROUP_TONES.Workforce,
       },
       {
@@ -318,10 +329,10 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
   });
 
   const priorityActions = [
-    { label: "Approve leave", count: pendingLeave, page: "leave-management", icon: FileCheck },
-    { label: "Review time logs", count: pendingTimeLogs, page: "time-management", icon: Clock },
-    { label: "Prepare payroll", count: pendingPayroll + openPayrollPeriods, page: "payroll-management", icon: Banknote },
-    { label: "Check attendance", count: attendanceExceptions, page: "attendance", icon: ShieldCheck },
+      { label: "Approve leave", count: pendingLeave, page: "leave-management", icon: FileCheck },
+      { label: "Review time logs", count: pendingTimeLogs, page: "time-management", icon: Clock },
+      { label: "Prepare payroll", count: pendingPayroll + openPayrollPeriods, page: "payroll-management", icon: Banknote },
+      { label: "Check attendance", count: attendanceExceptions, page: "attendance", icon: ShieldCheck },
   ];
 
   const navigateTo = (page: string) => {
@@ -466,6 +477,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
       >
         {subPage === "hr-dashboard" && <HRDashboardPage />}
         {subPage === "employee-life-cycles" && <EmployeeLifecyclePage />}
+        {subPage === "new-employee-profile" && <NewEmployeeProfilePage />}
         {subPage === "time-management" && <TimeManagementPage />}
         {subPage === "shift-management" && <ShiftManagementPage />}
         {subPage === "attendance" && <AttendancePage />}

@@ -75,6 +75,37 @@ export interface Student {
   linkedGuardianIds?: string[];  // User.id values of linked parent/guardian accounts
 }
 
+export interface StudentGuardianContact {
+  id: string;
+  studentId: string;
+  guardianType?: "Mother" | "Father" | "Relative" | "Legal Guardian" | "Emergency Contact" | "Other";
+  guardianName: string;
+  relationship?: string;
+  contactNo?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  isPrimary: boolean;
+  isEmergencyContact?: boolean;
+  canReceivePortalNotifications?: boolean;
+}
+
+export interface StudentEducationBackground {
+  id: string;
+  studentId: string;
+  educationLevel: "Elementary" | "Junior High School" | "Senior High School" | "College" | "Vocational" | "Other";
+  schoolName: string;
+  schoolAddress?: string;
+  yearAttended?: string;
+  yearGraduated?: string;
+  degreeOrStrandOrCourse?: string;
+  honorsOrAwards?: string;
+  lastGradeLevelCompleted?: string;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Teacher {
   id: string;
   schoolId?: SchoolId;
@@ -116,6 +147,71 @@ export interface Employee {
   separationDate?: string;
   separationReason?: string;
   supervisorId?: string;
+}
+
+export interface EmployeeProfileContact {
+  id: string;
+  employeeId: string;
+  contactType: "Spouse" | "Parent" | "Sibling" | "Relative" | "Emergency Contact" | "Other";
+  fullName: string;
+  relationship?: string;
+  contactNo?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  isPrimaryContact: boolean;
+  isEmergencyContact: boolean;
+  canReceiveNotifications?: boolean;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeEducationBackground {
+  id: string;
+  employeeId: string;
+  educationLevel: "Elementary" | "Junior High School" | "Senior High School" | "College" | "Graduate Studies" | "Vocational" | "Other";
+  schoolName: string;
+  schoolAddress?: string;
+  yearAttended?: string;
+  yearGraduated?: string;
+  degreeOrCourse?: string;
+  majorOrSpecialization?: string;
+  honorsOrAwards?: string;
+  prcEducationNote?: string;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeLicenseCertification {
+  id: string;
+  employeeId: string;
+  title: string;
+  licenseNumber?: string;
+  issuingAuthority?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  status?: "Active" | "Expired" | "Pending Renewal" | "Inactive";
+  notes?: string;
+  isPrimary?: boolean;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeDocumentRecord {
+  id: string;
+  employeeId: string;
+  documentName: string;
+  documentType?: string;
+  status: "Pending" | "Submitted" | "Verified" | "Rejected";
+  fileUrl?: string;
+  remarks?: string;
+  submittedAt?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  createdAt?: string;
 }
 
 export interface Course {

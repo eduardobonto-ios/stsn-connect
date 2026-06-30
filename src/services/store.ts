@@ -76,6 +76,12 @@ import {
   AuditAction,
   ApprovalDelegation,
   DelegationScope,
+  StudentGuardianContact,
+  StudentEducationBackground,
+  EmployeeProfileContact,
+  EmployeeEducationBackground,
+  EmployeeLicenseCertification,
+  EmployeeDocumentRecord,
 } from "../types";
 import type { AcademicUnit } from "../types/school.types";
 import { getAcademicUnit } from "../config/schools.config";
@@ -139,7 +145,12 @@ interface STSNState {
   labFeeAdjustments: { scope: "SHS" | "College"; programCode: string; amount: number }[];
   discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
   paymentTermOptions: { term: string; description: string }[];
-  studentGuardians: { id: string; studentId: string; guardianName: string; relationship?: string; contactNo?: string; email?: string; address?: string; isPrimary: boolean }[];
+  studentGuardians: StudentGuardianContact[];
+  studentEducationBackgrounds: StudentEducationBackground[];
+  employeeProfileContacts: EmployeeProfileContact[];
+  employeeEducationBackgrounds: EmployeeEducationBackground[];
+  employeeLicenseCertifications: EmployeeLicenseCertification[];
+  employeeDocuments: EmployeeDocumentRecord[];
 
   // HR Phase 2-4
   employeeLifecycleEvents: EmployeeLifecycleEvent[];
@@ -222,6 +233,7 @@ interface STSNState {
   // Human Resource & Admin Actions
   addEmployee: (employee: Omit<Employee, "id">) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
+  updateTeacher: (id: string, updates: Partial<Teacher>) => void;
   addPayrollRow: (payrollRow: PayrollRow) => void;
   markPaidPayroll: (id: string) => void;
   processGlobalPayroll: () => void;
@@ -375,9 +387,22 @@ interface STSNState {
   markHardcopySubmitted: (studentId: string, reqName: string) => void;
 
   // Guardian Information (Admission & Enrollment)
-  addStudentGuardian: (guardian: Omit<STSNState["studentGuardians"][number], "id">) => void;
-  updateStudentGuardian: (id: string, updates: Partial<STSNState["studentGuardians"][number]>) => void;
+  addStudentGuardian: (guardian: Omit<StudentGuardianContact, "id">) => void;
+  updateStudentGuardian: (id: string, updates: Partial<StudentGuardianContact>) => void;
   deleteStudentGuardian: (id: string) => void;
+  addStudentEducationBackground: (record: Omit<StudentEducationBackground, "id" | "createdAt" | "updatedAt">) => void;
+  updateStudentEducationBackground: (id: string, updates: Partial<StudentEducationBackground>) => void;
+  deleteStudentEducationBackground: (id: string) => void;
+  addEmployeeProfileContact: (contact: Omit<EmployeeProfileContact, "id" | "createdAt" | "updatedAt">) => void;
+  updateEmployeeProfileContact: (id: string, updates: Partial<EmployeeProfileContact>) => void;
+  deleteEmployeeProfileContact: (id: string) => void;
+  addEmployeeEducationBackground: (record: Omit<EmployeeEducationBackground, "id" | "createdAt" | "updatedAt">) => void;
+  updateEmployeeEducationBackground: (id: string, updates: Partial<EmployeeEducationBackground>) => void;
+  deleteEmployeeEducationBackground: (id: string) => void;
+  addEmployeeLicenseCertification: (record: Omit<EmployeeLicenseCertification, "id" | "createdAt" | "updatedAt">) => void;
+  updateEmployeeLicenseCertification: (id: string, updates: Partial<EmployeeLicenseCertification>) => void;
+  deleteEmployeeLicenseCertification: (id: string) => void;
+  addActivityLog: (entry: { action: string; subject: string; type?: string; actorName?: string; occurredAt?: string }) => void;
 }
 
 /** Strips a code-based field and replaces it with the resolved FK column, so
@@ -568,6 +593,11 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   discountOptions: [],
   paymentTermOptions: [],
   studentGuardians: [],
+  studentEducationBackgrounds: [],
+  employeeProfileContacts: [],
+  employeeEducationBackgrounds: [],
+  employeeLicenseCertifications: [],
+  employeeDocuments: [],
   employeeLifecycleEvents: [],
   shiftTemplates: [],
   employeeShiftAssignments: [],
@@ -1070,6 +1100,11 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   updateEmployee: (id, updates) => {
     set((state) => ({ employees: state.employees.map((e) => (e.id === id ? { ...e, ...updates } : e)) }));
     dbUpdate("employees", id, "schoolId" in updates ? withSchoolFk(updates as any) : updates);
+  },
+
+  updateTeacher: (id, updates) => {
+    set((state) => ({ teachers: state.teachers.map((teacher) => (teacher.id === id ? { ...teacher, ...updates } : teacher)) }));
+    dbUpdate("teachers", id, "schoolId" in updates ? withSchoolFk(updates as any) : updates);
   },
 
   addPayrollRow: (row) => {
@@ -2221,5 +2256,142 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   deleteStudentGuardian: (id) => {
     set((state) => ({ studentGuardians: state.studentGuardians.filter((g) => g.id !== id) }));
     dbDelete("student_guardians", id);
-  }
+  },
+
+  addStudentEducationBackground: (record) => {
+    const newRecord: StudentEducationBackground = {
+      ...record,
+      id: newId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      studentEducationBackgrounds: [...state.studentEducationBackgrounds, newRecord],
+    }));
+    dbInsert("student_education_backgrounds", newRecord);
+  },
+
+  updateStudentEducationBackground: (id, updates) => {
+    set((state) => ({
+      studentEducationBackgrounds: state.studentEducationBackgrounds.map((record) =>
+        record.id === id ? { ...record, ...updates, updatedAt: new Date().toISOString() } : record
+      ),
+    }));
+    dbUpdate("student_education_backgrounds", id, updates);
+  },
+
+  deleteStudentEducationBackground: (id) => {
+    set((state) => ({
+      studentEducationBackgrounds: state.studentEducationBackgrounds.filter((record) => record.id !== id),
+    }));
+    dbDelete("student_education_backgrounds", id);
+  },
+
+  addEmployeeProfileContact: (contact) => {
+    const newContact: EmployeeProfileContact = {
+      ...contact,
+      id: newId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      employeeProfileContacts: [...state.employeeProfileContacts, newContact],
+    }));
+    dbInsert("employee_profile_contacts", newContact);
+  },
+
+  updateEmployeeProfileContact: (id, updates) => {
+    set((state) => ({
+      employeeProfileContacts: state.employeeProfileContacts.map((contact) =>
+        contact.id === id ? { ...contact, ...updates, updatedAt: new Date().toISOString() } : contact,
+      ),
+    }));
+    dbUpdate("employee_profile_contacts", id, updates);
+  },
+
+  deleteEmployeeProfileContact: (id) => {
+    set((state) => ({
+      employeeProfileContacts: state.employeeProfileContacts.filter((contact) => contact.id !== id),
+    }));
+    dbDelete("employee_profile_contacts", id);
+  },
+
+  addEmployeeEducationBackground: (record) => {
+    const newRecord: EmployeeEducationBackground = {
+      ...record,
+      id: newId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      employeeEducationBackgrounds: [...state.employeeEducationBackgrounds, newRecord],
+    }));
+    dbInsert("employee_education_backgrounds", newRecord);
+  },
+
+  updateEmployeeEducationBackground: (id, updates) => {
+    set((state) => ({
+      employeeEducationBackgrounds: state.employeeEducationBackgrounds.map((record) =>
+        record.id === id ? { ...record, ...updates, updatedAt: new Date().toISOString() } : record,
+      ),
+    }));
+    dbUpdate("employee_education_backgrounds", id, updates);
+  },
+
+  deleteEmployeeEducationBackground: (id) => {
+    set((state) => ({
+      employeeEducationBackgrounds: state.employeeEducationBackgrounds.filter((record) => record.id !== id),
+    }));
+    dbDelete("employee_education_backgrounds", id);
+  },
+
+  addEmployeeLicenseCertification: (record) => {
+    const newRecord: EmployeeLicenseCertification = {
+      ...record,
+      id: newId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      employeeLicenseCertifications: [...state.employeeLicenseCertifications, newRecord],
+    }));
+    dbInsert("employee_license_certifications", newRecord);
+  },
+
+  updateEmployeeLicenseCertification: (id, updates) => {
+    set((state) => ({
+      employeeLicenseCertifications: state.employeeLicenseCertifications.map((record) =>
+        record.id === id ? { ...record, ...updates, updatedAt: new Date().toISOString() } : record,
+      ),
+    }));
+    dbUpdate("employee_license_certifications", id, updates);
+  },
+
+  deleteEmployeeLicenseCertification: (id) => {
+    set((state) => ({
+      employeeLicenseCertifications: state.employeeLicenseCertifications.filter((record) => record.id !== id),
+    }));
+    dbDelete("employee_license_certifications", id);
+  },
+
+  addActivityLog: ({ action, subject, type = "Profile", actorName, occurredAt }) => {
+    const entry = {
+      id: newId(),
+      action,
+      subject,
+      type,
+      time: occurredAt ?? new Date().toISOString(),
+    };
+    set((state) => ({
+      activityLogs: [entry, ...state.activityLogs].slice(0, 1000),
+    }));
+    dbInsert("activity_logs", {
+      id: entry.id,
+      actorName: actorName ?? get().currentUser?.name,
+      action,
+      subjectLabel: subject,
+      activityType: type,
+      occurredAt: entry.time,
+    });
+  },
 }));
