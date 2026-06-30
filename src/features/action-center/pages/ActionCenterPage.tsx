@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { AlertTriangle, CheckCircle, ClipboardList, Clock, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle, ClipboardList, Clock, GraduationCap, Info } from "lucide-react";
 import ApprovalInbox, { type NavigateTarget } from "../../../components/common/ApprovalInbox";
 import AppCard from "../../../components/common/AppCard";
 import AppEmptyState from "../../../components/common/AppEmptyState";
@@ -51,22 +51,25 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
   ];
   const operationalMetrics = [
     {
-      label: "Approvals",
+      label: "Approval Queue",
       value: counts.totalForRole,
       detail: "Items currently waiting for your action.",
-      emphasis: "text-white",
+      icon: ClipboardList,
+      tone: "info" as const,
     },
     {
       label: "Overdue Risk",
       value: counts.pendingVoidRequests + counts.pendingPayrollRuns,
       detail: "Payroll and void items that deserve a closer review.",
-      emphasis: "text-[var(--color-stsn-gold-light)]",
+      icon: AlertTriangle,
+      tone: "warning" as const,
     },
     {
       label: "Academic Queue",
       value: counts.pendingEnrollments + counts.pendingApplications + counts.pendingGrades,
       detail: "Registrar and academic workflow items still in motion.",
-      emphasis: "text-white",
+      icon: GraduationCap,
+      tone: "purple" as const,
     },
   ];
   const activeOperationalMetrics = operationalMetrics.filter((metric) => metric.value > 0);
@@ -102,16 +105,16 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
         })}
       </section>
 
-      <AppCard className="bg-[linear-gradient(135deg,rgba(7,28,52,0.98)_0%,rgba(10,39,72,0.96)_55%,rgba(18,58,99,0.92)_100%)] text-white">
+      <AppCard className="overflow-hidden bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(255,253,246,0.98)_48%,rgba(248,242,228,0.96)_100%)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1.5">
-            <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-[rgba(242,201,76,0.82)]">
+            <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--erp-text-muted)]">
               Operational Focus
             </p>
-            <h2 className="text-lg font-bold tracking-tight text-white">
+            <h2 className="text-lg font-bold tracking-tight text-[var(--erp-text)]">
               Keep approvals moving without leaving the work queue.
             </h2>
-            <p className="max-w-3xl text-sm leading-relaxed text-white/72">
+            <p className="max-w-3xl text-sm leading-relaxed text-[var(--erp-text-muted)]">
               Counts, filters, tabs, and drawer actions remain unchanged. This pass only strengthens the visual hierarchy so reviewers can scan priority work faster.
             </p>
           </div>
@@ -119,11 +122,14 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
             {hasOperationalWork ? (
               <div className={`grid gap-3 ${operationalGridColumns}`}>
                 {activeOperationalMetrics.map((metric) => (
-                  <div key={metric.label} className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3">
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-white/55">{metric.label}</p>
-                    <p className={`mt-1 text-2xl font-black ${metric.emphasis}`}>{metric.value}</p>
-                    <p className="mt-1 text-[10px] leading-relaxed text-white/60">{metric.detail}</p>
-                  </div>
+                  <AppKpiCard
+                    key={metric.label}
+                    label={metric.label}
+                    value={metric.value}
+                    hint={metric.detail}
+                    icon={metric.icon}
+                    tone={metric.tone}
+                  />
                 ))}
               </div>
             ) : (
@@ -133,7 +139,6 @@ export default function ActionCenterPage({ onNavigate }: ActionCenterPageProps) 
                 description="The queue is clear for your role. New approvals will appear here automatically when work enters the pipeline."
                 compact
                 tone="neutral"
-                className="border-white/12 bg-white/8"
               />
             )}
           </div>

@@ -199,7 +199,6 @@ export const NAV_ITEMS: NavItem[] = [
     id: "NURSE_CLINIC", label: "Clinic", icon: Stethoscope, desc: "Student health & clinic services",
     children: [
       { id: "nurse",          label: "Nurse",          icon: Stethoscope, desc: "Student health visits & profiles",        targetModule: "NURSE_CLINIC" },
-      { id: "consultation",   label: "Consultation",   icon: PhoneCall,   desc: "Appointment booking & adviser meetings",  targetModule: "CONSULTATION" },
       { id: "clinic-reports", label: "Clinic Reports", icon: FileText,    desc: "Visit logs, health profiles, and incidents", targetModule: "CLINIC_REPORTS" },
     ],
   },
@@ -210,6 +209,7 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "guidance-reports", label: "Guidance Reports", icon: FileText,    desc: "Counseling, incidents, and conference reports", targetModule: "GUIDANCE_REPORTS" },
     ],
   },
+  { id: "CONSULTATION", label: "Consultation", icon: PhoneCall, desc: "Appointment booking & adviser meetings" },
   {
     id: "ACCOUNTS_SECURITY", label: "User Access & Authority", icon: Shield, desc: "Credential security & admin reports",
     children: [
