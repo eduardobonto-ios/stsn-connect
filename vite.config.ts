@@ -1,14 +1,29 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import {fileURLToPath} from 'node:url';
 import path from 'path';
 import {defineConfig} from 'vite';
+
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(projectRoot, '.'),
+      },
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'data-vendor': ['@supabase/supabase-js', 'zustand'],
+            'ui-vendor': ['lucide-react', 'motion'],
+            'table-vendor': ['@tanstack/react-table'],
+          },
+        },
       },
     },
     server: {

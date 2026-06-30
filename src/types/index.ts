@@ -3,17 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { AcademicUnit } from "./school.types";
+
 export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
+  | "PRINCIPAL"
   | "REGISTRAR"
   | "ACCOUNTING"
   | "TEACHER"
   | "STUDENT"
   | "HR"
-  | "EMPLOYEE";
+  | "EMPLOYEE"
+  | "CASHIER"
+  | "GUIDANCE"
+  | "NURSE"
+  | "PAYROLL"
+  | "GUARDIAN";  // Parent/guardian — read-only access scoped to linked student(s)
 
 export type SchoolId = "STSN" | "CDSTA";
+
+export type UserDesignation =
+  | "HEAD"           // Department head — L2 approver
+  | "OFFICER"        // Line officer — L1 approver
+  | "STAFF"          // General staff — submitter only
+  | "PRINCIPAL"      // School principal
+  | "ASST_PRINCIPAL"; // Assistant principal
 
 export interface User {
   id: string;
@@ -21,6 +36,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  designation?: UserDesignation;  // drives L1/L2 approval gating
   isActive: boolean;
   avatarUrl?: string;
   department?: "Basic Education" | "College" | "Administration" | "Support";
@@ -30,6 +46,9 @@ export interface Student {
   id: string;
   schoolId?: SchoolId;
   studentNo: string;
+  lrn?: string;
+  createdVia?: "erp" | "online" | "import";
+  sourceMetadata?: Record<string, unknown>;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -52,12 +71,46 @@ export interface Student {
   yearLevel: string; // e.g., "Grade 11", "1st Year"
   trackOrCourse: string; // STEM, HUMSS, BSIT, etc.
   section: string;
-  enrollmentStatus: "Pending" | "Enrolled" | "Approved" | "Draft" | "Rejected";
+  enrollmentStatus: "Pending" | "For Assessment" | "Assessed" | "For Payment" | "Partially Paid" | "Enrolled" | "Approved" | "Draft" | "Rejected" | "Cancelled" | "Withdrawn";
+  linkedGuardianIds?: string[];  // User.id values of linked parent/guardian accounts
+}
+
+export interface StudentGuardianContact {
+  id: string;
+  studentId: string;
+  guardianType?: "Mother" | "Father" | "Relative" | "Legal Guardian" | "Emergency Contact" | "Other";
+  guardianName: string;
+  relationship?: string;
+  contactNo?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  isPrimary: boolean;
+  isEmergencyContact?: boolean;
+  canReceivePortalNotifications?: boolean;
+}
+
+export interface StudentEducationBackground {
+  id: string;
+  studentId: string;
+  educationLevel: "Elementary" | "Junior High School" | "Senior High School" | "College" | "Vocational" | "Other";
+  schoolName: string;
+  schoolAddress?: string;
+  yearAttended?: string;
+  yearGraduated?: string;
+  degreeOrStrandOrCourse?: string;
+  honorsOrAwards?: string;
+  lastGradeLevelCompleted?: string;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Teacher {
   id: string;
   schoolId?: SchoolId;
+  /** Links this teacher record to its login account (User.id) — preferred over email matching. */
+  userId?: string;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -85,6 +138,80 @@ export interface Employee {
   contact?: string;
   address?: string;
   emergencyContact?: string;
+  // Phase 2 — lifecycle fields (migration 0020)
+  employeeNo?: string;
+  userId?: string;
+  employmentStatus?: string;
+  hireDate?: string;
+  regularizationDate?: string;
+  separationDate?: string;
+  separationReason?: string;
+  supervisorId?: string;
+}
+
+export interface EmployeeProfileContact {
+  id: string;
+  employeeId: string;
+  contactType: "Spouse" | "Parent" | "Sibling" | "Relative" | "Emergency Contact" | "Other";
+  fullName: string;
+  relationship?: string;
+  contactNo?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  isPrimaryContact: boolean;
+  isEmergencyContact: boolean;
+  canReceiveNotifications?: boolean;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeEducationBackground {
+  id: string;
+  employeeId: string;
+  educationLevel: "Elementary" | "Junior High School" | "Senior High School" | "College" | "Graduate Studies" | "Vocational" | "Other";
+  schoolName: string;
+  schoolAddress?: string;
+  yearAttended?: string;
+  yearGraduated?: string;
+  degreeOrCourse?: string;
+  majorOrSpecialization?: string;
+  honorsOrAwards?: string;
+  prcEducationNote?: string;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeLicenseCertification {
+  id: string;
+  employeeId: string;
+  title: string;
+  licenseNumber?: string;
+  issuingAuthority?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  status?: "Active" | "Expired" | "Pending Renewal" | "Inactive";
+  notes?: string;
+  isPrimary?: boolean;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeDocumentRecord {
+  id: string;
+  employeeId: string;
+  documentName: string;
+  documentType?: string;
+  status: "Pending" | "Submitted" | "Verified" | "Rejected";
+  fileUrl?: string;
+  remarks?: string;
+  submittedAt?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  createdAt?: string;
 }
 
 export interface Course {
@@ -125,6 +252,16 @@ export interface Requirement {
   status: "Submitted" | "Pending" | "Rejected";
   submittedDate?: string;
   remarks?: string;
+  // Document upload workflow
+  uploadStatus?: "Uploaded" | "Not Uploaded";
+  uploadFileName?: string;
+  uploadFilePath?: string;
+  uploadDate?: string;
+  verificationStatus?: "Pending" | "Verified" | "Rejected";
+  verifiedBy?: string;
+  verifiedAt?: string;
+  hardcopySubmitted?: boolean;
+  hardcopySubmittedDate?: string;
 }
 
 export interface Enrollment {
@@ -133,10 +270,54 @@ export interface Enrollment {
   schoolYear: string; // e.g., "2026-2027"
   semester: string; // "First Semester", "Second Semester" or "N/A"
   enrollmentType: "New Student" | "Old Student" | "Transferee" | "Returnee";
-  status: "Pending" | "Enrolled" | "Approved" | "Rejected";
+  status: "Pending" | "For Assessment" | "Assessed" | "For Payment" | "Partially Paid" | "Enrolled" | "Approved" | "Rejected" | "Cancelled" | "Withdrawn";
   submittedAt: string;
   subjectCodes: string[];
   assessmentId?: string;
+  enrollmentSource?: "ERP" | "Online" | "Walk-in" | "Import";
+  isOnlineEnrollment?: boolean;
+  onlineApplicationId?: string;
+  completionStatus?: "Complete" | "Incomplete";
+  missingFields?: string[];
+  sourceMetadata?: Record<string, unknown>;
+}
+
+export interface OnlineEnrollmentApplication {
+  id: string;
+  referenceNo: string;
+  studentId?: string;
+  enrollmentId?: string;
+  enrollmentType: string;
+  lrn?: string;
+  schoolYear: string;
+  semester?: string;
+  gradeLevelApplyingFor?: string;
+  strandOrTrack?: string;
+  previousSchool?: string;
+  previousSchoolAddress?: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  birthDate?: string;
+  gender?: string;
+  email?: string;
+  contactNo?: string;
+  completeAddress?: string;
+  barangay?: string;
+  cityMunicipality?: string;
+  province?: string;
+  zipCode?: string;
+  guardianName?: string;
+  guardianRelationship?: string;
+  guardianContactNo?: string;
+  guardianEmail?: string;
+  guardianAddress?: string;
+  status: "Pending Registrar Review" | "For Completion" | "Accepted" | "Rejected" | "Cancelled";
+  completionStatus: "Complete" | "Incomplete";
+  missingFields: string[];
+  submittedFrom: string;
+  submittedAt: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface AssessmentFee {
@@ -148,6 +329,7 @@ export interface AssessmentFee {
 
 export interface StudentAssessment {
   id: string;
+  schoolId?: SchoolId;
   studentId: string;
   schoolYear: string;
   semester: string;
@@ -156,18 +338,117 @@ export interface StudentAssessment {
   discountPercentage: number;
   discountAmount: number;
   scholarshipName?: string;
-  paymentTerm: "Cash" | "Installment - 2 Payments" | "Installment - 4 Payments";
+  paymentTerm: "Cash Basis" | "Quarterly" | "Semestral" | "Installment - 2 Payments" | "Installment - 4 Payments";
   balance: number;
+  isPaid?: boolean;
+  financialHoldStatus?: "None" | "Hold" | "Cleared";
+  lastPaymentDate?: string;
+
+  // ============================================================
+  // ACCOUNTING APPROVAL WORKFLOW (additive, optional)
+  // Cashier may only collect payment when approvalStatus === "Approved for Payment".
+  // ============================================================
+  /** Books apply to Basic Education only — Accounting approves/returns the whole assessment, never individual books. */
+  booksAvailed?: boolean;
+  bookPackageId?: string;
+  /** Accounting approval workflow status. Undefined = not yet submitted for approval. */
+  approvalStatus?: "Pending Accounting Approval" | "Approved for Payment" | "Returned to Registrar" | "Rejected";
+  submittedBy?: string;
+  submittedDate?: string;
+  registrarRemarks?: string;
+  accountingRemarks?: string;
+  approvedBy?: string;
+  approvedDate?: string;
+  auditTrail?: AuditEntry[];
+}
+
+// ============================================================
+// REGISTRAR IMPORT - Student masterlist staging/profile support
+// ============================================================
+export interface StudentRegistrarProfile {
+  id: string;
+  studentId: string;
+  lrn?: string;
+  nameExtension?: string;
+  studentStatus?: string;
+  academicStage?: "Preschool" | "Elementary" | "Junior High School" | "Senior High School" | string;
+  strand?: string;
+  escQvrNo?: string;
+  voucherStatus?: string;
+  admissionSlipStatus?: string;
+  importEnrollmentMarker?: string;
+  preferredModeOfPayment?: string;
+  commentsInquiries?: string;
+  confirmationStatus?: string;
+  discountDescription?: string;
+  discountAmount?: number;
+  reservationAmount?: number;
+  accountingModeOfPayment?: string;
+  accountingOrDate?: string;
+  accountingOrNumber?: string;
+  assessedBy?: string;
+  previousSchool?: string;
+  referralSource?: string;
+  sourceImportBatchId?: string;
+  sourceSheetRow?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RegistrarImportBatch {
+  id: string;
+  schoolId?: string;
+  schoolYear: string;
+  academicUnit: AcademicUnit;
+  importType: string;
+  sourceFileName: string;
+  sourceSheetName: string;
+  headerRow: number;
+  dataStartRow: number;
+  status: "draft" | "validated" | "committing" | "committed" | "failed" | "cancelled";
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+  errorRows: number;
+  duplicateRows: number;
+  uploadedBy?: string;
+  uploadedAt?: string;
+  committedBy?: string;
+  committedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RegistrarImportPreviewRow {
+  id?: string;
+  batchId?: string;
+  sheetRowNumber: number;
+  rowHash?: string;
+  lrn?: string;
+  fullName: string;
+  gender?: string;
+  birthday?: string;
+  yearLevel?: string;
+  trackOrCourse?: string;
+  academicStage?: string;
+  studentStatus?: string;
+  importStatus: "parsed" | "valid" | "warning" | "error" | "duplicate" | "skipped" | "committed";
+  errors: string[];
+  warnings: string[];
+  matchedStudentId?: string;
+  committedStudentId?: string;
 }
 
 export interface Payment {
   id: string;
+  schoolId?: SchoolId;
   studentId: string;
+  assessmentId?: string; // links payment to a specific assessment (prevents balance deducted from all)
   amount: number;
   paymentDate: string;
-  paymentMethod: "Cash" | "Bank Transfer" | "GCash" | "Credit Card";
+  paymentMethod: string;
   orNumber: string; // Official Receipt Number
-  term: "Downpayment" | "Midterm" | "Finals" | "Full Payment" | "Installment";
+  term: string;
   remarks?: string;
 }
 
@@ -201,6 +482,11 @@ export interface Announcement {
   date: string;
   category: "Academic" | "Event" | "Billing" | "General";
   author: string;
+  // P3-G: role-targeted announcement fields (all optional for backward compat)
+  targetRoles?: UserRole[];   // undefined = visible to all roles
+  targetSchool?: SchoolId;   // undefined = visible to both schools
+  priority?: "normal" | "urgent"; // urgent = pinned banner
+  expiresAt?: string;         // ISO date — auto-archive after this date
 }
 
 export interface SchoolEvent {
@@ -257,6 +543,16 @@ export interface DiscountType {
   description?: string;
   isActive: boolean;
   createdAt: string;
+  // Enterprise policy fields (Phase 2 foundation — optional, prototype-friendly)
+  effectiveSchoolYear?: string;
+  applicableAcademicUnit?: AcademicUnit | "both";
+  appliesTo?: "Tuition" | "Miscellaneous" | "Laboratory" | "Total Assessment";
+  discountBasis?: "Percentage" | "Fixed Amount";
+  discountFixedAmount?: number;
+  isStackable?: boolean;
+  requiresDocument?: boolean;
+  maxAmount?: number;
+  glCode?: string;
 }
 
 export interface AuditEntry {
@@ -265,6 +561,47 @@ export interface AuditEntry {
   performedBy: string;
   performedAt: string;
   details?: string;
+}
+
+export interface VoidRequest {
+  id: string;
+  schoolId?: SchoolId;
+  paymentId: string;
+  orNumber: string;
+  amount: number;
+  studentId: string;
+  studentName: string;
+  requestedBy: string;
+  requestedAt: string;
+  reason: string;
+  status: "Pending Void Approval" | "Approved" | "Rejected";
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewRemarks?: string;
+}
+
+export type NotificationEntityType =
+  | "assessment"
+  | "discount"
+  | "enrollment"
+  | "leave"
+  | "payroll"
+  | "void"
+  | "grade";
+
+export type NotificationType = "approval" | "rejection" | "return" | "reminder" | "info";
+
+export interface STSNNotification {
+  id: string;
+  schoolId?: SchoolId;
+  title: string;
+  body: string;
+  type: NotificationType;
+  entityType: NotificationEntityType;
+  entityId: string;
+  targetRoles: UserRole[];
+  createdAt: string;
+  readBy: string[];
 }
 
 export interface DiscountRequest {
@@ -278,7 +615,7 @@ export interface DiscountRequest {
   discountPercent: number;
   requestedBy: string;
   requestedAt: string;
-  status: "Pending" | "For Review" | "Approved" | "Rejected";
+  status: "Pending" | "For Review" | "Approved" | "Rejected" | "Returned for Documents" | "Cancelled" | "Expired";
   siblingStudentIds?: string[];
   siblingNames?: string[];
   level1Status?: "Pending" | "Approved" | "Rejected";
@@ -317,8 +654,159 @@ export interface ClassSchedule {
 }
 
 // ============================================================
+// CLASS SECTIONING — Master Section Repository
+// ============================================================
+export interface SchoolSection {
+  id: string;
+  schoolId?: SchoolId;
+  code: string;
+  name: string;
+  department: "Basic Education" | "College";
+  yearLevel: string;
+  strandOrTrack?: string;
+  adviserId?: string;
+  adviserName?: string;
+  capacity: number;
+  currentCount: number;
+  academicYear: string;
+  semester?: string;
+  isActive: boolean;
+  createdAt: string;
+  enrolledStudentIds?: string[];
+}
+
+// ============================================================
+// ROOM MANAGEMENT
+// ============================================================
+export interface Room {
+  id: string;
+  schoolId?: SchoolId;
+  code: string;
+  name: string;
+  building?: string;
+  floor?: string;
+  capacity: number;
+  type: "Classroom" | "Laboratory" | "Gymnasium" | "Auditorium" | "Office" | "Other";
+  isActive: boolean;
+  status: "Available" | "Under Maintenance" | "Reserved";
+}
+
+// ============================================================
 // ONLINE LEARNING / LMS
 // ============================================================
+// ============================================================
+// ACCOUNTING — Foundation types (Phase 2)
+// ============================================================
+export type AccountingTab = "dashboard" | "ledger" | "discounts" | "billing" | "holds" | "reports";
+
+export interface AccountingKpi {
+  id: string;
+  label: string;
+  value: string | number;
+  hint?: string;
+}
+
+export interface LedgerTransaction {
+  id: string;
+  studentId: string;
+  date: string;
+  description: string;
+  type: "Assessment" | "Payment" | "Discount" | "Adjustment";
+  debit: number;
+  credit: number;
+  balance: number;
+  reference?: string;
+}
+
+export interface StudentLedgerSummary {
+  studentId: string;
+  schoolYear: string;
+  totalAssessed: number;
+  totalPaid: number;
+  discountApplied: number;
+  balance: number;
+  financialHoldStatus: "None" | "Hold" | "Cleared";
+  clearanceStatus: "Cleared" | "Not Cleared";
+  lastPaymentDate?: string;
+}
+
+export interface FinancialHold {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNo: string;
+  holdType: "Enrollment" | "COR" | "Exam Permit" | "Transcript" | "Graduation Clearance" | "Transfer Credentials";
+  /** Root-cause category for the hold (distinct from the blocked process above). */
+  holdCategory?: "Unpaid Balance" | "Missing Payment" | "Registrar Hold" | "Incomplete Documents" | "Returned Payment";
+  reason: string;
+  balanceAmount: number;
+  createdBy: string;
+  createdAt: string;
+  status: "Active" | "Cleared";
+  clearedBy?: string;
+  clearedAt?: string;
+  clearanceRemarks?: string;
+}
+
+export interface AssessmentBillingSummary {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNo: string;
+  schoolYear: string;
+  semester: string;
+  academicUnit: AcademicUnit;
+  feeTemplateName: string;
+  totalAssessment: number;
+  amountDue: number;
+  balance: number;
+  status: "Draft" | "Pending Approval" | "Approved" | "Voided";
+}
+
+export interface PaymentCollectionSummary {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  paymentMethod: Payment["paymentMethod"];
+  referenceNo: string;
+  paymentDate: string;
+  cashier: string;
+  term: string;
+  verificationStatus: "Verified" | "Pending Verification" | "Voided";
+}
+
+// ============================================================
+// BOOKS SETUP — Basic Education book package configuration
+// ============================================================
+/**
+ * A single book line item within a BookPackage.
+ * Students cannot select individual books — these are display-only,
+ * the package as a whole is added/removed as one unit.
+ */
+export interface BookPackageItem {
+  id: string;
+  title: string;
+  subjectCode?: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface BookPackage {
+  id: string; // packageId, e.g. "bp-grade1"
+  packageName: string;
+  gradeLevel: string; // e.g. "Grade 1" — Basic Education only
+  schoolId: SchoolId;
+  academicUnit: AcademicUnit; // always "basic-ed"
+  schoolYear: string; // effective school year, e.g. "2026-2027"
+  books: BookPackageItem[];
+  totalAmount: number;
+  isRequired: boolean;
+  status: "Active" | "Inactive";
+  lastUpdated: string;
+  updatedBy?: string;
+}
+
 export interface LearningMaterial {
   id: string;
   schoolId: SchoolId;
@@ -341,4 +829,349 @@ export interface LearningMaterial {
   yearLevel?: string;
   trackOrCourse?: string;
   tags?: string[];
+}
+
+// ============================================================
+// HR MODULE — Phase 2: Employee Life Cycle
+// ============================================================
+export interface EmployeeLifecycleEvent {
+  id: string;
+  employeeId: string;
+  eventType: string;
+  fromStatus?: string;
+  toStatus?: string;
+  effectiveDate: string;
+  remarks?: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+// ============================================================
+// HR MODULE — Phase 3: Shift, Time, Attendance, Leave
+// ============================================================
+export interface ShiftTemplate {
+  id: string;
+  schoolId?: SchoolId;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  isOvernight: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface EmployeeShiftAssignment {
+  id: string;
+  employeeId: string;
+  shiftTemplateId: string;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  restDays: string[];
+  createdAt: string;
+}
+
+export interface EmployeeTimeLog {
+  id: string;
+  employeeId: string;
+  logDate: string;
+  timeIn?: string;
+  timeOut?: string;
+  source: "Biometric" | "Manual" | "System";
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface EmployeeAttendance {
+  id: string;
+  employeeId: string;
+  attendanceDate: string;
+  timeIn?: string;
+  timeOut?: string;
+  status: "Present" | "Late" | "Undertime" | "Absent" | "On Leave" | "Official Business" | "Holiday" | "Rest Day" | "Half Day";
+  lateMinutes: number;
+  undertimeMinutes: number;
+  overtimeMinutes: number;
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface LeaveType {
+  id: string;
+  code: string;
+  name: string;
+  isPaid: boolean;
+  defaultCredits: number;
+  maxDaysPerRequest?: number;
+  requiresApproval: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason?: string;
+  status: "Draft" | "Submitted" | "For Approval" | "Approved" | "Rejected" | "Cancelled";
+  approvedBy?: string;
+  approvedAt?: string;
+  remarks?: string;
+  createdAt: string;
+}
+
+// ============================================================
+// HR MODULE — Phase 4: Payroll, Payouts, Taxes, Benefits
+// ============================================================
+export interface PayrollPeriod {
+  id: string;
+  schoolId?: SchoolId;
+  periodCode: string;
+  label?: string;
+  startDate: string;
+  endDate: string;
+  payoutDate?: string;
+  status: "Open" | "Locked" | "Closed";
+  createdAt: string;
+}
+
+export interface PayrollRun {
+  id: string;
+  schoolId?: SchoolId;
+  payrollPeriodId: string;
+  runNo: string;
+  status: "Draft" | "Computed" | "For Review" | "Approved" | "Released" | "Cancelled";
+  computedBy?: string;
+  approvedBy?: string;
+  computedAt?: string;
+  approvedAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface PayrollLine {
+  id: string;
+  payrollRunId: string;
+  employeeId: string;
+  basicPay: number;
+  allowances: number;
+  overtimePay: number;
+  lateDeduction: number;
+  undertimeDeduction: number;
+  absenceDeduction: number;
+  sssDeduction: number;
+  philhealthDeduction: number;
+  pagibigDeduction: number;
+  withholdingTax: number;
+  otherDeductions: number;
+  otherAllowances: number;
+  grossPay: number;
+  netPay: number;
+  status: "Computed" | "For Review" | "Approved" | "Released" | "Cancelled";
+  createdAt: string;
+}
+
+export interface SalaryPayoutBatch {
+  id: string;
+  payrollRunId: string;
+  payoutNo: string;
+  payoutMethod: "Bank Transfer" | "Cash" | "Check";
+  status: "Pending" | "Queued" | "Released" | "Failed" | "Cancelled";
+  releasedBy?: string;
+  releasedAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface SalaryPayoutLine {
+  id: string;
+  payoutBatchId: string;
+  payrollLineId: string;
+  employeeId: string;
+  amount: number;
+  referenceNo?: string;
+  status: "Pending" | "Released" | "Failed" | "Cancelled";
+  releasedAt?: string;
+  createdAt: string;
+}
+
+export interface BenefitPlan {
+  id: string;
+  code: string;
+  name: string;
+  category: "Statutory" | "Company Benefit" | "Allowance" | "Deduction";
+  employeeShareType: "Fixed" | "Percentage" | "Configured";
+  employeeShareValue: number;
+  employerShareType: "Fixed" | "Percentage" | "Configured";
+  employerShareValue: number;
+  isTaxable: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface StatutoryContributionRule {
+  id: string;
+  benefitPlanId: string;
+  effectiveYear: number;
+  minSalary: number;
+  maxSalary?: number;
+  employeeRate: number;
+  employerRate: number;
+  employeeFixed: number;
+  employerFixed: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface TaxTable {
+  id: string;
+  effectiveYear: number;
+  name: string;
+  frequency: "Monthly" | "Semi-Monthly" | "Annual";
+  isActive: boolean;
+  createdAt: string;
+  brackets?: TaxBracket[];
+}
+
+export interface TaxBracket {
+  id: string;
+  taxTableId: string;
+  incomeFrom: number;
+  incomeTo?: number;
+  baseTax: number;
+  rateAbove: number;
+  createdAt: string;
+}
+
+// ---- HR Phase 5: Recruitment & Onboarding ----
+
+export interface JobRequisition {
+  id: string;
+  schoolId?: string;
+  requisitionNo: string;
+  positionTitle: string;
+  department: string;
+  employmentType: "Full-Time" | "Part-Time" | "Contractual";
+  headCount: number;
+  reason?: string;
+  targetStartDate?: string;
+  status: "Draft" | "Approved" | "Posted" | "Screening" | "Interview" | "Offered" | "Closed" | "Cancelled";
+  requestedBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  createdAt: string;
+}
+
+export interface JobApplicant {
+  id: string;
+  jobRequisitionId?: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  email?: string;
+  contact?: string;
+  address?: string;
+  resumeUrl?: string;
+  appliedAt: string;
+  status: "For Screening" | "For Interview" | "For Assessment" | "Offered" | "Hired" | "Rejected" | "Withdrew";
+  hiredEmployeeId?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface ApplicantInterview {
+  id: string;
+  applicantId: string;
+  scheduledAt: string;
+  interviewType: "Initial" | "Technical" | "Final" | "HR" | "Panel";
+  interviewer?: string;
+  result?: "Passed" | "Failed" | "No Show" | "Pending";
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface OnboardingTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface OnboardingTask {
+  id: string;
+  templateId: string;
+  taskName: string;
+  description?: string;
+  responsibleParty?: string;
+  dueDayOffset: number;
+  isRequired: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface EmployeeOnboardingTask {
+  id: string;
+  employeeId: string;
+  onboardingTaskId: string;
+  dueDate?: string;
+  status: "Pending" | "In Progress" | "Completed" | "Skipped" | "Overdue";
+  completedAt?: string;
+  completedBy?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+// ── Central Immutable Audit Log (P4-F) ────────────────────────────────────────
+
+export type AuditEntityType =
+  | "enrollment" | "assessment" | "payment" | "grade"
+  | "employee" | "leave" | "void" | "user" | "discount"
+  | "payroll" | "delegation";
+
+export type AuditAction =
+  | "created" | "updated" | "approved" | "rejected"
+  | "returned" | "deleted" | "finalized" | "submitted"
+  | "voided" | "delegated";
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;             // ISO 8601
+  actorId: string;
+  actorRole: UserRole;
+  actorName: string;
+  schoolId?: SchoolId;
+  entityType: AuditEntityType;
+  entityId: string;
+  action: AuditAction;
+  previousValue?: Record<string, unknown>;
+  newValue?: Record<string, unknown>;
+  remarks?: string;
+  ipAddress?: string;
+}
+
+// ── Approval Delegation (P4-D) ────────────────────────────────────────────────
+
+export type DelegationScope = "ASSESSMENT" | "LEAVE" | "GRADE" | "VOID" | "ALL";
+
+export interface ApprovalDelegation {
+  id: string;
+  schoolId?: SchoolId;
+  delegatorId: string;           // user transferring authority
+  delegatorRole: UserRole;
+  delegateId: string;            // user receiving authority
+  delegateRole: UserRole;
+  scope: DelegationScope;
+  startDate: string;             // ISO date YYYY-MM-DD
+  endDate: string;               // ISO date YYYY-MM-DD
+  reason: string;
+  createdAt: string;
+  isActive: boolean;
 }

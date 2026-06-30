@@ -5,7 +5,7 @@
 
 import React, { useRef } from "react";
 import { createPortal } from "react-dom";
-import { Student, Payment, Employee, StudentAssessment, Grade, Subject, PayrollRow } from "../types";
+import { Student, Payment, Employee, StudentAssessment, Grade, Subject, PayrollRow, BookPackage } from "../types";
 import { X, Printer, CheckCircle, Award, ShieldAlert, Sparkles, QrCode, FileCheck, Landmark, GraduationCap } from "lucide-react";
 
 interface PreviewModalProps {
@@ -13,26 +13,30 @@ interface PreviewModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  hidePrint?: boolean;
+  maxWidthClass?: string;
 }
 
-export function PreviewModal({ isOpen, onClose, title, children }: PreviewModalProps) {
+export function PreviewModal({ isOpen, onClose, title, children, hidePrint = false, maxWidthClass = "max-w-3xl" }: PreviewModalProps) {
   if (!isOpen) return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-fade-in flex items-center justify-center p-4 md:p-8 text-stone-800">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] border border-stone-200">
+    <div className="app-modal-backdrop z-50 animate-fade-in text-stone-800">
+      <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} overflow-hidden flex flex-col max-h-[90vh] border border-stone-200`}>
         <div className="modal-header-gradient text-white p-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-stsn-gold" />
             <h3 className="font-display font-semibold text-base">{title}</h3>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-xs px-2.5 py-1 rounded-lg text-white transition cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print
-            </button>
+            {!hidePrint && (
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-xs px-2.5 py-1 rounded-lg text-white transition cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print
+              </button>
+            )}
             <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg text-white cursor-pointer">
               <X className="w-5 h-5" />
             </button>
@@ -67,11 +71,11 @@ export function CORPreview({ student, subjects }: { student: Student; subjects: 
 
       {/* Header & Seal */}
       <div className="text-center pb-6 border-b-2 border-stsn-brown/20 pt-2">
-        <div className="mx-auto w-16 h-16 rounded-full bg-stsn-brown/5 flex items-center justify-center border-2 border-stsn-gold mb-2 shadow-md">
+        <div className="mx-auto w-16 h-16 rounded-full bg-stsn-brown/5 flex items-center justify-center border-2 border-stsn-gold mb-2 shadow-md overflow-hidden">
           {isCollege ? (
             <GraduationCap className="w-9 h-9 text-blue-700" />
           ) : (
-            <Landmark className="w-9 h-9 text-stsn-brown" />
+            <img src="/stsn-crest.png" alt="STSN Crest" className="w-full h-full object-contain p-1" />
           )}
         </div>
         <h2 className={`font-display font-bold text-xl uppercase tracking-tight ${isCollege ? "text-blue-800" : "text-stsn-brown-dark"}`}>
@@ -201,67 +205,161 @@ export function CORPreview({ student, subjects }: { student: Student; subjects: 
 }
 
 // 2. OR PREVIEW
-export function ReceiptPreview({ student, assessment, payment }: { student: Student; assessment?: StudentAssessment; payment: Payment }) {
+export function ReceiptPreview({
+  student, assessment, payment, bookPackage,
+}: {
+  student: Student;
+  assessment?: StudentAssessment;
+  payment: Payment;
+  bookPackage?: BookPackage;
+}) {
+  const isCollege = student.department === "College";
+  const schoolName = isCollege
+    ? "COLEGIO DE STA. TERESA DE AVILA"
+    : "ST. THERESA'S SCHOOL OF NOVALICHES";
+  const schoolAddress = isCollege
+    ? "Sta. Teresa St., Novaliches, Quezon City • TEL: 480-3924"
+    : "#7 Kingfisher St. Zabarte Subdivision, Novaliches, QC • TEL: 480-2819";
+
+  // Group fees by category for itemized breakdown
+  const feeGroups: Record<string, { feeName: string; amount: number }[]> = {};
+  if (assessment?.fees) {
+    for (const fee of assessment.fees) {
+      if (!feeGroups[fee.category]) feeGroups[fee.category] = [];
+      feeGroups[fee.category].push({ feeName: fee.feeName, amount: fee.amount });
+    }
+  }
+
+  const netPayable = assessment
+    ? Math.max(0, assessment.totalAmount - assessment.discountAmount)
+    : payment.amount;
+
   return (
-    <div className="bg-white p-8 border-2 border-stone-100 shadow-sm print-card max-w-md mx-auto font-mono text-xs text-stone-700 leading-relaxed">
+    <div className="bg-white p-6 border-2 border-stone-100 shadow-sm print-card max-w-md mx-auto font-mono text-xs text-stone-700 leading-relaxed">
+
+      {/* School Header */}
       <div className="text-center pb-4 border-b border-dashed border-stone-300">
-        <h2 className="font-display font-extrabold text-[#3E1E09] tracking-tight text-lg">ST. THERESA SCHOOL</h2>
-        <p className="text-[9px] text-stone-400 font-mono mt-0.5">TERTIARY & ACCREDITED K-12 BUREAU</p>
-        <p className="text-[9.5px]">#7 Kingfisher St. Zabarte Subdivision, Novaliches Quezon City • TEL: 480-2819</p>
-        <p className="text-stsn-gold font-bold text-xs mt-2">OFFICIAL RECEIPT</p>
-        <p className="font-bold text-stone-950">{payment.orNumber}</p>
+        <h2 className="font-display font-extrabold text-[#3E1E09] tracking-tight text-base leading-tight">{schoolName}</h2>
+        <p className="text-[9px] text-stone-500 mt-0.5">{schoolAddress}</p>
+        <div className="mt-3">
+          <p className="text-stsn-gold font-bold text-sm tracking-widest uppercase">Official Receipt</p>
+          <p className="font-black text-stone-950 text-base mt-0.5">{payment.orNumber}</p>
+        </div>
       </div>
+
+      {/* Payor Info */}
       <div className="space-y-1.5 py-4 border-b border-dashed border-stone-300">
-        <div className="flex justify-between">
-          <span>DATE:</span>
-          <span className="font-bold text-stone-950">{payment.paymentDate}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>PAYOR:</span>
-          <span className="font-bold text-stone-950 truncate max-w-[180px]">{student.lastName}, {student.firstName}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>STUDENT ID:</span>
-          <span>{student.studentNo}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>TERM/PURPOSE:</span>
-          <span>{payment.term} — {student.trackOrCourse}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>METHOD:</span>
-          <span className="font-bold">{payment.paymentMethod}</span>
-        </div>
+        {[
+          ["DATE", payment.paymentDate],
+          ["PAYOR", `${student.lastName}, ${student.firstName}`],
+          ["STUDENT ID", student.studentNo],
+          ["GRADE / YEAR LEVEL", student.yearLevel],
+          ["SECTION", student.section || "—"],
+          ["SCHOOL YEAR", assessment?.schoolYear || "2026-2027"],
+          ["PAYMENT TERM", assessment?.paymentTerm || "—"],
+          ["PURPOSE", payment.term],
+          ["PAYMENT METHOD", payment.paymentMethod],
+        ].map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-2">
+            <span className="text-stone-400 shrink-0">{label}:</span>
+            <span className="font-bold text-stone-900 text-right truncate max-w-[200px]">{value}</span>
+          </div>
+        ))}
       </div>
-      <div className="py-4 space-y-1.5 border-b border-dashed border-stone-300 text-stone-900">
-        <div className="flex justify-between text-stone-500 font-bold text-[10px]">
-          <span>PARTICULARS</span>
-          <span>AMOUNT (PHP)</span>
+
+      {/* Fee Breakdown */}
+      {assessment && (
+        <div className="py-4 border-b border-dashed border-stone-300">
+          <div className="flex justify-between text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 border-b border-stone-200 pb-1.5">
+            <span>Particulars</span>
+            <span>Amount (PHP)</span>
+          </div>
+
+          {Object.keys(feeGroups).length > 0 ? (
+            Object.entries(feeGroups).map(([category, fees]) => (
+              <div key={category} className="mb-3">
+                <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">{category}</p>
+                {fees.map((fee, i) => (
+                  <div key={i} className="flex justify-between pl-3">
+                    <span className="text-stone-600">{fee.feeName}</span>
+                    <span className="font-medium">{fee.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            <div className="flex justify-between mb-2">
+              <span className="text-stone-600">Tuition & Enrollment Assessment</span>
+              <span className="font-medium">{assessment.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+
+          {bookPackage && (
+            <div className="mb-3">
+              <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Books</p>
+              <div className="flex justify-between pl-3">
+                <span className="text-stone-600">{bookPackage.packageName}</span>
+                <span className="font-medium">{bookPackage.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-stone-300 pt-2 mt-1 space-y-1.5">
+            <div className="flex justify-between font-bold text-stone-800">
+              <span>TOTAL ASSESSMENT</span>
+              <span>{assessment.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            </div>
+            {assessment.discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-700">
+                <span>
+                  DISCOUNT{assessment.scholarshipName ? ` — ${assessment.scholarshipName}` : ""}
+                  {assessment.discountPercentage > 0 ? ` (${assessment.discountPercentage}%)` : ""}
+                </span>
+                <span>-{assessment.discountAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-stone-900 border-t border-stone-300 pt-1.5">
+              <span>NET PAYABLE</span>
+              <span>{netPayable.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
         </div>
-        <div className="flex justify-between font-medium">
-          <span>Tuition & Enrollment Assessment</span>
-          <span>{payment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-        </div>
-        {payment.remarks && (
-          <p className="text-[10px] text-stone-500 italic">*{payment.remarks}</p>
-        )}
-      </div>
-      <div className="py-4 space-y-1 text-right">
+      )}
+
+      {/* Payment Summary */}
+      <div className="py-4 space-y-1.5 border-b border-dashed border-stone-300">
         <div className="flex justify-between text-sm font-bold text-stone-950">
-          <span>TOTAL PAID:</span>
+          <span>AMOUNT PAID:</span>
           <span>PHP {payment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
         </div>
         {assessment && (
-          <div className="flex justify-between text-[11px] text-stone-500">
+          <div className="flex justify-between text-[11px] font-semibold text-stone-500">
             <span>REMAINING BALANCE:</span>
             <span>PHP {assessment.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
           </div>
         )}
+        {payment.remarks && (
+          <p className="text-[10px] text-stone-500 italic mt-1">*{payment.remarks}</p>
+        )}
       </div>
-      <div className="text-center pt-4 border-t border-dashed border-stone-300 text-[10px] text-stone-400 space-y-1">
+
+      {/* Signature Area */}
+      <div className="pt-5 grid grid-cols-2 gap-6">
+        <div className="text-center">
+          <div className="h-8 border-b border-stone-400 w-full" />
+          <p className="text-[9px] text-stone-400 uppercase tracking-wider mt-1.5">Cashier / Collector</p>
+        </div>
+        <div className="text-center">
+          <div className="h-8 border-b border-stone-400 w-full" />
+          <p className="text-[9px] text-stone-400 uppercase tracking-wider mt-1.5">Payor's Signature</p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center pt-4 border-t border-dashed border-stone-300 text-[10px] text-stone-400 space-y-0.5 mt-5">
         <p>Thank you for keeping your account updated!</p>
-        <p>"Virtus et Scientia" • St. Theresa School</p>
-        <p className="font-semibold text-stone-900">SYSTEM GENERATED • NO SIGNATURE REQUIRED</p>
+        <p>"Virtus et Scientia" • St. Theresa School of Novaliches</p>
+        <p className="font-semibold text-stone-700 mt-1">SYSTEM GENERATED — NO SIGNATURE REQUIRED</p>
       </div>
     </div>
   );
