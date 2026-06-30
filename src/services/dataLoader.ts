@@ -20,6 +20,12 @@ import type {
   JobRequisition, JobApplicant, ApplicantInterview,
   OnboardingTemplate, OnboardingTask, EmployeeOnboardingTask,
   OnlineEnrollmentApplication,
+  StudentGuardianContact,
+  StudentEducationBackground,
+  EmployeeProfileContact,
+  EmployeeEducationBackground,
+  EmployeeLicenseCertification,
+  EmployeeDocumentRecord,
 } from "../types";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent } from "../types/grading";
 
@@ -69,7 +75,12 @@ export interface LoadedData {
   labFeeAdjustments: { scope: "SHS" | "College"; programCode: string; amount: number }[];
   discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
   paymentTermOptions: { term: string; description: string }[];
-  studentGuardians: { id: string; studentId: string; guardianName: string; relationship?: string; contactNo?: string; email?: string; address?: string; isPrimary: boolean }[];
+  studentGuardians: StudentGuardianContact[];
+  studentEducationBackgrounds: StudentEducationBackground[];
+  employeeProfileContacts: EmployeeProfileContact[];
+  employeeEducationBackgrounds: EmployeeEducationBackground[];
+  employeeLicenseCertifications: EmployeeLicenseCertification[];
+  employeeDocuments: EmployeeDocumentRecord[];
   // HR Phase 2-4
   employeeLifecycleEvents: EmployeeLifecycleEvent[];
   shiftTemplates: ShiftTemplate[];
@@ -507,8 +518,122 @@ export async function loadAllData(): Promise<LoadedData> {
   // ---- Student guardians ----
   const { data: guardianRows } = await supabase.from("student_guardians").select("*");
   const studentGuardians = (guardianRows ?? []).map((g: any) => ({
-    id: g.id, studentId: g.student_id, guardianName: g.guardian_name, relationship: g.relationship,
-    contactNo: g.contact_no, email: g.email, address: g.address, isPrimary: g.is_primary,
+    id: g.id,
+    studentId: g.student_id,
+    guardianType: g.guardian_type,
+    guardianName: g.guardian_name,
+    relationship: g.relationship,
+    contactNo: g.contact_no,
+    email: g.email,
+    address: g.address,
+    occupation: g.occupation,
+    isPrimary: g.is_primary,
+    isEmergencyContact: g.is_emergency_contact,
+    canReceivePortalNotifications: g.can_receive_portal_notifications,
+  }));
+
+  const { data: educationRows } = await supabase
+    .from("student_education_backgrounds")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const studentEducationBackgrounds = (educationRows ?? []).map((row: any) => ({
+    id: row.id,
+    studentId: row.student_id,
+    educationLevel: row.education_level,
+    schoolName: row.school_name,
+    schoolAddress: row.school_address,
+    yearAttended: row.year_attended,
+    yearGraduated: row.year_graduated,
+    degreeOrStrandOrCourse: row.degree_or_strand_or_course,
+    honorsOrAwards: row.honors_or_awards,
+    lastGradeLevelCompleted: row.last_grade_level_completed,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeProfileContactRows } = await supabase
+    .from("employee_profile_contacts")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const employeeProfileContacts = (employeeProfileContactRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    contactType: row.contact_type,
+    fullName: row.full_name,
+    relationship: row.relationship,
+    contactNo: row.contact_no,
+    email: row.email,
+    address: row.address,
+    occupation: row.occupation,
+    isPrimaryContact: row.is_primary_contact,
+    isEmergencyContact: row.is_emergency_contact,
+    canReceiveNotifications: row.can_receive_notifications,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeEducationRows } = await supabase
+    .from("employee_education_backgrounds")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const employeeEducationBackgrounds = (employeeEducationRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    educationLevel: row.education_level,
+    schoolName: row.school_name,
+    schoolAddress: row.school_address,
+    yearAttended: row.year_attended,
+    yearGraduated: row.year_graduated,
+    degreeOrCourse: row.degree_or_course,
+    majorOrSpecialization: row.major_or_specialization,
+    honorsOrAwards: row.honors_or_awards,
+    prcEducationNote: row.prc_education_note,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeLicenseRows } = await supabase
+    .from("employee_license_certifications")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const employeeLicenseCertifications = (employeeLicenseRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    title: row.title,
+    licenseNumber: row.license_number,
+    issuingAuthority: row.issuing_authority,
+    issuedAt: row.issued_at,
+    expiresAt: row.expires_at,
+    status: row.status,
+    notes: row.notes,
+    isPrimary: row.is_primary,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeDocumentRows } = await supabase
+    .from("employee_documents")
+    .select("*")
+    .order("created_at", { ascending: false });
+  const employeeDocuments = (employeeDocumentRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    documentName: row.document_name,
+    documentType: row.document_type,
+    status: row.status,
+    fileUrl: row.file_url,
+    remarks: row.remarks,
+    submittedAt: row.submitted_at,
+    verifiedBy: row.verified_by,
+    verifiedAt: row.verified_at,
+    createdAt: row.created_at,
   }));
 
   // ---- HR Phase 2: Employee Lifecycle Events ----
@@ -695,7 +820,8 @@ export async function loadAllData(): Promise<LoadedData> {
     discountRequests, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
     financialHolds, assessmentBillingSummaries, paymentCollectionSummaries, promissoryNotes, bookPackages,
     classLoads, gradePeriods, studentGradeEntries, demoStudents, activityLogs,
-    enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians,
+    enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians, studentEducationBackgrounds,
+    employeeProfileContacts, employeeEducationBackgrounds, employeeLicenseCertifications, employeeDocuments,
     employeeLifecycleEvents, shiftTemplates, employeeShiftAssignments, employeeTimeLogs, employeeAttendance,
     leaveTypes, leaveRequests, payrollPeriods, payrollRuns, payrollLines,
     salaryPayoutBatches, salaryPayoutLines, benefitPlans, statutoryContributionRules, taxTables, taxBrackets,

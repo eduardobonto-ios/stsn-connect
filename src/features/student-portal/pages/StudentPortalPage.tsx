@@ -48,9 +48,19 @@ import AppButton from "../../../components/common/AppButton";
 import AppCard from "../../../components/common/AppCard";
 import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppFilterChip from "../../../components/common/AppFilterChip";
+import AppFormField from "../../../components/common/AppFormField";
+import AppInput from "../../../components/common/AppInput";
 import AppSearchInput from "../../../components/common/AppSearchInput";
+import AppSelect from "../../../components/common/AppSelect";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
+import AppTextarea from "../../../components/common/AppTextarea";
+import ProfileActivityLogTable from "../../../components/common/profile/ProfileActivityLogTable";
+import ProfileDocumentCard from "../../../components/common/profile/ProfileDocumentCard";
+import ProfileRequirementsCard from "../../../components/common/profile/ProfileRequirementsCard";
+import ProfileRepeatableEntryCard from "../../../components/common/profile/ProfileRepeatableEntryCard";
+import ProfileSectionCard from "../../../components/common/profile/ProfileSectionCard";
+import ProfileWorkspace from "../../../components/common/profile/ProfileWorkspace";
 import {
   computeMockAssessment,
   generatePaymentSchedule,
@@ -58,9 +68,51 @@ import {
 } from "../../../services/mockAssessmentService";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
-import type { Grade, Payment, Requirement, Student } from "../../../types";
+import type { Grade, Payment, Requirement, Student, StudentEducationBackground, StudentGuardianContact } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
+type ProfileWorkspaceTab = "personal" | "contact" | "guardians" | "education" | "documents" | "activity";
+
+const PROFILE_TABS: Array<{ value: ProfileWorkspaceTab; label: string }> = [
+  { value: "personal", label: "Personal Info" },
+  { value: "contact", label: "Contact & Address" },
+  { value: "guardians", label: "Guardian Contacts" },
+  { value: "education", label: "Education Background" },
+  { value: "documents", label: "Documents" },
+  { value: "activity", label: "Activity Logs" },
+];
+
+const GUARDIAN_TYPE_OPTIONS: NonNullable<StudentGuardianContact["guardianType"]>[] = [
+  "Mother",
+  "Father",
+  "Relative",
+  "Legal Guardian",
+  "Emergency Contact",
+  "Other",
+];
+
+const EDUCATION_LEVEL_OPTIONS: StudentEducationBackground["educationLevel"][] = [
+  "Elementary",
+  "Junior High School",
+  "Senior High School",
+  "College",
+  "Vocational",
+  "Other",
+];
+
+const STUDENT_STATUS_OPTIONS: Student["enrollmentStatus"][] = [
+  "Pending",
+  "For Assessment",
+  "Assessed",
+  "For Payment",
+  "Partially Paid",
+  "Enrolled",
+  "Approved",
+  "Draft",
+  "Rejected",
+  "Cancelled",
+  "Withdrawn",
+];
 
 interface StudentPortalGradeRow {
   id: string;
@@ -109,6 +161,14 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     studentGuardians,
     addStudentGuardian,
     updateStudentGuardian,
+    deleteStudentGuardian,
+    studentEducationBackgrounds,
+    addStudentEducationBackground,
+    updateStudentEducationBackground,
+    deleteStudentEducationBackground,
+    updateStudent,
+    activityLogs,
+    addActivityLog,
     setupData,
     classSchedules,
     schools,
@@ -211,15 +271,19 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   const [province, setProvince] = useState(student?.province || "");
   const [municipality, setMunicipality] = useState(student?.municipality || "");
   const [zipCode, setZipCode] = useState(student?.zipCode || "");
-  const primaryGuardian = studentGuardians.find((g) => g.studentId === student?.id && g.isPrimary);
-  const [guardianName, setGuardianName] = useState(primaryGuardian?.guardianName || "");
-  const [guardianContact, setGuardianContact] = useState(primaryGuardian?.contactNo || "");
+  const [civilStatus, setCivilStatus] = useState(student?.civilStatus || "");
+  const [birthdate, setBirthdate] = useState(student?.birthday || "");
+  const [birthplace, setBirthplace] = useState(student?.birthplace || "");
+  const [emailAddress, setEmailAddress] = useState(student?.email || "");
+  const [studentStatus, setStudentStatus] = useState(student?.enrollmentStatus || "Enrolled");
+  const [pwdFlag, setPwdFlag] = useState(false);
+  const [profileWorkspaceTab, setProfileWorkspaceTab] = useState<ProfileWorkspaceTab>("personal");
+  const [guardianDrafts, setGuardianDrafts] = useState<StudentGuardianContact[]>([]);
+  const [educationDrafts, setEducationDrafts] = useState<StudentEducationBackground[]>([]);
+  const [guardianName, setGuardianName] = useState("");
+  const [guardianContact, setGuardianContact] = useState("");
   const [overrideSettleBalance, setOverrideSettleBalance] = useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = useState("");
-  const [auditLogs, setAuditLogs] = useState<Array<{ date: string; action: string; category: string }>>([
-    { date: "2026-05-30 09:15", action: "Completed initial registration checklist", category: "System" },
-    { date: "2026-05-30 14:20", action: "Cleared Accounting finance credentials", category: "Finance" }
-  ]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploadReqName, setPendingUploadReqName] = useState<Requirement["name"] | null>(null);
@@ -240,12 +304,42 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     setProvince(student?.province || "");
     setMunicipality(student?.municipality || "");
     setZipCode(student?.zipCode || "");
-    setGuardianName(primaryGuardian?.guardianName || "");
-    setGuardianContact(primaryGuardian?.contactNo || "");
+    setCivilStatus(student?.civilStatus || "");
+    setBirthdate(student?.birthday || "");
+    setBirthplace(student?.birthplace || "");
+    setEmailAddress(student?.email || "");
+    setStudentStatus(student?.enrollmentStatus || "Enrolled");
+    setPwdFlag(false);
     setPhotoPreview(null);
     setStudentSearchInput(student ? getStudentOptionLabel(student) : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student?.id, isRecordsView]);
+
+  useEffect(() => {
+    if (!student) {
+      setGuardianDrafts([]);
+      setEducationDrafts([]);
+      return;
+    }
+
+    setGuardianDrafts(
+      studentGuardians
+        .filter((guardian) => guardian.studentId === student.id)
+        .map((guardian) => ({
+          ...guardian,
+          guardianType: guardian.guardianType ?? "Other",
+          canReceivePortalNotifications: guardian.canReceivePortalNotifications ?? true,
+          isEmergencyContact: guardian.isEmergencyContact ?? false,
+        })),
+    );
+
+    setEducationDrafts(
+      studentEducationBackgrounds
+        .filter((record) => record.studentId === student.id)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map((record) => ({ ...record })),
+    );
+  }, [student, studentEducationBackgrounds, studentGuardians]);
 
   // Assessment Fees tab — TODO: Pre-populate from GET /api/scholarships/eligible?studentId=...
   const [selectedDiscountId, setSelectedDiscountId] = useState("none");
@@ -270,6 +364,21 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
 
   const assessment = scopedAssessments.find((a) => a.studentId === student.id);
   const studentReqs = scopedRequirements.filter((r) => r.studentId === student.id);
+  const studentProfileActivityLogs = activityLogs.filter((entry) => {
+    const subject = (entry.subject || "").toLowerCase();
+    const studentName = `${student.firstName} ${student.lastName}`.toLowerCase();
+    return subject.includes(student.studentNo.toLowerCase()) || subject.includes(studentName);
+  });
+  const auditLogs = studentProfileActivityLogs.map((entry) => ({
+    date: entry.time ?? "",
+    action: entry.action,
+    category: entry.type || "Profile",
+  }));
+  const clearanceStatus = studentReqs.length > 0 && studentReqs.every((req) => req.hardcopySubmitted || req.verificationStatus === "Verified")
+    ? "Cleared"
+    : studentReqs.some((req) => req.verificationStatus === "Rejected")
+    ? "Attention Needed"
+    : "Pending";
   const studentGrades = grades.filter((g) => g.studentId === student.id);
   const hasOutstandingBalance = assessment ? (assessment.balance > 0 && !overrideSettleBalance) : false;
   const isBasicEd = student.department === "Basic Education";
@@ -546,22 +655,242 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     },
   ], []);
 
+  const profileActivityColumns = useMemo<AppTableColumn<(typeof studentProfileActivityLogs)[number]>[]>(() => [
+    {
+      accessorKey: "time",
+      header: "Date / Time",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono text-[11px] text-stone-600">{row.original.time ?? "—"}</span>,
+    },
+    {
+      accessorKey: "action",
+      header: "Action",
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-semibold text-stone-900">{row.original.action}</span>,
+    },
+    {
+      accessorKey: "type",
+      header: "Module",
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-stone-600">{row.original.type || "Profile"}</span>,
+    },
+    {
+      id: "status",
+      header: "Status",
+      enableSorting: false,
+      cell: () => <AppStatusBadge status="Logged" />,
+    },
+    {
+      id: "updatedBy",
+      header: "Updated By",
+      enableSorting: false,
+      cell: ({ row }) => <span>{row.original.subject || "System"}</span>,
+    },
+    {
+      id: "remarks",
+      header: "Remarks",
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-stone-500">Recorded via portal activity feed.</span>,
+    },
+  ], [studentProfileActivityLogs]);
+
+  const resetProfileWorkspace = () => {
+    setFirstName(student?.firstName || "");
+    setLastName(student?.lastName || "");
+    setMiddleName(student?.middleName || "");
+    setContactNo(student?.contactNo || "");
+    setReligion(student?.religion || "Catholic");
+    setNationality(student?.nationality || "Filipino");
+    setGender(student?.gender || "Male");
+    setAddress(student?.address || "");
+    setProvince(student?.province || "");
+    setMunicipality(student?.municipality || "");
+    setZipCode(student?.zipCode || "");
+    setCivilStatus(student?.civilStatus || "");
+    setBirthdate(student?.birthday || "");
+    setBirthplace(student?.birthplace || "");
+    setEmailAddress(student?.email || "");
+    setStudentStatus(student?.enrollmentStatus || "Enrolled");
+    setPwdFlag(false);
+    setGuardianDrafts(
+      studentGuardians
+        .filter((guardian) => guardian.studentId === student?.id)
+        .map((guardian) => ({
+          ...guardian,
+          guardianType: guardian.guardianType ?? "Other",
+          canReceivePortalNotifications: guardian.canReceivePortalNotifications ?? true,
+          isEmergencyContact: guardian.isEmergencyContact ?? false,
+        })),
+    );
+    setEducationDrafts(
+      studentEducationBackgrounds
+        .filter((record) => record.studentId === student?.id)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map((record) => ({ ...record })),
+    );
+    setProfileSuccessMessage("");
+  };
+
+  const handleGuardianDraftChange = (id: string, updates: Partial<StudentGuardianContact>) => {
+    setGuardianDrafts((current) =>
+      current
+        .map((guardian) => (guardian.id === id ? { ...guardian, ...updates } : guardian))
+        .map((guardian) => (updates.isPrimary && guardian.id !== id ? { ...guardian, isPrimary: false } : guardian)),
+    );
+  };
+
+  const addGuardianDraft = () => {
+    if (!student) return;
+    setGuardianDrafts((current) => [
+      ...current,
+      {
+        id: `draft-${crypto.randomUUID()}`,
+        studentId: student.id,
+        guardianType: "Other",
+        guardianName: "",
+        relationship: "",
+        contactNo: "",
+        email: "",
+        address: "",
+        occupation: "",
+        isPrimary: current.length === 0,
+        isEmergencyContact: false,
+        canReceivePortalNotifications: true,
+      },
+    ]);
+  };
+
+  const addEducationDraft = () => {
+    if (!student) return;
+    setEducationDrafts((current) => [
+      ...current,
+      {
+        id: `draft-${crypto.randomUUID()}`,
+        studentId: student.id,
+        educationLevel: "Elementary",
+        schoolName: "",
+        schoolAddress: "",
+        yearAttended: "",
+        yearGraduated: "",
+        degreeOrStrandOrCourse: "",
+        honorsOrAwards: "",
+        lastGradeLevelCompleted: "",
+        sortOrder: current.length,
+      },
+    ]);
+  };
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    if (student) {
-      if (primaryGuardian) {
-        updateStudentGuardian(primaryGuardian.id, { guardianName, contactNo: guardianContact });
-      } else if (guardianName) {
-        addStudentGuardian({ studentId: student.id, guardianName, contactNo: guardianContact, isPrimary: true });
-      }
+    if (!student) return;
+
+    updateStudent(student.id, {
+      firstName,
+      lastName,
+      middleName,
+      contactNo,
+      religion,
+      nationality,
+      gender,
+      address,
+      province,
+      municipality,
+      zipCode,
+      civilStatus,
+      birthday: birthdate,
+      birthplace,
+      email: emailAddress,
+      enrollmentStatus: studentStatus as Student["enrollmentStatus"],
+    });
+
+    const normalizedGuardians = guardianDrafts
+      .map((guardian) => ({
+        ...guardian,
+        studentId: student.id,
+        guardianType: guardian.guardianType ?? "Other",
+        guardianName: guardian.guardianName.trim(),
+        relationship: guardian.relationship?.trim() || "",
+        contactNo: guardian.contactNo?.trim() || "",
+        email: guardian.email?.trim() || "",
+        address: guardian.address?.trim() || "",
+        occupation: guardian.occupation?.trim() || "",
+        isEmergencyContact: guardian.isEmergencyContact ?? false,
+        canReceivePortalNotifications: guardian.canReceivePortalNotifications ?? true,
+      }))
+      .filter((guardian) => guardian.guardianName || guardian.contactNo || guardian.email);
+
+    if (normalizedGuardians.length > 0 && !normalizedGuardians.some((guardian) => guardian.isPrimary)) {
+      normalizedGuardians[0] = { ...normalizedGuardians[0], isPrimary: true };
     }
-    const newLog = {
-      date: new Date().toISOString().replace("T", " ").substring(0, 16),
-      action: "Updated student contact, personal, and address fields",
-      category: "User Edit"
-    };
-    setAuditLogs((prev) => [newLog, ...prev]);
-    setProfileSuccessMessage("Profile parameters successfully updated! Recorded to student audit trail.");
+
+    const existingGuardians = studentGuardians.filter((guardian) => guardian.studentId === student.id);
+    const nextGuardianIds = new Set(normalizedGuardians.map((guardian) => guardian.id));
+    existingGuardians
+      .filter((guardian) => !nextGuardianIds.has(guardian.id))
+      .forEach((guardian) => deleteStudentGuardian(guardian.id));
+
+    normalizedGuardians.forEach((guardian) => {
+      const payload = {
+        studentId: student.id,
+        guardianType: guardian.guardianType,
+        guardianName: guardian.guardianName,
+        relationship: guardian.relationship,
+        contactNo: guardian.contactNo,
+        email: guardian.email,
+        address: guardian.address,
+        occupation: guardian.occupation,
+        isPrimary: guardian.isPrimary,
+        isEmergencyContact: guardian.isEmergencyContact,
+        canReceivePortalNotifications: guardian.canReceivePortalNotifications,
+      };
+      if (guardian.id.startsWith("draft-")) addStudentGuardian(payload);
+      else updateStudentGuardian(guardian.id, payload);
+    });
+
+    const normalizedEducation = educationDrafts
+      .map((record, index) => ({
+        ...record,
+        studentId: student.id,
+        schoolName: record.schoolName.trim(),
+        schoolAddress: record.schoolAddress?.trim() || "",
+        yearAttended: record.yearAttended?.trim() || "",
+        yearGraduated: record.yearGraduated?.trim() || "",
+        degreeOrStrandOrCourse: record.degreeOrStrandOrCourse?.trim() || "",
+        honorsOrAwards: record.honorsOrAwards?.trim() || "",
+        lastGradeLevelCompleted: record.lastGradeLevelCompleted?.trim() || "",
+        sortOrder: index,
+      }))
+      .filter((record) => record.schoolName);
+
+    const existingEducation = studentEducationBackgrounds.filter((record) => record.studentId === student.id);
+    const nextEducationIds = new Set(normalizedEducation.map((record) => record.id));
+    existingEducation
+      .filter((record) => !nextEducationIds.has(record.id))
+      .forEach((record) => deleteStudentEducationBackground(record.id));
+
+    normalizedEducation.forEach((record) => {
+      const payload = {
+        studentId: student.id,
+        educationLevel: record.educationLevel,
+        schoolName: record.schoolName,
+        schoolAddress: record.schoolAddress,
+        yearAttended: record.yearAttended,
+        yearGraduated: record.yearGraduated,
+        degreeOrStrandOrCourse: record.degreeOrStrandOrCourse,
+        honorsOrAwards: record.honorsOrAwards,
+        lastGradeLevelCompleted: record.lastGradeLevelCompleted,
+        sortOrder: record.sortOrder,
+      };
+      if (record.id.startsWith("draft-")) addStudentEducationBackground(payload);
+      else updateStudentEducationBackground(record.id, payload);
+    });
+
+    addActivityLog({
+      action: "Updated student profile workspace",
+      subject: `${student.studentNo} · ${lastName}, ${firstName}`,
+      type: "Profile",
+    });
+    setProfileSuccessMessage("Student profile changes were saved successfully.");
     setTimeout(() => setProfileSuccessMessage(""), 5000);
   };
 
@@ -569,12 +898,11 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setPhotoPreview(URL.createObjectURL(file));
-      const newLog = {
-        date: new Date().toISOString().replace("T", " ").substring(0, 16),
-        action: `Uploaded student portrait frame: ${file.name}`,
-        category: "Upload"
-      };
-      setAuditLogs((prev) => [newLog, ...prev]);
+      addActivityLog({
+        action: `Uploaded student portrait preview: ${file.name}`,
+        subject: `${student.studentNo} · ${student.lastName}, ${student.firstName}`,
+        type: "Upload",
+      });
     }
   };
 
@@ -590,12 +918,11 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     try {
       await uploadRequirementFile(student.id, reqName, file);
     } catch (error) {
-      const failedLog = {
-        date: new Date().toISOString().replace("T", " ").substring(0, 16),
+      addActivityLog({
         action: error instanceof Error ? `Document upload failed: ${error.message}` : "Document upload failed.",
-        category: "Upload"
-      };
-      setAuditLogs((prev) => [failedLog, ...prev]);
+        subject: `${student.studentNo} · ${student.lastName}, ${student.firstName}`,
+        type: "Upload",
+      });
       return;
     } finally {
       setUploadingRequirementName(null);
@@ -607,7 +934,11 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
       action: `Uploaded document: "${pendingUploadReqName}" — ${file.name}`,
       category: "Upload"
     };
-    setAuditLogs((prev) => [newLog, ...prev]);
+    addActivityLog({
+      action: newLog.action,
+      subject: `${student.studentNo} · ${student.lastName}, ${student.firstName}`,
+      type: "Upload",
+    });
     setPendingUploadReqName(null);
     if (uploadInputRef.current) uploadInputRef.current.value = "";
   };
@@ -1208,8 +1539,269 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
         </div>
       )}
 
-      {/* ========================== TAB D: PROFILE ========================== */}
       {activeTab === "profile" && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <form onSubmit={handleSaveProfile}>
+              <ProfileWorkspace<ProfileWorkspaceTab>
+                eyebrow="Student Profile"
+                title="Manage student demographics, contacts, guardians, education history, and enrollment documents."
+                statusBadges={(
+                  <>
+                    <AppStatusBadge status={studentStatus}>Student: {studentStatus}</AppStatusBadge>
+                    <AppStatusBadge status={student.enrollmentStatus}>Enrollment: {student.enrollmentStatus}</AppStatusBadge>
+                    <AppStatusBadge status={clearanceStatus}>Clearance: {clearanceStatus}</AppStatusBadge>
+                  </>
+                )}
+                actions={(
+                  <>
+                    <AppButton type="button" variant="outline" size="sm" onClick={resetProfileWorkspace} className="w-full sm:w-auto sm:min-w-[138px]">
+                      Reset Changes
+                    </AppButton>
+                    <AppButton type="submit" size="sm" leftIcon={CheckCircle2} className="w-full sm:w-auto sm:min-w-[138px]">
+                      Save Changes
+                    </AppButton>
+                  </>
+                )}
+                successMessage={profileSuccessMessage}
+                tabs={PROFILE_TABS}
+                activeTab={profileWorkspaceTab}
+                onTabChange={(tab) => setProfileWorkspaceTab(tab)}
+              >
+                <input ref={uploadInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleDocumentFileSelect} />
+
+                {profileWorkspaceTab === "personal" && (
+                  <ProfileSectionCard title="Personal Information" description="Maintain demographic details and student-level identity data for this profile.">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <AppFormField label="First Name"><AppInput value={firstName} onChange={(e) => setFirstName(e.target.value)} required /></AppFormField>
+                      <AppFormField label="Middle Name"><AppInput value={middleName} onChange={(e) => setMiddleName(e.target.value)} /></AppFormField>
+                      <AppFormField label="Last Name"><AppInput value={lastName} onChange={(e) => setLastName(e.target.value)} required /></AppFormField>
+                      <AppFormField label="Gender">
+                        <AppSelect value={gender} onChange={(e) => setGender(e.target.value as Student["gender"])}>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                        </AppSelect>
+                      </AppFormField>
+                      <AppFormField label="Civil Status"><AppInput value={civilStatus} onChange={(e) => setCivilStatus(e.target.value)} /></AppFormField>
+                      <AppFormField label="Birthdate"><AppInput type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} /></AppFormField>
+                      <AppFormField label="Birthplace"><AppInput value={birthplace} onChange={(e) => setBirthplace(e.target.value)} /></AppFormField>
+                      <AppFormField label="Religion"><AppInput value={religion} onChange={(e) => setReligion(e.target.value)} /></AppFormField>
+                      <AppFormField label="Nationality"><AppInput value={nationality} onChange={(e) => setNationality(e.target.value)} /></AppFormField>
+                      <AppFormField label="Student Status" hint="Mirrors the live student profile status field.">
+                        <AppSelect value={studentStatus} onChange={(e) => setStudentStatus(e.target.value as Student["enrollmentStatus"])}>
+                          {STUDENT_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
+                        </AppSelect>
+                      </AppFormField>
+                      <AppFormField label="PWD / Accessibility Flag" hint="No dedicated database field is currently mapped for this portal surface.">
+                        <label className="flex min-h-11 items-center gap-3 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm text-[var(--erp-text-muted)]">
+                          <input type="checkbox" checked={pwdFlag} onChange={(e) => setPwdFlag(e.target.checked)} disabled className="h-4 w-4 accent-[var(--erp-accent)]" />
+                          View only
+                        </label>
+                      </AppFormField>
+                    </div>
+                  </ProfileSectionCard>
+                )}
+
+                {profileWorkspaceTab === "contact" && (
+                  <ProfileSectionCard title="Contact & Address" description="Keep primary communication channels and registered address details up to date.">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <AppFormField label="Mobile Contact Number"><AppInput value={contactNo} onChange={(e) => setContactNo(e.target.value)} /></AppFormField>
+                      <AppFormField label="Email Address"><AppInput type="email" value={emailAddress} onChange={(e) => setEmailAddress(e.target.value)} /></AppFormField>
+                      <div className="md:col-span-2"><AppFormField label="Registered Address"><AppTextarea value={address} onChange={(e) => setAddress(e.target.value)} className="min-h-[96px]" /></AppFormField></div>
+                      <AppFormField label="Municipality / City"><AppInput value={municipality} onChange={(e) => setMunicipality(e.target.value)} /></AppFormField>
+                      <AppFormField label="Province"><AppInput value={province} onChange={(e) => setProvince(e.target.value)} /></AppFormField>
+                      <AppFormField label="Zip Code"><AppInput value={zipCode} onChange={(e) => setZipCode(e.target.value)} /></AppFormField>
+                    </div>
+                  </ProfileSectionCard>
+                )}
+
+                {profileWorkspaceTab === "guardians" && (
+                  <ProfileSectionCard
+                    title="Guardian / Emergency Contacts"
+                    description="Add parents, guardians, or emergency contacts linked to this student record."
+                    action={<AppButton type="button" variant="secondary" size="sm" leftIcon={PlusCircle} onClick={addGuardianDraft}>Add Guardian</AppButton>}
+                  >
+                    {guardianDrafts.length === 0 ? (
+                      <AppEmptyState icon={UserCheck} title="No guardian contacts added yet." description="Add a parent, guardian, or emergency contact." compact primaryAction={{ label: "Add Guardian", onClick: addGuardianDraft, variant: "secondary" }} />
+                    ) : guardianDrafts.map((guardian) => (
+                      <ProfileRepeatableEntryCard
+                        key={guardian.id}
+                        eyebrow={guardian.guardianType || "Guardian"}
+                        title={guardian.guardianName || "New contact"}
+                        onRemove={() => setGuardianDrafts((current) => current.filter((entry) => entry.id !== guardian.id))}
+                      >
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <AppFormField label="Guardian Type">
+                            <AppSelect value={guardian.guardianType || "Other"} onChange={(e) => handleGuardianDraftChange(guardian.id, { guardianType: e.target.value as StudentGuardianContact["guardianType"] })}>
+                              {GUARDIAN_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                            </AppSelect>
+                          </AppFormField>
+                          <AppFormField label="Relationship"><AppInput value={guardian.relationship || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { relationship: e.target.value })} /></AppFormField>
+                          <AppFormField label="Full Name"><AppInput value={guardian.guardianName} onChange={(e) => handleGuardianDraftChange(guardian.id, { guardianName: e.target.value })} /></AppFormField>
+                          <AppFormField label="Contact Number"><AppInput value={guardian.contactNo || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { contactNo: e.target.value })} /></AppFormField>
+                          <AppFormField label="Email Address"><AppInput type="email" value={guardian.email || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { email: e.target.value })} /></AppFormField>
+                          <AppFormField label="Occupation"><AppInput value={guardian.occupation || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { occupation: e.target.value })} /></AppFormField>
+                          <div className="md:col-span-2"><AppFormField label="Address"><AppTextarea value={guardian.address || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { address: e.target.value })} className="min-h-[90px]" /></AppFormField></div>
+                          <label className="flex items-center gap-2 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm"><input type="checkbox" checked={guardian.isPrimary} onChange={(e) => handleGuardianDraftChange(guardian.id, { isPrimary: e.target.checked })} className="h-4 w-4 accent-[var(--erp-accent)]" />Primary contact</label>
+                          <label className="flex items-center gap-2 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm"><input type="checkbox" checked={guardian.isEmergencyContact ?? false} onChange={(e) => handleGuardianDraftChange(guardian.id, { isEmergencyContact: e.target.checked })} className="h-4 w-4 accent-[var(--erp-accent)]" />Emergency contact</label>
+                          <label className="flex items-center gap-2 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm md:col-span-2"><input type="checkbox" checked={guardian.canReceivePortalNotifications ?? true} onChange={(e) => handleGuardianDraftChange(guardian.id, { canReceivePortalNotifications: e.target.checked })} className="h-4 w-4 accent-[var(--erp-accent)]" />Can receive portal notifications</label>
+                        </div>
+                      </ProfileRepeatableEntryCard>
+                    ))}
+                  </ProfileSectionCard>
+                )}
+
+                {profileWorkspaceTab === "education" && (
+                  <ProfileSectionCard
+                    title="Education Background"
+                    description="Track prior schools, levels completed, and supporting academic context."
+                    action={<AppButton type="button" variant="secondary" size="sm" leftIcon={PlusCircle} onClick={addEducationDraft}>Add Education Background</AppButton>}
+                  >
+                    {educationDrafts.length === 0 ? (
+                      <AppEmptyState icon={BookOpen} title="No education background added yet." description="Previous schools and academic history will appear here once records are saved." compact primaryAction={{ label: "Add Education Background", onClick: addEducationDraft, variant: "secondary" }} />
+                    ) : educationDrafts.map((record) => (
+                      <ProfileRepeatableEntryCard
+                        key={record.id}
+                        eyebrow={record.educationLevel}
+                        title={record.schoolName || "New education record"}
+                        onRemove={() => setEducationDrafts((current) => current.filter((entry) => entry.id !== record.id))}
+                      >
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <AppFormField label="Education Level">
+                            <AppSelect value={record.educationLevel} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, educationLevel: e.target.value as StudentEducationBackground["educationLevel"] } : entry))}>
+                              {EDUCATION_LEVEL_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                            </AppSelect>
+                          </AppFormField>
+                          <AppFormField label="School Name"><AppInput value={record.schoolName} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, schoolName: e.target.value } : entry))} /></AppFormField>
+                          <div className="md:col-span-2"><AppFormField label="School Address"><AppTextarea value={record.schoolAddress || ""} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, schoolAddress: e.target.value } : entry))} className="min-h-[90px]" /></AppFormField></div>
+                          <AppFormField label="Year Attended"><AppInput value={record.yearAttended || ""} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, yearAttended: e.target.value } : entry))} /></AppFormField>
+                          <AppFormField label="Year Graduated"><AppInput value={record.yearGraduated || ""} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, yearGraduated: e.target.value } : entry))} /></AppFormField>
+                          <AppFormField label="Degree / Strand / Course"><AppInput value={record.degreeOrStrandOrCourse || ""} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, degreeOrStrandOrCourse: e.target.value } : entry))} /></AppFormField>
+                          <AppFormField label="Last Grade Level Completed"><AppInput value={record.lastGradeLevelCompleted || ""} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, lastGradeLevelCompleted: e.target.value } : entry))} /></AppFormField>
+                          <div className="md:col-span-2"><AppFormField label="Honors / Awards"><AppTextarea value={record.honorsOrAwards || ""} onChange={(e) => setEducationDrafts((current) => current.map((entry) => entry.id === record.id ? { ...entry, honorsOrAwards: e.target.value } : entry))} className="min-h-[90px]" /></AppFormField></div>
+                        </div>
+                      </ProfileRepeatableEntryCard>
+                    ))}
+                  </ProfileSectionCard>
+                )}
+
+                {profileWorkspaceTab === "documents" && (
+                  <ProfileSectionCard title="Documents" description="Review enrollment credentials, upload status, and verification remarks for this student.">
+                    {studentReqs.length === 0 ? (
+                      <AppEmptyState icon={FileCheck} title="No enrollment credentials found." description="Document requirements will appear here once registrar records are available for this student." compact />
+                    ) : studentReqs.map((req) => {
+                      const isHardcopyDone = req.hardcopySubmitted === true;
+                      const isVerified = req.verificationStatus === "Verified";
+                      const isRejected = req.verificationStatus === "Rejected";
+                      const isUploaded = req.uploadStatus === "Uploaded";
+                      const isUploading = uploadingRequirementName === req.name;
+
+                      return (
+                        <ProfileDocumentCard
+                          key={req.id}
+                          title={req.name}
+                          metadata={[
+                            ...(req.uploadFileName ? [{ label: "File", value: req.uploadFileName }] : []),
+                            ...(req.uploadDate ? [{ label: "Uploaded", value: req.uploadDate }] : []),
+                            ...(req.verifiedBy ? [{ label: "Reviewed by", value: req.verifiedBy }] : []),
+                          ]}
+                          remarks={req.remarks}
+                          badges={(
+                            <>
+                              <AppStatusBadge status={req.uploadStatus || "Not Uploaded"} />
+                              <AppStatusBadge status={req.verificationStatus || "Pending"} />
+                            </>
+                          )}
+                          actions={(
+                            <>
+                              {!isHardcopyDone && (
+                                <AppButton type="button" size="sm" variant={isRejected ? "destructive" : isUploaded ? "secondary" : "primary"} leftIcon={UploadCloud} loading={isUploading} onClick={() => triggerDocUpload(req.name)}>
+                                  {isRejected ? "Re-Upload Document" : isUploaded ? "Replace File" : "Upload Document"}
+                                </AppButton>
+                              )}
+                              {isHardcopyDone && <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Hardcopy submitted{req.hardcopySubmittedDate ? ` on ${req.hardcopySubmittedDate}` : ""}</span>}
+                              {isVerified && <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Ready for clearance</span>}
+                            </>
+                          )}
+                        />
+                      );
+                    })}
+                  </ProfileSectionCard>
+                )}
+
+                {profileWorkspaceTab === "activity" && (
+                  <ProfileActivityLogTable
+                    data={studentProfileActivityLogs}
+                    columns={profileActivityColumns}
+                    getRowId={(row) => row.id}
+                    emptyMessage="No portal activity recorded yet."
+                    emptyDescription="Profile updates, uploads, and clearance events will appear here."
+                  />
+                )}
+              </ProfileWorkspace>
+            </form>
+          </div>
+
+          <div className="space-y-5">
+            <AppCard tone="brand" className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-[var(--erp-border)] pb-3"><ImageIcon className="h-4 w-4 text-[var(--erp-accent)]" /><h4 className="text-sm font-semibold text-[var(--erp-text)]">Photo Management</h4></div>
+              <div className="flex flex-col items-center rounded-2xl border border-dashed border-[var(--erp-border)] bg-[var(--erp-surface-muted)] p-5 text-center">
+                {photoPreview ? <img src={photoPreview} className="h-24 w-24 rounded-2xl border-4 border-[rgba(231,184,47,0.35)] object-cover shadow-md" alt="Portrait" /> : <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-[var(--erp-border)] bg-white text-[var(--erp-text-muted)]"><User className="h-10 w-10" /></div>}
+                <p className="mt-3 text-xs text-[var(--erp-text-muted)]">2x2 white-background portrait recommended for records and ID previews.</p>
+                <label className="mt-4"><span className="inline-flex cursor-pointer items-center rounded-xl border border-[var(--erp-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--erp-text)] hover:bg-[var(--erp-surface-muted)]">Upload Portrait</span><input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} /></label>
+              </div>
+            </AppCard>
+
+            <ProfileRequirementsCard
+              title="Enrollment Credentials"
+              description="Track requirement readiness and jump straight into the student document workspace when follow-up is needed."
+              metrics={[
+                { label: "Total", value: studentReqs.length, tone: "brand" },
+                { label: "Uploaded", value: studentReqs.filter((req) => req.uploadStatus === "Uploaded").length, tone: "accent" },
+                { label: "Verified", value: studentReqs.filter((req) => req.verificationStatus === "Verified").length, tone: "success" },
+              ]}
+              actionLabel="Review Documents"
+              onAction={() => setProfileWorkspaceTab("documents")}
+            />
+
+            <AppCard tone="brand" className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-[var(--erp-border)] pb-3"><ShieldAlert className="h-4 w-4 text-red-500" /><h4 className="text-sm font-semibold text-[var(--erp-text)]">Locked Academic Fields</h4></div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">Academic assignment fields are managed by the Registrar and cannot be edited from the Student Portal.</div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {[{ label: "Student ID Code", value: student.studentNo }, { label: "Section Advisory", value: student.section || "—" }, { label: "Department Level", value: student.department }, { label: "Accredited Course", value: student.trackOrCourse || "—" }].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-[var(--erp-border)] bg-white p-3">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--erp-text-muted)]">{item.label}</p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--erp-text)]">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </AppCard>
+
+            <AppCard tone="brand" className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-[var(--erp-border)] pb-3"><Clock className="h-4 w-4 text-[var(--erp-text-muted)]" /><h4 className="text-sm font-semibold text-[var(--erp-text)]">Portal Action Logs</h4></div>
+              {studentProfileActivityLogs.length === 0 ? (
+                <AppEmptyState icon={ClipboardList} title="No portal activity recorded yet." description="Profile actions and uploads will appear once activity is logged." compact />
+              ) : (
+                <div className="space-y-3">
+                  {studentProfileActivityLogs.slice(0, 4).map((entry) => (
+                    <div key={entry.id} className="rounded-2xl border border-[var(--erp-border)] bg-white p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[11px] font-mono text-[var(--erp-text-muted)]">{entry.time ?? "—"}</span>
+                        <AppStatusBadge status={entry.type || "Profile"} />
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-[var(--erp-text)]">{entry.action}</p>
+                    </div>
+                  ))}
+                  <AppButton type="button" variant="secondary" size="sm" onClick={() => setProfileWorkspaceTab("activity")}>View Full Activity</AppButton>
+                </div>
+              )}
+            </AppCard>
+          </div>
+        </div>
+      )}
+
+      {/* ========================== TAB D: PROFILE ========================== */}
+      {false && activeTab === "profile" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <form onSubmit={handleSaveProfile} className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-6">
