@@ -39,9 +39,19 @@ import { getAcademicScopedData } from "../../../services/academicUnitScopeServic
 import type { ClassSchedule } from "../../../types";
 import { reportExportService } from "../../../services/reportExportService";
 import type { ReportColumn, ReportRow } from "../../reports/types";
+import StaffProfileWorkspace from "../../profiles/components/StaffProfileWorkspace";
 
 type FacultyTab = "dashboard" | "schedule" | "attendance" | "grading" | "reports";
+type FacultyRouteSubPage = "overview-advisory" | "class-schedule-subjects" | "attendance-monitoring" | "student-grades-encoding" | "reports" | "faculty-profile";
 type FacultyReportId = "class-list" | "advisory-class-list" | "grade-sheet" | "attendance-summary" | "failed-incomplete" | "subject-load";
+
+const FACULTY_SUBPAGE_TO_TAB: Record<Exclude<FacultyRouteSubPage, "faculty-profile">, FacultyTab> = {
+  "overview-advisory": "dashboard",
+  "class-schedule-subjects": "schedule",
+  "attendance-monitoring": "attendance",
+  "student-grades-encoding": "grading",
+  reports: "reports",
+};
 
 const FACULTY_REPORT_OPTIONS: { id: FacultyReportId; title: string; desc: string }[] = [
   { id: "class-list", title: "Class List", desc: "Students grouped by the teacher's assigned class sections." },
@@ -103,7 +113,7 @@ const FACULTY_REPORT_COLUMNS: Record<FacultyReportId, ReportColumn[]> = {
   ],
 };
 
-export default function FacultyPortal() {
+export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: string; onSubPageChange: (subPage: string) => void }) {
   const { teachers, currentUser, students, announcements, grades, subjects, classSchedules, activeSchool, academicUnit, activityLogs, employees, gradePeriods, studentGradeEntries } = useSTSNStore();
   const scopedData = React.useMemo(
     () =>
@@ -144,7 +154,6 @@ export default function FacultyPortal() {
   const accruedLeaveDays = scopedEmployees.find((e) => e.email === currentTeacher.email)?.leaveBalance;
 
   // States
-  const [activeTab, setActiveTab] = useState<FacultyTab>("dashboard");
   const [selectedReportId, setSelectedReportId] = useState<FacultyReportId>("class-list");
   const [viewSectionStudents, setViewSectionStudents] = useState<string | null>(null);
   const [attendanceData, setAttendanceData] = useState<Record<string, "Present" | "Late" | "Absent">>({});
@@ -321,6 +330,9 @@ export default function FacultyPortal() {
   const academicAnnouncements = announcements.filter(
     (a) => a.category === "Academic" || a.category === "General"
   );
+  const activeSubPage = (subPage as FacultyRouteSubPage) || "overview-advisory";
+  const activeTab = activeSubPage === "faculty-profile" ? null : FACULTY_SUBPAGE_TO_TAB[activeSubPage as Exclude<FacultyRouteSubPage, "faculty-profile">];
+  const linkedEmployee = scopedEmployees.find((employee) => employee.userId === currentTeacher.userId || employee.email === currentTeacher.email) ?? null;
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
@@ -337,66 +349,6 @@ export default function FacultyPortal() {
           </div>
         }
       />
-
-      {/* 2. DEDICATED TEACHER TABBED ERP CONTROLLER */}
-      <div className="flex border-b border-stsn-beige/70 gap-2 overflow-x-auto pb-1">
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg transition whitespace-nowrap cursor-pointer ${
-            activeTab === "dashboard"
-              ? "bg-stsn-brown text-white border-t-2 border-stsn-gold"
-              : "text-stone-500 hover:text-stsn-brown-dark"
-          }`}
-        >
-          Overview & Advisory
-        </button>
-        
-        <button
-          onClick={() => setActiveTab("schedule")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg transition whitespace-nowrap cursor-pointer ${
-            activeTab === "schedule"
-              ? "bg-stsn-brown text-white border-t-2 border-stsn-gold"
-              : "text-stone-500 hover:text-stsn-brown-dark"
-          }`}
-        >
-          Class Schedule & Subjects
-        </button>
-
-        <button
-          onClick={() => setActiveTab("attendance")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg transition whitespace-nowrap cursor-pointer ${
-            activeTab === "attendance"
-              ? "bg-stsn-brown text-white border-t-2 border-stsn-gold"
-              : "text-stone-500 hover:text-stsn-brown-dark"
-          }`}
-        >
-          Attendance Monitoring
-        </button>
-
-        <button
-          onClick={() => setActiveTab("grading")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg transition whitespace-nowrap cursor-pointer ${
-            activeTab === "grading"
-              ? "bg-stsn-brown text-white border-t-2 border-stsn-gold"
-              : "text-stone-500 hover:text-stsn-brown-dark"
-          }`}
-        >
-          Student Grades Encoding
-        </button>
-
-        <button
-          onClick={() => setActiveTab("reports")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg transition whitespace-nowrap cursor-pointer ${
-            activeTab === "reports"
-              ? "bg-stsn-brown text-white border-t-2 border-stsn-gold"
-              : "text-stone-500 hover:text-stsn-brown-dark"
-          }`}
-        >
-          Reports
-        </button>
-      </div>
-
-      {/* 3. TAB WORKSPACES */}
 
       {/* TAB A: OVERVIEW & ADVISORY */}
       {activeTab === "dashboard" && (
@@ -462,7 +414,7 @@ export default function FacultyPortal() {
                         )}
                       </p>
                       <button
-                        onClick={() => setActiveTab("grading")}
+                        onClick={() => onSubPageChange("student-grades-encoding")}
                         className="mt-1.5 text-[10px] font-bold text-red-700 underline underline-offset-2 cursor-pointer hover:text-red-900 transition"
                       >
                         Go to Grades Encoding →
@@ -474,7 +426,7 @@ export default function FacultyPortal() {
                   {gradeSubmissionQueue.slice(0, 4).map((item) => (
                     <button
                       key={item.key}
-                      onClick={() => setActiveTab("grading")}
+                      onClick={() => onSubPageChange("student-grades-encoding")}
                       className={`text-left p-4 rounded-xl border transition cursor-pointer ${
                         item.status === "Setup Needed"
                           ? "border-red-200 bg-red-50/40 hover:bg-red-50"
@@ -631,7 +583,7 @@ export default function FacultyPortal() {
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button
-                    onClick={() => setActiveTab("grading")}
+                    onClick={() => onSubPageChange("student-grades-encoding")}
                     className="w-full text-left flex items-center justify-between p-3 bg-stsn-cream hover:bg-stsn-beige border border-stsn-beige/70 rounded-xl transition cursor-pointer group"
                   >
                     <div>
@@ -642,7 +594,7 @@ export default function FacultyPortal() {
                   </button>
 
                   <button
-                    onClick={() => setActiveTab("attendance")}
+                    onClick={() => onSubPageChange("attendance-monitoring")}
                     className="w-full text-left flex items-center justify-between p-3 bg-stsn-cream hover:bg-stsn-beige border border-stsn-beige/70 rounded-xl transition cursor-pointer group"
                   >
                     <div>
@@ -1257,6 +1209,20 @@ export default function FacultyPortal() {
             </div>
           </div>
         </div>
+      )}
+
+      {activeSubPage === "faculty-profile" && (
+        <StaffProfileWorkspace
+          mode="faculty"
+          teacher={currentTeacher}
+          employee={linkedEmployee}
+          title={`${currentTeacher.firstName} ${currentTeacher.lastName}`}
+          eyebrow="Teacher / Faculty Profile"
+          emptyTitle="Faculty profile unavailable"
+          emptyDescription="The current faculty record could not be resolved from the active Teacher Board session."
+          requirementCardTitle="Faculty Requirements"
+          requirementCardDescription="Track PRC, employment, and faculty document readiness using the shared requirements summary pattern."
+        />
       )}
 
     </div>

@@ -134,6 +134,10 @@ export default function App() {
     activeModule === "STUDENT_PORTAL"
       ? (currentRoute?.subPage ?? "overview")
       : "overview";
+  const facultySubPage =
+    activeModule === "FACULTY_PORTAL"
+      ? (currentRoute?.subPage ?? "overview-advisory")
+      : "overview-advisory";
   const hrSubPage =
     activeModule === "HR_MANAGEMENT"
       ? (currentRoute?.subPage ?? "hr-dashboard")
@@ -192,7 +196,7 @@ export default function App() {
       STUDENT_DIRECTORY: "Student Directory",
       STUDENT_PORTAL: "Student Portal",
       FACULTY_ADMIN: "Faculty Admin",
-      FACULTY_PORTAL: "Faculty Portal",
+      FACULTY_PORTAL: "Teacher Board",
       HR_MANAGEMENT: "HR Management",
       PAYROLL_DASHBOARD: "Payroll Dashboard",
       PAYROLL_MANAGEMENT: "Payroll Management",
@@ -217,6 +221,12 @@ export default function App() {
       discounts: "Discounts",
       payments: "Payments",
       "hr-dashboard": "HR Dashboard",
+      "overview-advisory": "Overview & Advisory",
+      "class-schedule-subjects": "Class Schedule & Subjects",
+      "attendance-monitoring": "Attendance Monitoring",
+      "student-grades-encoding": "Student Grades Encoding",
+      "faculty-profile": "Faculty Profile",
+      "new-employee-profile": "New Employee Profile",
       "leave-management": "Leave Management",
       "hr-time-attendance": "Time & Attendance",
       "employee-management": "Employee Management",
@@ -233,6 +243,8 @@ export default function App() {
     const subPage =
       activeModule === "ACCOUNTING"
         ? accountingSubPage
+        : activeModule === "FACULTY_PORTAL"
+          ? facultySubPage
         : activeModule === "HR_MANAGEMENT"
           ? hrSubPage
           : activeModule === "PAYROLL_MANAGEMENT"
@@ -275,6 +287,8 @@ export default function App() {
 
   const navigateForModuleItem = (module: STSNModule, childId: string) => {
     if (module === "STUDENT_PORTAL") {
+      navigateToModule(module, childId);
+    } else if (module === "FACULTY_PORTAL") {
       navigateToModule(module, childId);
     } else if (module === "HR_MANAGEMENT") {
       navigateToModule(module, childId);
@@ -690,6 +704,8 @@ export default function App() {
                           : isSelected &&
                             (item.id === "STUDENT_PORTAL"
                               ? portalSubPage === child.id
+                              : item.id === "FACULTY_PORTAL"
+                                ? facultySubPage === child.id
                               : item.id === "HR_MANAGEMENT"
                                 ? hrSubPage === child.id
                                 : item.id === "PAYROLL_MANAGEMENT"
@@ -855,6 +871,7 @@ export default function App() {
               accountingSubPage={accountingSubPage}
               coreSetupSubPage={coreSetupSubPage}
               portalSubPage={portalSubPage}
+              facultySubPage={facultySubPage}
               hrSubPage={hrSubPage}
               payrollSubPage={payrollSubPage}
               cashierSubPage={cashierSubPage}
@@ -867,6 +884,9 @@ export default function App() {
               }
               onAccountingSubPageChange={(subPage) =>
                 navigateToModule("ACCOUNTING", subPage)
+              }
+              onFacultySubPageChange={(subPage) =>
+                navigateToModule("FACULTY_PORTAL", subPage)
               }
               onHrSubPageChange={(subPage) =>
                 navigateToModule("HR_MANAGEMENT", subPage)
@@ -887,6 +907,8 @@ export default function App() {
             activeSubPage={
               activeModule === "STUDENT_PORTAL"
                 ? portalSubPage
+                : activeModule === "FACULTY_PORTAL"
+                  ? facultySubPage
                 : activeModule === "CASHIER"
                   ? cashierSubPage
                   : activeModule === "PAYROLL_MANAGEMENT"
@@ -1052,6 +1074,8 @@ export default function App() {
                               : isSelected &&
                                 (item.id === "STUDENT_PORTAL"
                                   ? portalSubPage === child.id
+                                  : item.id === "FACULTY_PORTAL"
+                                    ? facultySubPage === child.id
                                   : item.id === "HR_MANAGEMENT"
                                     ? hrSubPage === child.id
                                     : item.id === "PAYROLL_MANAGEMENT"

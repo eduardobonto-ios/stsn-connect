@@ -21,10 +21,10 @@ interface BottomNavTab {
 
 const ROLE_TABS: Partial<Record<UserRole, BottomNavTab[]>> = {
   TEACHER: [
-    { label: "Grades", icon: ClipboardList, module: "FACULTY_PORTAL" },
-    { label: "Classes", icon: CalendarDays, module: "FACULTY_PORTAL" },
+    { label: "Grades", icon: ClipboardList, module: "FACULTY_PORTAL", subPage: "student-grades-encoding" },
+    { label: "Classes", icon: CalendarDays, module: "FACULTY_PORTAL", subPage: "class-schedule-subjects" },
     { label: "Learning", icon: Bell, module: "ONLINE_LEARNING" },
-    { label: "Profile", icon: User, module: "FACULTY_PORTAL" },
+    { label: "Profile", icon: User, module: "FACULTY_PORTAL", subPage: "faculty-profile" },
   ],
   CASHIER: [
     { label: "Queue", icon: Receipt, module: "CASHIER", subPage: "queue" },
@@ -47,10 +47,10 @@ const ROLE_TABS: Partial<Record<UserRole, BottomNavTab[]>> = {
     { label: "Reports", icon: FileText, module: "GUIDANCE_REPORTS" },
   ],
   EMPLOYEE: [
-    { label: "Payslip", icon: Wallet, module: "FACULTY_PORTAL" },
-    { label: "Leave", icon: CalendarDays, module: "HR_MANAGEMENT" },
+    { label: "Board", icon: Wallet, module: "FACULTY_PORTAL", subPage: "overview-advisory" },
+    { label: "Leave", icon: CalendarDays, module: "HR_MANAGEMENT", subPage: "leave-management" },
     { label: "Notices", icon: Bell, module: "DASHBOARD" },
-    { label: "Profile", icon: User, module: "FACULTY_PORTAL" },
+    { label: "Profile", icon: User, module: "FACULTY_PORTAL", subPage: "faculty-profile" },
   ],
 };
 

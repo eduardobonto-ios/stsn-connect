@@ -6,6 +6,8 @@ Status: Completed for Phase 0.5 audit/inventory. No application source files wer
 
 Phase 8 cross-reference: Data-source and Supabase wiring findings are tracked in `docs/uiux/STSN_CONNECT_PHASE_8_DATA_SOURCE_SUPABASE_AUDIT_TRACKER.md` (audit dated 2026-06-30). That pass confirmed the app is mostly Supabase-backed through the shared loader/store, with remaining follow-up concentrated in dashboard synthetic analytics, student-portal demo overlays, and unresolved guardian-to-student account linkage.
 
+Phase 12 cross-reference: demo/UAT data reset + reseed preparation is tracked in `docs/uiux/STSN_CONNECT_PHASE_11_PARENT_PORTAL_TRACKER.md` under `## Phase 12 Demo/UAT Reset and Seed Preparation Notes`, with the executable SQL in `supabase/migrations/20260630130000_demo_uat_transactional_reset.sql` and `supabase/migrations/20260630131000_demo_uat_full_school_year_seed.sql`.
+
 ## Completed Items
 
 - [x] Verified frontend stack against `package.json` and Vite/Tailwind entry points.
