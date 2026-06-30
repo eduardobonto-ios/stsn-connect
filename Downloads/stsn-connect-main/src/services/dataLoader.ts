@@ -1,0 +1,830 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Fetches every entity from Supabase and reconstructs the exact nested shapes
+ * the app's existing types expect (the same shapes the old mock-data module
+ * used to export), so the rest of the app needs zero changes to consume it.
+ */
+import { supabase } from "../lib/supabase";
+import { toCamel } from "./supabaseCrud";
+import { schoolCodeToId, subjectCodeToId } from "./idMaps";
+import type {
+  User, Student, Teacher, Employee, Course, Subject, Curriculum, Requirement, Enrollment,
+  StudentAssessment, Payment, Grade, Schedule, Announcement, SchoolEvent, PayrollRow, SetupItem,
+  DiscountType, DiscountRequest, ClassSchedule, LearningMaterial, SchoolSection, Room, BookPackage,
+  StudentLedgerSummary, LedgerTransaction, FinancialHold, AssessmentBillingSummary, PaymentCollectionSummary,
+  EmployeeLifecycleEvent, ShiftTemplate, EmployeeShiftAssignment, EmployeeTimeLog, EmployeeAttendance,
+  LeaveType, LeaveRequest, PayrollPeriod, PayrollRun, PayrollLine, SalaryPayoutBatch, SalaryPayoutLine,
+  BenefitPlan, StatutoryContributionRule, TaxTable, TaxBracket,
+  JobRequisition, JobApplicant, ApplicantInterview,
+  OnboardingTemplate, OnboardingTask, EmployeeOnboardingTask,
+  OnlineEnrollmentApplication,
+  StudentGuardianContact,
+  StudentEducationBackground,
+  EmployeeProfileContact,
+  EmployeeEducationBackground,
+  EmployeeLicenseCertification,
+  EmployeeDocumentRecord,
+} from "../types";
+import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent } from "../types/grading";
+
+const teacherName = (t: any) => (t ? `${t.first_name} ${t.last_name}` : undefined);
+
+export interface LoadedData {
+  schools: { id: string; uuid: string; name: string; shortName: string; location: string; academicUnit: string; brandingLabel: string; supportedRoles: string[] }[];
+  users: User[];
+  students: Student[];
+  teachers: Teacher[];
+  employees: Employee[];
+  courses: Course[];
+  subjects: Subject[];
+  curriculums: Curriculum[];
+  requirements: Requirement[];
+  enrollments: Enrollment[];
+  onlineEnrollmentApplications: OnlineEnrollmentApplication[];
+  assessments: StudentAssessment[];
+  payments: Payment[];
+  grades: Grade[];
+  schedules: Schedule[];
+  announcements: Announcement[];
+  events: SchoolEvent[];
+  payroll: PayrollRow[];
+  setupData: Record<string, SetupItem[]>;
+  discountTypes: DiscountType[];
+  discountRequests: DiscountRequest[];
+  classSchedules: ClassSchedule[];
+  learningMaterials: LearningMaterial[];
+  sections: SchoolSection[];
+  rooms: Room[];
+  studentLedgerSummaries: StudentLedgerSummary[];
+  ledgerTransactions: LedgerTransaction[];
+  financialHolds: FinancialHold[];
+  assessmentBillingSummaries: AssessmentBillingSummary[];
+  paymentCollectionSummaries: PaymentCollectionSummary[];
+  promissoryNotes: { id: string; studentId: string; amount: number; dueDate: string; status: string }[];
+  bookPackages: BookPackage[];
+  classLoads: SubjectClassLoad[];
+  gradePeriods: GradePeriod[];
+  studentGradeEntries: StudentGradeEntry[];
+  demoStudents: GradeRosterStudent[];
+  activityLogs: { id: string; action: string; subject: string; type: string; time?: string }[];
+  enrollmentHistoryStats: { year: string; stsn: number; cdsta: number }[];
+  tuitionFeeSchedule: { yearLevel: string; tuition: number; lab: number; computer: number; label: string }[];
+  miscFeeSchedule: { feeName: string; category: "Miscellaneous"; amount: number; isRequired: boolean; note?: string }[];
+  labFeeAdjustments: { scope: "SHS" | "College"; programCode: string; amount: number }[];
+  discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
+  paymentTermOptions: { term: string; description: string }[];
+  studentGuardians: StudentGuardianContact[];
+  studentEducationBackgrounds: StudentEducationBackground[];
+  employeeProfileContacts: EmployeeProfileContact[];
+  employeeEducationBackgrounds: EmployeeEducationBackground[];
+  employeeLicenseCertifications: EmployeeLicenseCertification[];
+  employeeDocuments: EmployeeDocumentRecord[];
+  // HR Phase 2-4
+  employeeLifecycleEvents: EmployeeLifecycleEvent[];
+  shiftTemplates: ShiftTemplate[];
+  employeeShiftAssignments: EmployeeShiftAssignment[];
+  employeeTimeLogs: EmployeeTimeLog[];
+  employeeAttendance: EmployeeAttendance[];
+  leaveTypes: LeaveType[];
+  leaveRequests: LeaveRequest[];
+  payrollPeriods: PayrollPeriod[];
+  payrollRuns: PayrollRun[];
+  payrollLines: PayrollLine[];
+  salaryPayoutBatches: SalaryPayoutBatch[];
+  salaryPayoutLines: SalaryPayoutLine[];
+  benefitPlans: BenefitPlan[];
+  statutoryContributionRules: StatutoryContributionRule[];
+  taxTables: TaxTable[];
+  taxBrackets: TaxBracket[];
+  jobRequisitions: JobRequisition[];
+  jobApplicants: JobApplicant[];
+  applicantInterviews: ApplicantInterview[];
+  onboardingTemplates: OnboardingTemplate[];
+  onboardingTasks: OnboardingTask[];
+  employeeOnboardingTasks: EmployeeOnboardingTask[];
+}
+
+export async function loadAllData(): Promise<LoadedData> {
+  // ---- Schools (drives schoolCodeToId map used by every write path) ----
+  const { data: schoolRows } = await supabase.from("schools").select("*");
+  const schools = (schoolRows ?? []).map((s: any) => {
+    schoolCodeToId[s.code] = s.id;
+    return {
+      id: s.code, uuid: s.id, name: s.name, shortName: s.short_name, location: s.location,
+      academicUnit: s.academic_unit, brandingLabel: s.branding_label, supportedRoles: s.supported_roles ?? [],
+    };
+  });
+
+  // ---- Subjects (drives subjectCodeToId map) ----
+  const { data: subjectRows } = await supabase.from("subjects").select("*");
+  const subjects: Subject[] = (subjectRows ?? []).map((s: any) => {
+    subjectCodeToId[s.code] = s.id;
+    return {
+      id: s.id, code: s.code, name: s.name, units: s.units, department: s.department,
+      yearLevel: s.year_level, semester: s.semester, trackOrCourse: s.track_or_course, prerequisites: s.prerequisites ?? [],
+    };
+  });
+
+  // ---- Users ----
+  const { data: userRows } = await supabase.from("users").select("*, schools(code)");
+  const users: User[] = (userRows ?? []).map((u: any) => ({
+    id: u.id, schoolId: u.schools?.code, email: u.email, name: u.name, role: u.role,
+    designation: u.designation ?? undefined,
+    isActive: u.is_active, avatarUrl: u.avatar_url, department: u.department,
+  }));
+
+  // ---- Teachers ----
+  const { data: teacherRows } = await supabase.from("teachers").select("*, schools(code)");
+  const teachers: Teacher[] = (teacherRows ?? []).map((t: any) => ({
+    id: t.id, schoolId: t.schools?.code, userId: t.user_id, firstName: t.first_name, lastName: t.last_name,
+    middleName: t.middle_name, department: t.department, email: t.email, phone: t.phone,
+    specialization: t.specialization, advisorySection: t.advisory_section, isActive: t.is_active,
+  }));
+  const teacherById = new Map(teachers.map((t) => [t.id, t]));
+
+  // ---- Students ----
+  const { data: studentRows } = await supabase.from("students").select("*, schools(code)");
+  const students: Student[] = (studentRows ?? []).map((s: any) => ({
+    id: s.id, schoolId: s.schools?.code, studentNo: s.student_no, lrn: s.lrn, firstName: s.first_name, lastName: s.last_name,
+    createdVia: s.created_via, sourceMetadata: s.source_metadata ?? {},
+    middleName: s.middle_name, gender: s.gender, civilStatus: s.civil_status, religion: s.religion,
+    nationality: s.nationality, birthday: s.birthday, birthplace: s.birthplace, email: s.email,
+    contactNo: s.contact_no, address: s.address, province: s.province, municipality: s.municipality,
+    zipCode: s.zip_code, userId: s.user_id, department: s.department, yearLevel: s.year_level,
+    trackOrCourse: s.track_or_course, section: s.section, enrollmentStatus: s.enrollment_status,
+  }));
+
+  // ---- Employees ----
+  const { data: employeeRows } = await supabase.from("employees").select("*, schools(code)");
+  const employees: Employee[] = (employeeRows ?? []).map((e: any) => ({
+    id: e.id, schoolId: e.schools?.code, firstName: e.first_name, lastName: e.last_name, middleName: e.middle_name,
+    email: e.email, position: e.position, positionTitle: e.position_title, department: e.department,
+    salary: e.salary, status: e.status, leaveBalance: e.leave_balance, contact: e.contact,
+    address: e.address, emergencyContact: e.emergency_contact,
+    employeeNo: e.employee_no, userId: e.user_id, employmentStatus: e.employment_status ?? "Active",
+    hireDate: e.hire_date, regularizationDate: e.regularization_date, separationDate: e.separation_date,
+    separationReason: e.separation_reason, supervisorId: e.supervisor_id,
+  }));
+
+  // ---- Courses ----
+  const { data: courseRows } = await supabase.from("courses").select("*");
+  const courses: Course[] = (courseRows ?? []).map((c: any) => ({
+    id: c.id, code: c.code, name: c.name, department: c.department, durationYears: c.duration_years,
+  }));
+
+  // ---- Curriculums + curriculum_subjects ----
+  const { data: curriculumRows } = await supabase.from("curriculums").select("*");
+  const { data: currSubjRows } = await supabase.from("curriculum_subjects").select("*, subjects(code)");
+  const curriculums: Curriculum[] = (curriculumRows ?? []).map((c: any) => {
+    const blocks = new Map<string, { yearLevel: string; semester: string; subjectCodes: string[] }>();
+    for (const cs of currSubjRows ?? []) {
+      if (cs.curriculum_id !== c.id) continue;
+      const key = `${cs.year_level}|${cs.semester}`;
+      if (!blocks.has(key)) blocks.set(key, { yearLevel: cs.year_level, semester: cs.semester, subjectCodes: [] });
+      if (cs.subjects?.code) blocks.get(key)!.subjectCodes.push(cs.subjects.code);
+    }
+    return { id: c.id, courseCodeOrStrand: c.course_code_or_strand, name: c.name, subjects: Array.from(blocks.values()) };
+  });
+
+  // ---- Sections + section_students ----
+  const { data: sectionRows } = await supabase.from("sections").select("*, schools(code), teachers(first_name,last_name)");
+  const { data: sectionStudentRows } = await supabase.from("section_students").select("*");
+  const sections: SchoolSection[] = (sectionRows ?? []).map((s: any) => ({
+    id: s.id, schoolId: s.schools?.code, code: s.code, name: s.name, department: s.department,
+    yearLevel: s.year_level, strandOrTrack: s.strand_or_track, adviserId: s.adviser_id,
+    adviserName: teacherName(s.teachers), capacity: s.capacity, currentCount: s.current_count,
+    academicYear: s.academic_year, semester: s.semester, isActive: s.is_active, createdAt: s.created_at,
+    enrolledStudentIds: (sectionStudentRows ?? []).filter((ss: any) => ss.section_id === s.id).map((ss: any) => ss.student_id),
+  }));
+
+  // ---- Rooms ----
+  const { data: roomRows } = await supabase.from("rooms").select("*, schools(code)");
+  const rooms: Room[] = (roomRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, code: r.code, name: r.name, building: r.building, floor: r.floor,
+    capacity: r.capacity, type: r.type, isActive: r.is_active, status: r.status,
+  }));
+
+  // ---- Class schedules ----
+  const { data: classSchedRows } = await supabase.from("class_schedules").select("*, subjects(code,name), teachers(first_name,last_name)");
+  const classSchedules: ClassSchedule[] = (classSchedRows ?? []).map((c: any) => ({
+    id: c.id, subjectCode: c.subjects?.code ?? "", subjectName: c.subjects?.name ?? "", teacherId: c.teacher_id,
+    teacherName: teacherName(c.teachers) ?? "", section: c.section, roomName: c.room_name, day: c.day,
+    startTime: c.start_time, endTime: c.end_time, schoolYear: c.school_year, semester: c.semester,
+    isActive: c.is_active, department: c.department, yearLevel: c.year_level, courseOrTrack: c.course_or_track, notes: c.notes,
+  }));
+
+  // ---- Legacy flat schedules ----
+  const { data: scheduleRows } = await supabase.from("schedules").select("*");
+  const schedules: Schedule[] = (scheduleRows ?? []).map((s: any) => ({
+    id: s.id, subjectCode: s.subject_code, subjectName: s.subject_name, teacherName: s.teacher_name,
+    section: s.section, day: s.day, time: s.time, room: s.room,
+  }));
+
+  // ---- Requirements ----
+  const { data: reqRows } = await supabase.from("requirements").select("*");
+  const requirements: Requirement[] = (reqRows ?? []).map((r: any) => ({
+    id: r.id, studentId: r.student_id, name: r.name, status: r.status, submittedDate: r.submitted_date,
+    remarks: r.remarks, uploadStatus: r.upload_status, uploadFileName: r.upload_file_name, uploadFilePath: r.upload_file_path, uploadDate: r.upload_date,
+    verificationStatus: r.verification_status, verifiedBy: r.verified_by, verifiedAt: r.verified_at,
+    hardcopySubmitted: r.hardcopy_submitted, hardcopySubmittedDate: r.hardcopy_submitted_date,
+  }));
+
+  // ---- Book packages + items ----
+  const { data: bookPkgRows } = await supabase.from("book_packages").select("*, schools(code)");
+  const { data: bookItemRows } = await supabase.from("book_package_items").select("*, subjects(code)");
+  const bookPackages: BookPackage[] = (bookPkgRows ?? []).map((b: any) => ({
+    id: b.id, packageName: b.package_name, gradeLevel: b.grade_level, schoolId: b.schools?.code,
+    academicUnit: b.academic_unit, schoolYear: b.school_year, totalAmount: b.total_amount,
+    isRequired: b.is_required, status: b.status, lastUpdated: b.last_updated, updatedBy: b.updated_by,
+    books: (bookItemRows ?? []).filter((it: any) => it.book_package_id === b.id).map((it: any) => ({
+      id: it.id, title: it.title, subjectCode: it.subjects?.code, quantity: it.quantity, unitPrice: it.unit_price,
+    })),
+  }));
+
+  // ---- Assessments + fees + audit trail ----
+  const { data: assessmentRows } = await supabase.from("assessments").select("*, schools(code), book_packages(legacy_id)");
+  const { data: assessmentFeeRows } = await supabase.from("assessment_fees").select("*");
+  const { data: assessmentAuditRows } = await supabase.from("assessment_audit_trail").select("*");
+  const assessments: StudentAssessment[] = (assessmentRows ?? []).map((a: any) => ({
+    id: a.id, schoolId: a.schools?.code, studentId: a.student_id, schoolYear: a.school_year, semester: a.semester,
+    fees: (assessmentFeeRows ?? []).filter((f: any) => f.assessment_id === a.id).map((f: any) => ({ feeName: f.fee_name, category: f.category, amount: f.amount })),
+    totalAmount: a.total_amount, discountPercentage: a.discount_percentage, discountAmount: a.discount_amount,
+    scholarshipName: a.scholarship_name, paymentTerm: a.payment_term, balance: a.balance, isPaid: a.is_paid,
+    financialHoldStatus: a.financial_hold_status, lastPaymentDate: a.last_payment_date, booksAvailed: a.books_availed,
+    bookPackageId: a.book_package_id, approvalStatus: a.approval_status, submittedBy: a.submitted_by,
+    submittedDate: a.submitted_date, registrarRemarks: a.registrar_remarks, accountingRemarks: a.accounting_remarks,
+    approvedBy: a.approved_by, approvedDate: a.approved_date,
+    auditTrail: (assessmentAuditRows ?? []).filter((t: any) => t.assessment_id === a.id).map((t: any) => ({
+      id: t.id, action: t.action, performedBy: t.performed_by, performedAt: t.performed_at, details: t.details,
+    })),
+  }));
+
+  // ---- Enrollments + enrollment_subjects ----
+  const { data: enrollmentRows } = await supabase.from("enrollments").select("*");
+  const { data: enrollSubjRows } = await supabase.from("enrollment_subjects").select("*, subjects(code)");
+  const enrollments: Enrollment[] = (enrollmentRows ?? []).map((e: any) => ({
+    id: e.id, studentId: e.student_id, schoolYear: e.school_year, semester: e.semester, enrollmentType: e.enrollment_type,
+    status: e.status, submittedAt: e.submitted_at, assessmentId: e.assessment_id,
+    enrollmentSource: e.enrollment_source, isOnlineEnrollment: e.is_online_enrollment,
+    onlineApplicationId: e.online_application_id, completionStatus: e.completion_status,
+    missingFields: e.missing_fields ?? [], sourceMetadata: e.source_metadata ?? {},
+    subjectCodes: (enrollSubjRows ?? []).filter((es: any) => es.enrollment_id === e.id).map((es: any) => es.subjects?.code).filter(Boolean),
+  }));
+
+  const { data: onlineApplicationRows } = await supabase
+    .from("online_enrollment_applications")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  const onlineEnrollmentApplications: OnlineEnrollmentApplication[] = (onlineApplicationRows ?? []).map((a: any) => ({
+    id: a.id,
+    referenceNo: a.reference_no,
+    studentId: a.student_id,
+    enrollmentId: a.enrollment_id,
+    enrollmentType: a.enrollment_type,
+    lrn: a.lrn,
+    schoolYear: a.school_year,
+    semester: a.semester,
+    gradeLevelApplyingFor: a.grade_level_applying_for,
+    strandOrTrack: a.strand_or_track,
+    previousSchool: a.previous_school,
+    previousSchoolAddress: a.previous_school_address,
+    firstName: a.first_name,
+    lastName: a.last_name,
+    middleName: a.middle_name,
+    birthDate: a.birth_date,
+    gender: a.gender,
+    email: a.email,
+    contactNo: a.contact_no,
+    completeAddress: a.complete_address,
+    barangay: a.barangay,
+    cityMunicipality: a.city_municipality,
+    province: a.province,
+    zipCode: a.zip_code,
+    guardianName: a.guardian_name,
+    guardianRelationship: a.guardian_relationship,
+    guardianContactNo: a.guardian_contact_no,
+    guardianEmail: a.guardian_email,
+    guardianAddress: a.guardian_address,
+    status: a.status,
+    completionStatus: a.completion_status,
+    missingFields: a.missing_fields ?? [],
+    submittedFrom: a.submitted_from,
+    submittedAt: a.submitted_at,
+    payload: a.payload ?? {},
+  }));
+
+  // ---- Payments ----
+  const { data: paymentRows } = await supabase.from("payments").select("*, schools(code)");
+  const payments: Payment[] = (paymentRows ?? []).map((p: any) => ({
+    id: p.id, schoolId: p.schools?.code, studentId: p.student_id, amount: p.amount, paymentDate: p.payment_date,
+    paymentMethod: p.payment_method, orNumber: p.or_number, term: p.term, remarks: p.remarks,
+  }));
+
+  // ---- Discount types & requests ----
+  const { data: discountTypeRows } = await supabase.from("discount_types").select("*");
+  const discountTypes: DiscountType[] = (discountTypeRows ?? []).map((d: any) => ({
+    id: d.id, code: d.code, name: d.name, discountPercent: d.discount_percent, discountSource: d.discount_source,
+    requiresApproval: d.requires_approval, maxBeneficiaries: d.max_beneficiaries, description: d.description,
+    isActive: d.is_active, createdAt: d.created_at, effectiveSchoolYear: d.effective_school_year,
+    applicableAcademicUnit: d.applicable_academic_unit, appliesTo: d.applies_to, discountBasis: d.discount_basis,
+    discountFixedAmount: d.discount_fixed_amount, isStackable: d.is_stackable, requiresDocument: d.requires_document,
+    maxAmount: d.max_amount, glCode: d.gl_code,
+  }));
+  const discountTypeById = new Map(discountTypeRows?.map((d: any) => [d.id, d]) ?? []);
+  const { data: studentRowsForNames } = { data: studentRows } as any;
+  const studentById = new Map((studentRows ?? []).map((s: any) => [s.id, s]));
+  const { data: discountReqRows } = await supabase.from("discount_requests").select("*");
+  const { data: discountAuditRows } = await supabase.from("discount_request_audit_trail").select("*");
+  const discountRequests: DiscountRequest[] = (discountReqRows ?? []).map((d: any) => {
+    const stu = studentById.get(d.student_id);
+    const dt: any = discountTypeById.get(d.discount_type_id);
+    return {
+      id: d.id, referenceNo: d.reference_no, studentId: d.student_id,
+      studentName: stu ? `${stu.first_name} ${stu.last_name}` : "", studentNo: stu?.student_no ?? "",
+      discountTypeId: d.discount_type_id, discountTypeName: dt?.name ?? "", discountPercent: dt?.discount_percent ?? 0,
+      requestedBy: d.requested_by, requestedAt: d.requested_at, status: d.status,
+      siblingStudentIds: d.sibling_student_ids ?? [], siblingNames: d.sibling_names ?? [],
+      level1Status: d.level1_status, level1ApprovedBy: d.level1_approved_by, level1ApprovedAt: d.level1_approved_at,
+      level2Status: d.level2_status, level2ApprovedBy: d.level2_approved_by, level2ApprovedAt: d.level2_approved_at,
+      remarks: d.remarks, attachmentNames: d.attachment_names ?? [],
+      auditTrail: (discountAuditRows ?? []).filter((t: any) => t.discount_request_id === d.id).map((t: any) => ({
+        id: t.id, action: t.action, performedBy: t.performed_by, performedAt: t.performed_at, details: t.details,
+      })),
+    };
+  });
+
+  // ---- Grades ----
+  const { data: gradeRows } = await supabase.from("grades").select("*, subjects(code)");
+  const grades: Grade[] = (gradeRows ?? []).map((g: any) => ({
+    id: g.id, studentId: g.student_id, subjectCode: g.subjects?.code ?? "", teacherId: g.teacher_id,
+    schoolYear: g.school_year, semester: g.semester, midtermGrade: g.midterm_grade, finalGrade: g.final_grade, remarks: g.remarks,
+  }));
+
+  // ---- Announcements / events ----
+  const { data: annRows } = await supabase.from("announcements").select("*");
+  const announcements: Announcement[] = (annRows ?? []).map((a: any) => ({
+    id: a.id, title: a.title, content: a.content, date: a.date, category: a.category, author: a.author,
+  }));
+  const { data: eventRows } = await supabase.from("school_events").select("*");
+  const events: SchoolEvent[] = (eventRows ?? []).map((e: any) => ({
+    id: e.id, title: e.title, description: e.description, date: e.date, department: e.department,
+  }));
+
+  // ---- Payroll ----
+  const { data: payrollRows } = await supabase.from("payroll").select("*");
+  const payroll: PayrollRow[] = (payrollRows ?? []).map((p: any) => ({
+    id: p.id, employeeId: p.employee_id, employeeName: p.employee_name, position: p.position,
+    basicSalary: p.basic_salary, allowances: p.allowances, sssDeduction: p.sss_deduction,
+    philhealthDeduction: p.philhealth_deduction, pagibigDeduction: p.pagibig_deduction, taxDeduction: p.tax_deduction,
+    netPay: p.net_pay, period: p.period, status: p.status,
+  }));
+
+  // ---- Setup items (generic reference data) ----
+  const { data: setupRows } = await supabase.from("setup_items").select("*").order("sort_order");
+  const setupData: Record<string, SetupItem[]> = {};
+  for (const s of setupRows ?? []) {
+    const item: SetupItem = {
+      id: s.id, code: s.code, name: s.name, description: s.description, isActive: s.is_active,
+      createdAt: s.created_at, createdBy: s.created_by, sortOrder: s.sort_order, ...(s.metadata ?? {}),
+    };
+    (setupData[s.category] ??= []).push(item);
+  }
+
+  // ---- Learning materials ----
+  const { data: lmRows } = await supabase.from("learning_materials").select("*, schools(code), subjects(code,name), teachers(first_name,last_name)");
+  const learningMaterials: LearningMaterial[] = (lmRows ?? []).map((m: any) => ({
+    id: m.id, schoolId: m.schools?.code, title: m.title, description: m.description, subjectCode: m.subjects?.code ?? "",
+    subjectName: m.subjects?.name ?? "", section: m.section, teacherId: m.teacher_id, teacherName: teacherName(m.teachers) ?? "",
+    learningType: m.learning_type, fileUrl: m.file_url, fileName: m.file_name, fileSize: m.file_size,
+    videoUrl: m.video_url, thumbnailUrl: m.thumbnail_url, publishStatus: m.publish_status, uploadDate: m.upload_date,
+    department: m.department, yearLevel: m.year_level, trackOrCourse: m.track_or_course, tags: m.tags ?? [],
+  }));
+
+  // ---- Ledger / holds / billing / collections / promissory notes ----
+  const { data: lsRows } = await supabase.from("student_ledger_summaries").select("*");
+  const studentLedgerSummaries: StudentLedgerSummary[] = (lsRows ?? []).map((l: any) => ({
+    studentId: l.student_id, schoolYear: l.school_year, totalAssessed: l.total_assessed, totalPaid: l.total_paid,
+    discountApplied: l.discount_applied, balance: l.balance, financialHoldStatus: l.financial_hold_status,
+    clearanceStatus: l.clearance_status, lastPaymentDate: l.last_payment_date,
+  }));
+  const { data: ltRows } = await supabase.from("ledger_transactions").select("*");
+  const ledgerTransactions: LedgerTransaction[] = (ltRows ?? []).map((l: any) => ({
+    id: l.id, studentId: l.student_id, date: l.date, description: l.description, type: l.type,
+    debit: l.debit, credit: l.credit, balance: l.balance, reference: l.reference,
+  }));
+  const { data: fhRows } = await supabase.from("financial_holds").select("*");
+  const financialHolds: FinancialHold[] = (fhRows ?? []).map((h: any) => {
+    const stu = studentById.get(h.student_id);
+    return {
+      id: h.id, studentId: h.student_id, studentName: stu ? `${stu.first_name} ${stu.last_name}` : "",
+      studentNo: stu?.student_no ?? "", holdType: h.hold_type, holdCategory: h.hold_category, reason: h.reason,
+      balanceAmount: h.balance_amount, createdBy: h.created_by, createdAt: h.created_at, status: h.status,
+      clearedBy: h.cleared_by, clearedAt: h.cleared_at, clearanceRemarks: h.clearance_remarks,
+    };
+  });
+  const { data: absRows } = await supabase.from("assessment_billing_summaries").select("*");
+  const assessmentBillingSummaries: AssessmentBillingSummary[] = (absRows ?? []).map((b: any) => {
+    const stu = studentById.get(b.student_id);
+    return {
+      id: b.id, studentId: b.student_id, studentName: stu ? `${stu.first_name} ${stu.last_name}` : "",
+      studentNo: stu?.student_no ?? "", schoolYear: b.school_year, semester: b.semester, academicUnit: b.academic_unit,
+      feeTemplateName: b.fee_template_name, totalAssessment: b.total_assessment, amountDue: b.amount_due,
+      balance: b.balance, status: b.status,
+    };
+  });
+  const { data: pcsRows } = await supabase.from("payment_collection_summaries").select("*");
+  const paymentCollectionSummaries: PaymentCollectionSummary[] = (pcsRows ?? []).map((p: any) => {
+    const stu = studentById.get(p.student_id);
+    return {
+      id: p.id, studentId: p.student_id, studentName: stu ? `${stu.first_name} ${stu.last_name}` : "",
+      amount: p.amount, paymentMethod: p.payment_method, referenceNo: p.reference_no, paymentDate: p.payment_date,
+      cashier: p.cashier, term: p.term, verificationStatus: p.verification_status,
+    };
+  });
+  const { data: pnRows } = await supabase.from("promissory_notes").select("*");
+  const promissoryNotes = (pnRows ?? []).map((p: any) => ({ id: p.id, studentId: p.student_id, amount: p.amount, dueDate: p.due_date, status: p.status }));
+
+  // ---- Grading: class loads, grade periods/categories/items, entries, demo students ----
+  const { data: clRows } = await supabase.from("subject_class_loads").select("*, subjects(code,name), sections(name)");
+  const { data: clStudentRows } = await supabase.from("class_load_students").select("*");
+  const classLoads: SubjectClassLoad[] = (clRows ?? []).map((c: any) => ({
+    id: c.id, teacherId: c.teacher_id, subjectCode: c.subjects?.code ?? "", subjectName: c.subjects?.name ?? "",
+    sectionId: c.section_id, sectionName: c.sections?.name ?? "", department: c.department, schoolYear: c.school_year,
+    semester: c.semester, studentIds: (clStudentRows ?? []).filter((cs: any) => cs.class_load_id === c.id).map((cs: any) => cs.student_id),
+  }));
+
+  const { data: gpRows } = await supabase.from("grade_periods").select("*, subjects(code)");
+  const { data: gcRows } = await supabase.from("grade_categories").select("*");
+  const { data: giRows } = await supabase.from("grade_items").select("*");
+  const gradePeriods: GradePeriod[] = (gpRows ?? []).map((g: any) => ({
+    id: g.id, label: g.label, subjectCode: g.subjects?.code ?? "", sectionId: g.section_id, schoolYear: g.school_year,
+    teacherId: g.teacher_id, isFinalized: g.is_finalized, finalizedAt: g.finalized_at, finalizedBy: g.finalized_by,
+    gradeApprovalStatus: g.grade_approval_status ?? undefined,
+    submittedForApproval: g.submitted_for_approval ?? undefined,
+    submittedAt: g.submitted_at ?? undefined,
+    submittedBy: g.submitted_by ?? undefined,
+    approvedBy: g.approved_by ?? undefined,
+    approvedAt: g.approved_at ?? undefined,
+    returnedBy: g.returned_by ?? undefined,
+    returnedAt: g.returned_at ?? undefined,
+    returnRemarks: g.return_remarks ?? undefined,
+    categories: (gcRows ?? []).filter((c: any) => c.grade_period_id === g.id).map((c: any) => ({ name: c.name, weight: c.weight })),
+    items: (giRows ?? []).filter((it: any) => it.grade_period_id === g.id).map((it: any) => ({
+      id: it.id, label: it.label, category: it.category, maxScore: it.max_score, order: it.sort_order, dueDate: it.due_date,
+    })),
+  }));
+
+  const { data: sgeRows } = await supabase.from("student_grade_entries").select("*");
+  const studentGradeEntries: StudentGradeEntry[] = (sgeRows ?? []).map((e: any) => ({
+    id: e.id, periodId: e.grade_period_id, studentId: e.student_id, gradeItemId: e.grade_item_id, score: e.score,
+  }));
+
+  const demoStudents: GradeRosterStudent[] = students
+    .filter((s) => !s.email) // grading-demo students were seeded without contact info
+    .map((s) => ({ id: s.id, studentNo: s.studentNo, firstName: s.firstName, lastName: s.lastName, section: s.section, yearLevel: s.yearLevel, trackOrCourse: s.trackOrCourse, department: s.department }));
+
+  const { data: activityRows } = await supabase.from("activity_logs").select("*").order("occurred_at", { ascending: false });
+  const activityLogs = (activityRows ?? []).map((a: any) => ({ id: a.id, action: a.action, subject: a.subject_label, type: a.activity_type, time: a.occurred_at }));
+
+  // ---- Enrollment history (dashboard trend chart) ----
+  const { data: ehsRows } = await supabase.from("enrollment_history_stats").select("*, schools(code)").order("school_year");
+  const ehsMap = new Map<string, { year: string; stsn: number; cdsta: number }>();
+  for (const r of (ehsRows ?? []) as any[]) {
+    const entry = ehsMap.get(r.school_year) ?? { year: r.school_year, stsn: 0, cdsta: 0 };
+    if (r.schools?.code === "STSN") entry.stsn = r.student_count;
+    if (r.schools?.code === "CDSTA") entry.cdsta = r.student_count;
+    ehsMap.set(r.school_year, entry);
+  }
+  const enrollmentHistoryStats = Array.from(ehsMap.values());
+
+  // ---- Assessment fee-calculation engine data (replaces mockAssessmentService constants) ----
+  const { data: tfsRows } = await supabase.from("tuition_fee_schedule").select("*").order("sort_order");
+  const tuitionFeeSchedule = (tfsRows ?? []).map((t: any) => ({ yearLevel: t.year_level, tuition: t.tuition, lab: t.lab_fee, computer: t.computer_fee, label: t.label }));
+
+  const { data: mfsRows } = await supabase.from("misc_fee_schedule").select("*").order("sort_order");
+  const miscFeeSchedule = (mfsRows ?? []).map((m: any) => ({ feeName: m.fee_name, category: "Miscellaneous" as const, amount: m.amount, isRequired: m.is_required, note: m.note }));
+
+  const { data: lfaRows } = await supabase.from("lab_fee_adjustments").select("*");
+  const labFeeAdjustments = (lfaRows ?? []).map((l: any) => ({ scope: l.scope, programCode: l.program_code, amount: l.amount }));
+
+  const { data: adoRows } = await supabase.from("assessment_discount_options").select("*").order("sort_order");
+  const discountOptions = (adoRows ?? []).map((d: any) => ({ id: d.code, label: d.label, percentage: d.percentage, badge: d.badge }));
+
+  const { data: aptoRows } = await supabase.from("assessment_payment_term_options").select("*").order("sort_order");
+  const paymentTermOptions = (aptoRows ?? []).map((p: any) => ({ term: p.term, description: p.description }));
+
+  // ---- Student guardians ----
+  const { data: guardianRows } = await supabase.from("student_guardians").select("*");
+  const studentGuardians = (guardianRows ?? []).map((g: any) => ({
+    id: g.id,
+    studentId: g.student_id,
+    guardianType: g.guardian_type,
+    guardianName: g.guardian_name,
+    relationship: g.relationship,
+    contactNo: g.contact_no,
+    email: g.email,
+    address: g.address,
+    occupation: g.occupation,
+    isPrimary: g.is_primary,
+    isEmergencyContact: g.is_emergency_contact,
+    canReceivePortalNotifications: g.can_receive_portal_notifications,
+  }));
+
+  const { data: educationRows } = await supabase
+    .from("student_education_backgrounds")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const studentEducationBackgrounds = (educationRows ?? []).map((row: any) => ({
+    id: row.id,
+    studentId: row.student_id,
+    educationLevel: row.education_level,
+    schoolName: row.school_name,
+    schoolAddress: row.school_address,
+    yearAttended: row.year_attended,
+    yearGraduated: row.year_graduated,
+    degreeOrStrandOrCourse: row.degree_or_strand_or_course,
+    honorsOrAwards: row.honors_or_awards,
+    lastGradeLevelCompleted: row.last_grade_level_completed,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeProfileContactRows } = await supabase
+    .from("employee_profile_contacts")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const employeeProfileContacts = (employeeProfileContactRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    contactType: row.contact_type,
+    fullName: row.full_name,
+    relationship: row.relationship,
+    contactNo: row.contact_no,
+    email: row.email,
+    address: row.address,
+    occupation: row.occupation,
+    isPrimaryContact: row.is_primary_contact,
+    isEmergencyContact: row.is_emergency_contact,
+    canReceiveNotifications: row.can_receive_notifications,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeEducationRows } = await supabase
+    .from("employee_education_backgrounds")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const employeeEducationBackgrounds = (employeeEducationRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    educationLevel: row.education_level,
+    schoolName: row.school_name,
+    schoolAddress: row.school_address,
+    yearAttended: row.year_attended,
+    yearGraduated: row.year_graduated,
+    degreeOrCourse: row.degree_or_course,
+    majorOrSpecialization: row.major_or_specialization,
+    honorsOrAwards: row.honors_or_awards,
+    prcEducationNote: row.prc_education_note,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeLicenseRows } = await supabase
+    .from("employee_license_certifications")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const employeeLicenseCertifications = (employeeLicenseRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    title: row.title,
+    licenseNumber: row.license_number,
+    issuingAuthority: row.issuing_authority,
+    issuedAt: row.issued_at,
+    expiresAt: row.expires_at,
+    status: row.status,
+    notes: row.notes,
+    isPrimary: row.is_primary,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const { data: employeeDocumentRows } = await supabase
+    .from("employee_documents")
+    .select("*")
+    .order("created_at", { ascending: false });
+  const employeeDocuments = (employeeDocumentRows ?? []).map((row: any) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    documentName: row.document_name,
+    documentType: row.document_type,
+    status: row.status,
+    fileUrl: row.file_url,
+    remarks: row.remarks,
+    submittedAt: row.submitted_at,
+    verifiedBy: row.verified_by,
+    verifiedAt: row.verified_at,
+    createdAt: row.created_at,
+  }));
+
+  // ---- HR Phase 2: Employee Lifecycle Events ----
+  const { data: lifecycleRows } = await supabase.from("employee_lifecycle_events").select("*").order("effective_date", { ascending: false });
+  const employeeLifecycleEvents: EmployeeLifecycleEvent[] = (lifecycleRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, eventType: r.event_type, fromStatus: r.from_status,
+    toStatus: r.to_status, effectiveDate: r.effective_date, remarks: r.remarks,
+    createdBy: r.created_by, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Shift Templates ----
+  const { data: shiftTemplateRows } = await supabase.from("shift_templates").select("*, schools(code)").order("code");
+  const shiftTemplates: ShiftTemplate[] = (shiftTemplateRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, code: r.code, name: r.name, startTime: r.start_time,
+    endTime: r.end_time, breakMinutes: r.break_minutes, isOvernight: r.is_overnight,
+    isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Employee Shift Assignments ----
+  const { data: shiftAssignRows } = await supabase.from("employee_shift_assignments").select("*").order("effective_from", { ascending: false });
+  const employeeShiftAssignments: EmployeeShiftAssignment[] = (shiftAssignRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, shiftTemplateId: r.shift_template_id,
+    effectiveFrom: r.effective_from, effectiveTo: r.effective_to, restDays: r.rest_days ?? [],
+    createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Employee Time Logs ----
+  const { data: timeLogRows } = await supabase.from("employee_time_logs").select("*").order("log_date", { ascending: false });
+  const employeeTimeLogs: EmployeeTimeLog[] = (timeLogRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, logDate: r.log_date, timeIn: r.time_in, timeOut: r.time_out,
+    source: r.source, isApproved: r.is_approved, approvedBy: r.approved_by, approvedAt: r.approved_at,
+    remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Employee Attendance ----
+  const { data: attendanceRows } = await supabase.from("employee_attendance").select("*").order("attendance_date", { ascending: false });
+  const employeeAttendance: EmployeeAttendance[] = (attendanceRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, attendanceDate: r.attendance_date, timeIn: r.time_in,
+    timeOut: r.time_out, status: r.status, lateMinutes: r.late_minutes, undertimeMinutes: r.undertime_minutes,
+    overtimeMinutes: r.overtime_minutes, remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Leave Types ----
+  const { data: leaveTypeRows } = await supabase.from("leave_types").select("*").order("code");
+  const leaveTypes: LeaveType[] = (leaveTypeRows ?? []).map((r: any) => ({
+    id: r.id, code: r.code, name: r.name, isPaid: r.is_paid, defaultCredits: r.default_credits,
+    maxDaysPerRequest: r.max_days_per_request, requiresApproval: r.requires_approval,
+    isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 3: Leave Requests ----
+  const { data: leaveRequestRows } = await supabase.from("leave_requests").select("*").order("created_at", { ascending: false });
+  const leaveRequests: LeaveRequest[] = (leaveRequestRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, leaveTypeId: r.leave_type_id, startDate: r.start_date,
+    endDate: r.end_date, totalDays: r.total_days, reason: r.reason, status: r.status,
+    approvedBy: r.approved_by, approvedAt: r.approved_at, remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Payroll Periods ----
+  const { data: payrollPeriodRows } = await supabase.from("payroll_periods").select("*, schools(code)").order("start_date", { ascending: false });
+  const payrollPeriods: PayrollPeriod[] = (payrollPeriodRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, periodCode: r.period_code, label: r.label,
+    startDate: r.start_date, endDate: r.end_date, payoutDate: r.payout_date,
+    status: r.status, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Payroll Runs ----
+  const { data: payrollRunRows } = await supabase.from("payroll_runs").select("*, schools(code)").order("created_at", { ascending: false });
+  const payrollRuns: PayrollRun[] = (payrollRunRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, payrollPeriodId: r.payroll_period_id, runNo: r.run_no,
+    status: r.status, computedBy: r.computed_by, approvedBy: r.approved_by, computedAt: r.computed_at,
+    approvedAt: r.approved_at, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Payroll Lines ----
+  const { data: payrollLineRows } = await supabase.from("payroll_lines").select("*");
+  const payrollLines: PayrollLine[] = (payrollLineRows ?? []).map((r: any) => ({
+    id: r.id, payrollRunId: r.payroll_run_id, employeeId: r.employee_id,
+    basicPay: r.basic_pay, allowances: r.allowances, overtimePay: r.overtime_pay,
+    lateDeduction: r.late_deduction, undertimeDeduction: r.undertime_deduction, absenceDeduction: r.absence_deduction,
+    sssDeduction: r.sss_deduction, philhealthDeduction: r.philhealth_deduction, pagibigDeduction: r.pagibig_deduction,
+    withholdingTax: r.withholding_tax, otherDeductions: r.other_deductions, otherAllowances: r.other_allowances,
+    grossPay: r.gross_pay, netPay: r.net_pay, status: r.status, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Salary Payout Batches ----
+  const { data: payoutBatchRows } = await supabase.from("salary_payout_batches").select("*").order("created_at", { ascending: false });
+  const salaryPayoutBatches: SalaryPayoutBatch[] = (payoutBatchRows ?? []).map((r: any) => ({
+    id: r.id, payrollRunId: r.payroll_run_id, payoutNo: r.payout_no, payoutMethod: r.payout_method,
+    status: r.status, releasedBy: r.released_by, releasedAt: r.released_at, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Salary Payout Lines ----
+  const { data: payoutLineRows } = await supabase.from("salary_payout_lines").select("*");
+  const salaryPayoutLines: SalaryPayoutLine[] = (payoutLineRows ?? []).map((r: any) => ({
+    id: r.id, payoutBatchId: r.payout_batch_id, payrollLineId: r.payroll_line_id, employeeId: r.employee_id,
+    amount: r.amount, referenceNo: r.reference_no, status: r.status, releasedAt: r.released_at, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Benefit Plans ----
+  const { data: benefitPlanRows } = await supabase.from("benefit_plans").select("*").order("category");
+  const benefitPlans: BenefitPlan[] = (benefitPlanRows ?? []).map((r: any) => ({
+    id: r.id, code: r.code, name: r.name, category: r.category,
+    employeeShareType: r.employee_share_type, employeeShareValue: r.employee_share_value,
+    employerShareType: r.employer_share_type, employerShareValue: r.employer_share_value,
+    isTaxable: r.is_taxable, isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Statutory Contribution Rules ----
+  const { data: statutoryRuleRows } = await supabase
+    .from("statutory_contribution_rules")
+    .select("*")
+    .order("effective_year", { ascending: false })
+    .order("min_salary", { ascending: true });
+  const statutoryContributionRules: StatutoryContributionRule[] = (statutoryRuleRows ?? []).map((r: any) => ({
+    id: r.id, benefitPlanId: r.benefit_plan_id, effectiveYear: r.effective_year,
+    minSalary: r.min_salary, maxSalary: r.max_salary, employeeRate: r.employee_rate,
+    employerRate: r.employer_rate, employeeFixed: r.employee_fixed,
+    employerFixed: r.employer_fixed, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 4: Tax Tables + Brackets ----
+  const { data: taxTableRows } = await supabase.from("tax_tables").select("*").order("effective_year", { ascending: false });
+  const { data: taxBracketRows } = await supabase.from("tax_brackets").select("*").order("income_from");
+  const taxBrackets: TaxBracket[] = (taxBracketRows ?? []).map((r: any) => ({
+    id: r.id, taxTableId: r.tax_table_id, incomeFrom: r.income_from, incomeTo: r.income_to,
+    baseTax: r.base_tax, rateAbove: r.rate_above, createdAt: r.created_at,
+  }));
+  const taxTables: TaxTable[] = (taxTableRows ?? []).map((r: any) => ({
+    id: r.id, effectiveYear: r.effective_year, name: r.name, frequency: r.frequency,
+    isActive: r.is_active, createdAt: r.created_at,
+    brackets: taxBrackets.filter((b) => b.taxTableId === r.id),
+  }));
+
+  // ---- HR Phase 5: Job Requisitions ----
+  const { data: jobReqRows } = await supabase.from("job_requisitions").select("*, schools(code)").order("created_at", { ascending: false });
+  const jobRequisitions: JobRequisition[] = (jobReqRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, requisitionNo: r.requisition_no, positionTitle: r.position_title,
+    department: r.department, employmentType: r.employment_type, headCount: r.head_count,
+    reason: r.reason, targetStartDate: r.target_start_date, status: r.status,
+    requestedBy: r.requested_by, approvedBy: r.approved_by, approvedAt: r.approved_at, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Job Applicants ----
+  const { data: jobApplicantRows } = await supabase.from("job_applicants").select("*").order("created_at", { ascending: false });
+  const jobApplicants: JobApplicant[] = (jobApplicantRows ?? []).map((r: any) => ({
+    id: r.id, jobRequisitionId: r.job_requisition_id, firstName: r.first_name, lastName: r.last_name,
+    middleName: r.middle_name, email: r.email, contact: r.contact, address: r.address,
+    resumeUrl: r.resume_url, appliedAt: r.applied_at, status: r.status,
+    hiredEmployeeId: r.hired_employee_id, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Applicant Interviews ----
+  const { data: interviewRows } = await supabase.from("applicant_interviews").select("*").order("scheduled_at", { ascending: false });
+  const applicantInterviews: ApplicantInterview[] = (interviewRows ?? []).map((r: any) => ({
+    id: r.id, applicantId: r.applicant_id, scheduledAt: r.scheduled_at, interviewType: r.interview_type,
+    interviewer: r.interviewer, result: r.result, remarks: r.remarks, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Onboarding Templates ----
+  const { data: onboardingTemplateRows } = await supabase.from("onboarding_templates").select("*").order("name");
+  const onboardingTemplates: OnboardingTemplate[] = (onboardingTemplateRows ?? []).map((r: any) => ({
+    id: r.id, name: r.name, description: r.description, isActive: r.is_active, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Onboarding Tasks ----
+  const { data: onboardingTaskRows } = await supabase.from("onboarding_tasks").select("*").order("sort_order");
+  const onboardingTasks: OnboardingTask[] = (onboardingTaskRows ?? []).map((r: any) => ({
+    id: r.id, templateId: r.template_id, taskName: r.task_name, description: r.description,
+    responsibleParty: r.responsible_party, dueDayOffset: r.due_day_offset,
+    isRequired: r.is_required, sortOrder: r.sort_order, createdAt: r.created_at,
+  }));
+
+  // ---- HR Phase 5: Employee Onboarding Tasks ----
+  const { data: empOnboardingRows } = await supabase.from("employee_onboarding_tasks").select("*");
+  const employeeOnboardingTasks: EmployeeOnboardingTask[] = (empOnboardingRows ?? []).map((r: any) => ({
+    id: r.id, employeeId: r.employee_id, onboardingTaskId: r.onboarding_task_id, dueDate: r.due_date,
+    status: r.status, completedAt: r.completed_at, completedBy: r.completed_by, notes: r.notes, createdAt: r.created_at,
+  }));
+
+  return {
+    schools, users, students, teachers, employees, courses, subjects, curriculums, requirements, enrollments, onlineEnrollmentApplications,
+    assessments, payments, grades, schedules, announcements, events, payroll, setupData, discountTypes,
+    discountRequests, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
+    financialHolds, assessmentBillingSummaries, paymentCollectionSummaries, promissoryNotes, bookPackages,
+    classLoads, gradePeriods, studentGradeEntries, demoStudents, activityLogs,
+    enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians, studentEducationBackgrounds,
+    employeeProfileContacts, employeeEducationBackgrounds, employeeLicenseCertifications, employeeDocuments,
+    employeeLifecycleEvents, shiftTemplates, employeeShiftAssignments, employeeTimeLogs, employeeAttendance,
+    leaveTypes, leaveRequests, payrollPeriods, payrollRuns, payrollLines,
+    salaryPayoutBatches, salaryPayoutLines, benefitPlans, statutoryContributionRules, taxTables, taxBrackets,
+    jobRequisitions, jobApplicants, applicantInterviews, onboardingTemplates, onboardingTasks, employeeOnboardingTasks,
+  };
+}

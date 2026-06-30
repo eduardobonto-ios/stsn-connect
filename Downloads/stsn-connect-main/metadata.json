@@ -1,0 +1,6 @@
+{
+  "name": "STSN Connect",
+  "description": "Premium school management ERP featuring multi-department modules, enrollment workflow, grade encoding, and HR payroll.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

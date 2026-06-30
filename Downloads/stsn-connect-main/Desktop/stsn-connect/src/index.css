@@ -1,0 +1,268 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Custom STSN Academic Palette */
+  --color-stsn-brown: #5C4533;
+  --color-stsn-brown-dark: #4A3728;
+  --color-stsn-brown-light: #634935;
+  --color-stsn-cream: #FFFDF5;
+  --color-stsn-beige: #E5E0D5;
+  --color-stsn-gold: #C5A059;
+  --color-stsn-gold-light: #D6CFB5;
+  --color-stsn-text: #2D241E;
+}
+
+/* =============================================
+   SIDEBAR GRADIENT THEME
+   ============================================= */
+.sidebar-gradient {
+  background: linear-gradient(180deg, #2E1C10 0%, #3D2B1F 25%, #4A3728 60%, #5C4533 100%);
+}
+
+.sidebar-item-active {
+  background: linear-gradient(135deg, rgba(197,160,89,0.2) 0%, rgba(92,69,51,0.6) 100%);
+  border-left: 3px solid #C5A059;
+}
+
+/* =============================================
+   HEADER GRADIENT
+   ============================================= */
+.header-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #FFFDF5 60%, #FAF6EE 100%);
+  border-bottom: 1px solid rgba(197,160,89,0.15);
+}
+
+/* =============================================
+   BUTTON GRADIENTS
+   ============================================= */
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #5C4533 0%, #4A3728 50%, #3D2B1F 100%);
+  box-shadow: 0 2px 8px rgba(74,55,40,0.35);
+  transition: all 0.2s ease;
+}
+.btn-primary-gradient:hover {
+  background: linear-gradient(135deg, #6B5242 0%, #5C4533 50%, #4A3728 100%);
+  box-shadow: 0 4px 12px rgba(74,55,40,0.45);
+  transform: translateY(-1px);
+}
+
+.btn-gold-gradient {
+  background: linear-gradient(135deg, #C5A059 0%, #A37B3E 100%);
+  box-shadow: 0 2px 8px rgba(197,160,89,0.3);
+}
+.btn-gold-gradient:hover {
+  background: linear-gradient(135deg, #D4AF6A 0%, #C5A059 100%);
+}
+
+/* =============================================
+   CARD GRADIENTS
+   ============================================= */
+.card-hero-gradient {
+  background: linear-gradient(135deg, #2E1C10 0%, #4A3728 40%, #5C4533 80%, #6B5242 100%);
+}
+
+.card-stat-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #FFFDF5 100%);
+  border: 1px solid rgba(197,160,89,0.2);
+}
+
+.card-gold-accent {
+  background: linear-gradient(135deg, rgba(197,160,89,0.08) 0%, rgba(255,253,245,1) 50%);
+  border: 1px solid rgba(197,160,89,0.25);
+}
+
+/* =============================================
+   DASHBOARD WIDGET GRADIENTS
+   ============================================= */
+.widget-brown {
+  background: linear-gradient(135deg, #4A3728 0%, #5C4533 100%);
+}
+.widget-gold {
+  background: linear-gradient(135deg, #C5A059 0%, #A37B3E 100%);
+}
+.widget-cream {
+  background: linear-gradient(135deg, #FFFDF5 0%, #F5F0E8 100%);
+}
+
+/* =============================================
+   SECTION HEADER GRADIENTS
+   ============================================= */
+.section-header-gradient {
+  background: linear-gradient(135deg, #2E1C10 0%, #5C4533 100%);
+  color: #FFFDF5;
+}
+
+.section-header-light {
+  background: linear-gradient(135deg, #FFFDF5 0%, #F0EAE0 100%);
+  border-bottom: 2px solid rgba(197,160,89,0.3);
+}
+
+/* =============================================
+   ID CARD 3D FLIP MECHANISM
+   ============================================= */
+.card-flip-scene {
+  perspective: 1200px;
+  width: 280px;
+  height: 440px;
+}
+
+.card-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.75s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.card-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
+}
+
+/* =============================================
+   MODAL GRADIENT HEADERS
+   ============================================= */
+.modal-header-gradient {
+  background: linear-gradient(135deg, #2E1C10 0%, #4A3728 50%, #5C4533 100%);
+}
+
+/* =============================================
+   TAB ACTIVE GRADIENT
+   ============================================= */
+.tab-active-gradient {
+  background: linear-gradient(135deg, #4A3728 0%, #5C4533 100%);
+  color: #FFFDF5;
+  border-top: 2px solid #C5A059;
+}
+
+/* =============================================
+   TABLE ROW SELECTED STATE
+   ============================================= */
+.row-selected {
+  background: linear-gradient(90deg, rgba(197,160,89,0.12) 0%, rgba(255,253,245,0.5) 100%) !important;
+  border-left: 4px solid #C5A059 !important;
+}
+
+.row-selected td:first-child {
+  padding-left: calc(0.75rem - 4px);
+}
+
+/* =============================================
+   BASIC ED vs COLLEGE SCHOOL BADGES
+   ============================================= */
+.badge-basic-ed {
+  background: linear-gradient(135deg, rgba(74,55,40,0.15) 0%, rgba(197,160,89,0.15) 100%);
+  border: 1px solid rgba(74,55,40,0.3);
+  color: #4A3728;
+}
+
+.badge-college {
+  background: linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(59,130,246,0.1) 100%);
+  border: 1px solid rgba(59,130,246,0.3);
+  color: #1d4ed8;
+}
+
+/* =============================================
+   STEPPER GRADIENT
+   ============================================= */
+.stepper-active {
+  background: linear-gradient(135deg, #4A3728 0%, #5C4533 100%);
+  color: #FFFDF5;
+  border: 2px solid #C5A059;
+}
+
+/* =============================================
+   CUSTOM SCROLLBAR
+   ============================================= */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-stsn-cream);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #C5A059 0%, #A37B3E 100%);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #D4AF6A 0%, #C5A059 100%);
+}
+
+/* =============================================
+   ANIMATIONS
+   ============================================= */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideInLeft 0.35s ease-out forwards;
+}
+
+/* =============================================
+   HOVER TRANSITIONS
+   ============================================= */
+.smooth-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.smooth-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(74,55,40,0.12);
+}
+
+/* =============================================
+   GLASS MORPHISM CARD
+   ============================================= */
+.glass-card {
+  background: rgba(255, 253, 245, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(197, 160, 89, 0.2);
+  box-shadow: 0 4px 24px rgba(74, 55, 40, 0.08);
+}
+
+/* =============================================
+   PRINT OVERRIDES
+   ============================================= */
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  body { background: white !important; color: black !important; }
+  .print-card {
+    border: 1px solid #aaa !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+}
