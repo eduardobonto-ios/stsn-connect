@@ -43,6 +43,7 @@ interface AppModuleRendererProps {
   accountingSubPage: string;
   coreSetupSubPage: string;
   portalSubPage: string;
+  facultySubPage: string;
   hrSubPage: string;
   payrollSubPage: string;
   cashierSubPage: string;
@@ -52,6 +53,7 @@ interface AppModuleRendererProps {
   onActionCenterNavigate: (target: NavigateTarget) => void;
   onStudentDirectoryNavigate: (subPage: string, studentId?: string) => void;
   onAccountingSubPageChange: (subPage: string) => void;
+  onFacultySubPageChange: (subPage: string) => void;
   onHrSubPageChange: (subPage: string) => void;
   onCashierSubPageChange: (subPage: string) => void;
   onAccountsSubPageChange: (subPage: "user-security" | "delegation-management" | "audit-log") => void;
@@ -108,6 +110,7 @@ export default function AppModuleRenderer({
   accountingSubPage,
   coreSetupSubPage,
   portalSubPage,
+  facultySubPage,
   hrSubPage,
   payrollSubPage,
   cashierSubPage,
@@ -117,6 +120,7 @@ export default function AppModuleRenderer({
   onActionCenterNavigate,
   onStudentDirectoryNavigate,
   onAccountingSubPageChange,
+  onFacultySubPageChange,
   onHrSubPageChange,
   onCashierSubPageChange,
   onAccountsSubPageChange,
@@ -159,7 +163,7 @@ export default function AppModuleRenderer({
           )}
         {activeModule === "FACULTY_PORTAL" &&
           allowedModules.includes("FACULTY_PORTAL") && (
-            <FacultyPortal />
+            <FacultyPortal subPage={facultySubPage} onSubPageChange={onFacultySubPageChange} />
           )}
         {activeModule === "HR_MANAGEMENT" &&
           allowedModules.includes("HR_MANAGEMENT") && (

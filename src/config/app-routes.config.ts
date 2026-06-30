@@ -26,7 +26,7 @@ export function getDefaultRouteForRole(role: UserRole): string {
       return getPathForModule("STUDENT_PORTAL", { subPage: "overview" });
     case "TEACHER":
     case "EMPLOYEE":
-      return getPathForModule("FACULTY_PORTAL");
+      return getPathForModule("FACULTY_PORTAL", { subPage: "overview-advisory" });
     case "REGISTRAR":
       return getPathForModule("REGISTRAR");
     case "PRINCIPAL":
@@ -80,7 +80,7 @@ export function getPathForModule(
     case "FACULTY_ADMIN":
       return "/faculty/admin";
     case "FACULTY_PORTAL":
-      return "/faculty/portal";
+      return `/faculty/portal/${subPage ?? "overview-advisory"}`;
     case "HR_MANAGEMENT":
       return `/hr/${subPage ?? "hr-dashboard"}`;
     case "PAYROLL_DASHBOARD":
@@ -174,8 +174,14 @@ export function resolveAppRoute(pathname: string, search = ""): AppRouteState | 
   if (normalizedPath === "/faculty/admin") {
     return { module: "FACULTY_ADMIN", isKnownPath: true, canonicalPath: "/faculty/admin" };
   }
-  if (normalizedPath === "/faculty/portal") {
-    return { module: "FACULTY_PORTAL", isKnownPath: true, canonicalPath: "/faculty/portal" };
+  if (segments[0] === "faculty" && segments[1] === "portal") {
+    const subPage = segments[2] ?? "overview-advisory";
+    return {
+      module: "FACULTY_PORTAL",
+      subPage,
+      isKnownPath: true,
+      canonicalPath: getPathForModule("FACULTY_PORTAL", { subPage }),
+    };
   }
   if (segments[0] === "hr") {
     const subPage = segments[1] ?? "hr-dashboard";

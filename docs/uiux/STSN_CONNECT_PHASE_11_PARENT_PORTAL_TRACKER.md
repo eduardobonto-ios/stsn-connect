@@ -321,3 +321,20 @@ No grades, payments, assessments, requirements, or announcements were created â€
 - `npm.cmd run build` (`vite build`): **passed**, built in ~4.7s (`GuardianPortalPage` chunk emitted normally).
 - Supabase CLI not installed in this environment (`supabase --version` â†’ not found), so migration apply was validated by static SQL inspection: file is additive only (insert-only), idempotent via `on conflict do nothing` on stable `legacy_id` keys, references existing students by `legacy_id`, and performs no update/delete/truncate against existing records.
 - Migration file confirmed present under `supabase/migrations/0037_parent_portal_demo_seed.sql`.
+
+## Phase 12 Demo/UAT Reset and Seed Preparation Notes
+
+Audit date: 2026-06-30
+
+- Phase 12 adds two new Supabase migrations for demo/UAT operations only:
+  - `supabase/migrations/20260630130000_demo_uat_transactional_reset.sql`
+  - `supabase/migrations/20260630131000_demo_uat_full_school_year_seed.sql`
+- The reset migration intentionally uses ordered `DELETE` statements scoped to Phase 12 legacy ids/emails/reference numbers instead of blanket `TRUNCATE ... CASCADE`.
+- Reason: shared transactional tables already contain baseline demo data from earlier phases, and wiping them globally would remove non-Phase-12 data that is still useful for regression and comparison testing.
+- The seed migration recreates the existing `parent.demo@stsn.edu.ph` Guardian linkage to Enrico + Maria Clara and also adds dedicated Phase 12 UAT parent/student scenarios:
+  - `guardian.solo@stsn.edu.ph` -> one linked child
+  - `guardian.family@stsn.edu.ph` -> two linked children
+  - `student.uat@stsn.edu.ph` -> student portal login mapped by `students.email`
+- Parent linkage remains email-based through `public.student_guardians.email`, consistent with the current Guardian Portal implementation.
+- Attendance remains only partially end-to-end for parent-facing UAT: `student_attendance` exists and can be tested from faculty/admin flows, but Guardian Portal still does not hydrate attendance records through the shared store.
+- Announcement targeting also remains partial at the SQL layer: Phase 12 seeds generic announcement content only because `public.announcements` does not currently persist/hydrate role-targeting fields used by the frontend type.

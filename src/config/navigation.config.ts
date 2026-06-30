@@ -138,7 +138,17 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "reports", label: "Reports",            icon: BarChart3, desc: "Cashiering reports & summaries" },
     ],
   },
-  { id: "FACULTY_PORTAL",   label: "Teacher Board",           icon: BookOpen,    desc: "Schedules & class scores" },
+  {
+    id: "FACULTY_PORTAL", label: "Teacher Board", icon: BookOpen, desc: "Schedules, attendance, grades, reports, and faculty profile",
+    children: [
+      { id: "overview-advisory",       label: "Overview & Advisory",        icon: LayoutDashboard, desc: "Teacher cockpit and advisory roster" },
+      { id: "class-schedule-subjects", label: "Class Schedule & Subjects",  icon: CalendarDays,    desc: "Teaching load and subject assignments" },
+      { id: "attendance-monitoring",   label: "Attendance Monitoring",      icon: ClipboardList,   desc: "Daily attendance logging workspace" },
+      { id: "student-grades-encoding", label: "Student Grades Encoding",    icon: GraduationCap,   desc: "Grade entry and submission queue" },
+      { id: "reports",                 label: "Reports",                    icon: FileText,        desc: "Faculty class, advisory, and load reports" },
+      { id: "faculty-profile",         label: "Faculty Profile",            icon: UserCheck,       desc: "Reusable teacher and employee profile workspace" },
+    ],
+  },
   {
     id: "STUDENT_PORTAL", label: "Student Portal", icon: UserCheck, desc: "View grades, COR & ID",
     children: [
@@ -156,6 +166,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { id: "hr-dashboard",         label: "Dashboard",            icon: LayoutDashboard, desc: "HR KPIs & workforce alerts" },
       { id: "employee-life-cycles", label: "Employee Life Cycles", icon: Users,           desc: "Employee records & movements" },
+      { id: "new-employee-profile", label: "New Employee Profile", icon: UserCheck,       desc: "Reusable employee profile workspace" },
       {
         id: "hr-time-attendance", label: "Time & Attendance", icon: Clock, desc: "Time logs, shifts & leave",
         children: [
