@@ -28,6 +28,7 @@ import {
 } from "./config/navigation.config";
 import {
   getDefaultRouteForRole,
+  getFirstAllowedRoute,
   getPathForModule,
   resolveAppRoute,
 } from "./config/app-routes.config";
@@ -165,29 +166,6 @@ export default function App() {
       : "user-security";
   const portalStudentId =
     activeModule === "STUDENT_PORTAL" ? currentRoute?.studentId : undefined;
-
-  useEffect(() => {
-    if (!currentUser || isLoading) return;
-
-    const targetPath =
-      currentRoute === null
-        ? getDefaultRouteForRole(currentUser.role)
-        : currentRoute.isKnownPath
-          ? currentRoute.canonicalPath
-          : getDefaultRouteForRole(currentUser.role);
-
-    const currentFullPath = `${location.pathname}${location.search}`;
-    if (currentFullPath !== targetPath) {
-      navigate(targetPath, { replace: true });
-    }
-  }, [
-    currentUser,
-    currentRoute,
-    isLoading,
-    location.pathname,
-    location.search,
-    navigate,
-  ]);
 
   // Derive breadcrumb from active module / sub-page state
   const breadcrumbs = (() => {
@@ -333,6 +311,53 @@ export default function App() {
       },
     );
   }, [academicUnit, currentRole, hasPageAccess, moduleOverride]);
+
+  // First menu item the current user can actually open, derived from the
+  // RBAC-filtered sidebar. Used as the post-login landing route so a new user
+  // never inherits the previous user's page. Null when no module is accessible.
+  const firstAllowedRoute = useMemo(
+    () => getFirstAllowedRoute(renderedSidebarItems),
+    [renderedSidebarItems],
+  );
+
+  // When logged out, drop any previous-user route so the next login starts
+  // from a neutral path ("/") instead of the stale page still in the URL.
+  useEffect(() => {
+    if (currentUser || isLoading) return;
+    if (location.pathname !== "/") {
+      navigate("/", { replace: true });
+    }
+  }, [currentUser, isLoading, location.pathname, navigate]);
+
+  // Keep the URL in sync with the signed-in user's access. On login (URL reset
+  // to "/" by logout, so currentRoute is null) this lands the user on their
+  // first allowed menu item — never the previous user's page. Known, still-valid
+  // deep links are preserved so hard refresh and direct-URL RBAC keep working.
+  useEffect(() => {
+    if (!currentUser || isLoading) return;
+
+    const defaultTarget =
+      firstAllowedRoute ?? getDefaultRouteForRole(currentUser.role);
+    const targetPath =
+      currentRoute === null
+        ? defaultTarget
+        : currentRoute.isKnownPath
+          ? currentRoute.canonicalPath
+          : defaultTarget;
+
+    const currentFullPath = `${location.pathname}${location.search}`;
+    if (currentFullPath !== targetPath) {
+      navigate(targetPath, { replace: true });
+    }
+  }, [
+    currentUser,
+    currentRoute,
+    firstAllowedRoute,
+    isLoading,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
 
   if (!currentUser) return <LoginOverlay />;
 
