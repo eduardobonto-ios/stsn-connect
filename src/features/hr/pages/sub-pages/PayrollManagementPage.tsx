@@ -5,6 +5,7 @@
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useSTSNStore } from "../../../../services/store";
+import { usePermissions } from "../../../../hooks/usePermissions";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import { Employee, PayrollLine, PayrollRow, PayrollRun } from "../../../../types";
 import {
@@ -13,7 +14,6 @@ import {
   Banknote,
   FileCheck,
   CheckCircle,
-  Plus,
   Scale,
   DollarSign,
   Briefcase,
@@ -95,6 +95,9 @@ export default function PayrollManagementPage() {
   } = useSTSNStore();
   const positionTitleOptions = setupData.position_titles ?? [];
   const { toast } = useAppDialog();
+  const { canPage } = usePermissions();
+  const canCreatePayroll = canPage("PAYROLL_MANAGEMENT", "payroll-management", "create");
+  const canApprovePayroll = canPage("PAYROLL_MANAGEMENT", "payroll-management", "approve");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmpId, setSelectedEmpId] = useState<string>("emp-registrar");
@@ -354,6 +357,10 @@ export default function PayrollManagementPage() {
   };
 
   const handleGeneratePayrollRun = () => {
+    if (!canCreatePayroll) {
+      toast("You don't have permission to generate payroll runs.", { variant: "warning" });
+      return;
+    }
     const missingSalaryEmployees = filteredEmployees.filter((employee) => employee.salary <= 0);
     if (missingSalaryEmployees.length > 0) {
       toast(`${missingSalaryEmployees.length} employee(s) need salary profiles before payroll can be generated.`, { variant: "warning" });
@@ -424,6 +431,10 @@ export default function PayrollManagementPage() {
   };
 
   const handleApprovePayrollRun = (run: PayrollRun) => {
+    if (!canApprovePayroll) {
+      toast("You don't have permission to approve payroll runs.", { variant: "warning" });
+      return;
+    }
     if (run.status !== "For Review") {
       toast("Payroll run must be submitted for review before it can be approved.", { variant: "warning" });
       return;
@@ -676,13 +687,6 @@ export default function PayrollManagementPage() {
           >
             <Upload className="w-4 h-4" />
             Upload Employee
-          </button>
-          <button
-            onClick={() => { resetForm(); setIsNewEmpOpen(true); }}
-            className="bg-white hover:bg-stone-50 text-stsn-brown border border-stone-200 text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1 transition"
-          >
-            <Plus className="w-4 h-4" />
-            Add Employee
           </button>
         </div>
       </div>

@@ -7,6 +7,7 @@ import React, {Suspense, lazy} from "react";
 import type { STSNModule } from "../../config/navigation.config";
 import type { NavigateTarget } from "../common/ApprovalInbox";
 
+const MyProfilePage = lazy(() => import("../../features/profiles/pages/MyProfilePage"));
 const Dashboard = lazy(() => import("../../features/dashboard/pages/DashboardPage"));
 const ActionCenterPage = lazy(() => import("../../features/action-center/pages/ActionCenterPage"));
 const PayrollDashboardPage = lazy(() => import("../../features/payroll/pages/PayrollDashboardPage"));
@@ -47,7 +48,7 @@ interface AppModuleRendererProps {
   hrSubPage: string;
   payrollSubPage: string;
   cashierSubPage: string;
-  accountsSubPage: "user-security" | "delegation-management" | "audit-log";
+  accountsSubPage: "user-security" | "page-assignment" | "delegation-management" | "audit-log";
   portalStudentId?: string;
   onDashboardNavigate: () => void;
   onActionCenterNavigate: (target: NavigateTarget) => void;
@@ -60,6 +61,7 @@ interface AppModuleRendererProps {
 }
 
 const RENDERED_MODULE_IDS: STSNModule[] = [
+  "MY_PROFILE",
   "DASHBOARD",
   "ACTION_CENTER",
   "REGISTRAR",
@@ -125,9 +127,12 @@ export default function AppModuleRenderer({
   onCashierSubPageChange,
   onAccountsSubPageChange,
 }: AppModuleRendererProps) {
+  const isSharedAuthenticatedPage = activeModule === "MY_PROFILE";
+
   return (
     <Suspense fallback={<ModuleLoadingFallback />}>
       <>
+        {activeModule === "MY_PROFILE" && <MyProfilePage />}
         {activeModule === "DASHBOARD" &&
           allowedModules.includes("DASHBOARD") && (
             <Dashboard onViewStudentList={onDashboardNavigate} />
@@ -217,7 +222,8 @@ export default function AppModuleRenderer({
           allowedModules.includes("CONSULTATION") && <ConsultationModule />}
         {activeModule === "GUARDIAN_PORTAL" &&
           allowedModules.includes("GUARDIAN_PORTAL") && <GuardianPortalPage />}
-        {(!allowedModules.includes(activeModule) || !RENDERED_MODULE_IDS.includes(activeModule)) && (
+        {(!isSharedAuthenticatedPage &&
+          (!allowedModules.includes(activeModule) || !RENDERED_MODULE_IDS.includes(activeModule))) && (
           <div className="rounded-xl border border-stone-200 bg-white/80 p-6 shadow-sm">
             <p className="text-xs font-mono uppercase tracking-widest text-stsn-gold mb-2">
               Module unavailable

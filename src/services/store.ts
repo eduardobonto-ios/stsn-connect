@@ -90,13 +90,60 @@ import { supabase } from "../lib/supabase";
 import { loadAllData } from "./dataLoader";
 import { newId, dbInsert, dbUpdate, dbDelete, dbDeleteWhere } from "./supabaseCrud";
 import { resolveSchoolId, resolveSubjectId, subjectCodeToId } from "./idMaps";
+import { loadSecurityCatalog, computeEffectivePermissions, getPrimaryRoleCode } from "./securityPermissionService";
+import { EMPTY_SECURITY_CATALOG } from "../types/security-permissions.types";
+import type { SecurityCatalog, EffectivePermissions } from "../types/security-permissions.types";
 
 const nowStamp = () => new Date().toISOString().replace("T", " ").substring(0, 16);
 const todayStamp = () => new Date().toISOString().split("T")[0];
+const AUTH_SESSION_STORAGE_KEY = "stsn-connect-auth-session";
+
+interface StoredAuthSession {
+  userId: string;
+  activeSchool?: SchoolId | "ALL";
+}
+
+const readStoredAuthSession = (): StoredAuthSession | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredAuthSession;
+    if (!parsed?.userId) return null;
+    return parsed;
+  } catch (error) {
+    console.error("[store] failed to read auth session:", error);
+    return null;
+  }
+};
+
+const writeStoredAuthSession = (session: StoredAuthSession) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session));
+  } catch (error) {
+    console.error("[store] failed to persist auth session:", error);
+  }
+};
+
+const clearStoredAuthSession = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+  } catch (error) {
+    console.error("[store] failed to clear auth session:", error);
+  }
+};
 
 interface STSNState {
   isLoading: boolean;
   currentUser: User | null;
+  /** RBAC catalog (security_* tables), loaded once on initialize. */
+  securityCatalog: SecurityCatalog;
+  /** Effective permissions resolved for the signed-in user (null when logged out). */
+  effectivePermissions: EffectivePermissions | null;
+  /** Reloads the RBAC catalog and recomputes the current user's effective set. */
+  reloadSecurityPermissions: () => Promise<void>;
   activeSchool: SchoolId | "ALL";
   /** Academic unit derived from activeSchool — drives academic structure & workflow behavior (never role-driven). */
   academicUnit: AcademicUnit;
@@ -545,6 +592,8 @@ async function awActReject(
 export const useSTSNStore = create<STSNState>((set, get) => ({
   isLoading: true,
   currentUser: null,
+  securityCatalog: EMPTY_SECURITY_CATALOG,
+  effectivePermissions: null,
   activeSchool: "ALL",
   academicUnit: getAcademicUnit("ALL"),
   schools: [],
@@ -628,32 +677,97 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   delegations: [],
 
   initialize: async () => {
-    const data = await loadAllData();
+    const [data, securityCatalog] = await Promise.all([loadAllData(), loadSecurityCatalog()]);
+    const storedSession = readStoredAuthSession();
+    const restoredUser = storedSession
+      ? data.users.find((u) => u.id === storedSession.userId && u.isActive) ?? null
+      : null;
+    if (storedSession && !restoredUser) {
+      clearStoredAuthSession();
+    }
+    const seededUser =
+      restoredUser ?? (data.users.find((u) => u.role === "SUPER_ADMIN") || null);
+    const currentUser = seededUser
+      ? {
+          ...seededUser,
+          role: getPrimaryRoleCode(securityCatalog, seededUser.id, seededUser.role),
+        }
+      : null;
+    const activeSchool = storedSession?.activeSchool ?? currentUser?.schoolId ?? "ALL";
     set({
       ...data,
+      securityCatalog,
+      effectivePermissions: currentUser
+        ? computeEffectivePermissions(securityCatalog, currentUser.id, currentUser.role)
+        : null,
+      activeSchool,
+      academicUnit: getAcademicUnit(activeSchool),
       isLoading: false,
-      currentUser: data.users.find((u) => u.role === "SUPER_ADMIN") || null,
+      currentUser,
+    });
+  },
+
+  reloadSecurityPermissions: async () => {
+    const securityCatalog = await loadSecurityCatalog();
+    const user = get().currentUser;
+    const syncedUser = user
+      ? {
+          ...user,
+          role: getPrimaryRoleCode(securityCatalog, user.id, user.role),
+        }
+      : null;
+    set({
+      securityCatalog,
+      currentUser: syncedUser,
+      effectivePermissions: syncedUser
+        ? computeEffectivePermissions(securityCatalog, syncedUser.id, syncedUser.role)
+        : null,
     });
   },
 
   login: (email: string, role: string, schoolContext?: SchoolId) => {
+    const catalog = get().securityCatalog;
     const user = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (user && user.isActive) {
       const resolvedSchool = user.schoolId || schoolContext || "ALL";
-      set({ currentUser: user, activeSchool: resolvedSchool, academicUnit: getAcademicUnit(resolvedSchool) });
+      const resolvedRole = getPrimaryRoleCode(catalog, user.id, user.role);
+      writeStoredAuthSession({ userId: user.id, activeSchool: resolvedSchool });
+      set({
+        currentUser: { ...user, role: resolvedRole },
+        activeSchool: resolvedSchool,
+        academicUnit: getAcademicUnit(resolvedSchool),
+        effectivePermissions: computeEffectivePermissions(catalog, user.id, resolvedRole),
+      });
       return true;
     }
     const fallbackUser = get().users.find((u) => u.role === role);
     if (fallbackUser) {
       const resolvedSchool = fallbackUser.schoolId || schoolContext || "ALL";
-      set({ currentUser: fallbackUser, activeSchool: resolvedSchool, academicUnit: getAcademicUnit(resolvedSchool) });
+      const resolvedRole = getPrimaryRoleCode(catalog, fallbackUser.id, fallbackUser.role);
+      writeStoredAuthSession({ userId: fallbackUser.id, activeSchool: resolvedSchool });
+      set({
+        currentUser: { ...fallbackUser, role: resolvedRole },
+        activeSchool: resolvedSchool,
+        academicUnit: getAcademicUnit(resolvedSchool),
+        effectivePermissions: computeEffectivePermissions(catalog, fallbackUser.id, resolvedRole),
+      });
       return true;
     }
     return false;
   },
 
-  logout: () => set({ currentUser: null }),
-  setCurrentUser: (user) => set({ currentUser: user }),
+  logout: () => {
+    clearStoredAuthSession();
+    set({ currentUser: null, effectivePermissions: null });
+  },
+  setCurrentUser: (user) => {
+    if (user) {
+      writeStoredAuthSession({ userId: user.id, activeSchool: user.schoolId ?? "ALL" });
+    } else {
+      clearStoredAuthSession();
+    }
+    set({ currentUser: user });
+  },
 
   addStudent: (studentData) => {
     const serial = get().students.length + 1;
@@ -1579,7 +1693,13 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   },
 
   // ---- Multi-school ----
-  setActiveSchool: (school) => set({ activeSchool: school, academicUnit: getAcademicUnit(school) }),
+  setActiveSchool: (school) => {
+    const currentUser = get().currentUser;
+    if (currentUser) {
+      writeStoredAuthSession({ userId: currentUser.id, activeSchool: school });
+    }
+    set({ activeSchool: school, academicUnit: getAcademicUnit(school) });
+  },
 
   // ---- LMS Actions ----
   addLearningMaterial: (materialData) => {
