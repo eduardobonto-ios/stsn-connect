@@ -155,6 +155,10 @@ export default function App() {
       : "payroll-management";
   const cashierSubPage =
     activeModule === "CASHIER" ? (currentRoute?.subPage ?? "queue") : "queue";
+  const librarySubPage =
+    activeModule === "LIBRARY_SYSTEM"
+      ? (currentRoute?.subPage ?? "dashboard")
+      : "dashboard";
   const accountsSubPage =
     activeModule === "ACCOUNTS_SECURITY"
       ? ((currentRoute?.subPage as
@@ -192,6 +196,7 @@ export default function App() {
       CLASS_SECTIONING: "Class Sectioning",
       ONLINE_LEARNING: "Online Learning",
       BOOKS_SETUP: "Books & Library",
+      LIBRARY_SYSTEM: "Library System",
       CASHIER: "Cashier",
       NURSE_CLINIC: "Nurse Clinic",
       GUIDANCE: "Guidance",
@@ -220,6 +225,14 @@ export default function App() {
       "payroll-settings": "Payroll Settings",
       queue: "Payment Queue",
       "cashier-reports": "Cashier Reports",
+      catalog: "Book Catalog",
+      inventory: "Book Inventory",
+      borrowing: "Borrowing",
+      returns: "Returns",
+      overdue: "Overdue",
+      "lost-damaged": "Lost / Damaged",
+      fines: "Fines",
+      maintenance: "Maintenance",
       "user-security": "User Security",
       "delegation-management": "Delegation Management",
       "audit-log": "Audit Log",
@@ -237,6 +250,8 @@ export default function App() {
             ? payrollSubPage
             : activeModule === "CASHIER"
               ? cashierSubPage
+              : activeModule === "LIBRARY_SYSTEM"
+                ? librarySubPage
               : activeModule === "ACCOUNTS_SECURITY"
                 ? accountsSubPage
                 : null;
@@ -959,6 +974,7 @@ export default function App() {
               hrSubPage={hrSubPage}
               payrollSubPage={payrollSubPage}
               cashierSubPage={cashierSubPage}
+              librarySubPage={librarySubPage}
               accountsSubPage={accountsSubPage}
               portalStudentId={portalStudentId}
               onDashboardNavigate={() => navigateToModule("REGISTRAR")}
@@ -977,6 +993,9 @@ export default function App() {
               }
               onCashierSubPageChange={(subPage) =>
                 navigateToModule("CASHIER", subPage)
+              }
+              onLibrarySubPageChange={(subPage) =>
+                navigateToModule("LIBRARY_SYSTEM", subPage)
               }
               onAccountsSubPageChange={(subPage) =>
                 navigateToModule("ACCOUNTS_SECURITY", subPage)
