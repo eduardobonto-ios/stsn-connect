@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useSTSNStore } from "../../../services/store";
+import { usePermissions } from "../../../hooks/usePermissions";
 import { Student, Enrollment, Subject, Requirement, SetupItem, OnlineEnrollmentApplication } from "../../../types";
 import {
   FileCheck,
@@ -266,6 +267,12 @@ export default function RegistrarModule() {
   // Single source of truth for Basic-Ed vs College terminology.
   const terms = useMemo(() => getAcademicTerms(academicUnit), [academicUnit]);
 
+  // RBAC: granular enrollment action rights (Page Assignment → REGISTRAR/enrollment).
+  const { canPage } = usePermissions();
+  const canCreateEnrollment = canPage("REGISTRAR", "enrollment", "create");
+  const canApproveEnrollment = canPage("REGISTRAR", "enrollment", "approve");
+  const canRejectEnrollment = canPage("REGISTRAR", "enrollment", "reject");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"All" | "Online" | "Walk-in/ERP">("All");
   const [statusFilter, setStatusFilter] = useState<"All" | "Enrolled" | "Pending" | "For Assessment" | "Rejected">("All");
@@ -469,6 +476,10 @@ export default function RegistrarModule() {
   );
 
   const handleClearAndEnroll = () => {
+    if (!canApproveEnrollment) {
+      toast("You don't have permission to approve enrollments.", { variant: "warning" });
+      return;
+    }
     if (!selectedStudent || !selectedSection) return;
     if (!selectedEnrollment) {
       toast("No enrollment record found for this student.", { variant: "warning" });
@@ -485,6 +496,10 @@ export default function RegistrarModule() {
   };
 
   const handleRejectEnrollment = () => {
+    if (!canRejectEnrollment) {
+      toast("You don't have permission to reject enrollments.", { variant: "warning" });
+      return;
+    }
     if (!selectedStudent || !selectedEnrollment) return;
     rejectEnrollment(selectedEnrollment.id);
     setSelectedStudent({ ...selectedStudent, enrollmentStatus: "Rejected" });
@@ -594,6 +609,10 @@ export default function RegistrarModule() {
   );
 
   const handleBulkAcceptApps = async () => {
+    if (!canApproveEnrollment) {
+      toast("You don't have permission to accept applications.", { variant: "warning" });
+      return;
+    }
     if (pendingOnlineApps.length === 0) return;
     const ok = await confirm(
       `Accept all ${pendingOnlineApps.length} pending application${pendingOnlineApps.length !== 1 ? "s" : ""} for assessment? Each will move to For Assessment status.`,
@@ -607,6 +626,10 @@ export default function RegistrarModule() {
   };
 
   const handleBulkRejectApps = async () => {
+    if (!canRejectEnrollment) {
+      toast("You don't have permission to reject applications.", { variant: "warning" });
+      return;
+    }
     if (pendingOnlineApps.length === 0) return;
     const ok = await confirm(
       `Reject all ${pendingOnlineApps.length} pending application${pendingOnlineApps.length !== 1 ? "s" : ""}? This is auditable and cannot be undone.`,
@@ -1285,6 +1308,7 @@ export default function RegistrarModule() {
         meta="S.Y. 2026–2027"
         actions={
           <div className="flex flex-col sm:items-end gap-1.5">
+            {canCreateEnrollment && (
             <AppButton
               onClick={() => {
                 setDept(schoolContext === "BASIC_ED" ? "Basic Education" : "College");
@@ -1301,6 +1325,7 @@ export default function RegistrarModule() {
             >
               Enroll New Candidate
             </AppButton>
+            )}
             <span className="text-[10px] text-white/25 font-mono hidden sm:block">
               {terms.studentIdLabel} &amp; {terms.trackNoun}
             </span>

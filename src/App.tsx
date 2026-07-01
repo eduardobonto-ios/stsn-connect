@@ -23,6 +23,8 @@ import {
   getAllowedModules,
   getNavItemsForRole,
   SIDEBAR_MODE,
+  type NavSubItem,
+  type NavItem,
 } from "./config/navigation.config";
 import {
   getDefaultRouteForRole,
@@ -48,6 +50,7 @@ import AppModuleRenderer from "./components/layout/AppModuleRenderer";
 // Hooks
 import { usePendingCounts } from "./hooks/usePendingCounts";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { usePermissions } from "./hooks/usePermissions";
 
 const APP_SIDEBAR_WIDTH_CLASS = "w-[280px] min-w-[280px] max-w-[280px]";
 const GlobalSearch = lazy(() => import("./components/common/GlobalSearch"));
@@ -81,10 +84,13 @@ export default function App() {
     academicUnit,
     isLoading,
     initialize,
+    effectivePermissions,
   } = useSTSNStore();
   const location = useLocation();
   const navigate = useNavigate();
   const counts = usePendingCounts();
+  const { hasPageAccess } = usePermissions();
+  const currentRole = currentUser?.role ?? "SUPER_ADMIN";
   const [expandedModule, setExpandedModule] = useState<STSNModule | null>(
     "DASHBOARD",
   );
@@ -152,6 +158,7 @@ export default function App() {
     activeModule === "ACCOUNTS_SECURITY"
       ? ((currentRoute?.subPage as
           | "user-security"
+          | "page-assignment"
           | "delegation-management"
           | "audit-log"
           | undefined) ?? "user-security")
@@ -186,6 +193,7 @@ export default function App() {
   const breadcrumbs = (() => {
     const crumbs: BreadcrumbCrumb[] = [];
     const moduleLabel: Partial<Record<string, string>> = {
+      MY_PROFILE: "My Profile",
       DASHBOARD: "Dashboard",
       ACTION_CENTER: "Action Center",
       REGISTRAR: "Enrollment",
@@ -267,15 +275,66 @@ export default function App() {
     Escape: () => setGlobalSearchOpen(false),
   });
 
-  if (!currentUser) return <LoginOverlay />;
+  // When the RBAC catalog is loaded (not fallback), drive nav + module access
+  // from the user's effective module set; otherwise keep the legacy role map.
+  const moduleOverride =
+    effectivePermissions && !effectivePermissions.fallback
+      ? (Array.from(effectivePermissions.modules) as STSNModule[])
+      : undefined;
 
-  const allowedModules = getAllowedModules(currentUser.role, academicUnit);
-  const sidebarMode = SIDEBAR_MODE[currentUser.role];
-
-  const renderedSidebarItems = getNavItemsForRole(
-    currentUser.role,
+  const allowedModules = getAllowedModules(
+    currentRole,
     academicUnit,
+    moduleOverride,
   );
+  const sidebarMode = SIDEBAR_MODE[currentRole];
+
+  const renderedSidebarItems = useMemo(() => {
+    const pruneEmptySections = (children: NavSubItem[]): NavSubItem[] => {
+      const output: NavSubItem[] = [];
+      for (let index = 0; index < children.length; index += 1) {
+        const child = children[index];
+        if (!child.isSection) {
+          output.push(child);
+          continue;
+        }
+        const hasFollowingContent = children
+          .slice(index + 1)
+          .some((candidate) => !candidate.isSection);
+        if (hasFollowingContent) output.push(child);
+      }
+      return output;
+    };
+
+    const filterChildren = (
+      moduleKey: STSNModule,
+      children: NavSubItem[],
+    ): NavSubItem[] => {
+      const filtered = children.flatMap((child) => {
+        if (child.isSection) return [child];
+        if (child.targetModule) return [child];
+        if (child.children?.length) {
+          const nested = filterChildren(moduleKey, child.children);
+          return nested.length > 0 ? [{ ...child, children: pruneEmptySections(nested) }] : [];
+        }
+        return hasPageAccess(moduleKey, child.id) ? [child] : [];
+      });
+      return pruneEmptySections(filtered);
+    };
+
+    return getNavItemsForRole(currentRole, academicUnit, moduleOverride).map(
+      (item): NavItem => {
+        if (!item.children?.length) return item;
+        const filteredChildren = filterChildren(item.id, item.children);
+        if (filteredChildren.length === 0) {
+          return { ...item, children: undefined };
+        }
+        return { ...item, children: filteredChildren };
+      },
+    );
+  }, [academicUnit, currentRole, hasPageAccess, moduleOverride]);
+
+  if (!currentUser) return <LoginOverlay />;
 
   const navigateToModule = (
     module: STSNModule,
