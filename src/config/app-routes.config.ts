@@ -101,6 +101,8 @@ export function getPathForModule(
       return "/online-learning";
     case "BOOKS_SETUP":
       return "/books-setup";
+    case "LIBRARY_SYSTEM":
+      return `/library/${subPage ?? "dashboard"}`;
     case "CASHIER":
       return `/cashier/${subPage ?? "queue"}`;
     case "NURSE_CLINIC":
@@ -287,6 +289,15 @@ export function resolveAppRoute(pathname: string, search = ""): AppRouteState | 
   }
   if (normalizedPath === "/books-setup") {
     return { module: "BOOKS_SETUP", isKnownPath: true, canonicalPath: "/books-setup" };
+  }
+  if (segments[0] === "library") {
+    const subPage = segments[1] ?? "dashboard";
+    return {
+      module: "LIBRARY_SYSTEM",
+      subPage,
+      isKnownPath: true,
+      canonicalPath: getPathForModule("LIBRARY_SYSTEM", { subPage }),
+    };
   }
   if (segments[0] === "cashier") {
     const subPage = segments[1] ?? "queue";
