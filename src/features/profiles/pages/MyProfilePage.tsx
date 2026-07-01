@@ -8,17 +8,17 @@
  * personal information, security settings, and a danger zone on the right.
  *
  * Scope guardrails:
- *   • The Role field is DISPLAY-ONLY here — role/rights management lives in
- *     User Access & Authority, never on a user's own profile.
- *   • No new auth, permission, or migration logic. Actions only call store
- *     methods that already exist (setCurrentUser, toggleUserStatus); password and
- *     2FA changes surface as local UI state only, since no backend API exists yet.
+ *   • Every identity field (Full Name, Email, Employee ID, Role, Department, …)
+ *     is DISPLAY-ONLY here — profile/role/rights management lives in User Access
+ *     & Authority, never on a user's own profile.
+ *   • No new auth, permission, or migration logic. The only editable controls are
+ *     the Security Settings (password + 2FA), which surface as local UI state
+ *     only, since no backend API exists yet.
  */
 
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  AlertTriangle,
   ArrowLeft,
   Building2,
   Calendar,
@@ -27,7 +27,6 @@ import {
   EyeOff,
   KeyRound,
   Lock,
-  Save,
   Share2,
   ShieldCheck,
   User,
@@ -74,12 +73,9 @@ function formatDate(value?: string) {
 
 export default function MyProfilePage() {
   const navigate = useNavigate();
-  const { toast, confirm } = useAppDialog();
-  const { currentUser, schools, teachers, employees, students, setCurrentUser, toggleUserStatus } =
-    useSTSNStore();
+  const { toast } = useAppDialog();
+  const { currentUser, schools, teachers, employees, students } = useSTSNStore();
 
-  const [fullName, setFullName] = useState(currentUser?.name ?? "");
-  const [email, setEmail] = useState(currentUser?.email ?? "");
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [twoFactor, setTwoFactor] = useState(true);
@@ -126,20 +122,7 @@ export default function MyProfilePage() {
   const title = linkedEmployee?.positionTitle ?? linkedEmployee?.position ?? schoolLabel ?? "Member";
   const isActive = currentUser.isActive;
 
-  const dirty = fullName.trim() !== currentUser.name || email.trim() !== currentUser.email;
-
   const handleBack = () => navigate("/dashboard");
-
-  const handleUpdateProfile = () => {
-    if (!fullName.trim() || !email.trim()) {
-      toast("Name and email are required.", { variant: "warning" });
-      return;
-    }
-    // setCurrentUser is the only profile-write API that exists today (session
-    // scope). It updates the in-memory account so the change is reflected now.
-    setCurrentUser({ ...currentUser, name: fullName.trim(), email: email.trim() });
-    toast("Profile details updated.", { variant: "success" });
-  };
 
   const handleUpdatePassword = () => {
     if (!newPassword.trim()) {
@@ -156,16 +139,6 @@ export default function MyProfilePage() {
     toast(`Two-factor authentication ${next ? "enabled" : "disabled"} for this session.`, {
       variant: "info",
     });
-  };
-
-  const handleDeactivate = async () => {
-    const ok = await confirm(
-      `Deactivate your account?\n\nThis immediately revokes your access to the dashboard. It can only be reversed by a system owner.`,
-    );
-    if (!ok) return;
-    toggleUserStatus(currentUser.id);
-    setCurrentUser({ ...currentUser, isActive: false });
-    toast("Your account has been deactivated.", { variant: "warning" });
   };
 
   return (
@@ -217,27 +190,16 @@ export default function MyProfilePage() {
               {titleCaseRole(currentUser.role)} <span className="text-stone-300">•</span> {title}
             </p>
 
-            <div className="mt-4 flex items-center gap-2">
-              <AppButton
-                type="button"
-                variant="primary-college"
-                size="sm"
-                fullWidth
-                leftIcon={Save}
-                disabled={!dirty}
-                onClick={handleUpdateProfile}
-              >
-                Update Profile
-              </AppButton>
+            <div className="mt-4">
               <AppButton
                 type="button"
                 variant="secondary"
                 size="sm"
-                iconOnly
-                aria-label="Share profile"
+                fullWidth
+                leftIcon={Share2}
                 onClick={() => toast("Profile sharing isn't available yet.", { variant: "info" })}
               >
-                <Share2 className="h-4 w-4" />
+                Share Profile
               </AppButton>
             </div>
           </AppCard>
@@ -293,23 +255,32 @@ export default function MyProfilePage() {
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <AppFormField label="Full Name">
-                <AppInput value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" />
+              <AppFormField label="Full Name" hint="Managed in User Access & Authority.">
+                <AppInput value={currentUser.name} readOnly disabled className="bg-stone-50 text-stone-500" />
               </AppFormField>
-              <AppFormField label="Email Address">
+              <AppFormField label="Email Address" hint="Managed in User Access & Authority.">
                 <AppInput
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@theresian.edu"
+                  value={currentUser.email}
+                  readOnly
+                  disabled
+                  className="bg-stone-50 text-stone-500"
                 />
               </AppFormField>
               <AppFormField label="Employee ID" hint="System-assigned identifier.">
                 <AppInput value={employeeId} readOnly disabled className="bg-stone-50 text-stone-500" />
               </AppFormField>
+              <AppFormField label="Department" hint="Managed in User Access & Authority.">
+                <AppInput value={department} readOnly disabled className="bg-stone-50 text-stone-500" />
+              </AppFormField>
               <AppFormField label="Role" hint="Managed in User Access & Authority.">
                 <div className="relative">
-                  <AppInput value={formatRole(currentUser.role)} readOnly className="pr-9 cursor-default" />
+                  <AppInput
+                    value={formatRole(currentUser.role)}
+                    readOnly
+                    disabled
+                    className="bg-stone-50 pr-9 text-stone-500 cursor-default"
+                  />
                   <Lock className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" />
                 </div>
               </AppFormField>
@@ -378,23 +349,6 @@ export default function MyProfilePage() {
                 </div>
               </div>
               <AppToggle checked={twoFactor} onChange={handleTwoFactor} aria-label="Toggle two-factor authentication" />
-            </div>
-          </AppCard>
-
-          {/* Danger zone */}
-          <AppCard className="border border-rose-200 bg-rose-50/40">
-            <div className="flex items-center gap-2 pb-2">
-              <AlertTriangle className="h-4 w-4 text-rose-600" />
-              <h3 className="text-sm font-bold text-rose-700">Danger Zone</h3>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="max-w-md text-[11px] leading-relaxed text-rose-700/80">
-                Deactivating your account will immediately revoke your access to the dashboard. This action can only
-                be reversed by a system owner.
-              </p>
-              <AppButton type="button" variant="destructive" size="sm" onClick={handleDeactivate}>
-                Deactivate Account
-              </AppButton>
             </div>
           </AppCard>
         </div>
