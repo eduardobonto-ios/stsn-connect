@@ -6,6 +6,7 @@
 import React, { useState, useMemo } from "react";
 import { Users, ChevronRight, X, Clock } from "lucide-react";
 import { useSTSNStore } from "../../../../services/store";
+import { usePermissions } from "../../../../hooks/usePermissions";
 import { useAppDialog } from "../../../../components/common/useAppDialog";
 import AppCard from "../../../../components/common/AppCard";
 import AppSearchInput from "../../../../components/common/AppSearchInput";
@@ -196,6 +197,8 @@ export default function EmployeeLifecyclePage() {
     updateEmployeeLifecycleStatus,
   } = useSTSNStore();
   const { toast } = useAppDialog();
+  const { canPage } = usePermissions();
+  const canEditEmployee = canPage("HR_MANAGEMENT", "employee-life-cycles", "edit");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDept, setFilterDept] = useState("All");
@@ -281,6 +284,10 @@ export default function EmployeeLifecyclePage() {
   ];
 
   const handleChangeStatus = (toStatus: string, remarks: string) => {
+    if (!canEditEmployee) {
+      toast("You don't have permission to edit employee records.", { variant: "warning" });
+      return;
+    }
     if (!selectedEmployee) return;
     const fromStatus = selectedEmployee.employmentStatus ?? "Active";
     updateEmployeeLifecycleStatus(

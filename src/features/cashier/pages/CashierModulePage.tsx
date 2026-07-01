@@ -5,6 +5,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSTSNStore } from "../../../services/store";
+import { usePermissions } from "../../../hooks/usePermissions";
 import { Payment, Student, StudentAssessment } from "../../../types";
 import {
   Wallet, Search, Receipt, History, CheckCircle, AlertCircle,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppButton from "../../../components/common/AppButton";
+import AppCard from "../../../components/common/AppCard";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
@@ -203,7 +205,16 @@ function CardPagination({
 
 export default function CashierModule({ subPage, onSubPageChange }: { subPage?: string; onSubPageChange?: (page: string) => void }) {
   const { students, assessments, payments, voidRequests, currentUser, activeSchool, academicUnit, addPayment, submitVoidRequest, bookPackages, setupData } = useSTSNStore();
+  const { canPage, hasPageAccess } = usePermissions();
+  const canCollectPayment = canPage("CASHIER", "queue", "create");
+  const canVoidPayment = canPage("CASHIER", "queue", "void");
   const [activeTab, setActiveTab] = useState<CashierTab>((subPage as CashierTab) ?? "queue");
+  const pageAccessByTab: Record<CashierTab, boolean> = {
+    queue: hasPageAccess("CASHIER", "queue"),
+    history: hasPageAccess("CASHIER", "history"),
+    reports: hasPageAccess("CASHIER", "reports"),
+  };
+  const activeTabAccessible = pageAccessByTab[activeTab];
 
   useEffect(() => {
     if (subPage && subPage !== activeTab) setActiveTab(subPage as CashierTab);
@@ -473,6 +484,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
   const handlePostPayment = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCollectPayment) { setOrError("You don't have permission to collect payments."); return; }
     if (!collectRow?.student) return;
     const amount = Number(paymentForm.amount);
     if (!amount || amount <= 0) return;
@@ -591,7 +603,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
             >
               <Printer className="w-3 h-3" /> View
             </button>
-            {canRequestVoid && (
+            {canRequestVoid && canVoidPayment && (
               <button
                 onClick={() => { setVoidModalPaymentId(original.payment.id); setVoidReason(""); }}
                 className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 cursor-pointer transition"
@@ -653,36 +665,42 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
         <div className="flex items-stretch border-b border-stone-100">
           {/* Tabs */}
-          <button
-            onClick={() => { setActiveTab("queue"); onSubPageChange?.("queue"); }}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "queue" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-          >
-            <Receipt className="w-4 h-4" />
-            Payment Queue
-            {queueRows.length > 0 && (
-              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
-                activeTab === "queue"
-                  ? "bg-stsn-brown/15 text-stsn-brown"
-                  : "bg-amber-100 text-amber-700"
-              }`}>
-                {queueRows.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setActiveTab("history"); onSubPageChange?.("history"); }}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "history" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-          >
-            <History className="w-4 h-4" />
-            Collection History
-          </button>
-          <button
-            onClick={() => { setActiveTab("reports"); onSubPageChange?.("reports"); }}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "reports" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            Reports
-          </button>
+          {pageAccessByTab.queue && (
+            <button
+              onClick={() => { setActiveTab("queue"); onSubPageChange?.("queue"); }}
+              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "queue" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            >
+              <Receipt className="w-4 h-4" />
+              Payment Queue
+              {queueRows.length > 0 && (
+                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
+                  activeTab === "queue"
+                    ? "bg-stsn-brown/15 text-stsn-brown"
+                    : "bg-amber-100 text-amber-700"
+                }`}>
+                  {queueRows.length}
+                </span>
+              )}
+            </button>
+          )}
+          {pageAccessByTab.history && (
+            <button
+              onClick={() => { setActiveTab("history"); onSubPageChange?.("history"); }}
+              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "history" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            >
+              <History className="w-4 h-4" />
+              Collection History
+            </button>
+          )}
+          {pageAccessByTab.reports && (
+            <button
+              onClick={() => { setActiveTab("reports"); onSubPageChange?.("reports"); }}
+              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "reports" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              Reports
+            </button>
+          )}
 
           {/* Search — flush right */}
           <div className="flex-1 flex items-center justify-end px-3 py-2 gap-2">
@@ -723,7 +741,15 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       </div>
 
       {/* ── PAYMENT QUEUE ─────────────────────────────────── */}
-      {activeTab === "queue" && (
+      {!activeTabAccessible && (
+        <AppCard className="border border-amber-200 bg-amber-50/60">
+          <p className="text-xs text-amber-800">
+            This cashier page is disabled for the current access profile.
+          </p>
+        </AppCard>
+      )}
+
+      {activeTabAccessible && activeTab === "queue" && (
         <div className="space-y-4 animate-fade-in">
 
           {/* Approved for Payment */}
@@ -792,9 +818,11 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                               ₱{assessment.balance.toLocaleString()}
                             </p>
                           </div>
-                          <AppButton type="button" onClick={() => openCollect(assessment.id)} leftIcon={Banknote} variant="primary" size="sm" fullWidth>
-                            Collect Payment
-                          </AppButton>
+                          {canCollectPayment && (
+                            <AppButton type="button" onClick={() => openCollect(assessment.id)} leftIcon={Banknote} variant="primary" size="sm" fullWidth>
+                              Collect Payment
+                            </AppButton>
+                          )}
                         </div>
                       </div>
                     );
@@ -843,7 +871,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       )}
 
       {/* ── COLLECTION HISTORY ─────────────────────────────── */}
-      {activeTab === "history" && (
+      {activeTabAccessible && activeTab === "history" && (
         <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
           <div className="px-4 py-3 border-b border-stone-100 flex items-center gap-2">
             <ListChecks className="w-4 h-4 text-stsn-gold" />
@@ -881,7 +909,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       )}
 
       {/* ── CASHIER REPORTS ─────────────────────────────────── */}
-      {activeTab === "reports" && (
+      {activeTabAccessible && activeTab === "reports" && (
         <div className="space-y-4 animate-fade-in">
 
           {/* Report controls */}
@@ -1132,6 +1160,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
         const voidStudent = voidPayment ? scopedStudents.find((s) => s.id === voidPayment.studentId) : undefined;
         const handleSubmitVoid = (e: React.FormEvent) => {
           e.preventDefault();
+          if (!canVoidPayment) return;
           if (!voidPayment || !currentUser) return;
           const reason = voidReason.trim();
           if (!reason) return;

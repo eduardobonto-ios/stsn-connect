@@ -1452,6 +1452,382 @@ const MODULE_PAGES = {
 
 };
 
+// ─── Demo-friendly content engine ────────────────────────────────────────────
+// Replaces the internal "Forms" and "Modals & Dialogs" sections with
+// school-facing demo guidance. Curated overrides below cover the modules that
+// matter most in a live school demo; every other module falls back to content
+// synthesised from its existing purpose / features / workflow, so no page is
+// ever left blank. Automation notes are written to match what is ACTUALLY in
+// the codebase (see the Communication Automation page) — implemented vs.
+// partial/mock vs. recommended — and never over-claim SMS/email delivery.
+
+const OFFICE_BY_GROUP = {
+  "Command Center": "All staff roles and school heads",
+  "Workflow Management": "Every approving officer across the school",
+  "Admissions": "Registrar's Office",
+  "Student Records": "Registrar's Office",
+  "Academics": "Registrar, principal, and faculty",
+  "Faculty": "Registrar and faculty",
+  "Finance": "Accounting Office",
+  "Accounting": "Accounting Office",
+  "Cashiering": "Cashier / Collections",
+  "Teaching": "Teachers and advisers",
+  "Learning": "Teachers and students",
+  "Student Services": "Students and parents",
+  "Human Resources": "HR Office",
+  "Payroll": "Payroll / Accounting",
+  "Guidance": "Guidance Office",
+  "Clinic": "School Nurse / Clinic",
+  "Health": "School Nurse / Clinic",
+  "Security": "System Administrator",
+  "Administration": "System Administrator",
+  "Configuration": "System Administrator",
+  "Parent Engagement": "Parents and guardians",
+};
+
+// Reusable, accurate communication building blocks.
+const REC_EMAIL_SMS = "Email/SMS delivery to parents and students can be connected to a provider (e.g. for receipts, reminders, and confirmations)";
+
+const DEMO_OVERRIDES = {
+  ACTION_CENTER: {
+    value: "One screen to approve everything — enrollment, assessments, discounts, leave, and payroll — so nothing waits in a staff member's inbox.",
+    beneficiaries: "Principals, accounting heads, HR, and any approving officer.",
+    say: [
+      "This is where approvers spend their morning — every pending item in one queue.",
+      "Show the in-app bell: approvals, returns, and rejections notify the right staff instantly.",
+      "Emphasise the full approval trail — who approved what, and when.",
+    ],
+    flow: [
+      "Open Action Center and show the consolidated pending queue.",
+      "Filter to one type (e.g. Assessments) and open a detail panel.",
+      "Add a note and approve — show the item leave the queue.",
+      "Open the notification bell to show the staff alert that was raised.",
+    ],
+    automation: {
+      implemented: [
+        "In-app workflow notifications for assessment approve/return, void approve/reject, grade-period submit/approve/return, and leave approve/reject",
+        "Role-targeted delivery (only the relevant offices see each alert) plus school-wide Announcements",
+      ],
+      partial: [],
+      recommended: ["Mirror these in-app alerts to email for off-system approvers"],
+    },
+  },
+  REGISTRAR: {
+    value: "Replaces paper enrollment forms with one guided, validated wizard plus an online application queue parents can submit from home.",
+    beneficiaries: "Registrar's Office (primary); parents and students get a faster admission.",
+    say: [
+      "Show a full new-student enrollment without leaving the screen.",
+      "Point out the Online Queue — applications submitted from home arrive here automatically.",
+      "Highlight one-click Certificate of Registration (COR) printing.",
+    ],
+    flow: [
+      "Open Enrollment and review an application in the Online Queue.",
+      "Click New Enrollment and step through personal → guardian → academic → fees → documents.",
+      "Submit and show the status change to 'For Assessment'.",
+      "After accounting approves, generate and print the COR.",
+    ],
+    automation: {
+      implemented: ["In-app notification to Cashier/Registrar when an assessment is approved for payment"],
+      partial: [],
+      recommended: [
+        "Email/SMS to the parent when an online application is received, approved, or returned for missing documents",
+        "Email the COR to the parent once the student is officially enrolled",
+      ],
+    },
+  },
+  ACCOUNTING: {
+    value: "Gives the accounting office a real ledger — assessments, discounts, and balances — instead of spreadsheets, with approvals routed in-app.",
+    beneficiaries: "Accounting Office; parents benefit from accurate statements.",
+    say: [
+      "Show a student ledger with running balance and posted transactions.",
+      "Demonstrate the assessment approval that releases a student to the cashier.",
+      "Point out that approvals raise an in-app alert to the cashier in real time.",
+    ],
+    flow: [
+      "Open a student account and show the ledger.",
+      "Approve a pending assessment.",
+      "Show the in-app notification raised for the Cashier.",
+    ],
+    automation: {
+      implemented: ["In-app notification to Cashier/Registrar when an assessment is approved"],
+      partial: [],
+      recommended: [
+        "Email the statement of account to parents",
+        "SMS payment reminders as due dates approach",
+      ],
+    },
+  },
+  CASHIER: {
+    value: "Speeds up the payment window — approved assessments appear in a queue, and posting a payment issues an official receipt instantly.",
+    beneficiaries: "Cashier / Collections; parents get an immediate receipt.",
+    say: [
+      "Show the payment queue of students already cleared by accounting.",
+      "Post a payment and show the official receipt generated on the spot.",
+      "Mention void requests are approval-controlled and logged.",
+    ],
+    flow: [
+      "Open the Cashiering queue.",
+      "Select a student and post a payment.",
+      "Print/preview the official receipt.",
+    ],
+    automation: {
+      implemented: ["In-app notifications for void-request approve/reject"],
+      partial: [],
+      recommended: [
+        "Email the official receipt to the parent after posting",
+        "SMS confirmation that a payment was received",
+      ],
+    },
+  },
+  FACULTY_PORTAL: {
+    value: "Gives teachers one board for schedules, attendance, and grade encoding — and lets advisers log daily attendance in seconds.",
+    beneficiaries: "Teachers and advisers; parents benefit from timely attendance follow-up.",
+    say: [
+      "Show the adviser logging a section's attendance for the day.",
+      "Be transparent: the on-screen 'SMS sent to parents' message is a demo simulation — real SMS is a connect-a-provider step.",
+      "Show grade encoding feeding the approval workflow.",
+    ],
+    flow: [
+      "Open the Teacher Board and the advisory roster.",
+      "Mark attendance for the section and submit.",
+      "Open Grade Encoding and submit grades for approval.",
+    ],
+    automation: {
+      implemented: ["In-app notifications when a grade period is submitted, approved, or returned"],
+      partial: ["Attendance submission shows a simulated 'SMS dispatched to parents' confirmation — no message is actually sent yet"],
+      recommended: [
+        "Same-day SMS to parents for absences and tardies",
+        "Email attendance summaries to advisers and guidance",
+      ],
+    },
+  },
+  GRADING: {
+    value: "Moves grade submission and approval out of email — teachers submit, principals approve, and everything is tracked.",
+    beneficiaries: "Teachers, principals, and the registrar.",
+    say: [
+      "Show the grade approval chain: submit → approve → publish.",
+      "Point out the in-app alerts that drive the workflow.",
+      "Note grades can be published to the student/parent portal.",
+    ],
+    flow: [
+      "Open a grade period and submit it for approval.",
+      "Approve as principal and show the status change.",
+      "Show where approved grades appear for students/parents.",
+    ],
+    automation: {
+      implemented: ["In-app notifications for grade-period submit, approve, and return-for-revision"],
+      partial: [],
+      recommended: ["Email parents/students when grades are published to the portal"],
+    },
+  },
+  GRADE_ENCODING: {
+    value: "A focused screen for teachers to enter and submit grades, with validation before they enter the approval workflow.",
+    beneficiaries: "Teachers and the principal who approves.",
+    say: [
+      "Show fast grade entry per subject and class.",
+      "Submit and show it move into the approval queue.",
+      "Mention returns come back with the principal's note.",
+    ],
+    flow: [
+      "Open a class and encode grades.",
+      "Submit for approval.",
+      "Show the in-app confirmation to the approver.",
+    ],
+    automation: {
+      implemented: ["In-app notifications for grade-period submit/approve/return"],
+      partial: [],
+      recommended: ["Email teachers when grades are returned for revision"],
+    },
+  },
+  HR_MANAGEMENT: {
+    value: "One place for employee records, attendance, shifts, leave, and onboarding — with leave approvals routed in-app.",
+    beneficiaries: "HR Office; employees get faster leave decisions.",
+    say: [
+      "Show the employee lifecycle and a profile record.",
+      "File a leave request and approve it to show the in-app alert.",
+      "Point out onboarding checklists for new hires.",
+    ],
+    flow: [
+      "Open Employee Life Cycles and a profile.",
+      "File a leave request and approve it.",
+      "Show the in-app notification to the employee/HR.",
+    ],
+    automation: {
+      implemented: ["In-app notifications when a leave request is approved or rejected"],
+      partial: [],
+      recommended: [
+        "Email employees their leave decision and onboarding tasks",
+        "SMS only for urgent HR announcements, if enabled",
+      ],
+    },
+  },
+  PAYROLL_MANAGEMENT: {
+    value: "Computes semi-monthly payroll with statutory deductions and tax, then routes runs for approval before release.",
+    beneficiaries: "Payroll / Accounting; employees get accurate payslips.",
+    say: [
+      "Show a payroll run computing basic pay, SSS/PhilHealth/Pag-IBIG, and withholding tax.",
+      "Walk the run through review and approval.",
+      "Show a generated payslip.",
+    ],
+    flow: [
+      "Open Payroll Management and compute a run.",
+      "Send it for review and approve it.",
+      "Open an employee payslip.",
+    ],
+    automation: {
+      implemented: ["In-app notifications available through the approval workflow"],
+      partial: [],
+      recommended: [
+        "Email each employee their payslip when a run is released",
+        "In-app alert to the approver when a run is pending",
+      ],
+    },
+  },
+  NURSE_CLINIC: {
+    value: "A clinic logbook that keeps every student visit, incident, and treatment in one searchable health record.",
+    beneficiaries: "School Nurse; parents benefit from prompt incident follow-up.",
+    say: [
+      "Record a clinic visit and show it attach to the student's health profile.",
+      "Show the visit history for a student.",
+      "Note urgent incidents are where parent SMS would matter most.",
+    ],
+    flow: [
+      "Open the Clinic module and find a student.",
+      "Log a visit with complaint and treatment.",
+      "Show the updated health profile.",
+    ],
+    automation: {
+      implemented: [],
+      partial: [],
+      recommended: [
+        "SMS the parent for urgent clinic incidents or send-home decisions",
+        "Email a clinic visit summary; in-app alert to the adviser",
+      ],
+    },
+  },
+  GUIDANCE: {
+    value: "Keeps anecdotal records, counseling sessions, and follow-ups confidential and organised for the guidance office.",
+    beneficiaries: "Guidance Office and advisers.",
+    say: [
+      "Show an anecdotal record and a counseling session log.",
+      "Point out follow-up tracking.",
+      "Note parent conference scheduling is a natural notification point.",
+    ],
+    flow: [
+      "Open the Guidance Office and a student record.",
+      "Log a counseling session.",
+      "Create a follow-up.",
+    ],
+    automation: {
+      implemented: [],
+      partial: [],
+      recommended: [
+        "Email/SMS parents appointment and conference details",
+        "In-app task alerts for the counselor's queue",
+      ],
+    },
+  },
+  CONSULTATION: {
+    value: "Lets parents and students book adviser/consultation appointments and keeps everyone on the same schedule.",
+    beneficiaries: "Advisers, guidance, parents, and students.",
+    say: [
+      "Show an appointment being booked and scheduled.",
+      "Point out the shared calendar view.",
+      "Note reminders are the obvious next automation.",
+    ],
+    flow: [
+      "Open Consultation and create an appointment request.",
+      "Schedule it and show the confirmation.",
+    ],
+    automation: {
+      implemented: [],
+      partial: [],
+      recommended: ["Email appointment details and SMS reminders before the meeting"],
+    },
+  },
+  ACCOUNTS_SECURITY: {
+    value: "Controls who can do what — accounts, roles, delegation of authority, and a full audit log of sensitive actions.",
+    beneficiaries: "System Administrator and approvers.",
+    say: [
+      "Show user accounts and role assignment.",
+      "Demonstrate delegation of approval authority.",
+      "Open the audit log to show full traceability.",
+    ],
+    flow: [
+      "Open User Access and a user record.",
+      "Change a role or assign a delegation.",
+      "Show the action captured in the audit log.",
+    ],
+    automation: {
+      implemented: ["In-app/audit trail captures account and authority changes"],
+      partial: [],
+      recommended: ["Email the affected user when an account or access level changes"],
+    },
+  },
+  STUDENT_PORTAL: {
+    value: "Self-service for students — grades, ledger, COR, and online enrollment — reducing front-desk queues.",
+    beneficiaries: "Students (and parents); registrar and cashier get fewer walk-ins.",
+    say: [
+      "Show the student viewing grades and their financial ledger.",
+      "Point out self-service online enrollment.",
+      "Note this is a recipient surface for published grades and balances.",
+    ],
+    flow: [
+      "Log in as a student and open Records Overview.",
+      "Show the report card and ledger tabs.",
+      "Open the self-service enrollment tab.",
+    ],
+    automation: {
+      implemented: ["In-app portal updates as records change"],
+      partial: [],
+      recommended: ["Email/SMS students when grades are published or a balance is due"],
+    },
+  },
+  GUARDIAN_PORTAL: {
+    value: "Gives parents a window into their child's grades, fees, and school notices — the main audience for communication automation.",
+    beneficiaries: "Parents and guardians.",
+    say: [
+      "Show a parent viewing their child's grades and balance.",
+      "Point out school notices/announcements.",
+      "Frame this as the destination for enrollment, payment, attendance, and clinic alerts.",
+    ],
+    flow: [
+      "Log in as a parent and open the child's overview.",
+      "Show grades and the fee/ledger view.",
+      "Show the notices feed.",
+    ],
+    automation: {
+      implemented: ["In-app notices/announcements visible to parents"],
+      partial: [],
+      recommended: ["Email/SMS parents for enrollment status, payments, attendance, grades, and clinic incidents"],
+    },
+  },
+};
+
+// Attach module keys + curated overrides onto the module objects.
+for (const [key, mod] of Object.entries(MODULE_PAGES)) {
+  mod.__key = key;
+  if (DEMO_OVERRIDES[key]) mod.demo = DEMO_OVERRIDES[key];
+}
+
+function firstSentence(text) {
+  const m = (text || "").match(/^.*?[.!?](\s|$)/);
+  return (m ? m[0] : (text || "")).trim();
+}
+
+// Returns the school-facing demo content for a module, using a curated override
+// when present and otherwise synthesising from the module's own data.
+function demoContent(mod) {
+  const o = mod.demo || {};
+  return {
+    say: (o.say && o.say.length ? o.say : (mod.features || []).slice(0, 3)),
+    flow: (o.flow && o.flow.length ? o.flow : (mod.workflow || []).slice(0, 4)),
+    value: o.value || firstSentence(mod.purpose),
+    beneficiaries: o.beneficiaries || ((OFFICE_BY_GROUP[mod.group] || (mod.group + " team")) + "."),
+    automation: o.automation || null,
+  };
+}
+
 // ─── HTML Generation ──────────────────────────────────────────────────────────
 
 function css() {
@@ -2053,6 +2429,119 @@ function css() {
       line-height: 1.4;
     }
 
+    /* ── Demo Highlights (replaces Forms / Modals) ── */
+    .demo-section { margin-top: 8px; }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .demo-card {
+      background: #fffdf5;
+      border: 1px solid #e5e0d5;
+      border-radius: 4px;
+      padding: 7px 10px;
+    }
+    .demo-card-title {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #5c4533;
+      margin-bottom: 4px;
+    }
+    .demo-list { margin: 0; padding-left: 14px; }
+    .demo-list li {
+      font-size: 9px;
+      color: #4a3b30;
+      line-height: 1.45;
+      margin-bottom: 2px;
+    }
+    ol.demo-numbered { counter-reset: dstep; list-style: none; padding-left: 0; }
+    ol.demo-numbered li { position: relative; padding-left: 16px; }
+    ol.demo-numbered li::before {
+      content: counter(dstep) '.';
+      counter-increment: dstep;
+      position: absolute; left: 0;
+      color: #c5a059; font-weight: 700; font-size: 9px;
+    }
+    .value-card {
+      background: #faf6ec;
+      border: 1px solid #e5e0d5;
+      border-left: 3px solid #c5a059;
+      border-radius: 0 4px 4px 0;
+      padding: 6px 10px;
+      font-size: 9px;
+      color: #4a3b30;
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+    .value-label { font-weight: 700; color: #5c4533; }
+    .value-benefits { margin-top: 3px; }
+
+    /* ── Automation & Notifications note ── */
+    .automation-note {
+      background: #fffdf5;
+      border: 1px solid #e5e0d5;
+      border-radius: 4px;
+      padding: 7px 10px;
+    }
+    .automation-title {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #5c4533;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    .automation-tiers { display: flex; flex-direction: column; gap: 5px; }
+    .auto-tier { border-radius: 3px; padding: 5px 8px; }
+    .auto-tier.tier-live { background: #f0f7f0; border-left: 3px solid #4d8a52; }
+    .auto-tier.tier-partial { background: #fbf6ec; border-left: 3px solid #d9a23a; }
+    .auto-tier.tier-rec { background: #f3f1ec; border-left: 3px solid #9e8a7a; }
+    .auto-tier-label {
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      margin-bottom: 2px;
+    }
+    .tier-live .auto-tier-label { color: #356b3a; }
+    .tier-partial .auto-tier-label { color: #9a6f1d; }
+    .tier-rec .auto-tier-label { color: #6b5242; }
+    .auto-list { margin: 0; padding-left: 14px; }
+    .auto-list li { font-size: 8.5px; color: #4a3b30; line-height: 1.4; margin-bottom: 1px; }
+
+    /* ── Communication Automation page ── */
+    .comm-hero { margin-bottom: 10px; }
+    .comm-hero h2 { font-size: 19px; color: #2d241e; margin: 0 0 6px; }
+    .comm-statement {
+      background: #faf6ec;
+      border: 1px solid #e5e0d5;
+      border-left: 4px solid #c5a059;
+      border-radius: 0 5px 5px 0;
+      padding: 9px 12px;
+      font-size: 10px;
+      color: #4a3b30;
+      line-height: 1.5;
+    }
+    .comm-legend { display: flex; gap: 14px; margin: 8px 0 6px; font-size: 8.5px; color: #6b5242; }
+    .comm-legend span { display: flex; align-items: center; gap: 4px; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+    .dot-live { background: #4d8a52; }
+    .dot-partial { background: #d9a23a; }
+    .dot-rec { background: #9e8a7a; }
+    table.comm-table { width: 100%; border-collapse: collapse; font-size: 8.3px; }
+    table.comm-table th {
+      background: #5c4533; color: #fff; text-align: left;
+      padding: 4px 6px; font-weight: 700; font-size: 8.3px;
+    }
+    table.comm-table td {
+      border: 1px solid #e5e0d5; padding: 4px 6px;
+      color: #4a3b30; line-height: 1.35; vertical-align: top;
+    }
+    table.comm-table tr:nth-child(even) td { background: #fffdf5; }
+    .comm-area { font-weight: 700; color: #2d241e; }
+    .comm-chan { font-size: 7.6px; color: #6b5242; }
+
     /* ── Page footer ── */
     .page-footer {
       padding: 2mm 10mm;
@@ -2370,29 +2859,42 @@ function modulePage(moduleData, roleName, logo, pageNum) {
           </div>
         </div>
 
-        ${hasForms ? `
-          <div class="forms-section">
-            <div class="section-title">Forms</div>
-            ${forms.map(f => `
-              <div class="form-card">
-                <div class="form-card-name">${f.name}</div>
-                <div class="form-fields">${f.fields.map(field => `<span class="field-chip">${field}</span>`).join("")}</div>
+        ${(() => {
+          const d = demoContent(moduleData);
+          const tier = (label, cls, items) => (items && items.length) ? `
+            <div class="auto-tier ${cls}">
+              <div class="auto-tier-label">${label}</div>
+              <ul class="auto-list">${items.map(i => `<li>${i}</li>`).join("")}</ul>
+            </div>` : "";
+          const auto = d.automation ? `
+            <div class="automation-note">
+              <div class="automation-title">Automation &amp; Notifications</div>
+              <div class="automation-tiers">
+                ${tier("Currently implemented", "tier-live", d.automation.implemented)}
+                ${tier("Partial / mock-only", "tier-partial", d.automation.partial)}
+                ${tier("Recommended next", "tier-rec", d.automation.recommended)}
               </div>
-            `).join("")}
-          </div>
-        ` : ""}
-
-        ${hasModals ? `
-          <div class="modals-section">
-            <div class="section-title">Modals &amp; Dialogs</div>
-            ${modals.map(m => `
-              <div class="modal-card">
-                <div class="modal-card-name">${m.name}</div>
-                <div class="modal-card-desc">${m.desc}</div>
+            </div>` : "";
+          return `
+          <div class="demo-section">
+            <div class="section-title">Demo Highlights</div>
+            <div class="demo-grid">
+              <div class="demo-card">
+                <div class="demo-card-title">What to Say &amp; Show</div>
+                <ul class="demo-list">${d.say.map(s => `<li>${s}</li>`).join("")}</ul>
               </div>
-            `).join("")}
-          </div>
-        ` : ""}
+              <div class="demo-card">
+                <div class="demo-card-title">Recommended Demo Flow</div>
+                <ol class="demo-list demo-numbered">${d.flow.map(s => `<li>${s}</li>`).join("")}</ol>
+              </div>
+            </div>
+            <div class="value-card">
+              <span class="value-label">Operational value:</span> ${d.value}
+              <div class="value-benefits"><span class="value-label">Who benefits:</span> ${d.beneficiaries}</div>
+            </div>
+            ${auto}
+          </div>`;
+        })()}
 
         ${hasReports ? `
           <div class="reports-section">
@@ -2481,6 +2983,114 @@ const ROLE_MODULE_SEQUENCE = {
 
 // ─── Main Build ───────────────────────────────────────────────────────────────
 
+function communicationAutomationPage(logo, pageNum) {
+  // Accurate status per the codebase inspection:
+  //  live    = in-app notification actually wired in src/services/store.ts
+  //  partial = simulated/mock confirmation only (no message sent)
+  //  rec     = recommended next implementation (connect a provider)
+  const rows = [
+    ["Enrollment / Admission",
+      "Application submitted, approved, returned for missing documents, student officially enrolled, COR ready",
+      "Parent/guardian, student, registrar",
+      "Email (instructions, COR) · SMS (reminders) · In-app (staff)",
+      "rec", "In-app assessment approval is live; parent email/SMS recommended"],
+    ["Accounting / Cashiering",
+      "Assessment generated, payment posted, receipt issued, balance due/approaching, account hold or cleared",
+      "Parent/guardian, student, accounting & cashier staff",
+      "Email (SOA, receipt) · SMS (reminders) · In-app (approvals, holds)",
+      "live", "In-app assessment & void approvals live; parent email/SMS recommended"],
+    ["Class Sectioning / Scheduling",
+      "Student assigned to a section, schedule finalized or changed, capacity issues",
+      "Registrar, adviser/teacher, student/parent (if enabled)",
+      "Email (schedule) · In-app (staff changes)",
+      "rec", "Recommended"],
+    ["Attendance",
+      "Student absent or late, attendance submitted, repeated absences need follow-up",
+      "Parent/guardian, adviser, guidance (on escalation)",
+      "SMS (same-day) · Email (summaries) · In-app (advisers)",
+      "partial", "Attendance submit shows a simulated 'SMS sent' message — no real send yet"],
+    ["Grades",
+      "Grades submitted for approval, approved, returned for revision, published to portal",
+      "Teacher, principal, registrar, parent/student (if publishing)",
+      "In-app (approval workflow) · Email (published grades)",
+      "live", "In-app grade-period submit/approve/return live; portal email recommended"],
+    ["Clinic",
+      "Student visit, medical incident recorded, sent home or referred, treatment issued",
+      "Parent/guardian, nurse, adviser (if needed)",
+      "SMS (urgent) · Email (visit summary) · In-app (staff)",
+      "rec", "Recommended"],
+    ["Guidance / Consultation",
+      "Consultation requested, appointment scheduled, parent conference, counseling follow-up",
+      "Parent/guardian, counselor, adviser, student",
+      "Email (details) · SMS (reminders) · In-app (task queue)",
+      "rec", "Recommended"],
+    ["HR / Payroll",
+      "Employee profile created, leave submitted/approved, payroll processed, payslip available, approval pending",
+      "Employee, HR, payroll/accounting approver",
+      "Email (payslip, notices) · In-app (approvals) · SMS (urgent only)",
+      "live", "In-app leave approve/reject live; payslip email recommended"],
+    ["User Access / Security",
+      "Account created, role changed, account activated/blocked, delegation assigned, approval authority changed",
+      "Affected user, administrator, approver",
+      "Email (access notice) · In-app (admin/security workflow)",
+      "rec", "Audit trail captures changes; user email recommended"],
+  ];
+
+  const badge = (s) => s === "live"
+    ? `<span class="legend-dot dot-live"></span>`
+    : s === "partial"
+      ? `<span class="legend-dot dot-partial"></span>`
+      : `<span class="legend-dot dot-rec"></span>`;
+
+  return `
+    <div class="doc-page">
+      ${pageHeader(logo, "", "System-wide")}
+      <div class="page-content">
+        <div class="comm-hero">
+          <h2>Communication Automation: SMS, Email &amp; In-App Notifications</h2>
+          <div class="comm-statement">
+            STSN Connect is prepared for communication automation. The current system includes
+            in-app workflow notifications, while SMS and Email delivery can be connected to
+            provider services for production use. Today the platform automatically raises in-app
+            alerts to the right staff at key approval points — assessment approvals, void
+            requests, grade submission and approval, and leave decisions — and broadcasts
+            school-wide announcements. SMS and Email are not yet sent automatically; the trigger
+            map below shows where they would plug in.
+          </div>
+          <div class="comm-legend">
+            <span><span class="legend-dot dot-live"></span> Currently implemented (in-app)</span>
+            <span><span class="legend-dot dot-partial"></span> Partial / mock-only</span>
+            <span><span class="legend-dot dot-rec"></span> Recommended next</span>
+          </div>
+        </div>
+        <table class="comm-table">
+          <thead>
+            <tr>
+              <th style="width:18%">Area</th>
+              <th style="width:30%">Trigger — when a message should fire</th>
+              <th style="width:20%">Recipients</th>
+              <th style="width:22%">Channel</th>
+              <th style="width:10%">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(([area, trig, rec, chan, status, note]) => `
+              <tr>
+                <td class="comm-area">${area}</td>
+                <td>${trig}</td>
+                <td>${rec}</td>
+                <td class="comm-chan">${chan}</td>
+                <td>${badge(status)} ${note}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+      ${pageFooter("Communication Automation", `Page ${pageNum}`)}
+    </div>
+  `;
+}
+
 function buildHTML(logo) {
   const pages = [];
   const seenModules = new Set();
@@ -2504,6 +3114,11 @@ function buildHTML(logo) {
       pageNum++;
     }
   }
+
+  // Dedicated Communication Automation page, appended last so existing module
+  // page positions stay stable for the screenshot-injection pipeline.
+  pages.push(communicationAutomationPage(logo, pageNum));
+  pageNum++;
 
   return `<!DOCTYPE html>
 <html lang="en">

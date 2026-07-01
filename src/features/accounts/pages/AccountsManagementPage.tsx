@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   Award,
   History,
+  KeySquare,
   Lock,
   Mail,
   Shield,
@@ -30,11 +31,17 @@ import AppTabs from "../../../components/common/AppTabs";
 import DrilldownDrawer from "../../../components/common/DrilldownDrawer";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import { useSTSNStore } from "../../../services/store";
+import { usePermissions } from "../../../hooks/usePermissions";
 import type { User, UserRole } from "../../../types";
 import AuditLogPage from "../../admin/pages/AuditLogPage";
 import DelegationManagementPage from "../../admin/pages/DelegationManagementPage";
+import PageAssignmentPage from "./PageAssignmentPage";
 
-export type AccountsSubPage = "user-security" | "delegation-management" | "audit-log";
+export type AccountsSubPage =
+  | "user-security"
+  | "page-assignment"
+  | "delegation-management"
+  | "audit-log";
 
 interface AccountsManagementProps {
   subPage?: AccountsSubPage;
@@ -43,6 +50,7 @@ interface AccountsManagementProps {
 
 const TABS: { id: AccountsSubPage; label: string; icon: React.ElementType }[] = [
   { id: "user-security", label: "User Security", icon: Shield },
+  { id: "page-assignment", label: "Page Assignment", icon: KeySquare },
   { id: "delegation-management", label: "Delegation Mgmt", icon: ArrowRightLeft },
   { id: "audit-log", label: "Audit Log", icon: History },
 ];
@@ -67,6 +75,9 @@ export default function AccountsManagement({
 }: AccountsManagementProps) {
   const { users, toggleUserStatus, addUser } = useSTSNStore();
   const { toast, confirm } = useAppDialog();
+  const { canPage, hasPageAccess } = usePermissions();
+  const canProvision = canPage("ACCOUNTS_SECURITY", "user-security", "create");
+  const canManageUsers = canPage("ACCOUNTS_SECURITY", "user-security", "manage");
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -77,6 +88,8 @@ export default function AccountsManagement({
 
   const activeTab = subPage;
   const setActiveTab = (tab: AccountsSubPage) => onSubPageChange?.(tab);
+  const visibleTabs = TABS.filter((tab) => hasPageAccess("ACCOUNTS_SECURITY", tab.id));
+  const activeTabAccessible = hasPageAccess("ACCOUNTS_SECURITY", activeTab);
 
   const filteredUsers = users.filter((user) =>
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -85,6 +98,10 @@ export default function AccountsManagement({
   );
 
   const handleToggleStatus = async (user: User) => {
+    if (!canManageUsers) {
+      toast("You don't have permission to change user access.", { variant: "warning" });
+      return;
+    }
     const action = user.isActive ? "block" : "restore";
     const ok = await confirm(
       `${user.isActive ? "Block" : "Grant"} access for ${user.name ?? user.email}?\n\nThis will immediately ${
@@ -93,7 +110,7 @@ export default function AccountsManagement({
     );
     if (!ok) return;
 
-    toggleUserStatus(user.email);
+    toggleUserStatus(user.id);
     toast(`Access ${action === "block" ? "blocked" : "granted"} for ${user.email}`, {
       variant: action === "block" ? "warning" : "success",
     });
@@ -166,6 +183,9 @@ export default function AccountsManagement({
       enableGlobalFilter: false,
       cell: ({ row }) => {
         const user = row.original;
+        if (!canManageUsers) {
+          return <span className="text-[10px] text-stone-400 font-mono">—</span>;
+        }
         return (
           <AppButton
             type="button"
@@ -210,22 +230,32 @@ export default function AccountsManagement({
                 </p>
                 <p className="mt-1 text-lg font-semibold text-white">{users.length}</p>
               </div>
-              <AppButton onClick={() => setIsFormOpen(true)} leftIcon={Award}>
-                Provision New Authority
-              </AppButton>
+              {canProvision && (
+                <AppButton onClick={() => setIsFormOpen(true)} leftIcon={Award}>
+                  Provision New Authority
+                </AppButton>
+              )}
             </div>
           ) : undefined
         }
       />
 
       <AppTabs<AccountsSubPage>
-        items={TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+        items={visibleTabs.map((tab) => ({ value: tab.id, label: tab.label }))}
         value={activeTab}
         onChange={setActiveTab}
         variant="pill"
       />
 
-      {activeTab === "user-security" && (
+      {!activeTabAccessible && (
+        <AppCard className="border border-amber-200 bg-amber-50/60">
+          <p className="text-xs text-amber-800">
+            This page is disabled for the current access profile. Grant the matching page assignment to open it.
+          </p>
+        </AppCard>
+      )}
+
+      {activeTabAccessible && activeTab === "user-security" && (
         <AppTable<User>
           data={filteredUsers}
           columns={userColumns}
@@ -261,8 +291,9 @@ export default function AccountsManagement({
         />
       )}
 
-      {activeTab === "delegation-management" && <DelegationManagementPage />}
-      {activeTab === "audit-log" && <AuditLogPage />}
+      {activeTabAccessible && activeTab === "page-assignment" && <PageAssignmentPage />}
+      {activeTabAccessible && activeTab === "delegation-management" && <DelegationManagementPage />}
+      {activeTabAccessible && activeTab === "audit-log" && <AuditLogPage />}
 
       <AppModal
         open={isFormOpen}
@@ -374,32 +405,34 @@ export default function AccountsManagement({
               </dl>
             </AppCard>
 
-            <div className="space-y-2">
-              <AppButton
-                onClick={() => handleToggleStatus(selectedUser)}
-                fullWidth
-                variant={selectedUser.isActive ? "danger-outline" : "secondary"}
-                size="sm"
-                className={
-                  selectedUser.isActive ? "" : "text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200"
-                }
-              >
-                {selectedUser.isActive ? (
-                  <>
-                    <Lock className="w-3.5 h-3.5" /> Block Access
-                  </>
-                ) : (
-                  <>
-                    <Unlock className="w-3.5 h-3.5" /> Grant Access
-                  </>
-                )}
-              </AppButton>
-              <p className="text-[10px] text-stone-400 text-center leading-snug">
-                {selectedUser.isActive
-                  ? "Blocking prevents this user from signing in immediately."
-                  : "Granting access allows this user to sign in again."}
-              </p>
-            </div>
+            {canManageUsers && (
+              <div className="space-y-2">
+                <AppButton
+                  onClick={() => handleToggleStatus(selectedUser)}
+                  fullWidth
+                  variant={selectedUser.isActive ? "danger-outline" : "secondary"}
+                  size="sm"
+                  className={
+                    selectedUser.isActive ? "" : "text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200"
+                  }
+                >
+                  {selectedUser.isActive ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5" /> Block Access
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5" /> Grant Access
+                    </>
+                  )}
+                </AppButton>
+                <p className="text-[10px] text-stone-400 text-center leading-snug">
+                  {selectedUser.isActive
+                    ? "Blocking prevents this user from signing in immediately."
+                    : "Granting access allows this user to sign in again."}
+                </p>
+              </div>
+            )}
 
             <AppCard className="border border-[var(--erp-border)]">
               <h3 className="text-[10px] font-mono font-bold uppercase text-stone-400 mb-2 flex items-center gap-1.5">
