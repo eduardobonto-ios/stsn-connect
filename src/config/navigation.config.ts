@@ -3,7 +3,7 @@ import {
   Shield, BarChart3, Building2, CalendarDays, Layers, Settings, UserCheck, Wallet,
   List, FileText, Truck, Package, Receipt, TrendingUp, TrendingDown, Scale, PieChart, Activity,
   Percent, Lock, ClipboardList, BookMarked, Banknote, Stethoscope, NotebookPen, PhoneCall,
-  UsersRound, Clock, FileCheck, Award, Briefcase, History
+  UsersRound, Clock, FileCheck, Award, Briefcase, History, Library
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { UserRole } from "../types";
@@ -136,6 +136,13 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "queue",   label: "Payment Queue",      icon: Receipt,   desc: "Approved assessments awaiting payment" },
       { id: "history", label: "Collection History", icon: History,   desc: "Posted payments & official receipts" },
       { id: "reports", label: "Reports",            icon: BarChart3, desc: "Cashiering reports & summaries" },
+    ],
+  },
+  {
+    id: "BOOKS_SETUP", label: "Books & Library", icon: Library, desc: "Book packages & lending library",
+    children: [
+      { id: "book-packages",  label: "Book Packages",  icon: Package, desc: "Fee assessment book bundles",             targetModule: "BOOKS_SETUP" },
+      { id: "library-system", label: "Library System",  icon: Library, desc: "Catalog, borrowing, returns & fines",     targetModule: "LIBRARY_SYSTEM" },
     ],
   },
   {
