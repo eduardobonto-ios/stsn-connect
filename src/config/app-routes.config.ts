@@ -4,7 +4,7 @@
  */
 
 import type { UserRole } from "../types";
-import type { STSNModule } from "./navigation.config";
+import type { STSNModule, NavItem, NavSubItem } from "./navigation.config";
 
 export interface AppRouteState {
   module: STSNModule;
@@ -120,6 +120,55 @@ export function getPathForModule(
     default:
       return "/dashboard";
   }
+}
+
+/**
+ * Resolves the route path of the first navigable leaf in an already
+ * RBAC-filtered navigation tree (the sidebar items produced by
+ * getNavItemsForRole + per-page access filtering).
+ *
+ * Used to pick the landing page for a freshly logged-in user so the app never
+ * reuses the previous user's route. Walks items in menu order and returns the
+ * first item/child the user can actually open. Returns null when the user has
+ * no accessible modules (caller should render a "No accessible modules" state).
+ *
+ * The traversal mirrors App.tsx's click handlers:
+ *   - a plain top-level item navigates to its own module,
+ *   - a category-group child (targetModule) navigates to that module
+ *     (CORE_SETUP additionally carries the child id as its sub-page),
+ *   - a plain sub-page child navigates to the parent module + child id,
+ *   - nested groups recurse into their children,
+ *   - section headers (isSection) are skipped.
+ */
+function firstLeafRoute(moduleId: STSNModule, child: NavSubItem): string | null {
+  if (child.isSection) return null;
+  if (child.targetModule) {
+    return getPathForModule(
+      child.targetModule,
+      child.targetModule === "CORE_SETUP" ? { subPage: child.id } : undefined,
+    );
+  }
+  if (child.children?.length) {
+    for (const nested of child.children) {
+      const path = firstLeafRoute(moduleId, nested);
+      if (path) return path;
+    }
+    return null;
+  }
+  return getPathForModule(moduleId, { subPage: child.id });
+}
+
+export function getFirstAllowedRoute(items: NavItem[]): string | null {
+  for (const item of items) {
+    if (!item.children || item.children.length === 0) {
+      return getPathForModule(item.id);
+    }
+    for (const child of item.children) {
+      const path = firstLeafRoute(item.id, child);
+      if (path) return path;
+    }
+  }
+  return null;
 }
 
 export function resolveAppRoute(pathname: string, search = ""): AppRouteState | null {
