@@ -19,6 +19,8 @@ export interface RoleDefinition {
  */
 export const ROLES: RoleDefinition[] = [
   { id: "super-admin", label: "Super Admin", description: "Full system access; can switch or simulate both school contexts" },
+  { id: "admin", label: "Administrator", description: "Operational oversight; excludes accounting, payroll, cashier and setup" },
+  { id: "principal", label: "Principal", description: "Academic oversight: grading, curriculum, faculty and scheduling" },
   { id: "registrar", label: "Registrar", description: "Manages enrollment, records and academic structure" },
   { id: "accounting", label: "Accounting", description: "Manages billing, ledgers and payments" },
   { id: "cashier", label: "Cashier", description: "Accepts payments and issues official receipts for approved assessments" },

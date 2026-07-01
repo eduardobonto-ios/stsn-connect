@@ -230,8 +230,17 @@ export const NAV_ITEMS: NavItem[] = [
  * that logic across page components. No module is currently academic-unit
  * restricted — both basic-ed and college contexts share the same module set.
  */
-export function getAllowedModules(role: UserRole, _academicUnit?: AcademicUnit): STSNModule[] {
-  return getPermissionsForRole(role);
+export function getAllowedModules(
+  role: UserRole,
+  _academicUnit?: AcademicUnit,
+  /**
+   * Effective module set resolved from the RBAC catalog (usePermissions /
+   * effectivePermissions). When provided it overrides the hardcoded role map;
+   * when omitted (DB empty / fallback) we keep the legacy role-based behavior.
+   */
+  allowedOverride?: STSNModule[],
+): STSNModule[] {
+  return allowedOverride ?? getPermissionsForRole(role);
 }
 
 /**
@@ -242,8 +251,12 @@ export function getAllowedModules(role: UserRole, _academicUnit?: AcademicUnit):
  * access to the parent module OR at least one child's targetModule. Children
  * are individually filtered by the user's allowed modules.
  */
-export function getNavItemsForRole(role: UserRole, academicUnit?: AcademicUnit): NavItem[] {
-  const allowed = getAllowedModules(role, academicUnit);
+export function getNavItemsForRole(
+  role: UserRole,
+  academicUnit?: AcademicUnit,
+  allowedOverride?: STSNModule[],
+): NavItem[] {
+  const allowed = getAllowedModules(role, academicUnit, allowedOverride);
 
   return NAV_ITEMS
     .filter((item) => {

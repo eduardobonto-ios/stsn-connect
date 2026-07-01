@@ -26,6 +26,7 @@ import AppCard from "../../../components/common/AppCard";
 import AppSearchInput from "../../../components/common/AppSearchInput";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useSTSNStore } from "../../../services/store";
+import { usePermissions } from "../../../hooks/usePermissions";
 import HRDashboardPage from "./sub-pages/HRDashboardPage";
 import EmployeeLifecyclePage from "./sub-pages/EmployeeLifecyclePage";
 import TimeManagementPage from "./sub-pages/TimeManagementPage";
@@ -108,6 +109,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
   const [activeGroup, setActiveGroup] = useState<HRModuleGroup | "All">("All");
   const [searchQuery, setSearchQuery] = useState("");
   const activeSectionRef = useRef<HTMLDivElement>(null);
+  const { hasPageAccess } = usePermissions();
 
   const effectiveSchool = currentUser?.schoolId ?? (activeSchool !== "ALL" ? activeSchool : undefined);
 
@@ -288,6 +290,8 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
   );
 
   const activeModule = modules.find((module) => module.id === subPage) ?? modules[0];
+  const visibleModules = modules.filter((module) => hasPageAccess("HR_MANAGEMENT", module.id));
+  const activeModuleAccessible = hasPageAccess("HR_MANAGEMENT", subPage);
 
   const focusActiveSection = () => {
     const frameId = window.requestAnimationFrame(() => {
@@ -317,7 +321,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
     return () => window.cancelAnimationFrame(frameId);
   }, [subPage]);
 
-  const visibleModules = modules.filter((module) => {
+  const filteredVisibleModules = visibleModules.filter((module) => {
     const matchesGroup = activeGroup === "All" || module.group === activeGroup;
     const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
@@ -398,7 +402,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
               </div>
 
               <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {visibleModules.map((module) => {
+                {filteredVisibleModules.map((module) => {
                   const Icon = module.icon;
                   const isActive = module.id === activeModule.id;
                   return (
@@ -469,6 +473,15 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
         </div>
       </AppCard>
 
+      {!activeModuleAccessible && (
+        <AppCard className="border border-amber-200 bg-amber-50/60">
+          <p className="text-xs text-amber-800">
+            This HR page is disabled for the current access profile.
+          </p>
+        </AppCard>
+      )}
+
+      {activeModuleAccessible && (
       <div
         ref={activeSectionRef}
         tabIndex={-1}
@@ -489,6 +502,7 @@ export default function HRManagement({ subPage, onSubPageChange }: Props) {
         {subPage === "recruitment" && <RecruitmentPage />}
         {subPage === "onboarding" && <OnboardingPage />}
       </div>
+      )}
     </div>
   );
 }

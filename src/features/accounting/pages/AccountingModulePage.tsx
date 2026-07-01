@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useSTSNStore } from "../../../services/store";
+import { usePermissions } from "../../../hooks/usePermissions";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import { DiscountRequest, DiscountType } from "../../../types";
 import {
@@ -1339,6 +1340,10 @@ function DiscountManagement() {
     discountTypes, discountRequests, students, assessments, currentUser,
     addDiscountRequest, approveDiscountRequest, rejectDiscountRequest,
   } = useSTSNStore();
+  const { toast: dialogToast } = useAppDialog();
+  const { canPage } = usePermissions();
+  const canApproveDiscounts = canPage("ACCOUNTING", "discounts", "approve");
+  const canRejectDiscounts = canPage("ACCOUNTING", "discounts", "reject");
 
   const [searchRequests, setSearchRequests] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -1388,8 +1393,16 @@ function DiscountManagement() {
   const handleApproval = () => {
     if (!approvalModal) return;
     if (approvalModal.action === "approve") {
+      if (!canApproveDiscounts) {
+        dialogToast("You don't have permission to approve discounts.", { variant: "warning" });
+        return;
+      }
       approveDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
     } else {
+      if (!canRejectDiscounts) {
+        dialogToast("You don't have permission to reject discounts.", { variant: "warning" });
+        return;
+      }
       rejectDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
     }
     setApprovalModal(null);
@@ -1877,6 +1890,8 @@ function AssessmentApproval() {
     bookPackages,
   } = useSTSNStore();
   const { confirm, prompt, toast: dialogToast } = useAppDialog();
+  const { canPage } = usePermissions();
+  const canApproveBilling = canPage("ACCOUNTING", "billing", "approve");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1936,6 +1951,10 @@ function AssessmentApproval() {
   const closeDetail = () => { setSelectedId(null); setActionModal(null); setRemarks(""); };
 
   const handleBulkApprove = async () => {
+    if (!canApproveBilling) {
+      dialogToast("You don't have permission to approve assessments.", { variant: "warning" });
+      return;
+    }
     if (selectedQueueRows.length === 0) return;
     const count = selectedQueueRows.length;
     const ok = await confirm(`Approve ${count} selected assessment${count > 1 ? "s" : ""} for payment?`, { title: "Bulk Approve Assessments", confirmText: "Approve All", variant: "success" });
@@ -1958,6 +1977,10 @@ function AssessmentApproval() {
 
   const handleConfirmAction = () => {
     if (!selected || !actionModal) return;
+    if ((actionModal === "approve" || actionModal === "reject") && !canApproveBilling) {
+      dialogToast("You don't have permission to approve or reject assessments.", { variant: "warning" });
+      return;
+    }
     const by = currentUser?.name || "Accounting Office";
     if (actionModal === "approve") approveAssessment(selected.assessment.id, by, remarks);
     if (actionModal === "return") returnAssessmentToRegistrar(selected.assessment.id, by, remarks);
@@ -2578,8 +2601,20 @@ interface AccountingModuleProps {
 }
 
 export default function AccountingModule({ subPage = "dashboard", onSubPageChange }: AccountingModuleProps) {
+  const { hasPageAccess } = usePermissions();
   const isLegacyTab = LEGACY_TABS.includes(subPage as AccountingTab);
   const activeTab = isLegacyTab ? (subPage as AccountingTab) : "dashboard";
+  const activePageAccessible = hasPageAccess("ACCOUNTING", subPage);
+
+  if (!activePageAccessible) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+        <p className="text-xs text-amber-800">
+          This accounting page is disabled for the current access profile.
+        </p>
+      </div>
+    );
+  }
 
   if (!isLegacyTab) {
     return (

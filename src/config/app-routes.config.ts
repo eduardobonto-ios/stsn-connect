@@ -57,6 +57,8 @@ export function getPathForModule(
   const subPage = options?.subPage;
 
   switch (module) {
+    case "MY_PROFILE":
+      return "/profile";
     case "DASHBOARD":
       return "/dashboard";
     case "ACTION_CENTER":
@@ -128,6 +130,9 @@ export function resolveAppRoute(pathname: string, search = ""): AppRouteState | 
 
   if (normalizedPath === "/") return null;
 
+  if (normalizedPath === "/profile") {
+    return { module: "MY_PROFILE", isKnownPath: true, canonicalPath: "/profile" };
+  }
   if (normalizedPath === "/dashboard") {
     return { module: "DASHBOARD", isKnownPath: true, canonicalPath: "/dashboard" };
   }
