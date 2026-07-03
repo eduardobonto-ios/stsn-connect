@@ -366,7 +366,7 @@ export default function LoginOverlay() {
         <div className="flex justify-between items-center z-10">
           <div className="text-[11px] font-mono tracking-widest text-stsn-gold-light/75 uppercase uppercase font-semibold flex items-center gap-1.5">
             <Landmark className="w-3.5 h-3.5" />
-            Established 1998 • Novaliches, Quezon City
+            Established 1990 • Novaliches, Quezon City
           </div>
           <span className="bg-stsn-cream/10 border border-stsn-cream/20 rounded-full px-3 py-1 text-[10px] font-semibold text-stsn-gold-light tracking-wide">
             Enterprise Client Presentation SY 2026-2027
