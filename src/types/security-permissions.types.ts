@@ -24,11 +24,12 @@ export type SecurityAction =
   | "post"
   | "import"
   | "manage"
+  | "enroll"
   | "audit";
 
 export const SECURITY_ACTIONS: SecurityAction[] = [
   "view", "create", "edit", "delete", "export", "print",
-  "approve", "reject", "void", "post", "import", "manage", "audit",
+  "approve", "reject", "void", "post", "import", "manage", "enroll", "audit",
 ];
 
 export const SECURITY_ACTION_LABELS: Record<SecurityAction, string> = {
@@ -44,6 +45,7 @@ export const SECURITY_ACTION_LABELS: Record<SecurityAction, string> = {
   post: "Post",
   import: "Import",
   manage: "Manage",
+  enroll: "Enroll",
   audit: "Audit",
 };
 

@@ -23,7 +23,7 @@ const ROLE_TABS: Partial<Record<UserRole, BottomNavTab[]>> = {
   TEACHER: [
     { label: "Grades", icon: ClipboardList, module: "FACULTY_PORTAL", subPage: "student-grades-encoding" },
     { label: "Classes", icon: CalendarDays, module: "FACULTY_PORTAL", subPage: "class-schedule-subjects" },
-    { label: "Learning", icon: Bell, module: "ONLINE_LEARNING" },
+    { label: "Learning", icon: Bell, module: "LMS", subPage: "courses" },
     { label: "Profile", icon: User, module: "FACULTY_PORTAL", subPage: "faculty-profile" },
   ],
   CASHIER: [

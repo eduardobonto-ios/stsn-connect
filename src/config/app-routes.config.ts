@@ -10,6 +10,7 @@ export interface AppRouteState {
   module: STSNModule;
   subPage?: string;
   studentId?: string;
+  courseId?: string;
   isKnownPath: boolean;
   canonicalPath: string;
 }
@@ -17,6 +18,12 @@ export interface AppRouteState {
 function withQuery(path: string, studentId?: string): string {
   if (!studentId) return path;
   const params = new URLSearchParams({ studentId });
+  return `${path}?${params.toString()}`;
+}
+
+function withCourseQuery(path: string, courseId?: string): string {
+  if (!courseId) return path;
+  const params = new URLSearchParams({ courseId });
   return `${path}?${params.toString()}`;
 }
 
@@ -52,7 +59,7 @@ export function getDefaultRouteForRole(role: UserRole): string {
 
 export function getPathForModule(
   module: STSNModule,
-  options?: { subPage?: string; studentId?: string },
+  options?: { subPage?: string; studentId?: string; courseId?: string },
 ): string {
   const subPage = options?.subPage;
 
@@ -97,8 +104,8 @@ export function getPathForModule(
       return "/scheduling";
     case "CLASS_SECTIONING":
       return "/class-sectioning";
-    case "ONLINE_LEARNING":
-      return "/online-learning";
+    case "LMS":
+      return withCourseQuery(`/lms/${subPage ?? "dashboard"}`, options?.courseId);
     case "BOOKS_SETUP":
       return "/books-setup";
     case "LIBRARY_SYSTEM":
@@ -284,8 +291,16 @@ export function resolveAppRoute(pathname: string, search = ""): AppRouteState | 
   if (normalizedPath === "/class-sectioning") {
     return { module: "CLASS_SECTIONING", isKnownPath: true, canonicalPath: "/class-sectioning" };
   }
-  if (normalizedPath === "/online-learning") {
-    return { module: "ONLINE_LEARNING", isKnownPath: true, canonicalPath: "/online-learning" };
+  if (segments[0] === "lms") {
+    const subPage = segments[1] ?? "dashboard";
+    const courseId = params.get("courseId") ?? undefined;
+    return {
+      module: "LMS",
+      subPage,
+      courseId,
+      isKnownPath: true,
+      canonicalPath: getPathForModule("LMS", { subPage, courseId }),
+    };
   }
   if (normalizedPath === "/books-setup") {
     return { module: "BOOKS_SETUP", isKnownPath: true, canonicalPath: "/books-setup" };
