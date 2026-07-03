@@ -8,6 +8,9 @@ import type { CanonicalRole } from "../types/role.types";
 import { toCanonicalRole } from "../types/role.types";
 
 export type STSNModule =
+  // Module launcher grid — like MY_PROFILE, always reachable regardless of
+  // RBAC and intentionally absent from every ROLE_PERMISSIONS entry below.
+  | "HOME"
   | "MY_PROFILE"
   | "DASHBOARD"
   | "ACTION_CENTER"
@@ -81,6 +84,7 @@ export function getPermissionsForRole(role: UserRole): Permission[] {
  * group `security_permissions` rows (which only carry per-permission labels).
  */
 export const MODULE_LABELS: Record<STSNModule, string> = {
+  HOME: "Home",
   MY_PROFILE: "My Profile",
   DASHBOARD: "Dashboard",
   ACTION_CENTER: "Action Center",

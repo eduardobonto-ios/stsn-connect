@@ -487,7 +487,7 @@ function EnrollmentAnalyticsPage({
 // MAIN DASHBOARD — school overview (matches 2nd image design)
 // ============================================================
 export default function Dashboard({
-  onViewStudentList
+  onViewStudentList,
 }: {
   onViewStudentList?: () => void;
 } = {}) {
