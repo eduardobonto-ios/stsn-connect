@@ -27,6 +27,7 @@
     "node_modules",
     "dist",
     "Desktop",
-    "scripts"
+    "scripts",
+    "tests"
   ]
 }
