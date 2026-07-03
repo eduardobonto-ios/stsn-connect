@@ -159,6 +159,10 @@ export default function App() {
     activeModule === "LIBRARY_SYSTEM"
       ? (currentRoute?.subPage ?? "dashboard")
       : "dashboard";
+  const lmsSubPage =
+    activeModule === "LMS" ? (currentRoute?.subPage ?? "dashboard") : "dashboard";
+  const lmsCourseId =
+    activeModule === "LMS" ? currentRoute?.courseId : undefined;
   const accountsSubPage =
     activeModule === "ACCOUNTS_SECURITY"
       ? ((currentRoute?.subPage as
@@ -194,7 +198,7 @@ export default function App() {
       CORE_SETUP: "Core Setup",
       SCHEDULING: "Class Scheduling",
       CLASS_SECTIONING: "Class Sectioning",
-      ONLINE_LEARNING: "Online Learning",
+      LMS: "Learning Management",
       BOOKS_SETUP: "Books & Library",
       LIBRARY_SYSTEM: "Library System",
       CASHIER: "Cashier",
@@ -236,6 +240,12 @@ export default function App() {
       "user-security": "User Security",
       "delegation-management": "Delegation Management",
       "audit-log": "Audit Log",
+      courses: "Course Catalog",
+      progress: "My Progress",
+      assessments: "Assessments",
+      exams: "Exam Center",
+      "question-builder": "Question Builder",
+      "teacher-board": "Teacher Board",
     };
     const modLabel = moduleLabel[activeModule];
     if (modLabel) crumbs.push({ label: modLabel });
@@ -252,6 +262,8 @@ export default function App() {
               ? cashierSubPage
               : activeModule === "LIBRARY_SYSTEM"
                 ? librarySubPage
+              : activeModule === "LMS"
+                ? lmsSubPage
               : activeModule === "ACCOUNTS_SECURITY"
                 ? accountsSubPage
                 : null;
@@ -975,6 +987,8 @@ export default function App() {
               payrollSubPage={payrollSubPage}
               cashierSubPage={cashierSubPage}
               librarySubPage={librarySubPage}
+              lmsSubPage={lmsSubPage}
+              lmsCourseId={lmsCourseId}
               accountsSubPage={accountsSubPage}
               portalStudentId={portalStudentId}
               onDashboardNavigate={() => navigateToModule("REGISTRAR")}
@@ -996,6 +1010,10 @@ export default function App() {
               }
               onLibrarySubPageChange={(subPage) =>
                 navigateToModule("LIBRARY_SYSTEM", subPage)
+              }
+              onLmsSubPageChange={(subPage) => navigateToModule("LMS", subPage)}
+              onLmsCourseChange={(courseId) =>
+                navigate(getPathForModule("LMS", { subPage: "courses", courseId }))
               }
               onAccountsSubPageChange={(subPage) =>
                 navigateToModule("ACCOUNTS_SECURITY", subPage)

@@ -167,7 +167,18 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "enrollment", label: "Enrollment",           icon: ClipboardList, desc: "Self-service enrollment", showForRoles: ["STUDENT"] },
     ],
   },
-  { id: "ONLINE_LEARNING",  label: "Online Learning",         icon: BarChart3,     desc: "LMS • Videos & modules" },
+  {
+    id: "LMS", label: "Learning Management", icon: GraduationCap, desc: "Courses, lessons & progress",
+    children: [
+      { id: "dashboard",        label: "LMS Dashboard",   icon: LayoutDashboard, desc: "Learning overview & activity" },
+      { id: "courses",          label: "Course Catalog",   icon: BookOpen,        desc: "Browse & enroll in courses" },
+      { id: "progress",         label: "My Progress",      icon: TrendingUp,      desc: "Completion & performance" },
+      { id: "assessments",      label: "Assessments",      icon: ClipboardList,   desc: "Assignments, quizzes & exams" },
+      { id: "exams",            label: "Exam Center",      icon: FileText,        desc: "Upcoming exams & results" },
+      { id: "question-builder", label: "Question Builder", icon: NotebookPen,     desc: "Create & manage assessments" },
+      { id: "teacher-board",    label: "Teacher Board",    icon: ClipboardList,   desc: "Content management dashboard" },
+    ],
+  },
   {
     id: "HR_MANAGEMENT", label: "HR", icon: Users, desc: "Human resources management",
     children: [
