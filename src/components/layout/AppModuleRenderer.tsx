@@ -24,7 +24,7 @@ const FacultyPortal = lazy(() => import("../../features/faculty/pages/FacultyPor
 const FacultyAdminPage = lazy(() => import("../../features/faculty/pages/FacultyAdminPage"));
 const CoreSetupModule = lazy(() => import("../../features/core-setup/pages/CoreSetupModulePage"));
 const SchedulingModule = lazy(() => import("../../features/scheduling/pages/SchedulingModulePage"));
-const OnlineLearning = lazy(() => import("../../features/online-learning/pages/OnlineLearningPage"));
+const LmsModulePage = lazy(() => import("../../features/lms/pages/LmsModulePage"));
 const ClassSectioningModule = lazy(() => import("../../features/class-sectioning/pages/ClassSectioningModulePage"));
 const BooksSetupPage = lazy(() => import("../../features/books/pages/BooksSetupPage"));
 const LibraryModulePage = lazy(() => import("../../features/library/pages/LibraryModulePage"));
@@ -50,6 +50,8 @@ interface AppModuleRendererProps {
   payrollSubPage: string;
   cashierSubPage: string;
   librarySubPage: string;
+  lmsSubPage: string;
+  lmsCourseId?: string;
   accountsSubPage: "user-security" | "page-assignment" | "delegation-management" | "audit-log";
   portalStudentId?: string;
   onDashboardNavigate: () => void;
@@ -60,6 +62,8 @@ interface AppModuleRendererProps {
   onHrSubPageChange: (subPage: string) => void;
   onCashierSubPageChange: (subPage: string) => void;
   onLibrarySubPageChange: (subPage: string) => void;
+  onLmsSubPageChange: (subPage: string) => void;
+  onLmsCourseChange: (courseId?: string) => void;
   onAccountsSubPageChange: (subPage: "user-security" | "delegation-management" | "audit-log") => void;
 }
 
@@ -84,7 +88,7 @@ const RENDERED_MODULE_IDS: STSNModule[] = [
   "CORE_SETUP",
   "SCHEDULING",
   "CLASS_SECTIONING",
-  "ONLINE_LEARNING",
+  "LMS",
   "BOOKS_SETUP",
   "LIBRARY_SYSTEM",
   "CASHIER",
@@ -121,6 +125,8 @@ export default function AppModuleRenderer({
   payrollSubPage,
   cashierSubPage,
   librarySubPage,
+  lmsSubPage,
+  lmsCourseId,
   accountsSubPage,
   portalStudentId,
   onDashboardNavigate,
@@ -131,6 +137,8 @@ export default function AppModuleRenderer({
   onHrSubPageChange,
   onCashierSubPageChange,
   onLibrarySubPageChange,
+  onLmsSubPageChange,
+  onLmsCourseChange,
   onAccountsSubPageChange,
 }: AppModuleRendererProps) {
   const isSharedAuthenticatedPage = activeModule === "MY_PROFILE";
@@ -206,8 +214,15 @@ export default function AppModuleRenderer({
           allowedModules.includes("CLASS_SECTIONING") && (
             <ClassSectioningModule />
           )}
-        {activeModule === "ONLINE_LEARNING" &&
-          allowedModules.includes("ONLINE_LEARNING") && <OnlineLearning />}
+        {activeModule === "LMS" &&
+          allowedModules.includes("LMS") && (
+            <LmsModulePage
+              subPage={lmsSubPage}
+              courseId={lmsCourseId}
+              onSubPageChange={onLmsSubPageChange}
+              onCourseChange={onLmsCourseChange}
+            />
+          )}
         {activeModule === "BOOKS_SETUP" &&
           allowedModules.includes("BOOKS_SETUP") && <BooksSetupPage />}
         {activeModule === "LIBRARY_SYSTEM" &&
