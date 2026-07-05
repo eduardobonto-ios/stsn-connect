@@ -8,6 +8,9 @@ import type { CanonicalRole } from "../types/role.types";
 import { toCanonicalRole } from "../types/role.types";
 
 export type STSNModule =
+  // Module launcher grid — like MY_PROFILE, always reachable regardless of
+  // RBAC and intentionally absent from every ROLE_PERMISSIONS entry below.
+  | "HOME"
   | "MY_PROFILE"
   | "DASHBOARD"
   | "ACTION_CENTER"
@@ -40,12 +43,12 @@ export type STSNModule =
   | "PAYROLL_MANAGEMENT"
   | "GUARDIAN_PORTAL";
 
-/** A permission is module-level access. Permission checks are role-only â€” never academic-unit-only. */
+/** A permission is module-level access. Permission checks are role-only — never academic-unit-only. */
 export type Permission = STSNModule;
 
 /**
  * Module access granted to each canonical role.
- * This is PERMISSION (role-based) â€” keep separate from academic-unit behavior
+ * This is PERMISSION (role-based) — keep separate from academic-unit behavior
  * (grading schemes, enrollment structure, profile labels, etc).
  */
 export const ROLE_PERMISSIONS: Record<CanonicalRole, Permission[]> = {
@@ -69,7 +72,7 @@ export const ROLE_PERMISSIONS: Record<CanonicalRole, Permission[]> = {
 
 /**
  * Resolves the module permissions for a user's role.
- * Permission checks are intentionally role-only â€” academic unit must never
+ * Permission checks are intentionally role-only — academic unit must never
  * gate module *access*, only the academic structure/workflow shown inside a module.
  */
 export function getPermissionsForRole(role: UserRole): Permission[] {
@@ -81,6 +84,7 @@ export function getPermissionsForRole(role: UserRole): Permission[] {
  * group `security_permissions` rows (which only carry per-permission labels).
  */
 export const MODULE_LABELS: Record<STSNModule, string> = {
+  HOME: "Home",
   MY_PROFILE: "My Profile",
   DASHBOARD: "Dashboard",
   ACTION_CENTER: "Action Center",

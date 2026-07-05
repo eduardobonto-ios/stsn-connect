@@ -242,6 +242,29 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 /**
+ * Finds the top-level nav item ("module group") that owns the given active
+ * module — either the item itself, or an ancestor whose nested children
+ * include a `targetModule` match (category-group pattern, e.g. Admission's
+ * "Students" child routes to STUDENT_DIRECTORY but still belongs to Admission).
+ * Used to drive the module-scoped sidebar submenu.
+ */
+export function findNavGroupForModule(
+  items: NavItem[],
+  moduleId: STSNModule,
+): NavItem | undefined {
+  const containsModule = (children: NavSubItem[]): boolean =>
+    children.some(
+      (c) =>
+        c.targetModule === moduleId ||
+        (c.children ? containsModule(c.children) : false),
+    );
+  return items.find(
+    (item) =>
+      item.id === moduleId || (item.children && containsModule(item.children)),
+  );
+}
+
+/**
  * Resolves the navigation items visible to a user.
  * Filtering is by ROLE (permissions) first; academicUnit is accepted so that
  * future academic-unit-specific modules can be gated here without scattering

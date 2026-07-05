@@ -53,7 +53,7 @@ export function getDefaultRouteForRole(role: UserRole): string {
     case "GUARDIAN":
       return getPathForModule("GUARDIAN_PORTAL");
     default:
-      return getPathForModule("DASHBOARD");
+      return getPathForModule("HOME");
   }
 }
 
@@ -64,6 +64,8 @@ export function getPathForModule(
   const subPage = options?.subPage;
 
   switch (module) {
+    case "HOME":
+      return "/";
     case "MY_PROFILE":
       return "/profile";
     case "DASHBOARD":
@@ -186,7 +188,9 @@ export function resolveAppRoute(pathname: string, search = ""): AppRouteState | 
   const studentId = params.get("studentId") ?? undefined;
   const segments = normalizedPath.split("/").filter(Boolean);
 
-  if (normalizedPath === "/") return null;
+  if (normalizedPath === "/") {
+    return { module: "HOME", isKnownPath: true, canonicalPath: "/" };
+  }
 
   if (normalizedPath === "/profile") {
     return { module: "MY_PROFILE", isKnownPath: true, canonicalPath: "/profile" };

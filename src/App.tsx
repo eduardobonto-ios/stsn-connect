@@ -13,6 +13,8 @@ import {
   Menu,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  ArrowLeft,
   School,
   Search,
 } from "lucide-react";
@@ -22,6 +24,7 @@ import {
   STSNModule,
   getAllowedModules,
   getNavItemsForRole,
+  findNavGroupForModule,
   SIDEBAR_MODE,
   type NavSubItem,
   type NavItem,
@@ -47,6 +50,7 @@ import MobileBottomNav, {
 } from "./components/common/MobileBottomNav";
 import type { NavigateTarget } from "./components/common/ApprovalInbox";
 import AppModuleRenderer from "./components/layout/AppModuleRenderer";
+import ModuleGrid from "./components/layout/ModuleGrid";
 
 // Hooks
 import { usePendingCounts } from "./hooks/usePendingCounts";
@@ -92,9 +96,6 @@ export default function App() {
   const counts = usePendingCounts();
   const { hasPageAccess } = usePermissions();
   const currentRole = currentUser?.role ?? "SUPER_ADMIN";
-  const [expandedModule, setExpandedModule] = useState<STSNModule | null>(
-    "DASHBOARD",
-  );
   const [expandedAccountingGroups, setExpandedAccountingGroups] = useState<
     string[]
   >([]);
@@ -102,6 +103,13 @@ export default function App() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem("stsn-sidebar-collapsed") === "1",
+  );
+
+  useEffect(() => {
+    localStorage.setItem("stsn-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     initialize();
@@ -273,7 +281,7 @@ export default function App() {
     return crumbs;
   })();
 
-  // Keyboard shortcuts â€” only when logged in
+  // Keyboard shortcuts — only when logged in
   useKeyboardShortcuts({
     "Ctrl+k": () => setGlobalSearchOpen(true),
     "Meta+k": () => setGlobalSearchOpen(true),
@@ -347,6 +355,24 @@ export default function App() {
     [renderedSidebarItems],
   );
 
+  // The top-level nav item ("module group") that owns the active module —
+  // drives the contextual, module-scoped sidebar submenu. The Dashboard icon
+  // grid is the main menu now, so the sidebar only ever shows one group's
+  // children at a time instead of the full module tree.
+  const activeNavGroup = useMemo(
+    () => findNavGroupForModule(renderedSidebarItems, activeModule),
+    [renderedSidebarItems, activeModule],
+  );
+
+  // Tiles shown on the Home module launcher grid — every allowed top-level
+  // module, including Dashboard (it's just another destination now).
+  const moduleGridItems = renderedSidebarItems;
+
+  const isHomeEligible = allowedModules.includes("DASHBOARD");
+  const homeModule: STSNModule = isHomeEligible
+    ? "HOME"
+    : (renderedSidebarItems[0]?.id ?? "HOME");
+
   // When logged out, drop any previous-user route so the next login starts
   // from a neutral path ("/") instead of the stale page still in the URL.
   useEffect(() => {
@@ -357,9 +383,10 @@ export default function App() {
   }, [currentUser, isLoading, location.pathname, navigate]);
 
   // Keep the URL in sync with the signed-in user's access. On login (URL reset
-  // to "/" by logout, so currentRoute is null) this lands the user on their
-  // first allowed menu item â€” never the previous user's page. Known, still-valid
-  // deep links are preserved so hard refresh and direct-URL RBAC keep working.
+  // to "/" by logout) this lands the user on the Home launcher grid if their
+  // role can see it, otherwise their first allowed menu item — never the
+  // previous user's page. Known, still-valid deep links are preserved so hard
+  // refresh and direct-URL RBAC keep working.
   useEffect(() => {
     if (!currentUser || isLoading) return;
 
@@ -368,9 +395,11 @@ export default function App() {
     const targetPath =
       currentRoute === null
         ? defaultTarget
-        : currentRoute.isKnownPath
-          ? currentRoute.canonicalPath
-          : defaultTarget;
+        : currentRoute.module === "HOME"
+          ? (isHomeEligible ? "/" : defaultTarget)
+          : currentRoute.isKnownPath
+            ? currentRoute.canonicalPath
+            : defaultTarget;
 
     const currentFullPath = `${location.pathname}${location.search}`;
     if (currentFullPath !== targetPath) {
@@ -380,6 +409,7 @@ export default function App() {
     currentUser,
     currentRoute,
     firstAllowedRoute,
+    isHomeEligible,
     isLoading,
     location.pathname,
     location.search,
@@ -411,6 +441,30 @@ export default function App() {
       navigateToModule(module, childId);
     } else {
       navigateToModule(module, childId);
+    }
+  };
+
+  // Resolves the active sub-page id for a module's own (non-category-group)
+  // children — e.g. Payroll's "Salary Payouts" is a subPage of PAYROLL_MANAGEMENT
+  // itself, not a separate targetModule.
+  const getActiveSubPageForGroup = (moduleId: STSNModule): string | undefined => {
+    switch (moduleId) {
+      case "STUDENT_PORTAL":
+        return portalSubPage;
+      case "FACULTY_PORTAL":
+        return facultySubPage;
+      case "HR_MANAGEMENT":
+        return hrSubPage;
+      case "PAYROLL_MANAGEMENT":
+        return payrollSubPage;
+      case "CASHIER":
+        return cashierSubPage;
+      case "ACCOUNTS_SECURITY":
+        return accountsSubPage;
+      case "ACCOUNTING":
+        return accountingSubPage;
+      default:
+        return undefined;
     }
   };
 
@@ -495,12 +549,222 @@ export default function App() {
     navigateToModule(target.module, target.subPage);
   };
 
+  // Renders the submenu for the currently active module group — reused by
+  // both the desktop sidebar and the mobile drawer so they never drift apart.
+  const renderModuleChildren = (group: NavItem) => {
+    if (!group.children?.length) return null;
+    return (
+      <div className="space-y-1">
+        {group.children.map((child) => {
+          if (child.isSection) {
+            return (
+              <div
+                key={child.id}
+                className="px-2.5 pt-3 pb-1 text-[8px] font-mono uppercase tracking-widest text-stsn-gold/60"
+              >
+                {child.label}
+              </div>
+            );
+          }
+
+          if (child.children?.length) {
+            const isHRModule = group.id === "HR_MANAGEMENT";
+            const activeSubPage = isHRModule ? hrSubPage : accountingSubPage;
+            const expandedGroups = isHRModule
+              ? expandedHRGroups
+              : expandedAccountingGroups;
+            const setExpandedGroups = isHRModule
+              ? setExpandedHRGroups
+              : setExpandedAccountingGroups;
+            const isGroupActive = child.children.some(
+              (subChild) => subChild.id === activeSubPage,
+            );
+            const isGroupExpanded =
+              expandedGroups.includes(child.id) || isGroupActive;
+            const GroupIcon = child.icon;
+            return (
+              <div key={child.id}>
+                <button
+                  onClick={() => {
+                    setExpandedGroups((groups: string[]) =>
+                      groups.includes(child.id)
+                        ? groups.filter((id: string) => id !== child.id)
+                        : [...groups, child.id],
+                    );
+                  }}
+                  className={`app-shell-nav-child w-full text-left py-2.5 px-3 rounded-xl flex items-start gap-2.5 transition-all duration-150 cursor-pointer group ${
+                    isGroupActive
+                      ? "app-shell-nav-child-active bg-stsn-gold/15 text-stsn-cream font-semibold"
+                      : "text-stone-400 font-medium opacity-80 hover:opacity-100"
+                  }`}
+                >
+                  {GroupIcon && (
+                    <GroupIcon
+                      className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isGroupActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] leading-none">{child.label}</p>
+                    <p
+                      className={`text-[9px] font-normal truncate mt-0.5 leading-none ${isGroupActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}
+                    >
+                      {child.desc ?? ""}
+                    </p>
+                  </div>
+                  {getBadgeCount(group.id, child.id) > 0 && (
+                    <PendingBadge
+                      count={getBadgeCount(group.id, child.id)}
+                      small
+                    />
+                  )}
+                  {isGroupExpanded ? (
+                    <ChevronDown className="w-3 h-3 flex-shrink-0 mt-0.5 text-stsn-gold/70" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 flex-shrink-0 mt-0.5 text-stone-500 group-hover:text-stone-300" />
+                  )}
+                </button>
+
+                {isGroupExpanded && (
+                  <div className="app-shell-nav-nested ml-4 mt-1 pl-2.5 border-l border-white/10 space-y-1">
+                    {child.children.map((subChild) => {
+                      const isSubChildActive = activeSubPage === subChild.id;
+                      const SubChildIcon = subChild.icon;
+                      return (
+                        <button
+                          key={subChild.id}
+                          onClick={() => {
+                            navigateToModule(group.id, subChild.id);
+                            setIsMobileOpen(false);
+                          }}
+                          className={`app-shell-nav-child w-full text-left py-2 px-2.5 rounded-xl flex items-start gap-2 transition-all duration-150 cursor-pointer group ${
+                            isSubChildActive
+                              ? "app-shell-nav-child-active bg-stsn-gold/20 text-stsn-cream font-semibold"
+                              : "text-stone-400 font-medium opacity-80 hover:opacity-100"
+                          }`}
+                        >
+                          {SubChildIcon && (
+                            <SubChildIcon
+                              className={`w-3 h-3 mt-0.5 flex-shrink-0 ${isSubChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`}
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10.5px] leading-none">
+                              {subChild.label}
+                            </p>
+                            <p
+                              className={`text-[8.5px] font-normal truncate mt-0.5 leading-none ${isSubChildActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}
+                            >
+                              {subChild.desc ?? ""}
+                            </p>
+                          </div>
+                          {getBadgeCount(group.id, subChild.id) > 0 && (
+                            <PendingBadge
+                              count={getBadgeCount(group.id, subChild.id)}
+                              small
+                            />
+                          )}
+                          {isSubChildActive && (
+                            <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          const isChildActive = child.targetModule
+            ? activeModule === child.targetModule &&
+              (child.targetModule !== "CORE_SETUP" ||
+                coreSetupSubPage === child.id)
+            : getActiveSubPageForGroup(group.id) === child.id;
+          const ChildIcon = child.icon;
+          return (
+            <button
+              key={child.id}
+              onClick={() => {
+                if (child.targetModule) {
+                  navigateToModule(
+                    child.targetModule,
+                    child.targetModule === "CORE_SETUP" ? child.id : undefined,
+                  );
+                } else {
+                  navigateForModuleItem(group.id, child.id);
+                }
+                setIsMobileOpen(false);
+              }}
+              className={`app-shell-nav-child w-full text-left py-2.5 px-3 rounded-xl flex items-start gap-2.5 transition-all duration-150 cursor-pointer group ${
+                isChildActive
+                  ? "app-shell-nav-child-active bg-stsn-gold/20 text-stsn-cream font-semibold"
+                  : "text-stone-400 font-medium opacity-80 hover:opacity-100"
+              }`}
+            >
+              {ChildIcon && (
+                <ChildIcon
+                  className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`}
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] leading-none">{child.label}</p>
+                <p
+                  className={`text-[9px] font-normal truncate mt-0.5 leading-none ${isChildActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}
+                >
+                  {child.desc ?? ""}
+                </p>
+              </div>
+              {getBadgeCount(group.id, child.id) > 0 && (
+                <PendingBadge count={getBadgeCount(group.id, child.id)} small />
+              )}
+              {isChildActive && (
+                <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Header shown at the top of the contextual sidebar: a "back to modules"
+  // control (whenever we're not already home) plus the active group's title.
+  const renderModuleSidebarHeader = () => (
+    <div className="px-3 pb-1">
+      {activeModule !== homeModule && (
+        <button
+          onClick={() => {
+            navigateToModule(homeModule);
+            setIsMobileOpen(false);
+          }}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-[11px] font-bold text-stone-300 hover:text-stsn-cream hover:bg-white/8 transition-all cursor-pointer mb-2"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          All Modules
+        </button>
+      )}
+      {activeNavGroup && (
+        <div className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white/5 border border-white/8 mb-1">
+          <activeNavGroup.icon className="w-4 h-4 text-stsn-gold flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-stsn-cream leading-none">
+              {activeNavGroup.label}
+            </p>
+            <p className="text-[9.5px] text-stone-500 truncate mt-0.5 leading-none">
+              {activeNavGroup.desc}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stsn-cream text-stsn-text font-sans">
         <div className="flex flex-col items-center gap-3">
           <GraduationCap className="w-10 h-10 text-stsn-gold animate-pulse" />
-          <p className="text-sm text-stone-500">Loading Theresian Connectâ€¦</p>
+          <p className="text-sm text-stone-500">Loading Theresian Connect…</p>
         </div>
       </div>
     );
@@ -510,7 +774,12 @@ export default function App() {
     <div className="app-shell min-h-screen flex text-stsn-text font-sans antialiased overflow-hidden h-screen">
       {/* ============ SIDEBAR ============ */}
       <aside
-        className={`app-shell-sidebar hidden lg:flex flex-col h-full flex-shrink-0 relative ${APP_SIDEBAR_WIDTH_CLASS}`}
+        className={`app-shell-sidebar hidden lg:flex flex-col h-full flex-shrink-0 relative overflow-hidden transition-[width,min-width,max-width,opacity] duration-300 ease-in-out ${
+          sidebarCollapsed
+            ? "lg:w-0 lg:min-w-0 lg:max-w-0 opacity-0"
+            : `${APP_SIDEBAR_WIDTH_CLASS} opacity-100`
+        }`}
+        aria-hidden={sidebarCollapsed}
       >
         {/* Top gold accent line */}
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-stsn-brown-dark via-stsn-gold to-stsn-brown-dark opacity-90" />
@@ -537,7 +806,7 @@ export default function App() {
           )}
         </div>
 
-        {/* School badges â€” hidden in minimal mode */}
+        {/* School badges — hidden in minimal mode */}
         {sidebarMode !== "minimal" && (
           <div className="px-4 py-3 space-y-2 border-b border-white/5">
             <div
@@ -581,340 +850,31 @@ export default function App() {
           </div>
         )}
 
-        {/* Navigation */}
-        <nav
-          className={`app-shell-nav flex-1 space-y-1 py-4 overflow-y-auto ${sidebarMode === "minimal" ? "px-2" : "px-3"}`}
-        >
-          {renderedSidebarItems.map((item) => {
-            const isSelected = activeModule === item.id;
-            const isExpanded = expandedModule === item.id;
-            const Icon = item.icon;
-
-            // Minimal mode: icon-only rail, no children expansion
-            if (sidebarMode === "minimal") {
-              const isActive =
-                activeModule === item.id ||
-                (item.children?.some((c) => c.targetModule === activeModule) ??
-                  false);
-              return (
-                <button
-                  key={item.id}
-                  title={item.label}
-                  onClick={() => {
-                    const firstChildModule = item.children?.find(
-                      (c) => c.targetModule,
-                    )?.targetModule;
-                    navigateToModule(firstChildModule ?? item.id);
-                    setExpandedModule(null);
-                    setIsMobileOpen(false);
-                  }}
-                  className={`app-shell-nav-item w-full flex items-center justify-center py-3 rounded-2xl transition-all duration-200 cursor-pointer ${
-                    isActive
-                      ? "sidebar-item-active app-shell-nav-item-active text-stsn-cream shadow-md"
-                      : "text-stone-400 opacity-80 hover:opacity-100"
-                  }`}
-                >
-                  <Icon
-                    className={`w-4 h-4 ${isActive ? "text-stsn-gold" : ""}`}
-                  />
-                </button>
-              );
-            }
-
-            if (item.children) {
-              const isCategoryGroup = item.children.some((c) => c.targetModule);
-              const isSelectedGroup = isCategoryGroup
-                ? activeModule === item.id ||
-                  item.children.some((c) => c.targetModule === activeModule)
-                : isSelected;
-              const isExpandedGroup = expandedModule === item.id;
-
-              return (
-                <div key={item.id}>
-                  {/* Parent row â€” toggles expansion; category groups do not navigate on click */}
-                  <button
-                    onClick={() => {
-                      if (!isCategoryGroup) navigateToModule(item.id);
-                      setExpandedModule(isExpandedGroup ? null : item.id);
-                      setIsMobileOpen(false);
-                    }}
-                    className={`app-shell-nav-item w-full text-left py-3 px-3.5 rounded-2xl flex items-start gap-3 transition-all duration-200 cursor-pointer group ${
-                      isSelectedGroup
-                        ? "sidebar-item-active app-shell-nav-item-active text-stsn-cream font-bold shadow-md"
-                        : "text-stone-300 font-medium opacity-80 hover:opacity-100"
-                    }`}
-                  >
-                    <Icon
-                      className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isSelectedGroup ? "text-stsn-gold" : "text-stone-400 group-hover:text-stone-200"}`}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12px] leading-none">{item.label}</p>
-                      <p
-                        className={`text-[9.5px] font-normal truncate mt-0.5 leading-none ${isSelectedGroup ? "text-stsn-gold-light/70" : "text-stone-500"}`}
-                      >
-                        {item.desc}
-                      </p>
-                    </div>
-                    {getBadgeCount(item.id) > 0 && (
-                      <PendingBadge count={getBadgeCount(item.id)} />
-                    )}
-                    {isExpandedGroup ? (
-                      <ChevronDown className="w-3 h-3 flex-shrink-0 mt-1 text-stsn-gold/70" />
-                    ) : (
-                      <ChevronRight className="w-3 h-3 flex-shrink-0 mt-1 text-stone-500 group-hover:text-stone-300" />
-                    )}
-                  </button>
-
-                  {/* Children */}
-                  {isExpandedGroup && (
-                    <div className="app-shell-nav-nested mt-1 ml-2 pl-3.5 border-l border-white/10 space-y-1">
-                      {item.children.map((child) => {
-                        if (child.isSection) {
-                          return (
-                            <div
-                              key={child.id}
-                              className="px-2.5 pt-3 pb-1 text-[8px] font-mono uppercase tracking-widest text-stsn-gold/60"
-                            >
-                              {child.label}
-                            </div>
-                          );
-                        }
-                        if (child.children?.length) {
-                          const isHRModule = item.id === "HR_MANAGEMENT";
-                          const activeSubPage = isHRModule
-                            ? hrSubPage
-                            : accountingSubPage;
-                          const expandedGroups = isHRModule
-                            ? expandedHRGroups
-                            : expandedAccountingGroups;
-                          const isGroupActive = child.children.some(
-                            (subChild) => subChild.id === activeSubPage,
-                          );
-                          const isGroupExpanded =
-                            expandedGroups.includes(child.id) || isGroupActive;
-                          const GroupIcon = child.icon;
-                          return (
-                            <div key={child.id}>
-                              <button
-                                onClick={() => {
-                                  if (isHRModule) {
-                                    setExpandedHRGroups((groups: string[]) =>
-                                      groups.includes(child.id)
-                                        ? groups.filter(
-                                            (id: string) => id !== child.id,
-                                          )
-                                        : [...groups, child.id],
-                                    );
-                                  } else {
-                                    setExpandedAccountingGroups(
-                                      (groups: string[]) =>
-                                        groups.includes(child.id)
-                                          ? groups.filter(
-                                              (id: string) => id !== child.id,
-                                            )
-                                          : [...groups, child.id],
-                                    );
-                                  }
-                                }}
-                                className={`app-shell-nav-child w-full text-left py-2.5 px-3 rounded-xl flex items-start gap-2.5 transition-all duration-150 cursor-pointer group ${
-                                  isGroupActive
-                                    ? "app-shell-nav-child-active bg-stsn-gold/15 text-stsn-cream font-semibold"
-                                    : "text-stone-400 font-medium opacity-80 hover:opacity-100"
-                                }`}
-                              >
-                                {GroupIcon && (
-                                  <GroupIcon
-                                    className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isGroupActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`}
-                                  />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-[11px] leading-none">
-                                    {child.label}
-                                  </p>
-                                  <p
-                                    className={`text-[9px] font-normal truncate mt-0.5 leading-none ${isGroupActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}
-                                  >
-                                    {child.desc ?? ""}
-                                  </p>
-                                </div>
-                                {getBadgeCount(item.id, child.id) > 0 && (
-                                  <PendingBadge
-                                    count={getBadgeCount(item.id, child.id)}
-                                    small
-                                  />
-                                )}
-                                {isGroupExpanded ? (
-                                  <ChevronDown className="w-3 h-3 flex-shrink-0 mt-0.5 text-stsn-gold/70" />
-                                ) : (
-                                  <ChevronRight className="w-3 h-3 flex-shrink-0 mt-0.5 text-stone-500 group-hover:text-stone-300" />
-                                )}
-                              </button>
-
-                              {isGroupExpanded && (
-                                <div className="app-shell-nav-nested ml-4 mt-1 pl-2.5 border-l border-white/10 space-y-1">
-                                  {child.children.map((subChild) => {
-                                    const isSubChildActive =
-                                      activeSubPage === subChild.id;
-                                    const SubChildIcon = subChild.icon;
-                                    return (
-                                      <button
-                                        key={subChild.id}
-                                        onClick={() => {
-                                          navigateToModule(
-                                            item.id,
-                                            subChild.id,
-                                          );
-                                          setIsMobileOpen(false);
-                                        }}
-                                        className={`app-shell-nav-child w-full text-left py-2 px-2.5 rounded-xl flex items-start gap-2 transition-all duration-150 cursor-pointer group ${
-                                          isSubChildActive
-                                            ? "app-shell-nav-child-active bg-stsn-gold/20 text-stsn-cream font-semibold"
-                                            : "text-stone-400 font-medium opacity-80 hover:opacity-100"
-                                        }`}
-                                      >
-                                        {SubChildIcon && (
-                                          <SubChildIcon
-                                            className={`w-3 h-3 mt-0.5 flex-shrink-0 ${isSubChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`}
-                                          />
-                                        )}
-                                        <div className="min-w-0 flex-1">
-                                          <p className="text-[10.5px] leading-none">
-                                            {subChild.label}
-                                          </p>
-                                          <p
-                                            className={`text-[8.5px] font-normal truncate mt-0.5 leading-none ${isSubChildActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}
-                                          >
-                                            {subChild.desc ?? ""}
-                                          </p>
-                                        </div>
-                                        {getBadgeCount(item.id, subChild.id) >
-                                          0 && (
-                                          <PendingBadge
-                                            count={getBadgeCount(
-                                              item.id,
-                                              subChild.id,
-                                            )}
-                                            small
-                                          />
-                                        )}
-                                        {isSubChildActive && (
-                                          <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }
-                        const isChildActive = child.targetModule
-                          ? activeModule === child.targetModule &&
-                            (child.targetModule !== "CORE_SETUP" ||
-                              coreSetupSubPage === child.id)
-                          : isSelected &&
-                            (item.id === "STUDENT_PORTAL"
-                              ? portalSubPage === child.id
-                              : item.id === "FACULTY_PORTAL"
-                                ? facultySubPage === child.id
-                              : item.id === "HR_MANAGEMENT"
-                                ? hrSubPage === child.id
-                                : item.id === "PAYROLL_MANAGEMENT"
-                                  ? payrollSubPage === child.id
-                                  : item.id === "CASHIER"
-                                    ? cashierSubPage === child.id
-                                    : item.id === "ACCOUNTS_SECURITY"
-                                      ? accountsSubPage === child.id
-                                      : accountingSubPage === child.id);
-                        const ChildIcon = child.icon;
-                        return (
-                          <button
-                            key={child.id}
-                            onClick={() => {
-                              if (child.targetModule) {
-                                navigateToModule(
-                                  child.targetModule,
-                                  child.targetModule === "CORE_SETUP"
-                                    ? child.id
-                                    : undefined,
-                                );
-                              } else {
-                                navigateForModuleItem(item.id, child.id);
-                              }
-                              setIsMobileOpen(false);
-                            }}
-                            className={`app-shell-nav-child w-full text-left py-2.5 px-3 rounded-xl flex items-start gap-2.5 transition-all duration-150 cursor-pointer group ${
-                              isChildActive
-                                ? "app-shell-nav-child-active bg-stsn-gold/20 text-stsn-cream font-semibold"
-                                : "text-stone-400 font-medium opacity-80 hover:opacity-100"
-                            }`}
-                          >
-                            {ChildIcon && (
-                              <ChildIcon
-                                className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isChildActive ? "text-stsn-gold" : "text-stone-500 group-hover:text-stone-300"}`}
-                              />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] leading-none">
-                                {child.label}
-                              </p>
-                              <p
-                                className={`text-[9px] font-normal truncate mt-0.5 leading-none ${isChildActive ? "text-stsn-gold-light/60" : "text-stone-600"}`}
-                              >
-                                {child.desc ?? ""}
-                              </p>
-                            </div>
-                            {getBadgeCount(item.id, child.id) > 0 && (
-                              <PendingBadge
-                                count={getBadgeCount(item.id, child.id)}
-                                small
-                              />
-                            )}
-                            {isChildActive && (
-                              <div className="w-1 h-1 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  navigateToModule(item.id);
-                  setExpandedModule(null);
-                  setIsMobileOpen(false);
-                }}
-                className={`app-shell-nav-item w-full text-left py-3 px-3.5 rounded-2xl flex items-start gap-3 transition-all duration-200 cursor-pointer group ${
-                  isSelected
-                    ? "sidebar-item-active app-shell-nav-item-active text-stsn-cream font-bold shadow-md"
-                    : "text-stone-300 font-medium opacity-80 hover:opacity-100"
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isSelected ? "text-stsn-gold" : "text-stone-400 group-hover:text-stone-200"}`}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] leading-none">{item.label}</p>
-                  <p
-                    className={`text-[9.5px] font-normal truncate mt-0.5 leading-none ${isSelected ? "text-stsn-gold-light/70" : "text-stone-500"}`}
-                  >
-                    {item.desc}
-                  </p>
-                </div>
-                {isSelected && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-stsn-gold flex-shrink-0 mt-1.5 animate-pulse" />
-                )}
-              </button>
-            );
-          })}
+        {/* Navigation — contextual to the active module; the full module
+            list now lives on the Dashboard's icon grid (ModuleGrid). */}
+        <nav className="app-shell-nav flex-1 space-y-1 py-4 px-3 overflow-y-auto">
+          {renderModuleSidebarHeader()}
+          {activeNavGroup && renderModuleChildren(activeNavGroup)}
         </nav>
       </aside>
+
+      {/* Sidebar collapse toggle — floats over the seam between sidebar and
+          content so the workspace can go edge-to-edge on demand. */}
+      <button
+        onClick={() => setSidebarCollapsed((prev) => !prev)}
+        title={sidebarCollapsed ? "Show menu" : "Hide menu"}
+        className="hidden lg:flex fixed top-1/2 z-40 w-7 h-7 items-center justify-center rounded-full bg-gradient-to-br from-stsn-gold to-stsn-gold-light text-stsn-brown-dark shadow-lg border border-white/40 cursor-pointer transition-all duration-300 ease-in-out hover:scale-110"
+        style={{
+          left: sidebarCollapsed ? "10px" : "272px",
+          transform: "translateY(-50%)",
+        }}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight className="w-3.5 h-3.5" />
+        ) : (
+          <ChevronLeft className="w-3.5 h-3.5" />
+        )}
+      </button>
 
       {/* ============ MAIN AREA ============ */}
       <div className="app-shell-main-column flex-1 flex flex-col h-full overflow-hidden">
@@ -949,7 +909,7 @@ export default function App() {
               <Search className="w-3.5 h-3.5" />
               <span className="hidden md:inline text-slate-600">Search</span>
               <kbd className="hidden md:inline text-[9px] font-mono px-1.5 py-px rounded bg-stone-100 border border-stone-200 text-stone-400 leading-none">
-                âŒ˜K
+                ?K
               </kbd>
             </button>
 
@@ -976,49 +936,57 @@ export default function App() {
         {/* MAIN CONTENT */}
         <main className="app-shell-main flex-1 overflow-y-auto">
           <div className="app-shell-main-inner">
-            <AppModuleRenderer
-              activeModule={activeModule}
-              allowedModules={allowedModules}
-              accountingSubPage={accountingSubPage}
-              coreSetupSubPage={coreSetupSubPage}
-              portalSubPage={portalSubPage}
-              facultySubPage={facultySubPage}
-              hrSubPage={hrSubPage}
-              payrollSubPage={payrollSubPage}
-              cashierSubPage={cashierSubPage}
-              librarySubPage={librarySubPage}
-              lmsSubPage={lmsSubPage}
-              lmsCourseId={lmsCourseId}
-              accountsSubPage={accountsSubPage}
-              portalStudentId={portalStudentId}
-              onDashboardNavigate={() => navigateToModule("REGISTRAR")}
-              onActionCenterNavigate={handleActionCenterNavigate}
-              onStudentDirectoryNavigate={(subPage, studentId) =>
-                navigateToModule("STUDENT_PORTAL", subPage, studentId)
-              }
-              onAccountingSubPageChange={(subPage) =>
-                navigateToModule("ACCOUNTING", subPage)
-              }
-              onFacultySubPageChange={(subPage) =>
-                navigateToModule("FACULTY_PORTAL", subPage)
-              }
-              onHrSubPageChange={(subPage) =>
-                navigateToModule("HR_MANAGEMENT", subPage)
-              }
-              onCashierSubPageChange={(subPage) =>
-                navigateToModule("CASHIER", subPage)
-              }
-              onLibrarySubPageChange={(subPage) =>
-                navigateToModule("LIBRARY_SYSTEM", subPage)
-              }
-              onLmsSubPageChange={(subPage) => navigateToModule("LMS", subPage)}
-              onLmsCourseChange={(courseId) =>
-                navigate(getPathForModule("LMS", { subPage: "courses", courseId }))
-              }
-              onAccountsSubPageChange={(subPage) =>
-                navigateToModule("ACCOUNTS_SECURITY", subPage)
-              }
-            />
+            {activeModule === "HOME" ? (
+              <ModuleGrid
+                items={moduleGridItems}
+                onSelect={(item) => navigateToModule(item.id)}
+                getBadgeCount={(moduleId) => getBadgeCount(moduleId)}
+              />
+            ) : (
+              <AppModuleRenderer
+                activeModule={activeModule}
+                allowedModules={allowedModules}
+                accountingSubPage={accountingSubPage}
+                coreSetupSubPage={coreSetupSubPage}
+                portalSubPage={portalSubPage}
+                facultySubPage={facultySubPage}
+                hrSubPage={hrSubPage}
+                payrollSubPage={payrollSubPage}
+                cashierSubPage={cashierSubPage}
+                librarySubPage={librarySubPage}
+                lmsSubPage={lmsSubPage}
+                lmsCourseId={lmsCourseId}
+                accountsSubPage={accountsSubPage}
+                portalStudentId={portalStudentId}
+                onDashboardNavigate={() => navigateToModule("REGISTRAR")}
+                onActionCenterNavigate={handleActionCenterNavigate}
+                onStudentDirectoryNavigate={(subPage, studentId) =>
+                  navigateToModule("STUDENT_PORTAL", subPage, studentId)
+                }
+                onAccountingSubPageChange={(subPage) =>
+                  navigateToModule("ACCOUNTING", subPage)
+                }
+                onFacultySubPageChange={(subPage) =>
+                  navigateToModule("FACULTY_PORTAL", subPage)
+                }
+                onHrSubPageChange={(subPage) =>
+                  navigateToModule("HR_MANAGEMENT", subPage)
+                }
+                onCashierSubPageChange={(subPage) =>
+                  navigateToModule("CASHIER", subPage)
+                }
+                onLibrarySubPageChange={(subPage) =>
+                  navigateToModule("LIBRARY_SYSTEM", subPage)
+                }
+                onLmsSubPageChange={(subPage) => navigateToModule("LMS", subPage)}
+                onLmsCourseChange={(courseId) =>
+                  navigate(getPathForModule("LMS", { subPage: "courses", courseId }))
+                }
+                onAccountsSubPageChange={(subPage) =>
+                  navigateToModule("ACCOUNTS_SECURITY", subPage)
+                }
+              />
+            )}
           </div>
         </main>
         {hasMobileBottomNav(currentUser.role) && (
@@ -1071,189 +1039,8 @@ export default function App() {
               </button>
             </div>
             <nav className="space-y-1.5 flex-1 overflow-y-auto pb-4">
-              {renderedSidebarItems.map((item) => {
-                const isCategoryGroup =
-                  item.children?.some((c) => c.targetModule) ?? false;
-                const isSelected = isCategoryGroup
-                  ? activeModule === item.id ||
-                    (item.children?.some(
-                      (c) => c.targetModule === activeModule,
-                    ) ??
-                      false)
-                  : activeModule === item.id;
-                const isExpanded =
-                  expandedModule === item.id ||
-                  (isCategoryGroup &&
-                    (item.children?.some(
-                      (c) => c.targetModule === activeModule,
-                    ) ??
-                      false));
-                if (item.children) {
-                  return (
-                    <div key={item.id}>
-                      <button
-                        onClick={() => {
-                          if (!isCategoryGroup) navigateToModule(item.id);
-                          setExpandedModule(isExpanded ? null : item.id);
-                        }}
-                        className={`app-shell-nav-item w-full text-left px-3.5 py-3 text-xs font-bold rounded-2xl transition-all flex items-center justify-between ${
-                          isSelected
-                            ? "sidebar-item-active app-shell-nav-item-active text-stsn-cream"
-                            : "text-stone-300"
-                        }`}
-                      >
-                        <span>{item.label}</span>
-                        {isExpanded ? (
-                          <ChevronDown className="w-3 h-3" />
-                        ) : (
-                          <ChevronRight className="w-3 h-3" />
-                        )}
-                      </button>
-                      {isExpanded && (
-                        <div className="app-shell-nav-nested ml-3 pl-2.5 border-l border-white/10 mt-1 space-y-1">
-                          {item.children.map((child) => {
-                            if (child.isSection) {
-                              return (
-                                <div
-                                  key={child.id}
-                                  className="px-2.5 pt-3 pb-1 text-[8px] font-mono uppercase tracking-widest text-stsn-gold/60"
-                                >
-                                  {child.label}
-                                </div>
-                              );
-                            }
-                            if (child.children?.length) {
-                              const isAccountingGroupActive =
-                                item.id === "ACCOUNTING" &&
-                                child.children.some(
-                                  (subChild) =>
-                                    subChild.id === accountingSubPage,
-                                );
-                              const isAccountingGroupExpanded =
-                                expandedAccountingGroups.includes(child.id) ||
-                                isAccountingGroupActive;
-                              return (
-                                <div key={child.id}>
-                                  <button
-                                    onClick={() => {
-                                      setExpandedAccountingGroups((groups) =>
-                                        groups.includes(child.id)
-                                          ? groups.filter(
-                                              (id) => id !== child.id,
-                                            )
-                                          : [...groups, child.id],
-                                      );
-                                    }}
-                                    className={`app-shell-nav-child w-full text-left px-3 py-2.5 text-[11px] rounded-xl transition-all flex items-center justify-between ${
-                                      isAccountingGroupActive
-                                        ? "app-shell-nav-child-active bg-stsn-gold/15 text-stsn-cream font-semibold"
-                                        : "text-stone-400"
-                                    }`}
-                                  >
-                                    <span>{child.label}</span>
-                                    {isAccountingGroupExpanded ? (
-                                      <ChevronDown className="w-3 h-3" />
-                                    ) : (
-                                      <ChevronRight className="w-3 h-3" />
-                                    )}
-                                  </button>
-                                  {isAccountingGroupExpanded && (
-                                    <div className="app-shell-nav-nested ml-3 pl-2 border-l border-white/10 mt-1 space-y-1">
-                                      {child.children.map((subChild) => {
-                                        const isSubChildActive =
-                                          item.id === "ACCOUNTING" &&
-                                          accountingSubPage === subChild.id;
-                                        return (
-                                          <button
-                                            key={subChild.id}
-                                            onClick={() => {
-                                              navigateToModule(
-                                                item.id,
-                                                subChild.id,
-                                              );
-                                              setIsMobileOpen(false);
-                                            }}
-                                            className={`app-shell-nav-child w-full text-left px-2.5 py-2 text-[10.5px] rounded-xl transition-all ${
-                                              isSubChildActive
-                                                ? "app-shell-nav-child-active bg-stsn-gold/20 text-stsn-cream font-semibold"
-                                                : "text-stone-400"
-                                            }`}
-                                          >
-                                            {subChild.label}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
-                            const isChildActive = child.targetModule
-                              ? activeModule === child.targetModule &&
-                                (child.targetModule !== "CORE_SETUP" ||
-                                  coreSetupSubPage === child.id)
-                              : isSelected &&
-                                (item.id === "STUDENT_PORTAL"
-                                  ? portalSubPage === child.id
-                                  : item.id === "FACULTY_PORTAL"
-                                    ? facultySubPage === child.id
-                                  : item.id === "HR_MANAGEMENT"
-                                    ? hrSubPage === child.id
-                                    : item.id === "PAYROLL_MANAGEMENT"
-                                      ? payrollSubPage === child.id
-                                      : item.id === "CASHIER"
-                                        ? cashierSubPage === child.id
-                                        : item.id === "ACCOUNTS_SECURITY"
-                                          ? accountsSubPage === child.id
-                                          : accountingSubPage === child.id);
-                            return (
-                              <button
-                                key={child.id}
-                                onClick={() => {
-                                  if (child.targetModule) {
-                                    navigateToModule(
-                                      child.targetModule,
-                                      child.targetModule === "CORE_SETUP"
-                                        ? child.id
-                                        : undefined,
-                                    );
-                                  } else {
-                                    navigateForModuleItem(item.id, child.id);
-                                  }
-                                  setIsMobileOpen(false);
-                                }}
-                                className={`app-shell-nav-child w-full text-left px-3 py-2.5 text-[11px] rounded-xl transition-all ${
-                                  isChildActive
-                                    ? "app-shell-nav-child-active bg-stsn-gold/20 text-stsn-cream font-semibold"
-                                    : "text-stone-400"
-                                }`}
-                              >
-                                {child.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      navigateToModule(item.id);
-                      setIsMobileOpen(false);
-                    }}
-                    className={`app-shell-nav-item w-full text-left px-3.5 py-3 text-xs font-bold rounded-2xl transition-all ${
-                      isSelected
-                        ? "sidebar-item-active app-shell-nav-item-active text-stsn-cream"
-                        : "text-stone-300"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
+              {renderModuleSidebarHeader()}
+              {activeNavGroup && renderModuleChildren(activeNavGroup)}
             </nav>
             <button
               onClick={() => logout()}
