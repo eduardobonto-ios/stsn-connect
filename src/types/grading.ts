@@ -61,6 +61,7 @@ export interface GradePeriod {
   sectionId: string;
   schoolYear: string;
   teacherId: string;
+  employeeId?: string;
   categories: GradeCategory[];
   items: GradeItem[];
   isFinalized: boolean;
@@ -85,12 +86,17 @@ export interface StudentGradeEntry {
   studentId: string;
   gradeItemId: string;
   score: number | null;
+  /** Employee-based ownership, denormalized from the parent grade period's
+   *  owner (dual-key consolidation). student_grade_entries is the canonical
+   *  active grade write table. */
+  employeeId?: string;
 }
 
 /** Teacher's assignment to teach a subject to a specific section */
 export interface SubjectClassLoad {
   id: string;
   teacherId: string;
+  employeeId?: string;
   subjectCode: string;
   subjectName: string;
   sectionId: string;

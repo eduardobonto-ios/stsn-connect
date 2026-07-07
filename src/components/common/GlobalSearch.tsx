@@ -8,17 +8,18 @@ import { createPortal } from "react-dom";
 import { Search, User, GraduationCap, Receipt, X, Keyboard } from "lucide-react";
 import { useSTSNStore } from "../../services/store";
 
-interface GlobalSearchProps {
-  open: boolean;
-  onClose: () => void;
-}
-
 interface SearchResult {
   id: string;
   type: "student" | "employee" | "payment";
   label: string;
   sub: string;
   badge?: string;
+}
+
+interface GlobalSearchProps {
+  open: boolean;
+  onClose: () => void;
+  onNavigate?: (result: SearchResult) => void;
 }
 
 const SHORTCUT_HELP = [
@@ -29,19 +30,25 @@ const SHORTCUT_HELP = [
   { keys: ["?"], desc: "Toggle shortcut guide" },
 ];
 
-export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
+export default function GlobalSearch({ open, onClose, onNavigate }: GlobalSearchProps) {
   const { students, employees, payments } = useSTSNStore();
   const [query, setQuery] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setQuery("");
       setShowHelp(false);
+      setActiveIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
 
   const results = useMemo<SearchResult[]>(() => {
     const q = query.trim().toLowerCase();
@@ -105,12 +112,16 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     payment: "Receipt",
   };
 
+  const selectResult = (r: SearchResult) => {
+    onNavigate?.(r);
+  };
+
   return createPortal(
     <div
       className="app-modal-backdrop z-[200] animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-stone-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-stone-200">
         {/* Search bar */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100">
           <Search className="w-5 h-5 text-stone-400 flex-shrink-0" />
@@ -122,8 +133,22 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             placeholder="Search students, employees, OR numbers..."
             className="flex-1 text-sm outline-none text-stone-800 placeholder-stone-400"
             onKeyDown={(e) => {
-              if (e.key === "Escape") onClose();
-              if (e.key === "?") { e.preventDefault(); setShowHelp((v) => !v); }
+              if (e.key === "Escape") { onClose(); return; }
+              if (e.key === "?") { e.preventDefault(); setShowHelp((v) => !v); return; }
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setActiveIndex((i) => (results.length ? (i + 1) % results.length : 0));
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setActiveIndex((i) => (results.length ? (i - 1 + results.length) % results.length : 0));
+                return;
+              }
+              if (e.key === "Enter") {
+                const r = results[activeIndex];
+                if (r) { e.preventDefault(); selectResult(r); }
+              }
             }}
           />
           <div className="flex items-center gap-1">
@@ -180,10 +205,14 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             </div>
           ) : (
             <div className="divide-y divide-stone-50">
-              {results.map((r) => (
+              {results.map((r, i) => (
                 <div
                   key={r.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-stsn-cream/40 transition cursor-pointer"
+                  onClick={() => selectResult(r)}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className={`flex items-center gap-3 px-4 py-3 transition cursor-pointer ${
+                    i === activeIndex ? "bg-stsn-cream/40" : "hover:bg-stsn-cream/40"
+                  }`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
                     {TYPE_ICON[r.type]}
@@ -213,9 +242,19 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           <p className="text-[9.5px] text-stone-400 font-mono">
             {results.length > 0 ? `${results.length} result${results.length !== 1 ? "s" : ""}` : "No results"}
           </p>
-          <div className="flex items-center gap-1.5">
-            <kbd className="text-[9px] font-mono px-1.5 py-px rounded bg-white border border-stone-200 text-stone-500 shadow-sm">Esc</kbd>
-            <span className="text-[9px] text-stone-400">to close</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <kbd className="text-[9px] font-mono px-1.5 py-px rounded bg-white border border-stone-200 text-stone-500 shadow-sm">↑↓</kbd>
+              <span className="text-[9px] text-stone-400">navigate</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <kbd className="text-[9px] font-mono px-1.5 py-px rounded bg-white border border-stone-200 text-stone-500 shadow-sm">Enter</kbd>
+              <span className="text-[9px] text-stone-400">to open</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <kbd className="text-[9px] font-mono px-1.5 py-px rounded bg-white border border-stone-200 text-stone-500 shadow-sm">Esc</kbd>
+              <span className="text-[9px] text-stone-400">to close</span>
+            </div>
           </div>
         </div>
       </div>

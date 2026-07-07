@@ -58,11 +58,27 @@ export function dbDeleteWhere(table: string, column: string, value: string) {
   return supabase.from(table).delete().eq(column, value).then(({ error }) => report(`delete ${table} where ${column}`)(error));
 }
 
+/** PostgREST caps unpaginated selects at its configured max-rows (commonly
+ *  1000); a table that grows past that would silently lose rows without this
+ *  loop, since a capped response is not an error. */
+const SELECT_ALL_PAGE_SIZE = 1000;
+
 export async function dbSelectAll<T = any>(table: string, select = "*"): Promise<T[]> {
-  const { data, error } = await supabase.from(table).select(select);
-  if (error) {
-    console.error(`[supabase] select ${table} failed:`, error);
-    return [];
+  const rows: any[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .range(from, from + SELECT_ALL_PAGE_SIZE - 1);
+    if (error) {
+      console.error(`[supabase] select ${table} failed:`, error);
+      return [];
+    }
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < SELECT_ALL_PAGE_SIZE) break;
+    from += SELECT_ALL_PAGE_SIZE;
   }
-  return (data ?? []).map(toCamel) as T[];
+  return rows.map(toCamel) as T[];
 }

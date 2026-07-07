@@ -151,7 +151,20 @@ export function getPathForModule(
  *   - nested groups recurse into their children,
  *   - section headers (isSection) are skipped.
  */
-function firstLeafRoute(moduleId: STSNModule, child: NavSubItem): string | null {
+/**
+ * Resolves the route for a single nav child, mirroring the click handlers in
+ * App.tsx's renderModuleChildren: category-group children (targetModule)
+ * navigate to that module (CORE_SETUP carries the child id as its sub-page),
+ * plain leaf children navigate to the parent module + child id, and group
+ * headers / section markers have no route of their own (null).
+ *
+ * Shared by firstLeafRoute (sidebar landing-page resolution) and the main
+ * screen's module icon grid, so both surfaces resolve navigation identically.
+ */
+export function getRouteForNavChild(
+  parentModuleId: STSNModule,
+  child: NavSubItem,
+): string | null {
   if (child.isSection) return null;
   if (child.targetModule) {
     return getPathForModule(
@@ -159,14 +172,20 @@ function firstLeafRoute(moduleId: STSNModule, child: NavSubItem): string | null 
       child.targetModule === "CORE_SETUP" ? { subPage: child.id } : undefined,
     );
   }
+  if (child.children?.length) return null;
+  return getPathForModule(parentModuleId, { subPage: child.id });
+}
+
+function firstLeafRoute(moduleId: STSNModule, child: NavSubItem): string | null {
+  const directRoute = getRouteForNavChild(moduleId, child);
+  if (directRoute) return directRoute;
   if (child.children?.length) {
     for (const nested of child.children) {
       const path = firstLeafRoute(moduleId, nested);
       if (path) return path;
     }
-    return null;
   }
-  return getPathForModule(moduleId, { subPage: child.id });
+  return null;
 }
 
 export function getFirstAllowedRoute(items: NavItem[]): string | null {
@@ -355,3 +374,4 @@ export function resolveAppRoute(pathname: string, search = ""): AppRouteState | 
     canonicalPath: "/dashboard",
   };
 }
+

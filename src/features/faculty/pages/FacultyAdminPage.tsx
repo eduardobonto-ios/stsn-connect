@@ -8,6 +8,10 @@ import { createPortal } from "react-dom";
 import { useSTSNStore } from "../../../services/store";
 import { supabase } from "../../../lib/supabase";
 import type { Teacher } from "../../../types";
+import {
+  resolveEmployeeForTeacher,
+  teacherMatchesOwnership,
+} from "../../../utils/resolveTeacher";
 import GradingModule from "../../grading/pages/GradingModulePage";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import AppTable, {
@@ -67,16 +71,16 @@ function OverviewAdvisoryModal({
     ? scopedStudents.filter((s) => s.section === teacher.advisorySection)
     : [];
 
+  const linkedEmployee = resolveEmployeeForTeacher(teacher, scopedEmployees);
+
   const teachingLoadUnits = scopedClassSchedules
-    .filter((cs) => cs.teacherId === teacher.id)
+    .filter((cs) => teacherMatchesOwnership(teacher, cs))
     .reduce((sum, cs) => {
       const subject = scopedSubjects.find((s) => s.code === cs.subjectCode);
       return sum + (subject?.units ?? 0);
     }, 0);
 
-  const accruedLeaveDays = scopedEmployees.find(
-    (e) => e.email === teacher.email
-  )?.leaveBalance;
+  const accruedLeaveDays = linkedEmployee?.leaveBalance;
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
@@ -244,7 +248,7 @@ function SectionStudentsModal({
   const scopedClassSchedules = scopedData.classSchedules ?? [];
 
   const teacherSchedules = scopedClassSchedules.filter(
-    (cs) => cs.teacherId === teacher.id && cs.isActive
+    (cs) => teacherMatchesOwnership(teacher, cs) && cs.isActive
   );
   const uniqueSections = Array.from(
     new Set(teacherSchedules.map((s) => s.section))
@@ -398,12 +402,15 @@ function AttendanceModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (advisoryStudents.length > 0) {
+      // recorded_by_employee_id is the authoritative owner; recorded_by is a
+      // REMOVABLE dual-write (legacy FK → public.teachers) for the dual-read window.
       const records = advisoryStudents.map((s) => ({
         student_id: s.id,
         section: teacher.advisorySection,
         date: attendanceDate,
         status: getStatus(s.id),
         recorded_by: teacher.id,
+        recorded_by_employee_id: teacher.employeeId ?? null,
       }));
       supabase
         .from("student_attendance")

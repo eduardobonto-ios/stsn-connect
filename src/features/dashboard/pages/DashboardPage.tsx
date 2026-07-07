@@ -557,7 +557,15 @@ export default function Dashboard({
     () => scopedStudents.filter((s) => s.enrollmentStatus === "Enrolled").length,
     [scopedStudents]
   );
-  const totalFaculty  = teachers.length;
+  const totalFaculty = useMemo(() => {
+    const teachingEmployeeIds = new Set(
+      employees.filter((e) => e.isTeachingStaff).map((e) => e.id)
+    );
+    const unbridgedTeachers = teachers.filter(
+      (t) => !t.employeeId || !teachingEmployeeIds.has(t.employeeId)
+    ).length;
+    return teachingEmployeeIds.size + unbridgedTeachers;
+  }, [teachers, employees]);
   const totalPayments = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
   const pendingEnrollments = useMemo(
     () => scopedEnrollments.filter((e) => e.status === "Pending" || e.status === "For Assessment").length,
@@ -708,7 +716,6 @@ export default function Dashboard({
   const visibleAnnouncements = announcements.slice(0, 3);
 
   void terms;
-  void totalFaculty;
 
   // ── Sub-page: enrollment analytics drill-down ────────────
   if (analyticsView) {
@@ -780,7 +787,7 @@ export default function Dashboard({
               chip: "bg-blue-100", iconColor: "text-blue-600", trendColor: "text-emerald-600",
             },
             {
-              label: "Total Teachers", value: teachers.length, sub: "−3% than last month",
+              label: "Total Teachers", value: totalFaculty, sub: "−3% than last month",
               trendUp: false, icon: <GraduationCap className="w-5 h-5" />,
               bg: "bg-amber-50", border: "border-amber-200", text: "text-stone-900", accent: "bg-amber-500",
               chip: "bg-amber-100", iconColor: "text-amber-600", trendColor: "text-red-500",

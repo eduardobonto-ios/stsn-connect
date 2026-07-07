@@ -41,7 +41,7 @@ import type {
 import { BASIC_ED_PERIODS, COLLEGE_PERIODS } from "../../../types/grading";
 import { departmentToAcademicUnit } from "../../../config/grading-schemes.config";
 import { getAcademicTerms } from "../../../config/schools.config";
-import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
+import { resolveCurrentTeacher, teacherMatchesOwnership } from "../../../utils/resolveTeacher";
 import {
   computePeriodGrade,
   computeTermAverage,
@@ -366,7 +366,7 @@ export default function GradesDirectoryPage() {
     () => allClassLoads.filter(
       l =>
         departmentToAcademicUnit(l.department) === academicUnit &&
-        (!isTeacher || !currentTeacher || l.teacherId === currentTeacher.id)
+        (!isTeacher || !currentTeacher || teacherMatchesOwnership(currentTeacher, l))
     ),
     [allClassLoads, academicUnit, isTeacher, currentTeacher]
   );

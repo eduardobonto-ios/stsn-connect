@@ -13,7 +13,7 @@ import {
   GradeRosterStudent,
 } from "../../../types/grading";
 import { departmentToAcademicUnit, getGradingPeriods } from "../../../config/grading-schemes.config";
-import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
+import { resolveCurrentTeacher, teacherMatchesOwnership } from "../../../utils/resolveTeacher";
 import GradeSummaryView from "../components/GradeSummaryView";
 import GradeInputView from "../components/GradeInputView";
 
@@ -38,7 +38,7 @@ export default function GradeEncodingPage() {
     () =>
       allClassLoads.filter(
         (l) =>
-          l.teacherId === currentTeacher.id &&
+          teacherMatchesOwnership(currentTeacher, l) &&
           departmentToAcademicUnit(l.department) === academicUnit
       ),
     [allClassLoads, currentTeacher.id, academicUnit]

@@ -62,13 +62,13 @@ export default function LoginOverlay() {
     },
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== "password123") {
       setErrorMsg("Error: Invalid credentials. Enter 'password123'");
       return;
     }
-    const success = login(email, "", selectedSchool);
+    const success = await login(email, "", selectedSchool);
     if (!success) {
       setErrorMsg("Error: Account inactive or email not registered.");
     } else {
@@ -76,10 +76,10 @@ export default function LoginOverlay() {
     }
   };
 
-  const handleQuickLogin = (quickEmail: string) => {
+  const handleQuickLogin = async (quickEmail: string) => {
     setEmail(quickEmail);
     setPassword("password123");
-    login(quickEmail, "", selectedSchool);
+    await login(quickEmail, "", selectedSchool);
   };
 
   return (

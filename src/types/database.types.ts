@@ -205,6 +205,7 @@ export interface TeachersRow {
   legacy_id: string | null;
   school_id: string | null;
   user_id: string | null;
+  employee_id: string | null;
   first_name: string;
   last_name: string;
   middle_name: string | null;
@@ -222,6 +223,7 @@ export interface TeachersInsert {
   legacy_id?: string | null;
   school_id?: string | null;
   user_id?: string | null;
+  employee_id?: string | null;
   first_name: string;
   last_name: string;
   middle_name?: string | null;
@@ -239,6 +241,7 @@ export interface TeachersUpdate {
   legacy_id?: string | null;
   school_id?: string | null;
   user_id?: string | null;
+  employee_id?: string | null;
   first_name?: string;
   last_name?: string;
   middle_name?: string | null;
@@ -674,6 +677,7 @@ export interface SectionsRow {
   year_level: string | null;
   strand_or_track: string | null;
   adviser_id: string | null;
+  adviser_employee_id: string | null;
   capacity: number;
   current_count: number;
   academic_year: string | null;
@@ -692,6 +696,7 @@ export interface SectionsInsert {
   year_level?: string | null;
   strand_or_track?: string | null;
   adviser_id?: string | null;
+  adviser_employee_id?: string | null;
   capacity?: number;
   current_count?: number;
   academic_year?: string | null;
@@ -710,6 +715,7 @@ export interface SectionsUpdate {
   year_level?: string | null;
   strand_or_track?: string | null;
   adviser_id?: string | null;
+  adviser_employee_id?: string | null;
   capacity?: number;
   current_count?: number;
   academic_year?: string | null;
@@ -789,6 +795,7 @@ export interface ClassSchedulesRow {
   legacy_id: string | null;
   subject_id: string | null;
   teacher_id: string | null;
+  employee_id: string | null;
   section: string | null;
   room_name: string | null;
   day: string;
@@ -809,6 +816,7 @@ export interface ClassSchedulesInsert {
   legacy_id?: string | null;
   subject_id?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   section?: string | null;
   room_name?: string | null;
   day: string;
@@ -829,6 +837,7 @@ export interface ClassSchedulesUpdate {
   legacy_id?: string | null;
   subject_id?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   section?: string | null;
   room_name?: string | null;
   day?: string;
@@ -1832,6 +1841,7 @@ export interface SubjectClassLoadsRow {
   id: string;
   legacy_id: string | null;
   teacher_id: string;
+  employee_id: string | null;
   subject_id: string | null;
   section_id: string | null;
   department: string;
@@ -1844,6 +1854,7 @@ export interface SubjectClassLoadsInsert {
   id?: string;
   legacy_id?: string | null;
   teacher_id: string;
+  employee_id?: string | null;
   subject_id?: string | null;
   section_id?: string | null;
   department: string;
@@ -1856,6 +1867,7 @@ export interface SubjectClassLoadsUpdate {
   id?: string;
   legacy_id?: string | null;
   teacher_id?: string;
+  employee_id?: string | null;
   subject_id?: string | null;
   section_id?: string | null;
   department?: string;
@@ -1892,6 +1904,7 @@ export interface GradePeriodsRow {
   section_id: string | null;
   school_year: string | null;
   teacher_id: string | null;
+  employee_id: string | null;
   is_finalized: boolean;
   finalized_at: string | null;
   finalized_by: string | null;
@@ -1906,6 +1919,7 @@ export interface GradePeriodsInsert {
   section_id?: string | null;
   school_year?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   is_finalized?: boolean;
   finalized_at?: string | null;
   finalized_by?: string | null;
@@ -1920,6 +1934,7 @@ export interface GradePeriodsUpdate {
   section_id?: string | null;
   school_year?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   is_finalized?: boolean;
   finalized_at?: string | null;
   finalized_by?: string | null;
@@ -1993,6 +2008,7 @@ export interface StudentGradeEntriesRow {
   student_id: string;
   grade_item_id: string;
   score: number | null;
+  employee_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -2003,6 +2019,7 @@ export interface StudentGradeEntriesInsert {
   student_id: string;
   grade_item_id: string;
   score?: number | null;
+  employee_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -2013,6 +2030,7 @@ export interface StudentGradeEntriesUpdate {
   student_id?: string;
   grade_item_id?: string;
   score?: number | null;
+  employee_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -2023,6 +2041,7 @@ export interface GradesRow {
   student_id: string;
   subject_id: string | null;
   teacher_id: string | null;
+  employee_id: string | null;
   school_year: string | null;
   semester: string | null;
   midterm_grade: number | null;
@@ -2037,6 +2056,7 @@ export interface GradesInsert {
   student_id: string;
   subject_id?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   school_year?: string | null;
   semester?: string | null;
   midterm_grade?: number | null;
@@ -2051,6 +2071,7 @@ export interface GradesUpdate {
   student_id?: string;
   subject_id?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   school_year?: string | null;
   semester?: string | null;
   midterm_grade?: number | null;
@@ -2134,6 +2155,7 @@ export interface LearningMaterialsRow {
   subject_id: string | null;
   section: string | null;
   teacher_id: string | null;
+  employee_id: string | null;
   learning_type: string;
   file_url: string | null;
   file_name: string | null;
@@ -2158,6 +2180,7 @@ export interface LearningMaterialsInsert {
   subject_id?: string | null;
   section?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   learning_type: string;
   file_url?: string | null;
   file_name?: string | null;
@@ -2182,6 +2205,7 @@ export interface LearningMaterialsUpdate {
   subject_id?: string | null;
   section?: string | null;
   teacher_id?: string | null;
+  employee_id?: string | null;
   learning_type?: string;
   file_url?: string | null;
   file_name?: string | null;
@@ -2194,6 +2218,135 @@ export interface LearningMaterialsUpdate {
   year_level?: string | null;
   track_or_course?: string | null;
   tags?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface EmployeeFacultyProfilesRow {
+  id: string;
+  employee_id: string;
+  teacher_id: string | null;
+  specialization: string | null;
+  advisory_section: string | null;
+  faculty_rank: string | null;
+  is_teaching_staff: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface EmployeeFacultyProfilesInsert {
+  id?: string;
+  employee_id: string;
+  teacher_id?: string | null;
+  specialization?: string | null;
+  advisory_section?: string | null;
+  faculty_rank?: string | null;
+  is_teaching_staff?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface EmployeeFacultyProfilesUpdate {
+  id?: string;
+  employee_id?: string;
+  teacher_id?: string | null;
+  specialization?: string | null;
+  advisory_section?: string | null;
+  faculty_rank?: string | null;
+  is_teaching_staff?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StudentAttendanceRow {
+  id: string;
+  legacy_id: string | null;
+  student_id: string;
+  section: string | null;
+  date: string;
+  status: string;
+  recorded_by: string | null;
+  recorded_by_employee_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface StudentAttendanceInsert {
+  id?: string;
+  legacy_id?: string | null;
+  student_id: string;
+  section?: string | null;
+  date: string;
+  status?: string;
+  recorded_by?: string | null;
+  recorded_by_employee_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface StudentAttendanceUpdate {
+  id?: string;
+  legacy_id?: string | null;
+  student_id?: string;
+  section?: string | null;
+  date?: string;
+  status?: string;
+  recorded_by?: string | null;
+  recorded_by_employee_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ConsultationAppointmentsRow {
+  id: string;
+  legacy_id: string | null;
+  school_id: string | null;
+  student_id: string | null;
+  teacher_id: string | null;
+  employee_id: string | null;
+  requested_by: string;
+  requestor_role: string;
+  purpose: string;
+  appointment_date: string | null;
+  appointment_time: string | null;
+  venue: string | null;
+  status: string;
+  remarks: string | null;
+  teacher_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface ConsultationAppointmentsInsert {
+  id?: string;
+  legacy_id?: string | null;
+  school_id?: string | null;
+  student_id?: string | null;
+  teacher_id?: string | null;
+  employee_id?: string | null;
+  requested_by: string;
+  requestor_role?: string;
+  purpose: string;
+  appointment_date?: string | null;
+  appointment_time?: string | null;
+  venue?: string | null;
+  status?: string;
+  remarks?: string | null;
+  teacher_notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface ConsultationAppointmentsUpdate {
+  id?: string;
+  legacy_id?: string | null;
+  school_id?: string | null;
+  student_id?: string | null;
+  teacher_id?: string | null;
+  employee_id?: string | null;
+  requested_by?: string;
+  requestor_role?: string;
+  purpose?: string;
+  appointment_date?: string | null;
+  appointment_time?: string | null;
+  venue?: string | null;
+  status?: string;
+  remarks?: string | null;
+  teacher_notes?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -2323,6 +2476,7 @@ export interface Database {
       registrar_import_batches: { Row: RegistrarImportBatchesRow; Insert: RegistrarImportBatchesInsert; Update: RegistrarImportBatchesUpdate };
       registrar_import_rows: { Row: RegistrarImportRowsRow; Insert: RegistrarImportRowsInsert; Update: RegistrarImportRowsUpdate };
       employees: { Row: EmployeesRow; Insert: EmployeesInsert; Update: EmployeesUpdate };
+      employee_faculty_profiles: { Row: EmployeeFacultyProfilesRow; Insert: EmployeeFacultyProfilesInsert; Update: EmployeeFacultyProfilesUpdate };
       curriculums: { Row: CurriculumsRow; Insert: CurriculumsInsert; Update: CurriculumsUpdate };
       curriculum_subjects: { Row: CurriculumSubjectsRow; Insert: CurriculumSubjectsInsert; Update: CurriculumSubjectsUpdate };
       sections: { Row: SectionsRow; Insert: SectionsInsert; Update: SectionsUpdate };
@@ -2356,8 +2510,10 @@ export interface Database {
       grade_items: { Row: GradeItemsRow; Insert: GradeItemsInsert; Update: GradeItemsUpdate };
       student_grade_entries: { Row: StudentGradeEntriesRow; Insert: StudentGradeEntriesInsert; Update: StudentGradeEntriesUpdate };
       grades: { Row: GradesRow; Insert: GradesInsert; Update: GradesUpdate };
+      student_attendance: { Row: StudentAttendanceRow; Insert: StudentAttendanceInsert; Update: StudentAttendanceUpdate };
       announcements: { Row: AnnouncementsRow; Insert: AnnouncementsInsert; Update: AnnouncementsUpdate };
       school_events: { Row: SchoolEventsRow; Insert: SchoolEventsInsert; Update: SchoolEventsUpdate };
+      consultation_appointments: { Row: ConsultationAppointmentsRow; Insert: ConsultationAppointmentsInsert; Update: ConsultationAppointmentsUpdate };
       learning_materials: { Row: LearningMaterialsRow; Insert: LearningMaterialsInsert; Update: LearningMaterialsUpdate };
       activity_logs: { Row: ActivityLogsRow; Insert: ActivityLogsInsert; Update: ActivityLogsUpdate };
       enrollment_history_stats: { Row: EnrollmentHistoryStatsRow; Insert: EnrollmentHistoryStatsInsert; Update: EnrollmentHistoryStatsUpdate };

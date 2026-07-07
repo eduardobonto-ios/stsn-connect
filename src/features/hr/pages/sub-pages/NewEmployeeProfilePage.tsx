@@ -16,6 +16,10 @@ const EMPLOYMENT_STATUS_VARIANTS: Record<string, ProfileInfoTileVariant> = {
   pending: "warning",
 };
 
+function normalizeEmail(value?: string | null) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
 function resolveEmploymentStatusVariant(status?: string | null): ProfileInfoTileVariant {
   return EMPLOYMENT_STATUS_VARIANTS[status?.trim().toLowerCase() ?? ""] ?? "neutral";
 }
@@ -66,7 +70,13 @@ export default function NewEmployeeProfilePage() {
   );
 
   const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId) ?? null;
-  const linkedTeacher = teachers.find((teacher) => teacher.email === selectedEmployee?.email) ?? null;
+  const linkedTeacher =
+    teachers.find(
+      (teacher) =>
+        (!!selectedEmployee && teacher.employeeId === selectedEmployee.id) ||
+        (!!selectedEmployee?.userId && teacher.userId === selectedEmployee.userId) ||
+        normalizeEmail(teacher.email) === normalizeEmail(selectedEmployee?.email),
+    ) ?? null;
 
   return (
     <div className="space-y-6">

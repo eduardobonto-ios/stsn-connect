@@ -49,6 +49,13 @@ const DAY_COLORS: Record<string, string> = {
   Saturday: "bg-slate-50 border-slate-200 text-slate-800",
 };
 
+function scheduleMatchesTeacher(schedule: ClassSchedule, teacherId: string, teacherEmployeeId?: string) {
+  if (teacherEmployeeId && schedule.employeeId) {
+    return schedule.employeeId === teacherEmployeeId;
+  }
+  return schedule.teacherId === teacherId;
+}
+
 // Detect conflicts: same teacher OR same room, same day, overlapping times
 function detectConflicts(schedules: ClassSchedule[]): Set<string> {
   const conflictIds = new Set<string>();
@@ -59,7 +66,9 @@ function detectConflicts(schedules: ClassSchedule[]): Set<string> {
       if (a.day !== b.day) continue;
       const overlap = a.startTime < b.endTime && b.startTime < a.endTime;
       if (!overlap) continue;
-      const sameTeacher = a.teacherId === b.teacherId && a.teacherId;
+      const sameTeacher =
+        (a.employeeId && b.employeeId && a.employeeId === b.employeeId) ||
+        (a.teacherId === b.teacherId && a.teacherId);
       const sameRoom = a.roomName === b.roomName && a.roomName;
       if (sameTeacher || sameRoom) {
         conflictIds.add(a.id);
@@ -123,8 +132,9 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
   ) : undefined;
   const initiallyAssignedAsAdviser = Boolean(
     initial && (
+      initialSection?.adviserEmployeeId === initial.employeeId ||
       initialSection?.adviserId === initial.teacherId ||
-      scopedTeachers.find((teacher) => teacher.id === initial.teacherId)?.advisorySection === initial.section
+      scopedTeachers.find((teacher) => teacher.id === initial.teacherId || teacher.employeeId === initial.employeeId)?.advisorySection === initial.section
     )
   );
   const [assignAsAdviser, setAssignAsAdviser] = useState(initiallyAssignedAsAdviser);
@@ -179,13 +189,18 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
     const section = availableSections.find((item) => item.name === newSection);
     setAssignAsAdviser(Boolean(
       newSection && teacherId && (
-        section?.adviserId === teacherId || selectedTeacher?.advisorySection === newSection
+        section?.adviserEmployeeId === selectedTeacher?.employeeId ||
+        section?.adviserId === teacherId ||
+        selectedTeacher?.advisorySection === newSection
       )
     ));
     if (!newSection || !teacherId) { setSectionConflictWarning(""); return; }
     // Check if this teacher already has this section in any existing schedule
     const conflict = scopedClassSchedules.find(
-      (cs) => cs.teacherId === teacherId && cs.section === newSection && cs.id !== initial?.id
+      (cs) =>
+        scheduleMatchesTeacher(cs, teacherId, selectedTeacher?.employeeId) &&
+        cs.section === newSection &&
+        cs.id !== initial?.id
     );
     if (conflict) {
       setSectionConflictWarning(`⚠ ${selectedTeacher?.firstName} ${selectedTeacher?.lastName} already has section "${newSection}" assigned (${conflict.subjectCode}, ${conflict.day}).`);
@@ -254,6 +269,7 @@ function ScheduleForm({ initial, onSave, onClose }: ScheduleFormProps) {
       subjectCode,
       subjectName: selectedSub?.name || "",
       teacherId,
+      employeeId: selectedTeacher?.employeeId,
       teacherName: selectedTeacher ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}` : "",
       section: sectionName,
       roomName,
@@ -532,11 +548,14 @@ export default function SchedulingModule() {
       const matchYear = s.schoolYear === filterYear;
       const matchSem = s.semester === filterSemester;
       const matchDept = filterDept === "All" || s.department === filterDept;
-      const matchTeacher = filterTeacher === "All" || s.teacherId === filterTeacher;
+      const filterTeacherRecord = scopedTeachers.find((teacher) => teacher.id === filterTeacher);
+      const matchTeacher =
+        filterTeacher === "All" ||
+        scheduleMatchesTeacher(s, filterTeacher, filterTeacherRecord?.employeeId);
       const matchDay = filterDay === "All" || s.day === filterDay;
       return matchSearch && matchYear && matchSem && matchDept && matchTeacher && matchDay;
     });
-  }, [scopedClassSchedules, searchQ, filterYear, filterSemester, filterDept, filterTeacher, filterDay]);
+  }, [scopedClassSchedules, scopedTeachers, searchQ, filterYear, filterSemester, filterDept, filterTeacher, filterDay]);
 
   const conflictIds = useMemo(() => detectConflicts(filteredSchedules), [filteredSchedules]);
 
@@ -674,7 +693,7 @@ export default function SchedulingModule() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <AppKpiCard label="Total Schedules" value={filteredSchedules.length} icon={CalendarDays} tone="brand" hint="Filtered working set" />
         <AppKpiCard label={`${terms.groupNoun}s`} value={new Set(filteredSchedules.map((s) => s.section)).size} icon={GraduationCap} tone="info" hint="Unique class groups" />
-        <AppKpiCard label="Faculty Assigned" value={new Set(filteredSchedules.map((s) => s.teacherId)).size} icon={Users} tone="success" hint="With active loads" />
+        <AppKpiCard label="Faculty Assigned" value={new Set(filteredSchedules.map((s) => s.employeeId ?? s.teacherId)).size} icon={Users} tone="success" hint="With active loads" />
         <AppKpiCard label="Rooms Used" value={new Set(filteredSchedules.map((s) => s.roomName)).size} icon={Building2} tone="neutral" hint="Distinct venues" />
       </div>
 
@@ -787,11 +806,11 @@ export default function SchedulingModule() {
               <Users className="w-4 h-4 text-stsn-gold" /> Faculty Load
             </h3>
             <div className="space-y-2">
-              {Array.from(new Set(filteredSchedules.map((s) => s.teacherId))).map((tid) => {
-                const sched = filteredSchedules.filter((s) => s.teacherId === tid);
+              {Array.from(new Set(filteredSchedules.map((s) => s.employeeId ?? s.teacherId))).map((ownerId) => {
+                const sched = filteredSchedules.filter((s) => (s.employeeId ?? s.teacherId) === ownerId);
                 const teacherName = sched[0]?.teacherName || "Unknown";
                 return (
-                  <div key={tid} className="flex justify-between items-center p-2 bg-stone-50 rounded-lg">
+                  <div key={ownerId} className="flex justify-between items-center p-2 bg-stone-50 rounded-lg">
                     <span className="text-[11px] font-semibold text-stone-700 truncate max-w-[140px]">{teacherName}</span>
                     <AppStatusBadge status={sched.length > 6 ? "Pending" : "Active"}>
                       {sched.length} class{sched.length !== 1 ? "es" : ""}

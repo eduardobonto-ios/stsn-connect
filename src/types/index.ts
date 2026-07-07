@@ -111,6 +111,8 @@ export interface Teacher {
   schoolId?: SchoolId;
   /** Links this teacher record to its login account (User.id) — preferred over email matching. */
   userId?: string;
+  /** Phase 1 bridge to the canonical employee row during consolidation. */
+  employeeId?: string;
   firstName: string;
   lastName: string;
   middleName: string;
@@ -147,6 +149,9 @@ export interface Employee {
   separationDate?: string;
   separationReason?: string;
   supervisorId?: string;
+  // Faculty extension (employee_faculty_profiles) — present only for teaching staff
+  isTeachingStaff?: boolean;
+  facultyRank?: string | null;
 }
 
 export interface EmployeeProfileContact {
@@ -457,6 +462,7 @@ export interface Grade {
   studentId: string;
   subjectCode: string;
   teacherId: string;
+  employeeId?: string;
   schoolYear: string;
   semester: string;
   midtermGrade: number;
@@ -638,6 +644,7 @@ export interface ClassSchedule {
   subjectCode: string;
   subjectName: string;
   teacherId: string;
+  employeeId?: string;
   teacherName: string;
   section: string;
   roomName: string;
@@ -665,6 +672,7 @@ export interface SchoolSection {
   yearLevel: string;
   strandOrTrack?: string;
   adviserId?: string;
+  adviserEmployeeId?: string;
   adviserName?: string;
   capacity: number;
   currentCount: number;
@@ -816,6 +824,7 @@ export interface LearningMaterial {
   subjectName: string;
   section: string;
   teacherId: string;
+  employeeId?: string;
   teacherName: string;
   learningType: "Video" | "Module" | "Document";
   fileUrl?: string;

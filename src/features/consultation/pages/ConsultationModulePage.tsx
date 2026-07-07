@@ -31,6 +31,7 @@ interface ConsultationAppointment {
   id: string;
   studentId?: string;
   teacherId?: string;
+  employeeId?: string;
   requestedBy: string;
   requestorRole: RequestorRole;
   purpose: string;
@@ -62,7 +63,7 @@ const STATUSES: AppointmentStatus[] = ["Pending", "Confirmed", "Completed", "Can
 
 const DEFAULT_FORM = {
   studentId: "",
-  teacherId: "",
+  facultyKey: "",
   requestedBy: "",
   requestorRole: "Parent" as RequestorRole,
   purpose: "",
@@ -75,7 +76,7 @@ const DEFAULT_FORM = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ConsultationModule() {
-  const { students, teachers, currentUser, activeSchool, academicUnit } = useSTSNStore();
+  const { students, teachers, employees, currentUser, activeSchool, academicUnit } = useSTSNStore();
   const { toast } = useAppDialog();
 
   const [activeTab, setActiveTab] = useState<"appointments" | "requests">("appointments");
@@ -101,6 +102,7 @@ export default function ConsultationModule() {
         id: r.id,
         studentId: r.studentId ?? undefined,
         teacherId: r.teacherId ?? undefined,
+        employeeId: r.employeeId ?? undefined,
         requestedBy: r.requestedBy ?? "",
         requestorRole: r.requestorRole as RequestorRole,
         purpose: r.purpose ?? "",
@@ -116,21 +118,72 @@ export default function ConsultationModule() {
   }, []);
 
   const scopedData = useMemo(
-    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students, teachers }),
-    [currentUser, activeSchool, academicUnit, students, teachers],
+    () => getAcademicScopedData({ currentUser, activeSchool, academicUnit, students, teachers, employees }),
+    [currentUser, activeSchool, academicUnit, students, teachers, employees],
   );
   const scopedStudents = scopedData.students;
   const scopedTeachers = scopedData.teachers ?? [];
+  const scopedEmployees = scopedData.employees ?? [];
   const scopedStudentIds = useMemo(() => new Set(scopedStudents.map((student) => student.id)), [scopedStudents]);
   const scopedTeacherIds = useMemo(() => new Set(scopedTeachers.map((teacher) => teacher.id)), [scopedTeachers]);
+  const scopedTeacherEmployeeIds = useMemo(
+    () => new Set(scopedTeachers.map((teacher) => teacher.employeeId).filter(Boolean)),
+    [scopedTeachers],
+  );
+
+  // Teaching employees are the primary source for the adviser/teacher picker.
+  // Teacher rows are kept only as a display/selection fallback for the rare
+  // case of a teacher not yet bridged to a teaching employee record.
+  const teachingEmployees = useMemo(
+    () => scopedEmployees.filter((employee) => employee.isTeachingStaff),
+    [scopedEmployees],
+  );
+  const teachingEmployeeIds = useMemo(() => new Set(teachingEmployees.map((employee) => employee.id)), [teachingEmployees]);
+  const legacyOnlyTeachers = useMemo(
+    () => scopedTeachers.filter((teacher) => !teacher.employeeId || !teachingEmployeeIds.has(teacher.employeeId)),
+    [scopedTeachers, teachingEmployeeIds],
+  );
+
+  type FacultyOption = { key: string; label: string; teacherId?: string; employeeId?: string };
+  const facultyOptions = useMemo<FacultyOption[]>(() => {
+    const fromEmployees = teachingEmployees.map((employee) => ({
+      key: `employee:${employee.id}`,
+      label: `${employee.lastName}, ${employee.firstName}`,
+      employeeId: employee.id,
+      teacherId: scopedTeachers.find((teacher) => teacher.employeeId === employee.id)?.id,
+    }));
+    const fromLegacyTeachers = legacyOnlyTeachers.map((teacher) => ({
+      key: `teacher:${teacher.id}`,
+      label: `${teacher.lastName}, ${teacher.firstName}`,
+      teacherId: teacher.id,
+      employeeId: teacher.employeeId,
+    }));
+    return [...fromEmployees, ...fromLegacyTeachers];
+  }, [teachingEmployees, legacyOnlyTeachers, scopedTeachers]);
+
+  const getAppointmentTeacher = React.useCallback(
+    (appointment: Pick<ConsultationAppointment, "teacherId" | "employeeId">) => {
+      const employee = appointment.employeeId
+        ? scopedEmployees.find((candidate) => candidate.id === appointment.employeeId)
+        : undefined;
+      if (employee) return employee;
+      return scopedTeachers.find(
+        (teacher) =>
+          (!!appointment.employeeId && teacher.employeeId === appointment.employeeId) ||
+          (!!appointment.teacherId && teacher.id === appointment.teacherId),
+      );
+    },
+    [scopedEmployees, scopedTeachers],
+  );
   const scopedAppointments = useMemo(
     () =>
       appointments.filter((appointment) => {
         if (appointment.studentId) return scopedStudentIds.has(appointment.studentId);
+        if (appointment.employeeId) return scopedTeacherEmployeeIds.has(appointment.employeeId);
         if (appointment.teacherId) return scopedTeacherIds.has(appointment.teacherId);
         return false;
       }),
-    [appointments, scopedStudentIds, scopedTeacherIds],
+    [appointments, scopedStudentIds, scopedTeacherIds, scopedTeacherEmployeeIds],
   );
 
   const kpis = [
@@ -156,14 +209,14 @@ export default function ConsultationModule() {
     const q = searchQuery.toLowerCase();
     return source.filter((a) => {
       const stu = scopedStudents.find((s) => s.id === a.studentId);
-      const tea = scopedTeachers.find((t) => t.id === a.teacherId);
+      const tea = getAppointmentTeacher(a);
       const name = stu ? `${stu.firstName} ${stu.lastName}`.toLowerCase() : a.requestedBy.toLowerCase();
       const teacherName = tea ? `${tea.firstName} ${tea.lastName}`.toLowerCase() : "";
       const matchSearch = !q || name.includes(q) || a.purpose.toLowerCase().includes(q) || teacherName.includes(q);
       const matchStatus = filterStatus === "All" || a.status === filterStatus;
       return matchSearch && matchStatus;
     });
-  }, [activeTab, confirmedItems, pendingItems, searchQuery, filterStatus, scopedStudents, scopedTeachers]);
+  }, [activeTab, confirmedItems, pendingItems, searchQuery, filterStatus, scopedStudents, getAppointmentTeacher]);
 
   const getStudentLabel = (id?: string) => {
     if (!id) return "—";
@@ -171,9 +224,8 @@ export default function ConsultationModule() {
     return stu ? `${stu.lastName}, ${stu.firstName}` : "Unknown";
   };
 
-  const getTeacherLabel = (id?: string) => {
-    if (!id) return "—";
-    const tea = scopedTeachers.find((t) => t.id === id);
+  const getTeacherLabel = (appointment: Pick<ConsultationAppointment, "teacherId" | "employeeId">) => {
+    const tea = getAppointmentTeacher(appointment);
     return tea ? `${tea.lastName}, ${tea.firstName}` : "Unknown";
   };
 
@@ -183,10 +235,14 @@ export default function ConsultationModule() {
       return;
     }
     const id = newId();
+    const selectedFaculty = form.facultyKey
+      ? facultyOptions.find((option) => option.key === form.facultyKey)
+      : undefined;
     const newAppt: ConsultationAppointment = {
       id,
       studentId: form.studentId || undefined,
-      teacherId: form.teacherId || undefined,
+      teacherId: selectedFaculty?.teacherId,
+      employeeId: selectedFaculty?.employeeId,
       requestedBy: form.requestedBy,
       requestorRole: form.requestorRole,
       purpose: form.purpose,
@@ -196,10 +252,13 @@ export default function ConsultationModule() {
       status: "Pending",
       remarks: form.remarks || undefined,
     };
+    // employee_id is the authoritative owner; teacher_id is a REMOVABLE dual-write
+    // (legacy FK → public.teachers) kept only for the dual-read window.
     const error = await dbInsert("consultation_appointments", {
       id,
       studentId: form.studentId || null,
-      teacherId: form.teacherId || null,
+      teacherId: selectedFaculty?.teacherId || null,
+      employeeId: selectedFaculty?.employeeId || null,
       requestedBy: form.requestedBy,
       requestorRole: form.requestorRole,
       purpose: form.purpose,
@@ -253,7 +312,7 @@ export default function ConsultationModule() {
   const tableData = filteredItems.map((a) => ({
     ...a,
     studentLabel: getStudentLabel(a.studentId),
-    teacherLabel: getTeacherLabel(a.teacherId),
+    teacherLabel: getTeacherLabel(a),
   }));
 
   return (
@@ -346,7 +405,7 @@ export default function ConsultationModule() {
                   <>
                     {pageItems.map((a) => {
                       const stu = scopedStudents.find((s) => s.id === a.studentId);
-                      const tea = scopedTeachers.find((t) => t.id === a.teacherId);
+                      const tea = getAppointmentTeacher(a);
                       const cfg = STATUS_CONFIG[a.status];
                       return (
                         <AppCard key={a.id} className="border border-stone-200 bg-stone-50 p-4" tone="muted">
@@ -488,9 +547,9 @@ export default function ConsultationModule() {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Teacher / Adviser</label>
-                  <select value={form.teacherId} onChange={(e) => setForm((p) => ({ ...p, teacherId: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none">
+                  <select value={form.facultyKey} onChange={(e) => setForm((p) => ({ ...p, facultyKey: e.target.value }))} className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:outline-none">
                     <option value="">— Select teacher (optional) —</option>
-                    {scopedTeachers.map((t) => <option key={t.id} value={t.id}>{t.lastName}, {t.firstName}</option>)}
+                    {facultyOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
@@ -525,7 +584,7 @@ export default function ConsultationModule() {
       {/* DETAIL MODAL */}
       {detailItem && (() => {
         const stu = scopedStudents.find((s) => s.id === detailItem.studentId);
-        const tea = scopedTeachers.find((t) => t.id === detailItem.teacherId);
+        const tea = getAppointmentTeacher(detailItem);
         const cfg = STATUS_CONFIG[detailItem.status];
         const StatusIcon = cfg.icon;
         return (

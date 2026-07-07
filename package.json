@@ -8,7 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:consolidation:mutation": "playwright test tests/e2e/teacher-employee-consolidation-mutation.spec.ts",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "validate:consolidation": "node scripts/validate-teacher-consolidation.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

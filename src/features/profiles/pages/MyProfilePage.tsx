@@ -80,21 +80,25 @@ export default function MyProfilePage() {
   const [showPassword, setShowPassword] = useState(false);
   const [twoFactor, setTwoFactor] = useState(true);
 
-  // Lightweight linked-record lookups — used only to populate read-only detail
-  // fields (Employee ID, Department, Date Joined). No workflow logic here.
-  const linkedEmployee = useMemo(
-    () =>
-      employees.find(
-        (e) => e.userId === currentUser?.id || normalizeEmail(e.email) === normalizeEmail(currentUser?.email),
-      ) ?? null,
-    [employees, currentUser?.id, currentUser?.email],
-  );
   const linkedTeacher = useMemo(
     () =>
       teachers.find(
         (t) => t.userId === currentUser?.id || normalizeEmail(t.email) === normalizeEmail(currentUser?.email),
       ) ?? null,
     [teachers, currentUser?.id, currentUser?.email],
+  );
+  // Lightweight linked-record lookups — used only to populate read-only detail
+  // fields (Employee ID, Department, Date Joined). Prefer the explicit teacher->employee
+  // bridge before falling back to legacy email matching.
+  const linkedEmployee = useMemo(
+    () =>
+      employees.find(
+        (e) =>
+          e.userId === currentUser?.id ||
+          (!!linkedTeacher?.employeeId && e.id === linkedTeacher.employeeId) ||
+          normalizeEmail(e.email) === normalizeEmail(currentUser?.email),
+      ) ?? null,
+    [employees, linkedTeacher?.employeeId, currentUser?.id, currentUser?.email],
   );
   const linkedStudent = useMemo(
     () =>

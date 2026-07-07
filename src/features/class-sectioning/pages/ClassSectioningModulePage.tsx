@@ -132,7 +132,9 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
   const availableStrands = courses.filter(
     (c) => c.department === dept && (dept === "College" || (isSeniorHigh && c.durationYears === 2))
   );
-  const adviserObj = teachers.find((t) => t.id === adviserId);
+  const adviserObj = teachers.find(
+    (t) => t.id === adviserId || (!!initial?.adviserEmployeeId && t.employeeId === initial.adviserEmployeeId)
+  );
 
   const generatedCode = useMemo((): string => {
     const digits = yearLevel.replace(/\D/g, "");
@@ -154,6 +156,7 @@ function SectionForm({ initial, onSave, onClose, teachers, lockedDept }: Section
       yearLevel,
       strandOrTrack: strand || undefined,
       adviserId: adviserId || undefined,
+      adviserEmployeeId: adviserObj?.employeeId,
       adviserName: adviserObj ? `${adviserObj.firstName} ${adviserObj.lastName}` : undefined,
       capacity: Number(capacity),
       currentCount: initial?.currentCount || 0,

@@ -236,15 +236,20 @@ export default function StaffProfileWorkspace({
     event.preventDefault();
 
     if (teacher) {
-      updateTeacher(teacher.id, {
-        firstName,
-        lastName,
-        middleName,
-        email,
-        phone,
-        department: (department || teacher.department) as Teacher["department"],
-        specialization,
-      });
+      const teacherUpdates: Partial<Teacher> = employee
+        ? {
+            specialization,
+          }
+        : {
+            firstName,
+            lastName,
+            middleName,
+            email,
+            phone,
+            department: (department || teacher.department) as Teacher["department"],
+            specialization,
+          };
+      updateTeacher(teacher.id, teacherUpdates);
     }
 
     if (employee) {

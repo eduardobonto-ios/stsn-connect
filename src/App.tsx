@@ -9,7 +9,6 @@ import { useSTSNStore } from "./services/store";
 import {
   GraduationCap,
   Building2,
-  Clock,
   Menu,
   ChevronDown,
   ChevronRight,
@@ -101,7 +100,6 @@ export default function App() {
   >([]);
   const [expandedHRGroups, setExpandedHRGroups] = useState<string[]>([]);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState("");
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("stsn-sidebar-collapsed") === "1",
@@ -114,22 +112,6 @@ export default function App() {
   useEffect(() => {
     initialize();
   }, [initialize]);
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(
-        now.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-      );
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const currentRoute = useMemo(
     () => resolveAppRoute(location.pathname, location.search),
@@ -281,7 +263,7 @@ export default function App() {
     return crumbs;
   })();
 
-  // Keyboard shortcuts — only when logged in
+  // Keyboard shortcuts â€” only when logged in
   useKeyboardShortcuts({
     "Ctrl+k": () => setGlobalSearchOpen(true),
     "Meta+k": () => setGlobalSearchOpen(true),
@@ -355,7 +337,7 @@ export default function App() {
     [renderedSidebarItems],
   );
 
-  // The top-level nav item ("module group") that owns the active module —
+  // The top-level nav item ("module group") that owns the active module â€”
   // drives the contextual, module-scoped sidebar submenu. The Dashboard icon
   // grid is the main menu now, so the sidebar only ever shows one group's
   // children at a time instead of the full module tree.
@@ -364,14 +346,14 @@ export default function App() {
     [renderedSidebarItems, activeModule],
   );
 
-  // Tiles shown on the Home module launcher grid — every allowed top-level
+  // Tiles shown on the Home module launcher grid â€” every allowed top-level
   // module, including Dashboard (it's just another destination now).
   const moduleGridItems = renderedSidebarItems;
 
-  const isHomeEligible = allowedModules.includes("DASHBOARD");
-  const homeModule: STSNModule = isHomeEligible
-    ? "HOME"
-    : (renderedSidebarItems[0]?.id ?? "HOME");
+  // Home launcher is the universal landing page: eligible for any signed-in
+  // user with at least one RBAC-allowed module tile, not just Dashboard.
+  const isHomeEligible = renderedSidebarItems.length > 0;
+  const homeModule: STSNModule = "HOME";
 
   // When logged out, drop any previous-user route so the next login starts
   // from a neutral path ("/") instead of the stale page still in the URL.
@@ -383,15 +365,17 @@ export default function App() {
   }, [currentUser, isLoading, location.pathname, navigate]);
 
   // Keep the URL in sync with the signed-in user's access. On login (URL reset
-  // to "/" by logout) this lands the user on the Home launcher grid if their
-  // role can see it, otherwise their first allowed menu item — never the
-  // previous user's page. Known, still-valid deep links are preserved so hard
-  // refresh and direct-URL RBAC keep working.
+  // to "/" by logout) this lands the user on the Home launcher grid â€” every
+  // role with at least one allowed module tile â€” never the previous user's
+  // page. Known, still-valid deep links are preserved so hard refresh and
+  // direct-URL RBAC keep working. Zero-tile accounts fall back to their first
+  // allowed route (or the legacy per-role default) instead of a blank grid.
   useEffect(() => {
     if (!currentUser || isLoading) return;
 
-    const defaultTarget =
-      firstAllowedRoute ?? getDefaultRouteForRole(currentUser.role);
+    const defaultTarget = isHomeEligible
+      ? "/"
+      : (firstAllowedRoute ?? getDefaultRouteForRole(currentUser.role));
     const targetPath =
       currentRoute === null
         ? defaultTarget
@@ -445,7 +429,7 @@ export default function App() {
   };
 
   // Resolves the active sub-page id for a module's own (non-category-group)
-  // children — e.g. Payroll's "Salary Payouts" is a subPage of PAYROLL_MANAGEMENT
+  // children â€” e.g. Payroll's "Salary Payouts" is a subPage of PAYROLL_MANAGEMENT
   // itself, not a separate targetModule.
   const getActiveSubPageForGroup = (moduleId: STSNModule): string | undefined => {
     switch (moduleId) {
@@ -549,7 +533,7 @@ export default function App() {
     navigateToModule(target.module, target.subPage);
   };
 
-  // Renders the submenu for the currently active module group — reused by
+  // Renders the submenu for the currently active module group â€” reused by
   // both the desktop sidebar and the mobile drawer so they never drift apart.
   const renderModuleChildren = (group: NavItem) => {
     if (!group.children?.length) return null;
@@ -764,7 +748,7 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-stsn-cream text-stsn-text font-sans">
         <div className="flex flex-col items-center gap-3">
           <GraduationCap className="w-10 h-10 text-stsn-gold animate-pulse" />
-          <p className="text-sm text-stone-500">Loading Theresian Connect…</p>
+          <p className="text-sm text-stone-500">Loading Theresian Connectâ€¦</p>
         </div>
       </div>
     );
@@ -806,7 +790,7 @@ export default function App() {
           )}
         </div>
 
-        {/* School badges — hidden in minimal mode */}
+        {/* School badges â€” hidden in minimal mode */}
         {sidebarMode !== "minimal" && (
           <div className="px-4 py-3 space-y-2 border-b border-white/5">
             <div
@@ -850,7 +834,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Navigation — contextual to the active module; the full module
+        {/* Navigation â€” contextual to the active module; the full module
             list now lives on the Dashboard's icon grid (ModuleGrid). */}
         <nav className="app-shell-nav flex-1 space-y-1 py-4 px-3 overflow-y-auto">
           {renderModuleSidebarHeader()}
@@ -858,7 +842,7 @@ export default function App() {
         </nav>
       </aside>
 
-      {/* Sidebar collapse toggle — floats over the seam between sidebar and
+      {/* Sidebar collapse toggle â€” floats over the seam between sidebar and
           content so the workspace can go edge-to-edge on demand. */}
       <button
         onClick={() => setSidebarCollapsed((prev) => !prev)}
@@ -903,23 +887,19 @@ export default function App() {
             {/* Global Search trigger */}
             <button
               onClick={() => setGlobalSearchOpen(true)}
-              className="app-shell-utility-button hidden sm:flex items-center gap-2 px-3 py-2 rounded-2xl text-slate-600 cursor-pointer text-xs font-semibold"
+              className="app-shell-utility-button hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-slate-600 cursor-pointer text-xs font-semibold w-56 md:w-72 lg:w-96 justify-between"
               title="Global Search (Ctrl+K)"
             >
-              <Search className="w-3.5 h-3.5" />
-              <span className="hidden md:inline text-slate-600">Search</span>
-              <kbd className="hidden md:inline text-[9px] font-mono px-1.5 py-px rounded bg-stone-100 border border-stone-200 text-stone-400 leading-none">
-                ?K
+              <span className="flex items-center gap-2 min-w-0">
+                <Search className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate text-slate-400 font-normal">
+                  Search students, employees, receiptsâ€¦
+                </span>
+              </span>
+              <kbd className="hidden md:inline flex-shrink-0 text-[9px] font-mono px-1.5 py-px rounded bg-stone-100 border border-stone-200 text-stone-400 leading-none">
+                Ctrl/Cmd+K
               </kbd>
             </button>
-
-            {/* Clock */}
-            <div className="app-shell-utility-panel flex items-center gap-2 px-3 py-2 rounded-2xl text-stone-600 shadow-sm">
-              <Clock className="w-4 h-4 text-stsn-gold" />
-              <span className="text-xs font-mono font-bold">
-                {currentTime || "12:00:00"}
-              </span>
-            </div>
 
             {/* Notification Bell */}
             <NotificationBell />
@@ -934,13 +914,17 @@ export default function App() {
         </div>
 
         {/* MAIN CONTENT */}
-        <main className="app-shell-main flex-1 overflow-y-auto">
+        <main
+          className={`app-shell-main flex-1 overflow-y-auto${
+            activeModule === "HOME" ? " app-shell-main--home" : ""
+          }`}
+        >
           <div className="app-shell-main-inner">
             {activeModule === "HOME" ? (
               <ModuleGrid
                 items={moduleGridItems}
-                onSelect={(item) => navigateToModule(item.id)}
-                getBadgeCount={(moduleId) => getBadgeCount(moduleId)}
+                onNavigate={(path) => navigate(path)}
+                getBadgeCount={getBadgeCount}
               />
             ) : (
               <AppModuleRenderer
@@ -1056,9 +1040,20 @@ export default function App() {
           <GlobalSearch
             open={globalSearchOpen}
             onClose={() => setGlobalSearchOpen(false)}
+            onNavigate={(result) => {
+              if (result.type === "student") {
+                navigateToModule("STUDENT_PORTAL", "overview", result.id);
+              } else if (result.type === "employee") {
+                navigateToModule("HR_MANAGEMENT", "employee-life-cycles");
+              } else if (result.type === "payment") {
+                navigateToModule("CASHIER", "history");
+              }
+              setGlobalSearchOpen(false);
+            }}
           />
         </Suspense>
       )}
     </div>
   );
 }
+

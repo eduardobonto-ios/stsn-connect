@@ -29,7 +29,12 @@ import type {
 } from "../types";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent } from "../types/grading";
 
-const teacherName = (t: any) => (t ? `${t.first_name} ${t.last_name}` : undefined);
+const personName = (
+  person:
+    | { first_name?: string; last_name?: string; firstName?: string; lastName?: string }
+    | null
+    | undefined
+) => person ? `${person.first_name ?? person.firstName ?? ""} ${person.last_name ?? person.lastName ?? ""}`.trim() || undefined : undefined;
 
 export interface LoadedData {
   schools: { id: string; uuid: string; name: string; shortName: string; location: string; academicUnit: string; brandingLabel: string; supportedRoles: string[] }[];
@@ -135,14 +140,10 @@ export async function loadAllData(): Promise<LoadedData> {
     isActive: u.is_active, avatarUrl: u.avatar_url, department: u.department,
   }));
 
-  // ---- Teachers ----
-  const { data: teacherRows } = await supabase.from("teachers").select("*, schools(code)");
-  const teachers: Teacher[] = (teacherRows ?? []).map((t: any) => ({
-    id: t.id, schoolId: t.schools?.code, userId: t.user_id, firstName: t.first_name, lastName: t.last_name,
-    middleName: t.middle_name, department: t.department, email: t.email, phone: t.phone,
-    specialization: t.specialization, advisorySection: t.advisory_section, isActive: t.is_active,
-  }));
-  const teacherById = new Map(teachers.map((t) => [t.id, t]));
+  // ---- Teachers (faculty) ----
+  // Faculty identity is synthesized from employees + employee_faculty_profiles
+  // below (after the employee load). The app no longer reads public.teachers at
+  // runtime — teacher→employee consolidation, Phase 6 prep.
 
   // ---- Students ----
   const { data: studentRows } = await supabase.from("students").select("*, schools(code)");
@@ -158,15 +159,58 @@ export async function loadAllData(): Promise<LoadedData> {
 
   // ---- Employees ----
   const { data: employeeRows } = await supabase.from("employees").select("*, schools(code)");
-  const employees: Employee[] = (employeeRows ?? []).map((e: any) => ({
-    id: e.id, schoolId: e.schools?.code, firstName: e.first_name, lastName: e.last_name, middleName: e.middle_name,
-    email: e.email, position: e.position, positionTitle: e.position_title, department: e.department,
-    salary: e.salary, status: e.status, leaveBalance: e.leave_balance, contact: e.contact,
-    address: e.address, emergencyContact: e.emergency_contact,
-    employeeNo: e.employee_no, userId: e.user_id, employmentStatus: e.employment_status ?? "Active",
-    hireDate: e.hire_date, regularizationDate: e.regularization_date, separationDate: e.separation_date,
-    separationReason: e.separation_reason, supervisorId: e.supervisor_id,
-  }));
+  const { data: facultyProfileRows } = await supabase
+    .from("employee_faculty_profiles")
+    .select("employee_id, teacher_id, specialization, advisory_section, is_teaching_staff, faculty_rank");
+  const facultyProfileByEmployeeId = new Map(
+    (facultyProfileRows ?? []).map((f: any) => [f.employee_id, f])
+  );
+  const employees: Employee[] = (employeeRows ?? []).map((e: any) => {
+    const facultyProfile = facultyProfileByEmployeeId.get(e.id);
+    return {
+      id: e.id, schoolId: e.schools?.code, firstName: e.first_name, lastName: e.last_name, middleName: e.middle_name,
+      email: e.email, position: e.position, positionTitle: e.position_title, department: e.department,
+      salary: e.salary, status: e.status, leaveBalance: e.leave_balance, contact: e.contact,
+      address: e.address, emergencyContact: e.emergency_contact,
+      employeeNo: e.employee_no, userId: e.user_id, employmentStatus: e.employment_status ?? "Active",
+      hireDate: e.hire_date, regularizationDate: e.regularization_date, separationDate: e.separation_date,
+      separationReason: e.separation_reason, supervisorId: e.supervisor_id,
+      isTeachingStaff: facultyProfile?.is_teaching_staff ?? false,
+      facultyRank: facultyProfile?.faculty_rank ?? null,
+    };
+  });
+  const employeeById = new Map(employees.map((e) => [e.id, e]));
+
+  // ---- Teachers (synthesized, employee-backed) ----
+  // Faculty identity now derives from employees + employee_faculty_profiles
+  // instead of public.teachers. Teacher.id keeps the legacy teachers.id while the
+  // faculty profile still carries one (transitional — lets legacy teacher_id-owned
+  // rows and FK dual-writes resolve during the dual-read window) and falls back to
+  // the employee id otherwise. Remove the legacy-id fallback wiring when Phase 6
+  // drops public.teachers. Identity/contact fields come from the employee; faculty
+  // metadata (specialization, advisory section) from the faculty profile.
+  let teachers: Teacher[] = (facultyProfileRows ?? [])
+    .map((fp: any): Teacher | null => {
+      const emp = employeeById.get(fp.employee_id);
+      if (!emp) return null;
+      return {
+        id: fp.teacher_id ?? emp.id,
+        schoolId: emp.schoolId,
+        userId: emp.userId,
+        employeeId: emp.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        middleName: emp.middleName ?? "",
+        department: emp.department as Teacher["department"],
+        email: emp.email ?? "",
+        phone: emp.contact ?? "",
+        specialization: fp.specialization ?? "",
+        advisorySection: fp.advisory_section ?? undefined,
+        isActive: emp.employmentStatus ? emp.employmentStatus === "Active" : true,
+      };
+    })
+    .filter((t): t is Teacher => t !== null);
+  let teacherById = new Map(teachers.map((t) => [t.id, t]));
 
   // ---- Courses ----
   const { data: courseRows } = await supabase.from("courses").select("*");
@@ -189,15 +233,32 @@ export async function loadAllData(): Promise<LoadedData> {
   });
 
   // ---- Sections + section_students ----
-  const { data: sectionRows } = await supabase.from("sections").select("*, schools(code), teachers(first_name,last_name)");
+  const { data: sectionRows } = await supabase.from("sections").select("*, schools(code)");
   const { data: sectionStudentRows } = await supabase.from("section_students").select("*");
-  const sections: SchoolSection[] = (sectionRows ?? []).map((s: any) => ({
-    id: s.id, schoolId: s.schools?.code, code: s.code, name: s.name, department: s.department,
-    yearLevel: s.year_level, strandOrTrack: s.strand_or_track, adviserId: s.adviser_id,
-    adviserName: teacherName(s.teachers), capacity: s.capacity, currentCount: s.current_count,
-    academicYear: s.academic_year, semester: s.semester, isActive: s.is_active, createdAt: s.created_at,
-    enrolledStudentIds: (sectionStudentRows ?? []).filter((ss: any) => ss.section_id === s.id).map((ss: any) => ss.student_id),
-  }));
+  const sections: SchoolSection[] = (sectionRows ?? []).map((s: any) => {
+    const adviserEmployee = s.adviser_employee_id ? employeeById.get(s.adviser_employee_id) : undefined;
+    const adviserTeacher = s.adviser_id ? teacherById.get(s.adviser_id) : undefined;
+    const adviserName = personName(adviserEmployee) ?? personName(adviserTeacher);
+    return {
+      id: s.id, schoolId: s.schools?.code, code: s.code, name: s.name, department: s.department,
+      yearLevel: s.year_level, strandOrTrack: s.strand_or_track, adviserId: s.adviser_id,
+      adviserEmployeeId: s.adviser_employee_id, adviserName, capacity: s.capacity, currentCount: s.current_count,
+      academicYear: s.academic_year, semester: s.semester, isActive: s.is_active, createdAt: s.created_at,
+      enrolledStudentIds: (sectionStudentRows ?? []).filter((ss: any) => ss.section_id === s.id).map((ss: any) => ss.student_id),
+    };
+  });
+  teachers = teachers.map((teacher) => {
+    const derivedAdvisorySection = sections.find(
+      (section) =>
+        (!!teacher.employeeId && section.adviserEmployeeId === teacher.employeeId) ||
+        section.adviserId === teacher.id
+    )?.name;
+    return {
+      ...teacher,
+      advisorySection: derivedAdvisorySection ?? teacher.advisorySection,
+    };
+  });
+  teacherById = new Map(teachers.map((teacher) => [teacher.id, teacher]));
 
   // ---- Rooms ----
   const { data: roomRows } = await supabase.from("rooms").select("*, schools(code)");
@@ -207,13 +268,19 @@ export async function loadAllData(): Promise<LoadedData> {
   }));
 
   // ---- Class schedules ----
-  const { data: classSchedRows } = await supabase.from("class_schedules").select("*, subjects(code,name), teachers(first_name,last_name)");
-  const classSchedules: ClassSchedule[] = (classSchedRows ?? []).map((c: any) => ({
-    id: c.id, subjectCode: c.subjects?.code ?? "", subjectName: c.subjects?.name ?? "", teacherId: c.teacher_id,
-    teacherName: teacherName(c.teachers) ?? "", section: c.section, roomName: c.room_name, day: c.day,
-    startTime: c.start_time, endTime: c.end_time, schoolYear: c.school_year, semester: c.semester,
-    isActive: c.is_active, department: c.department, yearLevel: c.year_level, courseOrTrack: c.course_or_track, notes: c.notes,
-  }));
+  const { data: classSchedRows } = await supabase.from("class_schedules").select("*, subjects(code,name)");
+  const classSchedules: ClassSchedule[] = (classSchedRows ?? []).map((c: any) => {
+    const owningEmployee = c.employee_id ? employeeById.get(c.employee_id) : undefined;
+    const owningTeacher = c.teacher_id ? teacherById.get(c.teacher_id) : undefined;
+    return {
+      id: c.id, subjectCode: c.subjects?.code ?? "", subjectName: c.subjects?.name ?? "", teacherId: c.teacher_id,
+      employeeId: c.employee_id,
+      teacherName: personName(owningEmployee) ?? personName(owningTeacher) ?? "",
+      section: c.section, roomName: c.room_name, day: c.day,
+      startTime: c.start_time, endTime: c.end_time, schoolYear: c.school_year, semester: c.semester,
+      isActive: c.is_active, department: c.department, yearLevel: c.year_level, courseOrTrack: c.course_or_track, notes: c.notes,
+    };
+  });
 
   // ---- Legacy flat schedules ----
   const { data: scheduleRows } = await supabase.from("schedules").select("*");
@@ -359,7 +426,8 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: gradeRows } = await supabase.from("grades").select("*, subjects(code)");
   const grades: Grade[] = (gradeRows ?? []).map((g: any) => ({
     id: g.id, studentId: g.student_id, subjectCode: g.subjects?.code ?? "", teacherId: g.teacher_id,
-    schoolYear: g.school_year, semester: g.semester, midtermGrade: g.midterm_grade, finalGrade: g.final_grade, remarks: g.remarks,
+    employeeId: g.employee_id, schoolYear: g.school_year, semester: g.semester,
+    midtermGrade: g.midterm_grade, finalGrade: g.final_grade, remarks: g.remarks,
   }));
 
   // ---- Announcements / events ----
@@ -393,14 +461,19 @@ export async function loadAllData(): Promise<LoadedData> {
   }
 
   // ---- Learning materials ----
-  const { data: lmRows } = await supabase.from("learning_materials").select("*, schools(code), subjects(code,name), teachers(first_name,last_name)");
-  const learningMaterials: LearningMaterial[] = (lmRows ?? []).map((m: any) => ({
-    id: m.id, schoolId: m.schools?.code, title: m.title, description: m.description, subjectCode: m.subjects?.code ?? "",
-    subjectName: m.subjects?.name ?? "", section: m.section, teacherId: m.teacher_id, teacherName: teacherName(m.teachers) ?? "",
-    learningType: m.learning_type, fileUrl: m.file_url, fileName: m.file_name, fileSize: m.file_size,
-    videoUrl: m.video_url, thumbnailUrl: m.thumbnail_url, publishStatus: m.publish_status, uploadDate: m.upload_date,
-    department: m.department, yearLevel: m.year_level, trackOrCourse: m.track_or_course, tags: m.tags ?? [],
-  }));
+  const { data: lmRows } = await supabase.from("learning_materials").select("*, schools(code), subjects(code,name)");
+  const learningMaterials: LearningMaterial[] = (lmRows ?? []).map((m: any) => {
+    const owningEmployee = m.employee_id ? employeeById.get(m.employee_id) : undefined;
+    const owningTeacher = m.teacher_id ? teacherById.get(m.teacher_id) : undefined;
+    return {
+      id: m.id, schoolId: m.schools?.code, title: m.title, description: m.description, subjectCode: m.subjects?.code ?? "",
+      subjectName: m.subjects?.name ?? "", section: m.section, teacherId: m.teacher_id, employeeId: m.employee_id,
+      teacherName: personName(owningEmployee) ?? personName(owningTeacher) ?? "",
+      learningType: m.learning_type, fileUrl: m.file_url, fileName: m.file_name, fileSize: m.file_size,
+      videoUrl: m.video_url, thumbnailUrl: m.thumbnail_url, publishStatus: m.publish_status, uploadDate: m.upload_date,
+      department: m.department, yearLevel: m.year_level, trackOrCourse: m.track_or_course, tags: m.tags ?? [],
+    };
+  });
 
   // ---- Ledger / holds / billing / collections / promissory notes ----
   const { data: lsRows } = await supabase.from("student_ledger_summaries").select("*");
@@ -450,7 +523,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: clRows } = await supabase.from("subject_class_loads").select("*, subjects(code,name), sections(name)");
   const { data: clStudentRows } = await supabase.from("class_load_students").select("*");
   const classLoads: SubjectClassLoad[] = (clRows ?? []).map((c: any) => ({
-    id: c.id, teacherId: c.teacher_id, subjectCode: c.subjects?.code ?? "", subjectName: c.subjects?.name ?? "",
+    id: c.id, teacherId: c.teacher_id, employeeId: c.employee_id, subjectCode: c.subjects?.code ?? "", subjectName: c.subjects?.name ?? "",
     sectionId: c.section_id, sectionName: c.sections?.name ?? "", department: c.department, schoolYear: c.school_year,
     semester: c.semester, studentIds: (clStudentRows ?? []).filter((cs: any) => cs.class_load_id === c.id).map((cs: any) => cs.student_id),
   }));
@@ -460,7 +533,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: giRows } = await supabase.from("grade_items").select("*");
   const gradePeriods: GradePeriod[] = (gpRows ?? []).map((g: any) => ({
     id: g.id, label: g.label, subjectCode: g.subjects?.code ?? "", sectionId: g.section_id, schoolYear: g.school_year,
-    teacherId: g.teacher_id, isFinalized: g.is_finalized, finalizedAt: g.finalized_at, finalizedBy: g.finalized_by,
+    teacherId: g.teacher_id, employeeId: g.employee_id, isFinalized: g.is_finalized, finalizedAt: g.finalized_at, finalizedBy: g.finalized_by,
     gradeApprovalStatus: g.grade_approval_status ?? undefined,
     submittedForApproval: g.submitted_for_approval ?? undefined,
     submittedAt: g.submitted_at ?? undefined,
@@ -479,6 +552,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const { data: sgeRows } = await supabase.from("student_grade_entries").select("*");
   const studentGradeEntries: StudentGradeEntry[] = (sgeRows ?? []).map((e: any) => ({
     id: e.id, periodId: e.grade_period_id, studentId: e.student_id, gradeItemId: e.grade_item_id, score: e.score,
+    employeeId: e.employee_id ?? undefined,
   }));
 
   const demoStudents: GradeRosterStudent[] = students

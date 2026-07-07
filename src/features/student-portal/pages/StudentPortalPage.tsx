@@ -55,6 +55,8 @@ import AppSelect from "../../../components/common/AppSelect";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import AppTextarea from "../../../components/common/AppTextarea";
+import OutstandingBalanceModal from "../components/OutstandingBalanceModal";
+import LoadedScheduleModal from "../components/LoadedScheduleModal";
 import ProfileActivityLogTable from "../../../components/common/profile/ProfileActivityLogTable";
 import ProfileDocumentCard from "../../../components/common/profile/ProfileDocumentCard";
 import ProfileRequirementsCard from "../../../components/common/profile/ProfileRequirementsCard";
@@ -68,6 +70,7 @@ import {
 } from "../../../services/mockAssessmentService";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
+import { usePermissions } from "../../../hooks/usePermissions";
 import type { Grade, Payment, Requirement, Student, StudentEducationBackground, StudentGuardianContact } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
@@ -172,7 +175,9 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     setupData,
     classSchedules,
     schools,
+    logAudit,
   } = useSTSNStore();
+  const { canPage, usingFallback } = usePermissions();
 
   // Registrar (and other staff) opening this module via the "Student Records"
   // entry point browse records read/edit; students see their own self-service portal.
@@ -283,6 +288,8 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   const [guardianName, setGuardianName] = useState("");
   const [guardianContact, setGuardianContact] = useState("");
   const [overrideSettleBalance, setOverrideSettleBalance] = useState(false);
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = useState("");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -384,6 +391,23 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   const isBasicEd = student.department === "Basic Education";
   const studentSchool = schools.find((s) => s.academicUnit === (isBasicEd ? "basic-ed" : "college"));
   const gradesLocked = hasOutstandingBalance;
+  // Fallback mode degrades canPage() to plain module access, which every Student
+  // Portal user (including the student) has — so this must fail closed rather
+  // than trust the fallback default for this specific override.
+  const canOverrideHold = !usingFallback && canPage("STUDENT_PORTAL", "grades", "manage");
+  const toggleGradesOverride = () => {
+    if (!canOverrideHold) return;
+    const next = !overrideSettleBalance;
+    setOverrideSettleBalance(next);
+    logAudit(
+      next ? "approved" : "rejected",
+      "grade",
+      student.id,
+      { locked: !overrideSettleBalance },
+      { locked: !next },
+      next ? "Treasury clearance override" : "Balance check re-enabled",
+    );
+  };
 
   useEffect(() => {
     if (student?.id) ensureStudentRequirements(student.id);
@@ -433,6 +457,95 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   const gpa = validGrades.length > 0
     ? (validGrades.reduce((sum, g) => sum + g.finalGrade, 0) / validGrades.length).toFixed(2)
     : "—";
+
+  // ── Records Overview summary tiles: dynamic accent styling ────────────────
+  // Only accent colors / labels change per state — sizes and spacing are held
+  // constant so the tile row never shifts when values change.
+
+  // A. Semestral Standing / GPA — driven by the numeric GPA average (0–100, pass = 75).
+  const gpaStanding = useMemo(() => {
+    const value = Number(gpa);
+    if (gpa === "—" || Number.isNaN(value)) {
+      return {
+        label: "Not yet computed",
+        valueClass: "text-stone-500",
+        statusClass: "text-stone-400",
+        iconWrapClass: "bg-gradient-to-br from-stone-100 to-stone-50 border border-stone-200 text-stone-500",
+      };
+    }
+    if (value >= 85) {
+      return {
+        label: "Status: Good Standing",
+        valueClass: "text-green-600",
+        statusClass: "text-green-600",
+        iconWrapClass: "bg-green-50 border border-green-100 text-green-600",
+      };
+    }
+    if (value >= 75) {
+      return {
+        label: "Status: Conditional",
+        valueClass: "text-amber-600",
+        statusClass: "text-amber-600",
+        iconWrapClass: "bg-amber-50 border border-amber-100 text-amber-600",
+      };
+    }
+    return {
+      label: "Status: At Risk",
+      valueClass: "text-red-600",
+      statusClass: "text-red-600",
+      iconWrapClass: "bg-red-50 border border-red-100 text-red-600",
+    };
+  }, [gpa]);
+
+  // B. Outstanding Balance — driven by assessment presence + balance amount.
+  const balanceTone = useMemo(() => {
+    if (!assessment) {
+      return {
+        display: "₱0",
+        note: "No ledger data available",
+        valueClass: "text-stone-500",
+        iconWrapClass: "bg-gradient-to-br from-stone-100 to-stone-50 border border-stone-200 text-stone-500",
+      };
+    }
+    if (!hasOutstandingBalance) {
+      return {
+        display: "₱0",
+        note: "Fully Paid",
+        valueClass: "text-green-600",
+        iconWrapClass: "bg-green-50 text-green-600",
+      };
+    }
+    return {
+      display: `₱${assessment.balance.toLocaleString()}`,
+      note: `Mode: ${assessment.paymentTerm || "Monthly"}`,
+      valueClass: "text-red-600",
+      iconWrapClass: "bg-red-50 text-red-600",
+    };
+  }, [assessment, hasOutstandingBalance]);
+
+  // C. Loaded Schedule — driven by subject count + schedule completeness.
+  const scheduleTone = useMemo(() => {
+    const count = loadedSubjects.length;
+    if (count === 0) {
+      return {
+        display: isBasicEd ? "0 Subj." : "0 Units",
+        note: "No enrolled subjects",
+        valueClass: "text-amber-600",
+        iconWrapClass: "bg-amber-50 border border-amber-100 text-amber-600",
+      };
+    }
+    const scheduleIncomplete = loadedSubjects.some(
+      (sub) => !scopedClassSchedules.find((cs) => cs.subjectCode === sub.code && cs.isActive)
+    );
+    return {
+      display: isBasicEd ? `${count} Subj.` : `${loadedSubjects.reduce((a, s) => a + s.units, 0)} Units`,
+      note: scheduleIncomplete ? "Schedule incomplete" : `${count} Acad Subjects`,
+      valueClass: "text-stsn-brown",
+      iconWrapClass: scheduleIncomplete
+        ? "bg-amber-50 border border-amber-100 text-amber-600"
+        : "bg-gradient-to-br from-stsn-cream to-stsn-beige border border-stsn-beige text-stsn-brown",
+    };
+  }, [loadedSubjects, scopedClassSchedules, isBasicEd]);
 
   const statuses = ["Applicant", "Assessed", "Partially Paid", "Fully Paid", "Enrolled", "Sectioned"];
   const currentStatusString = overrideSettleBalance ? "Fully Paid" : (student.enrollmentStatus || "Enrolled");
@@ -760,6 +873,18 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     ]);
   };
 
+  const primaryParentGuardianId = guardianDrafts.find(
+    (guardian) =>
+      guardian.isPrimary &&
+      (guardian.guardianType === "Father" || guardian.guardianType === "Mother"),
+  )?.id;
+
+  const shouldShowPrimaryContactField = (guardian: StudentGuardianContact) => {
+    if (guardian.guardianType !== "Father" && guardian.guardianType !== "Mother") return true;
+    if (!primaryParentGuardianId) return true;
+    return guardian.id === primaryParentGuardianId;
+  };
+
   const addEducationDraft = () => {
     if (!student) return;
     setEducationDrafts((current) => [
@@ -1041,39 +1166,72 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* A. Semestral Standing / GPA — dynamic color, non-clickable */}
               <div className="card-stat-gradient p-5 rounded-xl shadow-sm smooth-hover flex justify-between items-center">
                 <div>
                   <span className="text-[9.5px] font-mono uppercase text-stone-400 font-bold">Semestral Standing</span>
-                  <span className="text-xl font-display font-bold text-stone-900 mt-1 block">GPA {gpa}</span>
-                  <span className="text-[10px] text-green-600 font-semibold block mt-0.5">Status: Regularly Cleared</span>
+                  <span className={`text-xl font-display font-bold mt-1 block ${gpaStanding.valueClass}`}>GPA {gpa}</span>
+                  <span className={`text-[10px] font-semibold block mt-0.5 ${gpaStanding.statusClass}`}>{gpaStanding.label}</span>
                 </div>
-                <div className="p-3 rounded-full bg-gradient-to-br from-stsn-cream to-stsn-beige border border-stsn-beige text-stsn-brown shadow-sm">
+                <div className={`p-3 rounded-full shadow-sm ${gpaStanding.iconWrapClass}`}>
                   <FileCheck className="w-5 h-5" />
                 </div>
               </div>
 
-              <div className="card-stat-gradient p-5 rounded-xl shadow-sm smooth-hover flex justify-between items-center">
+              {/* B. Outstanding Balance — dynamic color, clickable → details modal */}
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label="View outstanding balance details"
+                onClick={() => setBalanceModalOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setBalanceModalOpen(true);
+                  }
+                }}
+                className="card-stat-gradient p-5 rounded-xl shadow-sm smooth-hover flex justify-between items-center cursor-pointer transition hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stsn-gold/60"
+              >
                 <div>
                   <span className="text-[9.5px] font-mono uppercase text-stone-400 font-bold">Outstanding Balance</span>
-                  <span className={`text-xl font-display font-bold block mt-1 ${hasOutstandingBalance ? "text-red-600" : "text-green-600"}`}>
-                    ₱{hasOutstandingBalance ? assessment?.balance.toLocaleString() : "0"}
+                  <span className={`text-xl font-display font-bold block mt-1 ${balanceTone.valueClass}`}>
+                    {balanceTone.display}
                   </span>
-                  <span className="text-[10px] text-stone-400 block mt-0.5">Mode: {assessment?.paymentTerm || "Monthly"}</span>
+                  <span className="text-[10px] text-stone-400 block mt-0.5">{balanceTone.note}</span>
+                  <span className="text-[9px] font-mono font-bold text-stsn-brown/70 inline-flex items-center gap-0.5 mt-1.5">
+                    View details <ChevronRight className="w-2.5 h-2.5" />
+                  </span>
                 </div>
-                <div className={`p-3 rounded-full shadow-sm ${hasOutstandingBalance ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
+                <div className={`p-3 rounded-full shadow-sm ${balanceTone.iconWrapClass}`}>
                   <CreditCard className="w-5 h-5" />
                 </div>
               </div>
 
-              <div className="card-stat-gradient p-5 rounded-xl shadow-sm smooth-hover flex justify-between items-center">
+              {/* C. Loaded Schedule — dynamic color, clickable → schedule modal */}
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label="View loaded schedule details"
+                onClick={() => setScheduleModalOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setScheduleModalOpen(true);
+                  }
+                }}
+                className="card-stat-gradient p-5 rounded-xl shadow-sm smooth-hover flex justify-between items-center cursor-pointer transition hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stsn-gold/60"
+              >
                 <div>
                   <span className="text-[9.5px] font-mono uppercase text-stone-400 font-bold">Loaded Schedule</span>
-                  <span className="text-xl font-display font-bold text-stone-900 mt-1 block">
-                    {isBasicEd ? `${loadedSubjects.length} Subj.` : `${loadedSubjects.reduce((a, s) => a + s.units, 0)} Units`}
+                  <span className={`text-xl font-display font-bold mt-1 block ${scheduleTone.valueClass}`}>
+                    {scheduleTone.display}
                   </span>
-                  <span className="text-[10px] text-stone-400 block mt-0.5">{loadedSubjects.length} Acad Subjects</span>
+                  <span className="text-[10px] text-stone-400 block mt-0.5">{scheduleTone.note}</span>
+                  <span className="text-[9px] font-mono font-bold text-stsn-brown/70 inline-flex items-center gap-0.5 mt-1.5">
+                    View details <ChevronRight className="w-2.5 h-2.5" />
+                  </span>
                 </div>
-                <div className="p-3 rounded-full bg-gradient-to-br from-stsn-cream to-stsn-beige border border-stsn-beige text-stsn-brown shadow-sm">
+                <div className={`p-3 rounded-full shadow-sm ${scheduleTone.iconWrapClass}`}>
                   <BookOpen className="w-5 h-5" />
                 </div>
               </div>
@@ -1180,6 +1338,26 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
               </p>
             </div>
           </div>
+
+          {/* Records Overview tile drill-down modals */}
+          <OutstandingBalanceModal
+            open={balanceModalOpen}
+            onClose={() => setBalanceModalOpen(false)}
+            assessment={assessment}
+            ledgerFeesByCategory={ledgerFeesByCategory}
+            installmentSchedule={installmentSchedule}
+            paymentHistoryRows={paymentHistoryRows}
+            effectiveBalance={overrideSettleBalance ? 0 : (assessment?.balance ?? 0)}
+            schoolName={studentSchool?.shortName || studentSchool?.name}
+          />
+          <LoadedScheduleModal
+            open={scheduleModalOpen}
+            onClose={() => setScheduleModalOpen(false)}
+            loadedSubjects={loadedSubjects}
+            classSchedules={scopedClassSchedules}
+            isBasicEd={isBasicEd}
+            schoolName={studentSchool?.shortName || studentSchool?.name}
+          />
         </div>
       )}
 
@@ -1196,16 +1374,18 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setOverrideSettleBalance(!overrideSettleBalance)}
-              className={`text-xs px-4 py-2 font-bold uppercase rounded-lg border shadow-sm transition whitespace-nowrap cursor-pointer ${
-                overrideSettleBalance
-                  ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
-                  : "bg-white border-amber-300 text-amber-800 hover:bg-amber-100"
-              }`}
-            >
-              {overrideSettleBalance ? "↩ Re-enable Balance Check" : "💳 Resolve Mock Balance"}
-            </button>
+            {canOverrideHold && (
+              <button
+                onClick={toggleGradesOverride}
+                className={`text-xs px-4 py-2 font-bold uppercase rounded-lg border shadow-sm transition whitespace-nowrap cursor-pointer ${
+                  overrideSettleBalance
+                    ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
+                    : "bg-white border-amber-300 text-amber-800 hover:bg-amber-100"
+                }`}
+              >
+                {overrideSettleBalance ? "↩ Re-enable Balance Check" : "💳 Resolve Mock Balance"}
+              </button>
+            )}
           </div>
 
           {gradesLocked ? (
@@ -1220,12 +1400,18 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
               <p className="text-xs text-stone-500 leading-relaxed max-w-lg">
                 Your account balance is <strong className="text-red-700">₱{assessment?.balance.toLocaleString()}</strong>. Full treasury clearance is required prior to grade release.
               </p>
-              <button
-                onClick={() => setOverrideSettleBalance(true)}
-                className="btn-primary-gradient text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer"
-              >
-                Bypass with Treasury Clearance Authorization
-              </button>
+              {canOverrideHold ? (
+                <button
+                  onClick={toggleGradesOverride}
+                  className="btn-primary-gradient text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer"
+                >
+                  Bypass with Treasury Clearance Authorization
+                </button>
+              ) : (
+                <p className="text-xs text-stone-500 leading-relaxed max-w-lg">
+                  Your grades are currently restricted due to an outstanding account balance. Please coordinate with the Accounting or Treasury Office for clearance.
+                </p>
+              )}
             </div>
           ) : (
             <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
@@ -1642,7 +1828,9 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                           <AppFormField label="Email Address"><AppInput type="email" value={guardian.email || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { email: e.target.value })} /></AppFormField>
                           <AppFormField label="Occupation"><AppInput value={guardian.occupation || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { occupation: e.target.value })} /></AppFormField>
                           <div className="md:col-span-2"><AppFormField label="Address"><AppTextarea value={guardian.address || ""} onChange={(e) => handleGuardianDraftChange(guardian.id, { address: e.target.value })} className="min-h-[90px]" /></AppFormField></div>
-                          <label className="flex items-center gap-2 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm"><input type="checkbox" checked={guardian.isPrimary} onChange={(e) => handleGuardianDraftChange(guardian.id, { isPrimary: e.target.checked })} className="h-4 w-4 accent-[var(--erp-accent)]" />Primary contact</label>
+                          {shouldShowPrimaryContactField(guardian) ? (
+                            <label className="flex items-center gap-2 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm"><input type="checkbox" checked={guardian.isPrimary} onChange={(e) => handleGuardianDraftChange(guardian.id, { isPrimary: e.target.checked })} className="h-4 w-4 accent-[var(--erp-accent)]" />Primary contact</label>
+                          ) : null}
                           <label className="flex items-center gap-2 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm"><input type="checkbox" checked={guardian.isEmergencyContact ?? false} onChange={(e) => handleGuardianDraftChange(guardian.id, { isEmergencyContact: e.target.checked })} className="h-4 w-4 accent-[var(--erp-accent)]" />Emergency contact</label>
                           <label className="flex items-center gap-2 rounded-xl border border-[var(--erp-border)] bg-[var(--erp-surface-muted)] px-4 py-3 text-sm md:col-span-2"><input type="checkbox" checked={guardian.canReceivePortalNotifications ?? true} onChange={(e) => handleGuardianDraftChange(guardian.id, { canReceivePortalNotifications: e.target.checked })} className="h-4 w-4 accent-[var(--erp-accent)]" />Can receive portal notifications</label>
                         </div>

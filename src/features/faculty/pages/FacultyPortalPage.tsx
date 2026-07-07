@@ -34,7 +34,11 @@ import {
 import GradeEncodingPage from "../../grading/pages/GradeEncodingPage";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppEmptyState from "../../../components/common/AppEmptyState";
-import { resolveCurrentTeacher } from "../../../utils/resolveTeacher";
+import {
+  resolveCurrentTeacher,
+  resolveEmployeeForTeacher,
+  teacherMatchesOwnership,
+} from "../../../utils/resolveTeacher";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { ClassSchedule } from "../../../types";
 import { reportExportService } from "../../../services/reportExportService";
@@ -134,7 +138,8 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
   const scopedSubjects = scopedData.subjects ?? [];
   const scopedClassSchedules = scopedData.classSchedules ?? [];
   const scopedEmployees = scopedData.employees ?? [];
-  const currentTeacher = resolveCurrentTeacher(scopedTeachers, currentUser, academicUnit);
+  const currentTeacher = resolveCurrentTeacher(scopedTeachers, currentUser, academicUnit, scopedEmployees);
+  const linkedEmployee = resolveEmployeeForTeacher(currentTeacher, scopedEmployees);
 
   // Advisory Class Details — empty when no section is assigned to prevent data leaks.
   const advisorySectionName = currentTeacher.advisorySection || "";
@@ -144,14 +149,14 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
 
   // Teaching load — total units across this teacher's class schedules (sourced from Supabase)
   const teachingLoadUnits = scopedClassSchedules
-    .filter((cs) => cs.teacherId === currentTeacher.id)
+    .filter((cs) => teacherMatchesOwnership(currentTeacher, cs))
     .reduce((sum, cs) => {
       const subject = scopedSubjects.find((s) => s.code === cs.subjectCode);
       return sum + (subject?.units ?? 0);
     }, 0);
 
   // Accrued leave — resolved from the matching employee record (sourced from Supabase)
-  const accruedLeaveDays = scopedEmployees.find((e) => e.email === currentTeacher.email)?.leaveBalance;
+  const accruedLeaveDays = linkedEmployee?.leaveBalance;
 
   // States
   const [selectedReportId, setSelectedReportId] = useState<FacultyReportId>("class-list");
@@ -161,14 +166,14 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
   const [attendanceMessage, setAttendanceMessage] = useState("");
 
   const teacherSchedules = React.useMemo(
-    () => scopedClassSchedules.filter((s) => s.teacherId === currentTeacher.id && s.isActive),
-    [currentTeacher.id, scopedClassSchedules],
+    () => scopedClassSchedules.filter((s) => teacherMatchesOwnership(currentTeacher, s) && s.isActive),
+    [currentTeacher, scopedClassSchedules],
   );
   const gradeSubmissionQueue = React.useMemo(() => {
     return teacherSchedules.map((schedule) => {
       const classStudents = scopedStudents.filter((student) => student.section === schedule.section);
       const periods = gradePeriods.filter((period) =>
-        period.teacherId === currentTeacher.id &&
+        teacherMatchesOwnership(currentTeacher, period) &&
         period.subjectCode === schedule.subjectCode &&
         period.schoolYear === schedule.schoolYear
       );
@@ -195,7 +200,7 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
               : "Encoding",
       };
     });
-  }, [currentTeacher.id, gradePeriods, scopedStudents, studentGradeEntries, teacherSchedules]);
+  }, [currentTeacher, gradePeriods, scopedStudents, studentGradeEntries, teacherSchedules]);
   const selectedReport = FACULTY_REPORT_OPTIONS.find((report) => report.id === selectedReportId) ?? FACULTY_REPORT_OPTIONS[0];
   const reportColumns = FACULTY_REPORT_COLUMNS[selectedReportId];
 
@@ -229,7 +234,7 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
 
     if (selectedReportId === "grade-sheet") {
       return grades
-        .filter((grade) => grade.teacherId === currentTeacher.id)
+        .filter((grade) => teacherMatchesOwnership(currentTeacher, grade))
         .map((grade) => {
           const student = scopedStudents.find((s) => s.id === grade.studentId);
           return {
@@ -255,7 +260,7 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
 
     if (selectedReportId === "failed-incomplete") {
       return grades
-        .filter((grade) => grade.teacherId === currentTeacher.id)
+        .filter((grade) => teacherMatchesOwnership(currentTeacher, grade))
         .filter((grade) => grade.remarks === "Failed" || grade.remarks === "Incomplete" || grade.finalGrade < 75)
         .map((grade) => {
           const student = scopedStudents.find((s) => s.id === grade.studentId);
@@ -278,7 +283,7 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
       roomName: schedule.roomName,
       semester: schedule.semester,
     }));
-  }, [advisorySectionName, advisoryStudents, attendanceDate, currentTeacher.id, grades, scopedStudents, selectedReportId, teacherSchedules]);
+  }, [advisorySectionName, advisoryStudents, attendanceDate, currentTeacher, grades, scopedStudents, selectedReportId, teacherSchedules]);
 
   const exportCurrentReport = (format: "print" | "csv" | "excel" | "pdf") => {
     const payload = { title: selectedReport.title, columns: reportColumns, rows: reportRows };
@@ -300,12 +305,15 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
   const handleAttendanceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (advisoryStudents.length > 0) {
+      // recorded_by_employee_id is the authoritative owner; recorded_by is a
+      // REMOVABLE dual-write (legacy FK → public.teachers) for the dual-read window.
       const records = advisoryStudents.map((s) => ({
         student_id: s.id,
         section: advisorySectionName,
         date: attendanceDate,
         status: getStudentAttendanceStatus(s.id),
         recorded_by: currentTeacher.id,
+        recorded_by_employee_id: currentTeacher.employeeId ?? null,
       }));
       supabase
         .from("student_attendance")
@@ -332,8 +340,6 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
   );
   const activeSubPage = (subPage as FacultyRouteSubPage) || "overview-advisory";
   const activeTab = activeSubPage === "faculty-profile" ? null : FACULTY_SUBPAGE_TO_TAB[activeSubPage as Exclude<FacultyRouteSubPage, "faculty-profile">];
-  const linkedEmployee = scopedEmployees.find((employee) => employee.userId === currentTeacher.userId || employee.email === currentTeacher.email) ?? null;
-
   return (
     <div className="space-y-6 animate-fade-in font-sans">
       
@@ -692,7 +698,7 @@ export default function FacultyPortal({ subPage, onSubPageChange }: { subPage: s
 
       {/* TAB B: CLASS SCHEDULE & ASSIGNED SUBJECTS (DYNAMIC) */}
       {activeTab === "schedule" && (() => {
-        const teacherSchedules = scopedClassSchedules.filter((s) => s.teacherId === currentTeacher.id && s.isActive);
+        const teacherSchedules = scopedClassSchedules.filter((s) => teacherMatchesOwnership(currentTeacher, s) && s.isActive);
         const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
         const today = new Date().toLocaleDateString("en-US", { weekday: "long" }) as typeof days[number];
         const uniqueSubjects = Array.from(

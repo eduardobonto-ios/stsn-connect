@@ -245,7 +245,7 @@ interface STSNState {
   initialize: () => Promise<void>;
 
   // Actions
-  login: (email: string, role: string, schoolContext?: SchoolId) => boolean;
+  login: (email: string, role: string, schoolContext?: SchoolId) => Promise<boolean>;
   logout: () => void;
   setCurrentUser: (user: User | null) => void;
 
@@ -461,6 +461,19 @@ const withSchoolFk = <T extends { schoolId?: string }>(row: T) => {
 const withSubjectFk = (row: any, codeField = "subjectCode") => {
   const { [codeField]: code, ...rest } = row;
   return { ...rest, subject_id: resolveSubjectId(code) };
+};
+const resolveTeacherEmployeeId = (teachers: Teacher[], teacherId?: string | null) =>
+  teacherId ? teachers.find((teacher) => teacher.id === teacherId)?.employeeId ?? undefined : undefined;
+
+/** Last-resort owner resolution for grade writes: the signed-in user's employee
+ *  id, via their teacher bridge or a direct employees.userId link. */
+const resolveOwnerEmployeeIdFromUser = (get: () => STSNState): string | undefined => {
+  const userId = get().currentUser?.id;
+  if (!userId) return undefined;
+  return (
+    get().teachers.find((teacher) => teacher.userId === userId)?.employeeId ??
+    get().employees.find((employee) => employee.userId === userId)?.id
+  );
 };
 
 const studentPersistence = new Map<string, Promise<void>>();
@@ -725,8 +738,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     });
   },
 
-  login: (email: string, role: string, schoolContext?: SchoolId) => {
-    const catalog = get().securityCatalog;
+  login: async (email: string, role: string, schoolContext?: SchoolId) => {
+    const catalog = await loadSecurityCatalog();
     const user = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (user && user.isActive) {
       const resolvedSchool = user.schoolId || schoolContext || "ALL";
@@ -736,6 +749,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         currentUser: { ...user, role: resolvedRole },
         activeSchool: resolvedSchool,
         academicUnit: getAcademicUnit(resolvedSchool),
+        securityCatalog: catalog,
         effectivePermissions: computeEffectivePermissions(catalog, user.id, resolvedRole),
       });
       return true;
@@ -749,6 +763,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
         currentUser: { ...fallbackUser, role: resolvedRole },
         activeSchool: resolvedSchool,
         academicUnit: getAcademicUnit(resolvedSchool),
+        securityCatalog: catalog,
         effectivePermissions: computeEffectivePermissions(catalog, fallbackUser.id, resolvedRole),
       });
       return true;
@@ -1132,17 +1147,24 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   saveGrade: (studentId, subjectCode, midterm, final) => {
     const passed = final >= 75 ? "Passed" : "Failed";
     const existing = get().grades.find((g) => g.studentId === studentId && g.subjectCode === subjectCode);
-    const teacherId = get().currentUser?.id || get().teachers[0]?.id;
+    const currentUserId = get().currentUser?.id;
+    const activeTeacher =
+      get().teachers.find((teacher) => teacher.userId === currentUserId) ??
+      get().teachers[0];
+    const teacherId = activeTeacher?.id || "";
+    const employeeId =
+      activeTeacher?.employeeId ??
+      get().employees.find((employee) => employee.userId === currentUserId)?.id;
 
     if (existing) {
       set((state) => ({
-        grades: state.grades.map((g) => g.studentId === studentId && g.subjectCode === subjectCode ? { ...g, midtermGrade: midterm, finalGrade: final, remarks: passed } : g)
+        grades: state.grades.map((g) => g.studentId === studentId && g.subjectCode === subjectCode ? { ...g, teacherId, employeeId, midtermGrade: midterm, finalGrade: final, remarks: passed } : g)
       }));
-      dbUpdate("grades", existing.id, { midtermGrade: midterm, finalGrade: final, remarks: passed });
+      dbUpdate("grades", existing.id, { teacherId, employeeId, midtermGrade: midterm, finalGrade: final, remarks: passed });
     } else {
-      const newGrade: Grade = { id: newId(), studentId, subjectCode, teacherId: teacherId || "", schoolYear: "2026-2027", semester: "First Semester", midtermGrade: midterm, finalGrade: final, remarks: passed };
+      const newGrade: Grade = { id: newId(), studentId, subjectCode, teacherId, employeeId, schoolYear: "2026-2027", semester: "First Semester", midtermGrade: midterm, finalGrade: final, remarks: passed };
       set((state) => ({ grades: [...state.grades, newGrade] }));
-      dbInsert("grades", withSubjectFk({ id: newGrade.id, studentId, teacherId: newGrade.teacherId, schoolYear: newGrade.schoolYear, semester: newGrade.semester, midtermGrade: midterm, finalGrade: final, remarks: passed, subjectCode }));
+      dbInsert("grades", withSubjectFk({ id: newGrade.id, studentId, teacherId: newGrade.teacherId, employeeId: newGrade.employeeId, schoolYear: newGrade.schoolYear, semester: newGrade.semester, midtermGrade: midterm, finalGrade: final, remarks: passed, subjectCode }));
     }
   },
 
@@ -1155,17 +1177,27 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     }
     const existing = get().studentGradeEntries.find((e) => e.studentId === studentId && e.gradeItemId === gradeItemId);
     const periodId = period?.id ?? "";
+    // Employee ownership (dual-key consolidation): stamp the canonical grade
+    // write table so newly-saved entries carry employee ownership at write time.
+    // Prefer the parent period's owner; fall back to the period teacher's bridge,
+    // then the signed-in user's employee/teacher link. Preserve any existing
+    // ownership when re-scoring so an update never nulls a stamped row.
+    const employeeId =
+      period?.employeeId ??
+      resolveTeacherEmployeeId(get().teachers, period?.teacherId) ??
+      existing?.employeeId ??
+      resolveOwnerEmployeeIdFromUser(get);
 
     if (existing) {
       set((state) => ({
-        studentGradeEntries: state.studentGradeEntries.map((e) => e.studentId === studentId && e.gradeItemId === gradeItemId ? { ...e, score } : e)
+        studentGradeEntries: state.studentGradeEntries.map((e) => e.studentId === studentId && e.gradeItemId === gradeItemId ? { ...e, score, employeeId: employeeId ?? e.employeeId } : e)
       }));
     } else {
-      const entry: StudentGradeEntry = { id: newId(), periodId, studentId, gradeItemId, score };
+      const entry: StudentGradeEntry = { id: newId(), periodId, studentId, gradeItemId, score, employeeId };
       set((state) => ({ studentGradeEntries: [...state.studentGradeEntries, entry] }));
     }
     supabase.from("student_grade_entries").upsert(
-      { id: existing?.id ?? newId(), grade_period_id: periodId, student_id: studentId, grade_item_id: gradeItemId, score },
+      { id: existing?.id ?? newId(), grade_period_id: periodId, student_id: studentId, grade_item_id: gradeItemId, score, employee_id: employeeId ?? null },
       { onConflict: "grade_item_id,student_id" }
     ).then(({ error }) => { if (error) console.error("[supabase] upsert student_grade_entries failed:", error); });
   },
@@ -1186,9 +1218,15 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     if (!existingCat && categoryWeight > 0) dbInsert("grade_categories", { gradePeriodId: periodId, name: item.category, weight: categoryWeight });
 
     const targetLoad = get().classLoads.find((l) => l.subjectCode === period?.subjectCode);
-    const newEntries: StudentGradeEntry[] = (targetLoad?.studentIds ?? []).map((studentId) => ({ id: newId(), periodId, studentId, gradeItemId: item.id, score: null }));
+    // Stamp employee ownership on the seeded entries so the canonical grade write
+    // table carries employee ownership from the moment a grade item is created.
+    const entryEmployeeId =
+      period?.employeeId ??
+      resolveTeacherEmployeeId(get().teachers, period?.teacherId) ??
+      resolveOwnerEmployeeIdFromUser(get);
+    const newEntries: StudentGradeEntry[] = (targetLoad?.studentIds ?? []).map((studentId) => ({ id: newId(), periodId, studentId, gradeItemId: item.id, score: null, employeeId: entryEmployeeId }));
     set((state) => ({ studentGradeEntries: [...state.studentGradeEntries, ...newEntries] }));
-    for (const e of newEntries) dbInsert("student_grade_entries", { id: e.id, gradePeriodId: periodId, studentId: e.studentId, gradeItemId: item.id, score: null });
+    for (const e of newEntries) dbInsert("student_grade_entries", { id: e.id, gradePeriodId: periodId, studentId: e.studentId, gradeItemId: item.id, score: null, employeeId: entryEmployeeId ?? null });
   },
 
   updateGradeCategories: (periodId, categories) => {
@@ -1217,8 +1255,25 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   },
 
   updateTeacher: (id, updates) => {
+    // Faculty identity/metadata is employee-backed now. Update the local
+    // (employee-derived) teacher slice for UI reactivity, then persist faculty-only
+    // fields to employee_faculty_profiles — NOT public.teachers (teacher→employee
+    // consolidation, Phase 6 prep). Shared identity fields (name/email/department/
+    // contact) belong on employees and are persisted via updateEmployee by callers.
     set((state) => ({ teachers: state.teachers.map((teacher) => (teacher.id === id ? { ...teacher, ...updates } : teacher)) }));
-    dbUpdate("teachers", id, "schoolId" in updates ? withSchoolFk(updates as any) : updates);
+    const teacher = get().teachers.find((t) => t.id === id);
+    const employeeId = teacher?.employeeId;
+    if (!employeeId) return;
+    const profileUpdates: Record<string, any> = {};
+    if ("specialization" in updates) profileUpdates.specialization = updates.specialization ?? null;
+    if ("advisorySection" in updates) profileUpdates.advisory_section = updates.advisorySection ?? null;
+    if (Object.keys(profileUpdates).length === 0) return;
+    supabase
+      .from("employee_faculty_profiles")
+      .upsert({ employee_id: employeeId, ...profileUpdates }, { onConflict: "employee_id" })
+      .then(({ error }) => {
+        if (error) console.error("[supabase] upsert employee_faculty_profiles failed:", error);
+      });
   },
 
   addPayrollRow: (row) => {
@@ -1623,15 +1678,25 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   // ---- Class Scheduling Actions ----
   addClassSchedule: (scheduleData) => {
-    const newSchedule: ClassSchedule = { ...scheduleData, id: newId() };
+    // employee_id is the authoritative owner; teacher_id is a REMOVABLE dual-write
+    // (legacy FK → public.teachers) kept only for the dual-read window.
+    const employeeId = scheduleData.employeeId ?? resolveTeacherEmployeeId(get().teachers, scheduleData.teacherId);
+    const newSchedule: ClassSchedule = { ...scheduleData, employeeId, id: newId() };
     set((state) => ({ classSchedules: [...state.classSchedules, newSchedule] }));
-    dbInsert("class_schedules", withSubjectFk({ ...scheduleData, id: newSchedule.id, roomName: scheduleData.roomName, courseOrTrack: scheduleData.courseOrTrack }));
+    dbInsert("class_schedules", withSubjectFk({ ...scheduleData, employeeId, id: newSchedule.id, roomName: scheduleData.roomName, courseOrTrack: scheduleData.courseOrTrack }));
     return newSchedule;
   },
 
   updateClassSchedule: (id, updates) => {
-    set((state) => ({ classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, ...updates } : s)) }));
-    dbUpdate("class_schedules", id, "subjectCode" in updates ? withSubjectFk(updates) : updates);
+    const current = get().classSchedules.find((schedule) => schedule.id === id);
+    const teacherId = "teacherId" in updates ? updates.teacherId : current?.teacherId;
+    const employeeId =
+      ("employeeId" in updates && updates.employeeId !== undefined)
+        ? updates.employeeId
+        : resolveTeacherEmployeeId(get().teachers, teacherId);
+    const mergedUpdates = { ...updates, ...(employeeId !== undefined ? { employeeId } : {}) };
+    set((state) => ({ classSchedules: state.classSchedules.map((s) => (s.id === id ? { ...s, ...mergedUpdates } : s)) }));
+    dbUpdate("class_schedules", id, "subjectCode" in mergedUpdates ? withSubjectFk(mergedUpdates) : mergedUpdates);
   },
 
   deleteClassSchedule: (id) => {
@@ -1650,22 +1715,28 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     if (!targetSection) return;
 
     const selectedTeacher = teacherId ? get().teachers.find((teacher) => teacher.id === teacherId) : undefined;
+    // Employee ownership is authoritative for advisory assignment now.
+    const adviserEmployeeId = selectedTeacher?.employeeId;
     const previousAdviserId = targetSection.adviserId;
+    // Detect a prior advisory assignment for this faculty member by employee
+    // ownership first (canonical), falling back to the legacy teacher id.
     const previousSection = teacherId
-      ? get().sections.find((section) => section.id !== sectionId && section.adviserId === teacherId)
+      ? get().sections.find(
+          (section) =>
+            section.id !== sectionId &&
+            ((adviserEmployeeId && section.adviserEmployeeId === adviserEmployeeId) ||
+              section.adviserId === teacherId),
+        )
       : undefined;
-    const teachersAssignedToTarget = get().teachers.filter(
-      (teacher) => teacher.id !== teacherId && teacher.advisorySection === targetSection.name
-    );
     const adviserName = selectedTeacher ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}` : undefined;
 
     set((state) => ({
       sections: state.sections.map((section) => {
         if (section.id === sectionId) {
-          return { ...section, adviserId: teacherId || undefined, adviserName };
+          return { ...section, adviserId: teacherId || undefined, adviserEmployeeId, adviserName };
         }
         if (teacherId && section.adviserId === teacherId) {
-          return { ...section, adviserId: undefined, adviserName: undefined };
+          return { ...section, adviserId: undefined, adviserEmployeeId: undefined, adviserName: undefined };
         }
         return section;
       }),
@@ -1681,15 +1752,11 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       }),
     }));
 
-    dbUpdate("sections", sectionId, { adviserId: teacherId });
-    if (previousSection) dbUpdate("sections", previousSection.id, { adviserId: null });
-    if (previousAdviserId && previousAdviserId !== teacherId) {
-      dbUpdate("teachers", previousAdviserId, { advisorySection: null });
-    }
-    for (const teacher of teachersAssignedToTarget) {
-      if (teacher.id !== previousAdviserId) dbUpdate("teachers", teacher.id, { advisorySection: null });
-    }
-    if (teacherId) dbUpdate("teachers", teacherId, { advisorySection: targetSection.name });
+    // adviser_employee_id is the authoritative ownership column. adviser_id is
+    // kept in sync as a REMOVABLE dual-write (legacy FK → public.teachers) for the
+    // dual-read window; drop the adviserId half before Phase 6 retires the column.
+    dbUpdate("sections", sectionId, { adviserId: teacherId, adviserEmployeeId });
+    if (previousSection) dbUpdate("sections", previousSection.id, { adviserId: null, adviserEmployeeId: null });
   },
 
   // ---- Multi-school ----
@@ -1703,15 +1770,25 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   // ---- LMS Actions ----
   addLearningMaterial: (materialData) => {
-    const newMaterial: LearningMaterial = { ...materialData, id: newId() };
+    // employee_id is the authoritative owner; teacher_id is a REMOVABLE dual-write
+    // (legacy FK → public.teachers) kept only for the dual-read window.
+    const employeeId = materialData.employeeId ?? resolveTeacherEmployeeId(get().teachers, materialData.teacherId);
+    const newMaterial: LearningMaterial = { ...materialData, employeeId, id: newId() };
     set((state) => ({ learningMaterials: [newMaterial, ...state.learningMaterials] }));
-    dbInsert("learning_materials", withSubjectFk(withSchoolFk({ ...materialData, id: newMaterial.id })));
+    dbInsert("learning_materials", withSubjectFk(withSchoolFk({ ...materialData, employeeId, id: newMaterial.id })));
     return newMaterial;
   },
 
   updateLearningMaterial: (id, updates) => {
-    set((state) => ({ learningMaterials: state.learningMaterials.map((m) => (m.id === id ? { ...m, ...updates } : m)) }));
-    let dbUpdates: any = updates;
+    const current = get().learningMaterials.find((material) => material.id === id);
+    const teacherId = "teacherId" in updates ? updates.teacherId : current?.teacherId;
+    const employeeId =
+      ("employeeId" in updates && updates.employeeId !== undefined)
+        ? updates.employeeId
+        : resolveTeacherEmployeeId(get().teachers, teacherId);
+    const mergedUpdates = { ...updates, ...(employeeId !== undefined ? { employeeId } : {}) };
+    set((state) => ({ learningMaterials: state.learningMaterials.map((m) => (m.id === id ? { ...m, ...mergedUpdates } : m)) }));
+    let dbUpdates: any = mergedUpdates;
     if ("schoolId" in updates) dbUpdates = withSchoolFk(dbUpdates);
     if ("subjectCode" in updates) dbUpdates = withSubjectFk(dbUpdates);
     dbUpdate("learning_materials", id, dbUpdates);
