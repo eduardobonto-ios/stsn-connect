@@ -111,6 +111,7 @@ const WORKFLOW_CONFIG: Record<string, { label: string; bg: string; text: string 
   payroll_run: { label: "P/R", bg: "bg-emerald-100", text: "text-emerald-700" },
   grade_period: { label: "GRADE", bg: "bg-rose-100", text: "text-rose-700" },
   payment_void: { label: "VOID", bg: "bg-red-100", text: "text-red-700" },
+  cash_voucher_release: { label: "CASH VOUCHER", bg: "bg-orange-100", text: "text-orange-700" },
 };
 
 const SCHOOL_BADGE: Record<string, { label: string; bg: string; text: string }> = {

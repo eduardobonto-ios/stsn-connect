@@ -106,7 +106,10 @@ export default function App() {
   );
 
   useEffect(() => {
-    localStorage.setItem("stsn-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+    localStorage.setItem(
+      "stsn-sidebar-collapsed",
+      sidebarCollapsed ? "1" : "0",
+    );
   }, [sidebarCollapsed]);
 
   useEffect(() => {
@@ -150,7 +153,9 @@ export default function App() {
       ? (currentRoute?.subPage ?? "dashboard")
       : "dashboard";
   const lmsSubPage =
-    activeModule === "LMS" ? (currentRoute?.subPage ?? "dashboard") : "dashboard";
+    activeModule === "LMS"
+      ? (currentRoute?.subPage ?? "dashboard")
+      : "dashboard";
   const lmsCourseId =
     activeModule === "LMS" ? currentRoute?.courseId : undefined;
   const accountsSubPage =
@@ -244,19 +249,19 @@ export default function App() {
         ? accountingSubPage
         : activeModule === "FACULTY_PORTAL"
           ? facultySubPage
-        : activeModule === "HR_MANAGEMENT"
-          ? hrSubPage
-          : activeModule === "PAYROLL_MANAGEMENT"
-            ? payrollSubPage
-            : activeModule === "CASHIER"
-              ? cashierSubPage
-              : activeModule === "LIBRARY_SYSTEM"
-                ? librarySubPage
-              : activeModule === "LMS"
-                ? lmsSubPage
-              : activeModule === "ACCOUNTS_SECURITY"
-                ? accountsSubPage
-                : null;
+          : activeModule === "HR_MANAGEMENT"
+            ? hrSubPage
+            : activeModule === "PAYROLL_MANAGEMENT"
+              ? payrollSubPage
+              : activeModule === "CASHIER"
+                ? cashierSubPage
+                : activeModule === "LIBRARY_SYSTEM"
+                  ? librarySubPage
+                  : activeModule === "LMS"
+                    ? lmsSubPage
+                    : activeModule === "ACCOUNTS_SECURITY"
+                      ? accountsSubPage
+                      : null;
     if (subPage && subPage !== "dashboard" && subPageLabel[subPage]) {
       crumbs.push({ label: subPageLabel[subPage]! });
     }
@@ -310,7 +315,9 @@ export default function App() {
         if (child.targetModule) return [child];
         if (child.children?.length) {
           const nested = filterChildren(moduleKey, child.children);
-          return nested.length > 0 ? [{ ...child, children: pruneEmptySections(nested) }] : [];
+          return nested.length > 0
+            ? [{ ...child, children: pruneEmptySections(nested) }]
+            : [];
         }
         return hasPageAccess(moduleKey, child.id) ? [child] : [];
       });
@@ -380,7 +387,9 @@ export default function App() {
       currentRoute === null
         ? defaultTarget
         : currentRoute.module === "HOME"
-          ? (isHomeEligible ? "/" : defaultTarget)
+          ? isHomeEligible
+            ? "/"
+            : defaultTarget
           : currentRoute.isKnownPath
             ? currentRoute.canonicalPath
             : defaultTarget;
@@ -431,7 +440,9 @@ export default function App() {
   // Resolves the active sub-page id for a module's own (non-category-group)
   // children — e.g. Payroll's "Salary Payouts" is a subPage of PAYROLL_MANAGEMENT
   // itself, not a separate targetModule.
-  const getActiveSubPageForGroup = (moduleId: STSNModule): string | undefined => {
+  const getActiveSubPageForGroup = (
+    moduleId: STSNModule,
+  ): string | undefined => {
     switch (moduleId) {
       case "STUDENT_PORTAL":
         return portalSubPage;
@@ -748,7 +759,7 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-stsn-cream text-stsn-text font-sans">
         <div className="flex flex-col items-center gap-3">
           <GraduationCap className="w-10 h-10 text-stsn-gold animate-pulse" />
-          <p className="text-sm text-stone-500">Loading Theresian Connect…</p>
+          <p className="text-sm text-stone-500">Loading Teresian Connect…</p>
         </div>
       </div>
     );
@@ -774,14 +785,14 @@ export default function App() {
         >
           <div
             className="w-10 h-10 rounded-xl bg-gradient-to-br from-stsn-gold/30 to-stsn-brown border border-stsn-gold/40 flex items-center justify-center shadow-lg flex-shrink-0"
-            title="Theresian Connect"
+            title="Teresian Connect"
           >
             <Building2 className="w-5 h-5 text-stsn-gold" />
           </div>
           {sidebarMode !== "minimal" && (
             <div>
               <h1 className="font-display font-extrabold text-stsn-gold leading-none tracking-tight text-md">
-                Theresian <span className="text-stsn-gold-light">Connect</span>
+                Teresian <span className="text-stsn-gold-light">Connect</span>
               </h1>
               <span className="text-[9px] text-slate-300 font-mono tracking-widest uppercase mt-0.5 block">
                 Academia Enterprise v2
@@ -874,7 +885,7 @@ export default function App() {
               </button>
               <div className="min-w-0">
                 <span className="text-[9px] text-slate-500 uppercase font-mono tracking-[0.24em] block font-bold">
-                  Theresian Connect
+                  Teresian Connect
                 </span>
                 <h2 className="truncate text-[11px] sm:text-xs font-display font-black text-stsn-brown uppercase">
                   Unified Philippine K-12 & Tertiary Academics
@@ -962,9 +973,13 @@ export default function App() {
                 onLibrarySubPageChange={(subPage) =>
                   navigateToModule("LIBRARY_SYSTEM", subPage)
                 }
-                onLmsSubPageChange={(subPage) => navigateToModule("LMS", subPage)}
+                onLmsSubPageChange={(subPage) =>
+                  navigateToModule("LMS", subPage)
+                }
                 onLmsCourseChange={(courseId) =>
-                  navigate(getPathForModule("LMS", { subPage: "courses", courseId }))
+                  navigate(
+                    getPathForModule("LMS", { subPage: "courses", courseId }),
+                  )
                 }
                 onAccountsSubPageChange={(subPage) =>
                   navigateToModule("ACCOUNTS_SECURITY", subPage)
@@ -982,13 +997,13 @@ export default function App() {
                 ? portalSubPage
                 : activeModule === "FACULTY_PORTAL"
                   ? facultySubPage
-                : activeModule === "CASHIER"
-                  ? cashierSubPage
-                  : activeModule === "PAYROLL_MANAGEMENT"
-                    ? payrollSubPage
-                    : activeModule === "HR_MANAGEMENT"
-                      ? hrSubPage
-                      : null
+                  : activeModule === "CASHIER"
+                    ? cashierSubPage
+                    : activeModule === "PAYROLL_MANAGEMENT"
+                      ? payrollSubPage
+                      : activeModule === "HR_MANAGEMENT"
+                        ? hrSubPage
+                        : null
             }
             onNavigate={(module, subPage) => {
               navigateToModule(module, subPage);
@@ -1009,7 +1024,7 @@ export default function App() {
             <div className="app-shell-mobile-header flex justify-between items-center pb-4 border-b border-white/8 mb-4">
               <div>
                 <span className="text-[9px] text-stsn-gold/70 uppercase font-mono tracking-[0.24em] block font-bold">
-                  Theresian Connect
+                  Teresian Connect
                 </span>
                 <h2 className="font-display font-extrabold text-stsn-gold">
                   Navigation
@@ -1056,4 +1071,3 @@ export default function App() {
     </div>
   );
 }
-

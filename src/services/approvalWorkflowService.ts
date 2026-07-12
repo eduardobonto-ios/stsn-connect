@@ -27,6 +27,7 @@ export type WorkflowType =
   | "assessment"
   | "discount"
   | "payment_void"
+  | "cash_voucher_release"
   | "leave_request"
   | "grade_period"
   | "payroll_run";
@@ -149,6 +150,10 @@ const APPROVAL_MATRIX: Record<WorkflowType, StepConfig[]> = {
     { stepLevel: 2, stepName: "Accounting Head Final Approval (L2)", requiredRole: "ACCOUNTING", requiredDesignation: "HEAD", isFinal: true },
   ],
   payment_void: [
+    { stepLevel: 1, stepName: "Accounting Officer Review", requiredRole: "ACCOUNTING", isFinal: false },
+    { stepLevel: 2, stepName: "Accounting Head Approval", requiredRole: "ACCOUNTING", requiredDesignation: "HEAD", isFinal: true },
+  ],
+  cash_voucher_release: [
     { stepLevel: 1, stepName: "Accounting Officer Review", requiredRole: "ACCOUNTING", isFinal: false },
     { stepLevel: 2, stepName: "Accounting Head Approval", requiredRole: "ACCOUNTING", requiredDesignation: "HEAD", isFinal: true },
   ],
@@ -660,13 +665,13 @@ export async function getApprovalRequestDetails(requestId: string): Promise<{
 
 function getRoleWorkflows(role: string): WorkflowType[] {
   const map: Record<string, WorkflowType[]> = {
-    ACCOUNTING:  ["assessment", "discount", "payment_void"],
+    ACCOUNTING:  ["assessment", "discount", "payment_void", "cash_voucher_release"],
     REGISTRAR:   ["online_application", "enrollment"],
     HR:          ["leave_request"],
     PRINCIPAL:   ["grade_period"],
     PAYROLL:     ["payroll_run"],
-    ADMIN:       ["online_application", "enrollment", "assessment", "discount", "payment_void", "leave_request", "grade_period", "payroll_run"],
-    SUPER_ADMIN: ["online_application", "enrollment", "assessment", "discount", "payment_void", "leave_request", "grade_period", "payroll_run"],
+    ADMIN:       ["online_application", "enrollment", "assessment", "discount", "payment_void", "cash_voucher_release", "leave_request", "grade_period", "payroll_run"],
+    SUPER_ADMIN: ["online_application", "enrollment", "assessment", "discount", "payment_void", "cash_voucher_release", "leave_request", "grade_period", "payroll_run"],
   };
   return map[role] ?? [];
 }

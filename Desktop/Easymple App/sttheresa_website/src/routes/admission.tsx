@@ -8,19 +8,43 @@ export const Route = createFileRoute("/admission")({
   head: () => ({
     meta: [
       { title: "Admission | St. Theresa's School of Novaliches" },
-      { name: "description", content: "How to enroll at St. Theresa's School of Novaliches for SY 2026–2027 — requirements, steps, and student categories." },
+      {
+        name: "description",
+        content:
+          "How to enroll at St. Theresa's School of Novaliches for SY 2026–2027 — requirements, steps, and student categories.",
+      },
       { property: "og:title", content: "Admission — St. Theresa's School of Novaliches" },
-      { property: "og:description", content: "Requirements and steps for New Students, Continuing Students, Returnees, and Transferees." },
+      {
+        property: "og:description",
+        content:
+          "Requirements and steps for New Students, Continuing Students, Returnees, and Transferees.",
+      },
     ],
   }),
   component: Admission,
 });
 
 const STEPS = [
-  { icon: ClipboardList, title: "Submit Online Form", desc: "Complete the online enrollment form with the student's information." },
-  { icon: FileCheck2, title: "Prepare Requirements", desc: "Gather report card, PSA birth certificate, Good Moral, and 2x2 photos." },
-  { icon: UserCheck, title: "Assessment & Interview", desc: "Attend the scheduling for assessment and a brief family interview." },
-  { icon: CalendarCheck, title: "Payment & Confirmation", desc: "Settle fees to confirm the slot and receive the official enrollment notice." },
+  {
+    icon: ClipboardList,
+    title: "Submit Online Form",
+    desc: "Complete the online enrollment form with the student's information.",
+  },
+  {
+    icon: FileCheck2,
+    title: "Prepare Requirements",
+    desc: "Gather report card, PSA birth certificate, Good Moral, and 2x2 photos.",
+  },
+  {
+    icon: UserCheck,
+    title: "Assessment & Interview",
+    desc: "Attend the scheduling for assessment and a brief family interview.",
+  },
+  {
+    icon: CalendarCheck,
+    title: "Payment & Confirmation",
+    desc: "Settle fees to confirm the slot and receive the official enrollment notice.",
+  },
 ];
 
 const REQUIREMENTS = [
@@ -42,17 +66,31 @@ const CATEGORIES = [
 function Admission() {
   return (
     <>
-      <PageHero eyebrow="Join the Theresian Family" title="Admission" subtitle="Admissions for School Year 2026–2027 are now open." />
+      <PageHero
+        eyebrow="Join the Teresian Family"
+        title="Admission"
+        subtitle="Admissions for School Year 2026–2027 are now open."
+      />
 
       <section className="py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <Reveal><SectionHeading eyebrow="Process" title="How to Enroll" subtitle="Four simple steps to secure your child's slot." /></Reveal>
+          <Reveal>
+            <SectionHeading
+              eyebrow="Process"
+              title="How to Enroll"
+              subtitle="Four simple steps to secure your child's slot."
+            />
+          </Reveal>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((s, i) => (
               <Reveal key={s.title} delay={i * 90}>
                 <div className="relative h-full rounded-2xl border bg-card p-7 shadow-soft">
-                  <span className="absolute right-5 top-5 font-display text-4xl font-bold text-muted/60">{i + 1}</span>
-                  <span className="grid size-12 place-items-center rounded-xl bg-gradient-brown text-primary-foreground"><s.icon className="size-5" /></span>
+                  <span className="absolute right-5 top-5 font-display text-4xl font-bold text-muted/60">
+                    {i + 1}
+                  </span>
+                  <span className="grid size-12 place-items-center rounded-xl bg-gradient-brown text-primary-foreground">
+                    <s.icon className="size-5" />
+                  </span>
                   <h3 className="mt-5 font-display text-lg font-semibold">{s.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
                 </div>
@@ -88,7 +126,9 @@ function Admission() {
                 ))}
               </div>
               <Button asChild variant="brown" className="mt-7">
-                <Link to="/enroll">Start Online Enrollment <ArrowRight /></Link>
+                <Link to="/enroll">
+                  Start Online Enrollment <ArrowRight />
+                </Link>
               </Button>
             </div>
           </Reveal>

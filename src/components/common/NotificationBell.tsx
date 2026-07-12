@@ -27,6 +27,7 @@ const ENTITY_LABEL: Record<NotificationEntityType, string> = {
   payroll: "Payroll",
   void: "Void",
   grade: "Grades",
+  cash_voucher: "Cash Voucher",
 };
 
 const TYPE_ROW_BG: Record<NotificationType, string> = {

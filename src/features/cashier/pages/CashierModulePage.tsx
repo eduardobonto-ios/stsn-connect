@@ -6,12 +6,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSTSNStore } from "../../../services/store";
 import { usePermissions } from "../../../hooks/usePermissions";
-import { Payment, Student, StudentAssessment } from "../../../types";
+import { Payment, Student, StudentAssessment, CashVoucher } from "../../../types";
 import {
   Wallet, Search, Receipt, History, CheckCircle, AlertCircle,
   Banknote, Printer, Package, Info, X, Clock, ListChecks,
   ChevronLeft, ChevronRight, BarChart3, Download, FileText, Ban,
-  TrendingUp, CalendarDays,
+  TrendingUp, CalendarDays, Plus, ThumbsDown, Send,
 } from "lucide-react";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppButton from "../../../components/common/AppButton";
@@ -19,7 +19,7 @@ import AppCard from "../../../components/common/AppCard";
 import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
-import { ReceiptPreview } from "../../../components/ModalPreviews";
+import { ReceiptPreview, VoucherPreview } from "../../../components/ModalPreviews";
 import AppTable, { type AppTableColumn } from "../../../components/common/AppTable";
 import EmptyState from "../../../components/common/EmptyState";
 import { PreviewModal } from "../../../components/ModalPreviews";
@@ -29,7 +29,7 @@ import { getAcademicScopedData } from "../../../services/academicUnitScopeServic
 import { reportExportService } from "../../../services/reportExportService";
 import type { ReportColumn, ReportRow } from "../../reports/types";
 
-type CashierTab = "queue" | "history" | "reports";
+type CashierTab = "queue" | "other-payments" | "vouchers" | "history" | "reports";
 type CashierReportId =
   | "daily-collection"
   | "or-register"
@@ -38,10 +38,13 @@ type CashierReportId =
   | "collection-by-cashier"
   | "voided-receipts"
   | "student-payment-summary"
-  | "end-of-day-summary";
+  | "end-of-day-summary"
+  | "cash-voucher-register";
 
 const PAYMENT_METHODS: Payment["paymentMethod"][] = ["Cash", "GCash", "Bank Transfer", "Credit Card"];
 const PAYMENT_REMITTANCE_TERMS: Payment["term"][] = ["Downpayment", "Midterm", "Finals", "Full Payment", "Installment"];
+const OTHER_PAYMENT_CATEGORIES = ["Transcript Fee", "ID Replacement", "Certification", "Library Fine", "Miscellaneous"];
+const CASH_VOUCHER_CATEGORIES = ["Refund / Overpayment", "Reimbursement", "Petty Cash Release"];
 
 const CASHIER_REPORT_OPTIONS: { id: CashierReportId; title: string; desc: string }[] = [
   { id: "daily-collection", title: "Daily Collection Report", desc: "Collection totals grouped by transaction date." },
@@ -52,11 +55,13 @@ const CASHIER_REPORT_OPTIONS: { id: CashierReportId; title: string; desc: string
   { id: "voided-receipts", title: "Cancelled / Voided Receipt Report", desc: "Voided receipt register when void data is available." },
   { id: "student-payment-summary", title: "Student Payment Summary", desc: "Total payments and remaining balance by student." },
   { id: "end-of-day-summary", title: "End-of-Day Cashier Summary", desc: "Daily cashier collection totals for closing." },
+  { id: "cash-voucher-register", title: "Cash Voucher Register", desc: "Cash release requests, approvals, and disbursement status." },
 ];
 
 const CASHIER_REPORT_COLUMNS: Record<CashierReportId, ReportColumn[]> = {
   "daily-collection": [
     { key: "paymentDate", label: "Date" },
+    { key: "particulars", label: "Particulars" },
     { key: "transactionCount", label: "Transactions", align: "right" },
     { key: "totalAmount", label: "Total Amount", align: "right" },
   ],
@@ -65,6 +70,7 @@ const CASHIER_REPORT_COLUMNS: Record<CashierReportId, ReportColumn[]> = {
     { key: "paymentDate", label: "Date" },
     { key: "studentNo", label: "Student No." },
     { key: "studentName", label: "Student" },
+    { key: "transactionType", label: "Type" },
     { key: "paymentMethod", label: "Method" },
     { key: "term", label: "Term" },
     { key: "amount", label: "Amount", align: "right" },
@@ -73,6 +79,7 @@ const CASHIER_REPORT_COLUMNS: Record<CashierReportId, ReportColumn[]> = {
     { key: "paymentDate", label: "Date" },
     { key: "orNumber", label: "OR Number" },
     { key: "studentName", label: "Student" },
+    { key: "transactionType", label: "Type" },
     { key: "paymentMethod", label: "Method" },
     { key: "term", label: "Term" },
     { key: "amount", label: "Amount", align: "right" },
@@ -109,6 +116,15 @@ const CASHIER_REPORT_COLUMNS: Record<CashierReportId, ReportColumn[]> = {
     { key: "transactionCount", label: "Transactions", align: "right" },
     { key: "totalAmount", label: "Total Amount", align: "right" },
   ],
+  "cash-voucher-register": [
+    { key: "voucherNo", label: "Voucher No." },
+    { key: "requestedAt", label: "Date" },
+    { key: "payeeName", label: "Payee" },
+    { key: "category", label: "Category" },
+    { key: "amount", label: "Amount", align: "right" },
+    { key: "status", label: "Status" },
+    { key: "releasedBy", label: "Released By" },
+  ],
 };
 
 type CashierPaymentRow = { payment: Payment; student?: Student; assessment?: StudentAssessment };
@@ -121,6 +137,29 @@ function formatMoney(value: number): string {
 function getCashierName(payment: Payment): string {
   const match = payment.remarks?.match(/Collected by (.+?) via Cashiering module/);
   return match?.[1] ?? "Cashier";
+}
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Dates come from two sources with different shapes: DB-loaded rows carry a
+ * full timestamptz string ("2026-06-22T21:43:00+00:00"), while rows created
+ * client-side this session carry "2026-06-22 21:43" (see nowStamp() in
+ * store.ts). Both share the same first 10 characters, so slicing avoids the
+ * cross-format Date-parsing pitfalls entirely.
+ */
+function toDateOnly(value: string | undefined | null): string {
+  return (value ?? "").slice(0, 10);
+}
+
+/** Human-readable date, e.g. "Jun 22, 2026". Never throws on odd input. */
+function formatDateOnly(value: string | undefined | null): string {
+  const raw = toDateOnly(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!match) return raw || "—";
+  const [, y, m, d] = match;
+  const monthAbbr = MONTH_ABBR[Number(m) - 1];
+  return monthAbbr ? `${monthAbbr} ${Number(d)}, ${y}` : raw;
 }
 
 function groupBy<T>(items: T[], getKey: (item: T) => string): Map<string, T[]> {
@@ -204,13 +243,24 @@ function CardPagination({
 }
 
 export default function CashierModule({ subPage, onSubPageChange }: { subPage?: string; onSubPageChange?: (page: string) => void }) {
-  const { students, assessments, payments, voidRequests, currentUser, activeSchool, academicUnit, addPayment, submitVoidRequest, bookPackages, setupData } = useSTSNStore();
+  const {
+    students, assessments, payments, voidRequests, cashVouchers, currentUser, activeSchool, academicUnit,
+    addPayment, submitVoidRequest, submitCashVoucherRequest, approveCashVoucher, rejectCashVoucher, releaseCashVoucher,
+    bookPackages, setupData,
+  } = useSTSNStore();
   const { canPage, hasPageAccess } = usePermissions();
   const canCollectPayment = canPage("CASHIER", "queue", "create");
   const canVoidPayment = canPage("CASHIER", "queue", "void");
+  const canCollectOtherPayment = canPage("CASHIER", "other-payments", "create");
+  const canCreateVoucher = canPage("CASHIER", "vouchers", "create");
+  const canApproveVoucher = canPage("CASHIER", "vouchers", "approve");
+  const canRejectVoucher = canPage("CASHIER", "vouchers", "reject");
+  const canReleaseVoucher = canPage("CASHIER", "vouchers", "post");
   const [activeTab, setActiveTab] = useState<CashierTab>((subPage as CashierTab) ?? "queue");
   const pageAccessByTab: Record<CashierTab, boolean> = {
     queue: hasPageAccess("CASHIER", "queue"),
+    "other-payments": hasPageAccess("CASHIER", "other-payments"),
+    vouchers: hasPageAccess("CASHIER", "vouchers"),
     history: hasPageAccess("CASHIER", "history"),
     reports: hasPageAccess("CASHIER", "reports"),
   };
@@ -237,6 +287,27 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const [voidModalPaymentId, setVoidModalPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [voidConfirmInput, setVoidConfirmInput] = useState("");
+
+  // ── Other Payments (OR) — standalone collection modal ──────────────────
+  const [orCollectModalOpen, setOrCollectModalOpen] = useState(false);
+  const [orCollectStudentQuery, setOrCollectStudentQuery] = useState("");
+  const [orCollectForm, setOrCollectForm] = useState<{
+    transactionType: "AR" | "OR"; studentId: string; category: string; orNumber: string; amount: string;
+    paymentMethod: Payment["paymentMethod"]; remarks: string;
+  }>({ transactionType: "OR", studentId: "", category: "", orNumber: "", amount: "", paymentMethod: "Cash", remarks: "" });
+  const [orCollectError, setOrCollectError] = useState<string | null>(null);
+
+  // ── Cash Vouchers ────────────────────────────────────────────────────────
+  const [voucherModalOpen, setVoucherModalOpen] = useState(false);
+  const [voucherStudentQuery, setVoucherStudentQuery] = useState("");
+  const [voucherForm, setVoucherForm] = useState<{
+    payeeType: "Student" | "External"; payeeStudentId: string; payeeNameExternal: string;
+    category: string; voucherNo: string; amount: string; purpose: string;
+  }>({ payeeType: "Student", payeeStudentId: "", payeeNameExternal: "", category: "", voucherNo: "", amount: "", purpose: "" });
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [voucherDecision, setVoucherDecision] = useState<{ id: string; action: "approve" | "reject" } | null>(null);
+  const [voucherDecisionRemarks, setVoucherDecisionRemarks] = useState("");
+  const [voucherPreview, setVoucherPreview] = useState<CashVoucher | null>(null);
 
   const rowsPerPage = 5;
   const [approvedPage, setApprovedPage] = useState(1);
@@ -268,12 +339,25 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     () => getActiveSetupNames(setupData.payment_remittance_terms, PAYMENT_REMITTANCE_TERMS),
     [setupData.payment_remittance_terms],
   );
+  const otherPaymentCategoryOptions = useMemo(
+    () => getActiveSetupNames(setupData.other_payment_categories, OTHER_PAYMENT_CATEGORIES),
+    [setupData.other_payment_categories],
+  );
+  const cashVoucherCategoryOptions = useMemo(
+    () => getActiveSetupNames(setupData.cash_voucher_categories, CASH_VOUCHER_CATEGORIES),
+    [setupData.cash_voucher_categories],
+  );
+
+  const scopedCashVouchers = useMemo(
+    () => cashVouchers.filter((v) => activeSchool === "ALL" || !v.schoolId || v.schoolId === activeSchool),
+    [cashVouchers, activeSchool],
+  );
 
   // Today's date string for KPI calculations
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const todayPayments = useMemo(
-    () => scopedPayments.filter((p) => p.paymentDate === todayStr),
+    () => scopedPayments.filter((p) => toDateOnly(p.paymentDate) === todayStr),
     [scopedPayments, todayStr],
   );
   const todayTotal = useMemo(
@@ -294,6 +378,14 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
     return `${student?.firstName} ${student?.lastName}`.toLowerCase().includes(q) || (student?.studentNo || "").toLowerCase().includes(q);
+  };
+
+  const findStudentMatches = (query: string) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return scopedStudents
+      .filter((s) => `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) || (s.studentNo || "").toLowerCase().includes(q))
+      .slice(0, 8);
   };
 
   const queueRows = useMemo(() => {
@@ -323,14 +415,29 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
   }, [scopedPayments, scopedStudents, scopedAssessments, searchQuery]);
 
+  const orPaymentRows = useMemo(() => {
+    return scopedPayments
+      .filter((p) => p.transactionType === "OR")
+      .map((p) => ({ payment: p, student: scopedStudents.find((s) => s.id === p.studentId) }))
+      .filter(({ student }) => matchesSearch(student))
+      .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
+  }, [scopedPayments, scopedStudents, searchQuery]);
+
+  const voucherRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return scopedCashVouchers
+      .filter((v) => !q || v.payeeName.toLowerCase().includes(q) || v.voucherNo.toLowerCase().includes(q))
+      .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+  }, [scopedCashVouchers, searchQuery]);
+
   const filteredHistoryRows = useMemo(
-    () => historyRows.filter(({ payment }) => !historyDateFilter || payment.paymentDate === historyDateFilter),
+    () => historyRows.filter(({ payment }) => !historyDateFilter || toDateOnly(payment.paymentDate) === historyDateFilter),
     [historyRows, historyDateFilter],
   );
 
   const reportPaymentRows = useMemo<CashierPaymentRow[]>(() => {
     return historyRows
-      .filter(({ payment }) => (!reportDateFrom || payment.paymentDate >= reportDateFrom) && (!reportDateTo || payment.paymentDate <= reportDateTo))
+      .filter(({ payment }) => (!reportDateFrom || toDateOnly(payment.paymentDate) >= reportDateFrom) && (!reportDateTo || toDateOnly(payment.paymentDate) <= reportDateTo))
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
   }, [historyRows, reportDateFrom, reportDateTo]);
 
@@ -339,21 +446,29 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
   const reportRows = useMemo<ReportRow[]>(() => {
     if (selectedReportId === "daily-collection") {
-      return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => row.payment.paymentDate).entries())
-        .map(([paymentDate, rows]) => ({
-          paymentDate,
+      return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => toDateOnly(row.payment.paymentDate)).entries())
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([dateKey, rows]) => ({
+          paymentDate: formatDateOnly(dateKey),
+          particulars: rows
+            .map(({ payment, student }) => {
+              const who = student ? `${student.lastName}, ${student.firstName}` : "Unknown Student";
+              const what = payment.paymentCategory || payment.term || "Payment";
+              return `${who} — ${what}`;
+            })
+            .join("; "),
           transactionCount: rows.length,
           totalAmount: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
-        }))
-        .sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate)));
+        }));
     }
 
     if (selectedReportId === "or-register") {
       return reportPaymentRows.map(({ payment, student }) => ({
         orNumber: payment.orNumber,
-        paymentDate: payment.paymentDate,
+        paymentDate: formatDateOnly(payment.paymentDate),
         studentNo: student?.studentNo ?? "",
         studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+        transactionType: payment.transactionType ?? "AR",
         paymentMethod: payment.paymentMethod,
         term: payment.term,
         amount: formatMoney(payment.amount),
@@ -362,14 +477,30 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
     if (selectedReportId === "payment-history") {
       return reportPaymentRows.map(({ payment, student }) => ({
-        paymentDate: payment.paymentDate,
+        paymentDate: formatDateOnly(payment.paymentDate),
         orNumber: payment.orNumber,
         studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
+        transactionType: payment.transactionType ?? "AR",
         paymentMethod: payment.paymentMethod,
         term: payment.term,
         amount: formatMoney(payment.amount),
         remarks: payment.remarks ?? "",
       }));
+    }
+
+    if (selectedReportId === "cash-voucher-register") {
+      return scopedCashVouchers
+        .filter((v) => (!reportDateFrom || toDateOnly(v.requestedAt) >= reportDateFrom) && (!reportDateTo || toDateOnly(v.requestedAt) <= reportDateTo))
+        .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
+        .map((v) => ({
+          voucherNo: v.voucherNo,
+          requestedAt: formatDateOnly(v.requestedAt),
+          payeeName: v.payeeName,
+          category: v.category,
+          amount: formatMoney(v.amount),
+          status: v.status,
+          releasedBy: v.releasedBy ?? "",
+        }));
     }
 
     if (selectedReportId === "collection-by-method") {
@@ -397,21 +528,25 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
         .filter((v) => {
           const payment = scopedPayments.find((p) => p.id === v.paymentId);
           if (!payment) return false;
-          if (reportDateFrom && payment.paymentDate < reportDateFrom) return false;
-          if (reportDateTo && payment.paymentDate > reportDateTo) return false;
+          if (reportDateFrom && toDateOnly(payment.paymentDate) < reportDateFrom) return false;
+          if (reportDateTo && toDateOnly(payment.paymentDate) > reportDateTo) return false;
           return true;
+        })
+        .sort((a, b) => {
+          const pa = scopedPayments.find((p) => p.id === a.paymentId)?.paymentDate ?? "";
+          const pb = scopedPayments.find((p) => p.id === b.paymentId)?.paymentDate ?? "";
+          return pb.localeCompare(pa);
         })
         .map((v) => {
           const payment = scopedPayments.find((p) => p.id === v.paymentId);
           return {
             orNumber: v.orNumber,
-            paymentDate: payment?.paymentDate ?? "",
+            paymentDate: formatDateOnly(payment?.paymentDate),
             studentName: v.studentName,
             amount: formatMoney(v.amount),
             status: v.status,
           };
-        })
-        .sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate)));
+        });
     }
 
     if (selectedReportId === "student-payment-summary") {
@@ -421,30 +556,32 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
           const remainingBalance = scopedAssessments
             .filter((assessment) => assessment.studentId === studentId)
             .reduce((sum, assessment) => sum + assessment.balance, 0);
+          const lastPaymentDate = rows.map((row) => toDateOnly(row.payment.paymentDate)).sort().slice(-1)[0];
           return {
             studentNo: student?.studentNo ?? "",
             studentName: student ? `${student.lastName}, ${student.firstName}` : "Unknown Student",
             transactionCount: rows.length,
             totalPaid: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
             remainingBalance: formatMoney(remainingBalance),
-            lastPaymentDate: rows.map((row) => row.payment.paymentDate).sort().slice(-1)[0] ?? "",
+            lastPaymentDate: formatDateOnly(lastPaymentDate),
           };
         })
         .sort((a, b) => String(a.studentName).localeCompare(String(b.studentName)));
     }
 
-    return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => `${row.payment.paymentDate}|${getCashierName(row.payment)}`).entries())
+    return Array.from(groupBy<CashierPaymentRow>(reportPaymentRows, (row) => `${toDateOnly(row.payment.paymentDate)}|${getCashierName(row.payment)}`).entries())
       .map(([key, rows]) => {
-        const [paymentDate, cashier] = key.split("|");
-        return {
-          paymentDate,
-          cashier,
-          transactionCount: rows.length,
-          totalAmount: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
-        };
+        const [dateKey, cashier] = key.split("|");
+        return { dateKey, cashier, rows };
       })
-      .sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate)) || String(a.cashier).localeCompare(String(b.cashier)));
-  }, [reportPaymentRows, scopedAssessments, selectedReportId]);
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey) || a.cashier.localeCompare(b.cashier))
+      .map(({ dateKey, cashier, rows }) => ({
+        paymentDate: formatDateOnly(dateKey),
+        cashier,
+        transactionCount: rows.length,
+        totalAmount: formatMoney(rows.reduce((sum, row) => sum + row.payment.amount, 0)),
+      }));
+  }, [reportPaymentRows, scopedAssessments, scopedPayments, voidRequests, scopedCashVouchers, selectedReportId, reportDateFrom, reportDateTo]);
 
   const cashierReportTableColumns = useMemo<AppTableColumn<ReportRow>[]>(() => reportColumns.map((column) => ({
     accessorKey: column.key,
@@ -521,6 +658,135 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     setReceipt({ payment: row.payment, student: row.student, assessment: row.assessment });
   };
 
+  // ── Other Payments (OR) — standalone collection ─────────────────────────
+  const openOrCollectModal = () => {
+    setOrCollectForm({
+      transactionType: "OR",
+      studentId: "", category: otherPaymentCategoryOptions[0] ?? "", orNumber: "", amount: "",
+      paymentMethod: (paymentMethodOptions[0] ?? "Cash") as Payment["paymentMethod"], remarks: "",
+    });
+    setOrCollectStudentQuery("");
+    setOrCollectError(null);
+    setOrCollectModalOpen(true);
+  };
+
+  const handlePostOtherPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canCollectOtherPayment) { setOrCollectError("You don't have permission to collect other payments."); return; }
+    const student = scopedStudents.find((s) => s.id === orCollectForm.studentId);
+    if (!student) { setOrCollectError("Select a student first."); return; }
+    const amount = Number(orCollectForm.amount);
+    if (!amount || amount <= 0) { setOrCollectError("Enter a valid amount."); return; }
+    if (!orCollectForm.category) {
+      setOrCollectError(orCollectForm.transactionType === "AR" ? "Select a payment term." : "Select a category.");
+      return;
+    }
+    const typedOrNumber = orCollectForm.orNumber.trim();
+    if (typedOrNumber && payments.some((p) => p.orNumber === typedOrNumber)) {
+      setOrCollectError(`OR No. "${typedOrNumber}" has already been used. Check your receipt booklet.`);
+      return;
+    }
+    setOrCollectError(null);
+    // BIR OR No. is optional here — fall back to an internal reference so the
+    // record still gets a unique receipt identifier when none was typed.
+    const orNumber = typedOrNumber || `NO-OR-${Date.now()}`;
+    const isAr = orCollectForm.transactionType === "AR";
+
+    const posted = addPayment({
+      studentId: student.id,
+      schoolId: student.schoolId,
+      orNumber,
+      amount,
+      paymentMethod: orCollectForm.paymentMethod,
+      term: orCollectForm.category,
+      remarks: `Collected by ${currentUser?.name || "Cashier"} via Cashiering module — ${isAr ? "Other Payment (AR)" : "Other Payment (OR)"}${orCollectForm.remarks ? ` — ${orCollectForm.remarks}` : ""}`,
+      transactionType: orCollectForm.transactionType,
+      paymentCategory: isAr ? undefined : orCollectForm.category,
+    });
+
+    setOrCollectModalOpen(false);
+    // Mirror the Payment Queue receipt pattern: compute the post-payment
+    // balance locally since the store hasn't re-rendered scopedAssessments yet.
+    const matchedAssessment = isAr ? scopedAssessments.find((a) => a.studentId === student.id) : undefined;
+    const receiptAssessment = matchedAssessment
+      ? { ...matchedAssessment, balance: Math.max(0, matchedAssessment.balance - amount) }
+      : undefined;
+    setReceipt({ payment: posted, student, assessment: receiptAssessment });
+  };
+
+  // ── Cash Vouchers ────────────────────────────────────────────────────────
+  const openVoucherModal = () => {
+    setVoucherForm({
+      payeeType: "Student", payeeStudentId: "", payeeNameExternal: "",
+      category: cashVoucherCategoryOptions[0] ?? "", voucherNo: "", amount: "", purpose: "",
+    });
+    setVoucherStudentQuery("");
+    setVoucherError(null);
+    setVoucherModalOpen(true);
+  };
+
+  const handleSubmitVoucherRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canCreateVoucher || !currentUser) { setVoucherError("You don't have permission to request cash vouchers."); return; }
+    const voucherNo = voucherForm.voucherNo.trim();
+    if (!voucherNo) { setVoucherError("Voucher No. is required."); return; }
+    if (cashVouchers.some((v) => v.voucherNo === voucherNo)) {
+      setVoucherError(`Voucher No. "${voucherNo}" has already been used.`);
+      return;
+    }
+    const amount = Number(voucherForm.amount);
+    if (!amount || amount <= 0) { setVoucherError("Enter a valid amount."); return; }
+    if (!voucherForm.category) { setVoucherError("Select a category."); return; }
+    if (!voucherForm.purpose.trim()) { setVoucherError("Purpose is required."); return; }
+
+    let payeeName = voucherForm.payeeNameExternal.trim();
+    let payeeStudentId: string | undefined;
+    if (voucherForm.payeeType === "Student") {
+      const student = scopedStudents.find((s) => s.id === voucherForm.payeeStudentId);
+      if (!student) { setVoucherError("Select a payee student first."); return; }
+      payeeName = `${student.lastName}, ${student.firstName}`;
+      payeeStudentId = student.id;
+    } else if (!payeeName) {
+      setVoucherError("Enter the payee's name.");
+      return;
+    }
+    setVoucherError(null);
+
+    submitCashVoucherRequest({
+      schoolId: activeSchool === "ALL" ? undefined : activeSchool,
+      voucherNo,
+      payeeType: voucherForm.payeeType,
+      payeeStudentId,
+      payeeName,
+      category: voucherForm.category,
+      amount,
+      purpose: voucherForm.purpose.trim(),
+      requestedBy: currentUser.name,
+    });
+
+    setVoucherModalOpen(false);
+  };
+
+  const submitVoucherDecision = () => {
+    if (!voucherDecision || !currentUser) return;
+    if (voucherDecision.action === "approve") {
+      if (!canApproveVoucher) return;
+      approveCashVoucher(voucherDecision.id, currentUser.name, voucherDecisionRemarks.trim() || undefined);
+    } else {
+      if (!canRejectVoucher || !voucherDecisionRemarks.trim()) return;
+      rejectCashVoucher(voucherDecision.id, currentUser.name, voucherDecisionRemarks.trim());
+    }
+    setVoucherDecision(null);
+    setVoucherDecisionRemarks("");
+  };
+
+  const handleReleaseVoucher = (voucherId: string) => {
+    if (!canReleaseVoucher || !currentUser) return;
+    releaseCashVoucher(voucherId, currentUser.name);
+    const updated = useSTSNStore.getState().cashVouchers.find((v) => v.id === voucherId);
+    if (updated) setVoucherPreview(updated);
+  };
+
   const historyColumns: AppTableColumn<CashierHistoryRow>[] = [
     {
       id: "orNumber",
@@ -560,10 +826,23 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       ),
     },
     {
+      id: "type",
+      header: "Type",
+      accessorFn: (row) => row.payment.transactionType ?? "AR",
+      cell: ({ getValue }) => {
+        const type = String(getValue() ?? "AR");
+        return (
+          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${type === "OR" ? "bg-sky-100 text-sky-700" : "bg-emerald-100 text-emerald-700"}`}>
+            {type}
+          </span>
+        );
+      },
+    },
+    {
       id: "date",
       header: "Date",
       accessorFn: (row) => row.payment.paymentDate,
-      cell: ({ getValue }) => <span className="font-mono text-stone-600">{String(getValue() ?? "")}</span>,
+      cell: ({ getValue }) => <span className="font-mono text-stone-600">{formatDateOnly(String(getValue() ?? ""))}</span>,
     },
     {
       id: "method",
@@ -610,6 +889,161 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 title="Request void / cancellation"
               >
                 <Ban className="w-3 h-3" /> Void
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  const otherPaymentColumns: AppTableColumn<{ payment: Payment; student?: Student }>[] = [
+    {
+      id: "orNumber",
+      header: "OR Number",
+      accessorFn: (row) => row.payment.orNumber,
+      cell: ({ getValue }) => <span className="font-mono font-bold text-stsn-brown">{String(getValue())}</span>,
+    },
+    {
+      id: "student",
+      header: "Student",
+      accessorFn: (row) => row.student ? `${row.student.lastName}, ${row.student.firstName}` : "Unknown Student",
+      cell: ({ row }) => (
+        <>
+          <span className="font-semibold text-stone-800">{row.original.student ? `${row.original.student.lastName}, ${row.original.student.firstName}` : "Unknown Student"}</span>
+          <span className="text-[10px] text-stone-400 block font-mono">{row.original.student?.studentNo}</span>
+        </>
+      ),
+    },
+    {
+      id: "category",
+      header: "Category",
+      accessorFn: (row) => row.payment.paymentCategory ?? row.payment.term,
+      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue() ?? "")}</span>,
+    },
+    {
+      id: "date",
+      header: "Date",
+      accessorFn: (row) => row.payment.paymentDate,
+      cell: ({ getValue }) => <span className="font-mono text-stone-600">{formatDateOnly(String(getValue() ?? ""))}</span>,
+    },
+    {
+      id: "method",
+      header: "Method",
+      accessorFn: (row) => row.payment.paymentMethod,
+      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue() ?? "")}</span>,
+    },
+    {
+      id: "amount",
+      header: "Amount",
+      accessorFn: (row) => row.payment.amount,
+      cell: ({ getValue }) => (
+        <span className="block text-right font-mono font-bold text-stone-800">
+          {formatMoney(Number(getValue() ?? 0))}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={() => reprintReceipt(row.original)}
+            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-stsn-cream text-stsn-brown border border-stsn-beige hover:bg-stsn-beige cursor-pointer transition"
+          >
+            <Printer className="w-3 h-3" /> View
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const voucherColumns: AppTableColumn<CashVoucher>[] = [
+    {
+      id: "voucherNo",
+      header: "Voucher No.",
+      accessorFn: (row) => row.voucherNo,
+      cell: ({ getValue }) => <span className="font-mono font-bold text-stsn-brown">{String(getValue())}</span>,
+    },
+    {
+      id: "payee",
+      header: "Payee",
+      accessorFn: (row) => row.payeeName,
+      cell: ({ row }) => (
+        <>
+          <span className="font-semibold text-stone-800">{row.original.payeeName}</span>
+          <span className="text-[10px] text-stone-400 block font-mono">{row.original.payeeType}</span>
+        </>
+      ),
+    },
+    {
+      id: "category",
+      header: "Category",
+      accessorFn: (row) => row.category,
+      cell: ({ getValue }) => <span className="text-stone-600">{String(getValue() ?? "")}</span>,
+    },
+    {
+      id: "amount",
+      header: "Amount",
+      accessorFn: (row) => row.amount,
+      cell: ({ getValue }) => (
+        <span className="block text-right font-mono font-bold text-stone-800">
+          {formatMoney(Number(getValue() ?? 0))}
+        </span>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorFn: (row) => row.status,
+      cell: ({ getValue }) => {
+        const status = String(getValue() ?? "");
+        const tone =
+          status === "Released" ? "bg-emerald-100 text-emerald-700" :
+          status === "Approved" ? "bg-sky-100 text-sky-700" :
+          status === "Rejected" ? "bg-red-100 text-red-700" :
+          "bg-amber-100 text-amber-700";
+        return <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${tone}`}>{status}</span>;
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const voucher = row.original;
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            <button
+              onClick={() => setVoucherPreview(voucher)}
+              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-stsn-cream text-stsn-brown border border-stsn-beige hover:bg-stsn-beige cursor-pointer transition"
+            >
+              <Printer className="w-3 h-3" /> View
+            </button>
+            {voucher.status === "Pending Approval" && canApproveVoucher && (
+              <button
+                onClick={() => setVoucherDecision({ id: voucher.id, action: "approve" })}
+                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition"
+              >
+                <CheckCircle className="w-3 h-3" /> Approve
+              </button>
+            )}
+            {voucher.status === "Pending Approval" && canRejectVoucher && (
+              <button
+                onClick={() => setVoucherDecision({ id: voucher.id, action: "reject" })}
+                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 cursor-pointer transition"
+              >
+                <ThumbsDown className="w-3 h-3" /> Reject
+              </button>
+            )}
+            {voucher.status === "Approved" && canReleaseVoucher && (
+              <button
+                onClick={() => handleReleaseVoucher(voucher.id)}
+                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-stsn-brown text-white hover:bg-stsn-brown/90 cursor-pointer transition"
+              >
+                <Send className="w-3 h-3" /> Release
               </button>
             )}
           </div>
@@ -679,6 +1113,33 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                     : "bg-amber-100 text-amber-700"
                 }`}>
                   {queueRows.length}
+                </span>
+              )}
+            </button>
+          )}
+          {pageAccessByTab["other-payments"] && (
+            <button
+              onClick={() => { setActiveTab("other-payments"); onSubPageChange?.("other-payments"); }}
+              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "other-payments" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            >
+              <FileText className="w-4 h-4" />
+              Other Payments
+            </button>
+          )}
+          {pageAccessByTab.vouchers && (
+            <button
+              onClick={() => { setActiveTab("vouchers"); onSubPageChange?.("vouchers"); }}
+              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "vouchers" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
+            >
+              <Banknote className="w-4 h-4" />
+              Cash Vouchers
+              {voucherRows.some((v) => v.status === "Pending Approval") && (
+                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
+                  activeTab === "vouchers"
+                    ? "bg-stsn-brown/15 text-stsn-brown"
+                    : "bg-amber-100 text-amber-700"
+                }`}>
+                  {voucherRows.filter((v) => v.status === "Pending Approval").length}
                 </span>
               )}
             </button>
@@ -867,6 +1328,90 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── OTHER PAYMENTS (OR) ───────────────────────────────── */}
+      {activeTabAccessible && activeTab === "other-payments" && (
+        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
+          <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-stsn-gold" />
+              <h3 className="text-sm font-display font-bold text-stone-900">Other Payments</h3>
+              <p className="text-[10px] text-stone-400 font-mono">{orPaymentRows.length} records</p>
+            </div>
+            {canCollectOtherPayment && (
+              <AppButton type="button" onClick={openOrCollectModal} leftIcon={Plus} variant="primary" size="sm">
+                New Collection
+              </AppButton>
+            )}
+          </div>
+          <div className="p-4">
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 flex items-start gap-2">
+              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>Use this for walk-in collections outside the Payment Queue (transcript fees, ID replacement, certifications, library fines, etc.). Choose <strong>OR</strong> for a standalone collection, or <strong>AR</strong> to apply it against the student's balance.</span>
+            </div>
+            {orPaymentRows.length === 0 ? (
+              <EmptyState
+                icon={FileText}
+                title="No Other Payments Yet"
+                description="Standalone collections not tied to an assessment will appear here."
+                compact
+              />
+            ) : (
+              <AppTable<{ payment: Payment; student?: Student }>
+                columns={otherPaymentColumns}
+                data={orPaymentRows}
+                emptyMessage="No other payments recorded yet."
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                enableSearch={false}
+                getRowId={(row) => row.payment.id}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── CASH VOUCHERS ─────────────────────────────────────── */}
+      {activeTabAccessible && activeTab === "vouchers" && (
+        <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden animate-fade-in">
+          <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Banknote className="w-4 h-4 text-stsn-gold" />
+              <h3 className="text-sm font-display font-bold text-stone-900">Cash Vouchers</h3>
+              <p className="text-[10px] text-stone-400 font-mono">{voucherRows.length} records</p>
+            </div>
+            {canCreateVoucher && (
+              <AppButton type="button" onClick={openVoucherModal} leftIcon={Plus} variant="primary" size="sm">
+                New Voucher Request
+              </AppButton>
+            )}
+          </div>
+          <div className="p-4">
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 flex items-start gap-2">
+              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>Cash release for refunds, reimbursements, and petty cash requires Accounting approval before it can be released.</span>
+            </div>
+            {voucherRows.length === 0 ? (
+              <EmptyState
+                icon={Banknote}
+                title="No Cash Vouchers Yet"
+                description="Cash release requests — refunds, reimbursements, petty cash — will appear here."
+                compact
+              />
+            ) : (
+              <AppTable<CashVoucher>
+                columns={voucherColumns}
+                data={voucherRows}
+                emptyMessage="No cash vouchers recorded yet."
+                initialPageSize={10}
+                pageSizeOptions={[10]}
+                enableSearch={false}
+                getRowId={(row) => row.id}
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -1274,6 +1819,375 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
           </AppModal>
         );
       })()}
+
+      {/* ── OTHER PAYMENT (AR/OR) COLLECTION MODAL ──────────── */}
+      {orCollectModalOpen && (
+        <AppModal
+          open={true}
+          onClose={() => setOrCollectModalOpen(false)}
+          title={orCollectForm.transactionType === "AR" ? "Collect Payment (AR)" : "Collect Other Payment (OR)"}
+          eyebrow={orCollectForm.transactionType === "AR" ? "Applied to Balance" : "Standalone OR"}
+          icon={FileText}
+          panelAs="form"
+          onSubmit={handlePostOtherPayment}
+          maxWidthClass="max-w-lg"
+          footer={
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setOrCollectModalOpen(false)} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
+              <button type="submit" className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition"><CheckCircle className="w-3.5 h-3.5" /> Post Payment</button>
+            </div>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Transaction Type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrCollectForm({ ...orCollectForm, transactionType: "OR", category: otherPaymentCategoryOptions[0] ?? "" })}
+                  className={`flex-1 text-xs font-bold py-2 rounded-lg border cursor-pointer transition ${orCollectForm.transactionType === "OR" ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-600 hover:bg-stone-50"}`}
+                >
+                  OR — Standalone Collection
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrCollectForm({ ...orCollectForm, transactionType: "AR", category: paymentRemittanceTermOptions[0] ?? "" })}
+                  className={`flex-1 text-xs font-bold py-2 rounded-lg border cursor-pointer transition ${orCollectForm.transactionType === "AR" ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-600 hover:bg-stone-50"}`}
+                >
+                  AR — Apply to Balance
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-blue-700">
+              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              {orCollectForm.transactionType === "AR" ? (
+                <span>This will be applied against the student's outstanding assessment balance (first active assessment). For a specific assessment, use the Payment Queue tab instead.</span>
+              ) : (
+                <span>This collection is not tied to an assessment and will not affect the student's outstanding balance.</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Student <span className="text-red-500">*</span></label>
+              {orCollectForm.studentId ? (
+                (() => {
+                  const selected = scopedStudents.find((s) => s.id === orCollectForm.studentId);
+                  return (
+                    <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg p-2.5">
+                      <div>
+                        <p className="font-bold text-stone-800">{selected ? `${selected.lastName}, ${selected.firstName}` : "—"}</p>
+                        <p className="text-[10px] font-mono text-stone-400">{selected?.studentNo}</p>
+                      </div>
+                      <button type="button" onClick={() => setOrCollectForm({ ...orCollectForm, studentId: "" })} className="text-stone-400 hover:text-stone-600 cursor-pointer">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 w-3.5 h-3.5 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={orCollectStudentQuery}
+                      onChange={(e) => setOrCollectStudentQuery(e.target.value)}
+                      placeholder="Search student by name or student no…"
+                      className="w-full bg-white border border-stone-200 rounded-lg py-2 pl-7 pr-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                    />
+                  </div>
+                  {orCollectStudentQuery.trim() && (
+                    <div className="mt-1 border border-stone-200 rounded-lg overflow-hidden max-h-40 overflow-y-auto">
+                      {findStudentMatches(orCollectStudentQuery).length === 0 ? (
+                        <p className="text-[10px] text-stone-400 p-2">No matching students.</p>
+                      ) : findStudentMatches(orCollectStudentQuery).map((s) => (
+                        <button
+                          type="button"
+                          key={s.id}
+                          onClick={() => { setOrCollectForm({ ...orCollectForm, studentId: s.id }); setOrCollectStudentQuery(""); }}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-stsn-cream cursor-pointer border-b border-stone-100 last:border-b-0"
+                        >
+                          <span className="font-semibold text-stone-800">{s.lastName}, {s.firstName}</span>
+                          <span className="text-[10px] font-mono text-stone-400 block">{s.studentNo}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
+                {orCollectForm.transactionType === "AR" ? "Payment Term / Purpose" : "Category"} <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={orCollectForm.category}
+                onChange={(e) => setOrCollectForm({ ...orCollectForm, category: e.target.value })}
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+              >
+                {(orCollectForm.transactionType === "AR" ? paymentRemittanceTermOptions : otherPaymentCategoryOptions).map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
+                BIR Official Receipt No. <span className="text-stone-400 normal-case">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={orCollectForm.orNumber}
+                onChange={(e) => { setOrCollectForm({ ...orCollectForm, orNumber: e.target.value }); setOrCollectError(null); }}
+                placeholder="e.g. 0001234 — leave blank if no physical receipt is issued yet"
+                className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown ${orCollectError ? "border-red-400 ring-1 ring-red-400" : "border-stone-200"}`}
+              />
+              {orCollectError && <p className="text-red-600 text-[10px] mt-1 font-semibold">{orCollectError}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Amount</label>
+                <input
+                  type="number" min="1" step="0.01" required
+                  value={orCollectForm.amount}
+                  onChange={(e) => setOrCollectForm({ ...orCollectForm, amount: e.target.value })}
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Payment Method</label>
+                <select
+                  value={orCollectForm.paymentMethod}
+                  onChange={(e) => setOrCollectForm({ ...orCollectForm, paymentMethod: e.target.value as Payment["paymentMethod"] })}
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                >
+                  {paymentMethodOptions.map((m) => <option key={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Remarks (optional)</label>
+              <input
+                type="text"
+                value={orCollectForm.remarks}
+                onChange={(e) => setOrCollectForm({ ...orCollectForm, remarks: e.target.value })}
+                placeholder="Additional notes for this collection"
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+              />
+            </div>
+          </div>
+        </AppModal>
+      )}
+
+      {/* ── CASH VOUCHER REQUEST MODAL ──────────────────────── */}
+      {voucherModalOpen && (
+        <AppModal
+          open={true}
+          onClose={() => setVoucherModalOpen(false)}
+          title="Request Cash Voucher"
+          eyebrow="Cash Release"
+          icon={Banknote}
+          panelAs="form"
+          onSubmit={handleSubmitVoucherRequest}
+          maxWidthClass="max-w-lg"
+          footer={
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setVoucherModalOpen(false)} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
+              <button type="submit" className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-stsn-brown hover:bg-stsn-brown/90 text-white cursor-pointer transition"><Send className="w-3.5 h-3.5" /> Submit Request</button>
+            </div>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-blue-700">
+              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>Requires Accounting approval before the cashier can release the cash.</span>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Payee Type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVoucherForm({ ...voucherForm, payeeType: "Student" })}
+                  className={`flex-1 text-xs font-bold py-2 rounded-lg border cursor-pointer transition ${voucherForm.payeeType === "Student" ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-600 hover:bg-stone-50"}`}
+                >
+                  Student
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVoucherForm({ ...voucherForm, payeeType: "External" })}
+                  className={`flex-1 text-xs font-bold py-2 rounded-lg border cursor-pointer transition ${voucherForm.payeeType === "External" ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-600 hover:bg-stone-50"}`}
+                >
+                  External (Staff / Vendor)
+                </button>
+              </div>
+            </div>
+
+            {voucherForm.payeeType === "Student" ? (
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Payee Student <span className="text-red-500">*</span></label>
+                {voucherForm.payeeStudentId ? (
+                  (() => {
+                    const selected = scopedStudents.find((s) => s.id === voucherForm.payeeStudentId);
+                    return (
+                      <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg p-2.5">
+                        <div>
+                          <p className="font-bold text-stone-800">{selected ? `${selected.lastName}, ${selected.firstName}` : "—"}</p>
+                          <p className="text-[10px] font-mono text-stone-400">{selected?.studentNo}</p>
+                        </div>
+                        <button type="button" onClick={() => setVoucherForm({ ...voucherForm, payeeStudentId: "" })} className="text-stone-400 hover:text-stone-600 cursor-pointer">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 w-3.5 h-3.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={voucherStudentQuery}
+                        onChange={(e) => setVoucherStudentQuery(e.target.value)}
+                        placeholder="Search student by name or student no…"
+                        className="w-full bg-white border border-stone-200 rounded-lg py-2 pl-7 pr-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                      />
+                    </div>
+                    {voucherStudentQuery.trim() && (
+                      <div className="mt-1 border border-stone-200 rounded-lg overflow-hidden max-h-40 overflow-y-auto">
+                        {findStudentMatches(voucherStudentQuery).length === 0 ? (
+                          <p className="text-[10px] text-stone-400 p-2">No matching students.</p>
+                        ) : findStudentMatches(voucherStudentQuery).map((s) => (
+                          <button
+                            type="button"
+                            key={s.id}
+                            onClick={() => { setVoucherForm({ ...voucherForm, payeeStudentId: s.id }); setVoucherStudentQuery(""); }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-stsn-cream cursor-pointer border-b border-stone-100 last:border-b-0"
+                          >
+                            <span className="font-semibold text-stone-800">{s.lastName}, {s.firstName}</span>
+                            <span className="text-[10px] font-mono text-stone-400 block">{s.studentNo}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Payee Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text" required
+                  value={voucherForm.payeeNameExternal}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, payeeNameExternal: e.target.value })}
+                  placeholder="Staff or vendor name"
+                  className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Category <span className="text-red-500">*</span></label>
+              <select
+                value={voucherForm.category}
+                onChange={(e) => setVoucherForm({ ...voucherForm, category: e.target.value })}
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+              >
+                {cashVoucherCategoryOptions.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Voucher No. <span className="text-red-500">*</span></label>
+              <input
+                type="text" required
+                value={voucherForm.voucherNo}
+                onChange={(e) => { setVoucherForm({ ...voucherForm, voucherNo: e.target.value }); setVoucherError(null); }}
+                placeholder="e.g. CV-0001 — must match physical voucher booklet"
+                className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown ${voucherError ? "border-red-400 ring-1 ring-red-400" : "border-stone-200"}`}
+              />
+              {voucherError && <p className="text-red-600 text-[10px] mt-1 font-semibold">{voucherError}</p>}
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Amount</label>
+              <input
+                type="number" min="1" step="0.01" required
+                value={voucherForm.amount}
+                onChange={(e) => setVoucherForm({ ...voucherForm, amount: e.target.value })}
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Purpose <span className="text-red-500">*</span></label>
+              <textarea
+                required
+                rows={2}
+                value={voucherForm.purpose}
+                onChange={(e) => setVoucherForm({ ...voucherForm, purpose: e.target.value })}
+                placeholder="Reason for this cash release"
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown resize-none"
+              />
+            </div>
+          </div>
+        </AppModal>
+      )}
+
+      {/* ── CASH VOUCHER DECISION MODAL (Approve / Reject) ──── */}
+      {voucherDecision && (
+        <AppModal
+          open={true}
+          onClose={() => { setVoucherDecision(null); setVoucherDecisionRemarks(""); }}
+          title={voucherDecision.action === "approve" ? "Approve Cash Voucher" : "Reject Cash Voucher"}
+          eyebrow="Accounting Review"
+          icon={voucherDecision.action === "approve" ? CheckCircle : ThumbsDown}
+          maxWidthClass="max-w-md"
+          footer={
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => { setVoucherDecision(null); setVoucherDecisionRemarks(""); }} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
+              <button
+                type="button"
+                onClick={submitVoucherDecision}
+                disabled={voucherDecision.action === "reject" && !voucherDecisionRemarks.trim()}
+                className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl text-white cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed ${voucherDecision.action === "approve" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}
+              >
+                {voucherDecision.action === "approve" ? <CheckCircle className="w-3.5 h-3.5" /> : <ThumbsDown className="w-3.5 h-3.5" />}
+                {voucherDecision.action === "approve" ? "Approve" : "Reject"}
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-3 text-xs">
+            <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
+              Remarks {voucherDecision.action === "reject" && <span className="text-red-500">*</span>}
+            </label>
+            <textarea
+              rows={3}
+              value={voucherDecisionRemarks}
+              onChange={(e) => setVoucherDecisionRemarks(e.target.value)}
+              placeholder={voucherDecision.action === "approve" ? "Optional approval notes" : "Reason for rejection"}
+              className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown resize-none"
+            />
+          </div>
+        </AppModal>
+      )}
+
+      {/* ── CASH VOUCHER PREVIEW ────────────────────────────── */}
+      {voucherPreview && (
+        <PreviewModal isOpen={true} onClose={() => setVoucherPreview(null)} title="Cash Voucher">
+          <VoucherPreview voucher={voucherPreview} />
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-[11px] flex items-start gap-2">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>Voucher preview only. Use the Print button above to print this voucher.</span>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button type="button" onClick={() => setVoucherPreview(null)} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition"><X className="w-3.5 h-3.5" /> Close</button>
+          </div>
+        </PreviewModal>
+      )}
 
       {/* ── RECEIPT PREVIEW ─────────────────────────────────── */}
       {receipt && (

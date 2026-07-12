@@ -279,6 +279,22 @@ const SETUP_GROUPS: SetupGroupConfig[] = [
         extraFields: [],
       },
       {
+        key: "other_payment_categories",
+        label: "Other Payment (OR) Categories",
+        description: "Standalone OR collections not tied to an assessment — Transcript Fee, ID Replacement, etc.",
+        icon: FileText,
+        color: "emerald",
+        extraFields: [],
+      },
+      {
+        key: "cash_voucher_categories",
+        label: "Cash Voucher Categories",
+        description: "Reasons for a cash release voucher — Refund, Reimbursement, Petty Cash, Supplies/Uniform Advance, etc.",
+        icon: Coins,
+        color: "emerald",
+        extraFields: [],
+      },
+      {
         key: "payment_terms",
         label: "Payment Terms",
         description: "Cash, Installment options",

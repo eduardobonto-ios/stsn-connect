@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Briefcase, Building2, CircleDot, Link, UserRoundSearch } from "lucide-react";
+import { Briefcase, UserRoundSearch } from "lucide-react";
 import AppAutocompleteSelect, { type AppAutocompleteOption } from "../../../../components/common/AppAutocompleteSelect";
 import AppCard from "../../../../components/common/AppCard";
 import AppEmptyState from "../../../../components/common/AppEmptyState";
 import AppFormField from "../../../../components/common/AppFormField";
 import AppStatusBadge from "../../../../components/common/AppStatusBadge";
-import ProfileInfoTile, { type ProfileInfoTileVariant } from "../../../../components/common/profile/ProfileInfoTile";
+import ProfileInfoTile from "../../../../components/common/profile/ProfileInfoTile";
 import ModulePageHeader from "../../../../components/common/ModulePageHeader";
 import StaffProfileWorkspace from "../../../profiles/components/StaffProfileWorkspace";
 import { useSTSNStore } from "../../../../services/store";
+import type { AppTone } from "../../../../components/common/ui-variants";
 
-const EMPLOYMENT_STATUS_VARIANTS: Record<string, ProfileInfoTileVariant> = {
+const EMPLOYMENT_STATUS_VARIANTS: Record<string, AppTone> = {
   active: "success",
   inactive: "danger",
   pending: "warning",
@@ -20,7 +21,7 @@ function normalizeEmail(value?: string | null) {
   return value?.trim().toLowerCase() ?? "";
 }
 
-function resolveEmploymentStatusVariant(status?: string | null): ProfileInfoTileVariant {
+function resolveEmploymentStatusVariant(status?: string | null): AppTone {
   return EMPLOYMENT_STATUS_VARIANTS[status?.trim().toLowerCase() ?? ""] ?? "neutral";
 }
 
@@ -131,26 +132,22 @@ export default function NewEmployeeProfilePage() {
                     <ProfileInfoTile
                       label="Position"
                       value={selectedEmployee.positionTitle || selectedEmployee.position || "Unassigned"}
-                      variant="primary"
-                      icon={Briefcase}
+                      variant="brand"
                     />
                     <ProfileInfoTile
                       label="Status"
                       value={selectedEmployee.employmentStatus || selectedEmployee.status || "Pending"}
                       variant={resolveEmploymentStatusVariant(selectedEmployee.employmentStatus || selectedEmployee.status)}
-                      icon={CircleDot}
                     />
                     <ProfileInfoTile
                       label="Department"
                       value={selectedEmployee.department || "Unassigned"}
                       variant="info"
-                      icon={Building2}
                     />
                     <ProfileInfoTile
                       label="Linked Faculty Record"
                       value={linkedTeacher ? "Linked" : "Not linked"}
                       variant={linkedTeacher ? "success" : "warning"}
-                      icon={Link}
                       helperText={linkedTeacher ? `${linkedTeacher.firstName} ${linkedTeacher.lastName}` : "No faculty record is currently matched."}
                     />
                   </div>

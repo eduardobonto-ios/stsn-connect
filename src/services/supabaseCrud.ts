@@ -43,6 +43,23 @@ export function dbInsert(table: string, row: Record<string, any>) {
   });
 }
 
+/** Awaited insert that returns the persisted row (e.g. to read back DB-generated
+ *  columns like a trigger-assigned student_no) instead of the fire-and-forget
+ *  error-only result `dbInsert` gives. Callers should branch on `error` and
+ *  only commit optimistic local state once this resolves successfully. */
+export async function dbInsertReturning<T = any>(
+  table: string,
+  row: Record<string, any>,
+  select = "*",
+): Promise<{ data: T | null; error: unknown }> {
+  const { data, error } = await supabase.from(table).insert(toSnake(row)).select(select).single();
+  if (error) {
+    report(`insert ${table}`)(error);
+    return { data: null, error };
+  }
+  return { data: toCamel(data) as T, error: null };
+}
+
 export function dbUpdate(table: string, id: string, updates: Record<string, any>) {
   return supabase.from(table).update(toSnake(updates)).eq("id", id).then(({ error }) => {
     report(`update ${table}`)(error);

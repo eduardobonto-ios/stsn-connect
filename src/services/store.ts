@@ -70,6 +70,7 @@ import {
   EmployeeOnboardingTask,
   OnlineEnrollmentApplication,
   VoidRequest,
+  CashVoucher,
   STSNNotification,
   AuditLogEntry,
   AuditEntityType,
@@ -88,7 +89,7 @@ import { getAcademicUnit } from "../config/schools.config";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent, GradeItem, GradeCategory } from "../types/grading";
 import { supabase } from "../lib/supabase";
 import { loadAllData } from "./dataLoader";
-import { newId, dbInsert, dbUpdate, dbDelete, dbDeleteWhere } from "./supabaseCrud";
+import { newId, dbInsert, dbInsertReturning, dbUpdate, dbDelete, dbDeleteWhere } from "./supabaseCrud";
 import { resolveSchoolId, resolveSubjectId, subjectCodeToId } from "./idMaps";
 import { loadSecurityCatalog, computeEffectivePermissions, getPrimaryRoleCode } from "./securityPermissionService";
 import { EMPTY_SECURITY_CATALOG } from "../types/security-permissions.types";
@@ -169,6 +170,7 @@ interface STSNState {
   discountTypes: DiscountType[];
   discountRequests: DiscountRequest[];
   voidRequests: VoidRequest[];
+  cashVouchers: CashVoucher[];
   notifications: STSNNotification[];
   classSchedules: ClassSchedule[];
   learningMaterials: LearningMaterial[];
@@ -250,13 +252,13 @@ interface STSNState {
   setCurrentUser: (user: User | null) => void;
 
   // Registrar Actions
-  addStudent: (student: Omit<Student, "id" | "studentNo">) => Student;
+  addStudent: (student: Omit<Student, "id" | "studentNo">) => Promise<Student>;
   updateStudent: (id: string, updates: Partial<Student>) => void;
   updateStudentRequirements: (studentId: string, reqName: string, status: "Submitted" | "Pending" | "Rejected") => void;
   ensureStudentRequirements: (studentId: string) => void;
   approveEnrollment: (enrollmentId: string, section: string) => void;
   rejectEnrollment: (enrollmentId: string) => void;
-  submitNewEnrollment: (enrollment: Omit<Enrollment, "id">) => Enrollment;
+  submitNewEnrollment: (enrollment: Omit<Enrollment, "id">) => Promise<Enrollment>;
   updateEnrollmentStatus: (enrollmentId: string, status: Enrollment["status"]) => void;
   updateOnlineEnrollmentApplicationStatus: (applicationId: string, status: OnlineEnrollmentApplication["status"]) => void;
 
@@ -278,9 +280,20 @@ interface STSNState {
   finalizeGradePeriod: (periodId: string, finalizedBy: string) => void;
 
   // Human Resource & Admin Actions
-  addEmployee: (employee: Omit<Employee, "id">) => void;
+  addEmployee: (employee: Omit<Employee, "id">) => Employee;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   updateTeacher: (id: string, updates: Partial<Teacher>) => void;
+  // Tags an employee as teaching staff/faculty by upserting employee_faculty_profiles.
+  // Does not require an existing Teacher record or public.teachers row (Phase 6 prep).
+  upsertEmployeeFacultyProfile: (
+    employeeId: string,
+    profile: {
+      isTeachingStaff?: boolean;
+      specialization?: string;
+      advisorySection?: string;
+      facultyRank?: string | null;
+    },
+  ) => void;
   addPayrollRow: (payrollRow: PayrollRow) => void;
   markPaidPayroll: (id: string) => void;
   processGlobalPayroll: () => void;
@@ -326,6 +339,12 @@ interface STSNState {
   submitVoidRequest: (req: Omit<VoidRequest, "id" | "requestedAt" | "status">) => VoidRequest;
   approveVoidRequest: (id: string, reviewedBy: string, remarks?: string) => void;
   rejectVoidRequest: (id: string, reviewedBy: string, remarks: string) => void;
+
+  // Cash Voucher Release Workflow
+  submitCashVoucherRequest: (req: Omit<CashVoucher, "id" | "requestedAt" | "status">) => CashVoucher;
+  approveCashVoucher: (id: string, reviewedBy: string, remarks?: string) => void;
+  rejectCashVoucher: (id: string, reviewedBy: string, remarks: string) => void;
+  releaseCashVoucher: (id: string, releasedBy: string, referenceNo?: string) => void;
 
   // Notification Actions
   addNotification: (n: Omit<STSNNotification, "id" | "createdAt" | "readBy">) => void;
@@ -631,6 +650,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   discountTypes: [],
   discountRequests: [],
   voidRequests: [],
+  cashVouchers: [],
   notifications: [],
   classSchedules: [],
   learningMaterials: [],
@@ -784,23 +804,32 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     set({ currentUser: user });
   },
 
-  addStudent: (studentData) => {
-    const serial = get().students.length + 1;
-    const studentNo = `STSN-2026-${String(serial).padStart(4, "0")}`;
+  addStudent: async (studentData) => {
     const newStudentId = newId();
-    const newStudent: Student = { ...studentData, id: newStudentId, studentNo };
 
+    // student_no is generated server-side (trigger + sequence, see migration
+    // 20260712100000_student_no_sequence.sql) so it can never collide under
+    // concurrent enrollments the way a client-side `students.length + 1`
+    // count could. The insert is awaited and thrown on failure so the caller
+    // never shows a row locally that didn't actually persist.
+    const { data: inserted, error } = await dbInsertReturning<{ studentNo: string }>(
+      "students",
+      withSchoolFk({ ...studentData, id: newStudentId }),
+      "student_no",
+    );
+    if (error || !inserted) {
+      throw new Error("Failed to save the student record. Please try again.");
+    }
+
+    const newStudent: Student = { ...studentData, id: newStudentId, studentNo: inserted.studentNo };
     set((state) => ({ students: [...state.students, newStudent] }));
 
     const newReqs = getDefaultRequirementNames(studentData.department).map((name) =>
       createPendingRequirement(newStudentId, name)
     );
-
     set((state) => ({ requirements: [...state.requirements, ...newReqs] }));
 
-    const persisted = Promise.resolve(dbInsert("students", withSchoolFk({ ...studentData, id: newStudentId, studentNo })))
-      .then(() => persistRequirementsWithRecheck(newStudentId, newReqs))
-      .then(() => undefined);
+    const persisted = persistRequirementsWithRecheck(newStudentId, newReqs);
     studentPersistence.set(newStudentId, persisted);
     persisted.finally(() => {
       if (studentPersistence.get(newStudentId) === persisted) studentPersistence.delete(newStudentId);
@@ -848,7 +877,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     });
   },
 
-  submitNewEnrollment: (enrollData) => {
+  submitNewEnrollment: async (enrollData) => {
     const newEnrollmentId = newId();
     const newEnrollment: Enrollment = {
       ...enrollData,
@@ -860,30 +889,8 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       missingFields: enrollData.missingFields ?? [],
     };
 
-    set((state) => ({
-      enrollments: [...state.enrollments, newEnrollment],
-      students: state.students.map((student) =>
-        student.id === enrollData.studentId ? { ...student, enrollmentStatus: "For Assessment" } : student
-      )
-    }));
-
     const student = get().students.find((s) => s.id === enrollData.studentId);
     const isCollege = student?.department === "College";
-
-    const existingReqs = get().requirements.filter((r) => r.studentId === enrollData.studentId);
-    if (existingReqs.length === 0) {
-      const newReqs = getDefaultRequirementNames(isCollege ? "College" : "Basic Education").map((name) =>
-        createPendingRequirement(enrollData.studentId, name)
-      );
-      set((state) => ({ requirements: [...state.requirements, ...newReqs] }));
-      const persisted = (studentPersistence.get(enrollData.studentId) ?? Promise.resolve())
-        .then(() => persistRequirementsWithRecheck(enrollData.studentId, newReqs))
-        .then(() => undefined);
-      studentPersistence.set(enrollData.studentId, persisted);
-      persisted.finally(() => {
-        if (studentPersistence.get(enrollData.studentId) === persisted) studentPersistence.delete(enrollData.studentId);
-      });
-    }
     const tuitionRate = isCollege ? 950 * enrollData.subjectCodes.length * 3 : 18000;
     const totalAmount = tuitionRate + 4500 + 3500 + 1000;
 
@@ -908,35 +915,59 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       balance: totalAmount
     };
 
-    set((state) => ({ assessments: [...state.assessments, newAssessment] }));
+    // Await the core writes (enrollment, its subjects, and the assessment
+    // that gates it into the "For Assessment" queue) before touching local
+    // state, so a failed insert can never leave a ghost row that only
+    // disappears on the next reload — the caller sees a thrown error instead.
+    await studentPersistence.get(enrollData.studentId);
 
-    const persisted = (studentPersistence.get(enrollData.studentId) ?? Promise.resolve()).then(async () => {
-      await dbInsert("enrollments", {
-        id: newEnrollmentId,
-        studentId: enrollData.studentId,
-        schoolYear: enrollData.schoolYear,
-        semester: enrollData.semester,
-        enrollmentType: enrollData.enrollmentType,
-        status: "For Assessment",
-        submittedAt: enrollData.submittedAt,
-        enrollmentSource: newEnrollment.enrollmentSource,
-        isOnlineEnrollment: newEnrollment.isOnlineEnrollment,
-        onlineApplicationId: newEnrollment.onlineApplicationId,
-        completionStatus: newEnrollment.completionStatus,
-        missingFields: newEnrollment.missingFields,
-        sourceMetadata: newEnrollment.sourceMetadata,
+    const enrollError = await dbInsert("enrollments", {
+      id: newEnrollmentId,
+      studentId: enrollData.studentId,
+      schoolYear: enrollData.schoolYear,
+      semester: enrollData.semester,
+      enrollmentType: enrollData.enrollmentType,
+      status: "For Assessment",
+      submittedAt: enrollData.submittedAt,
+      enrollmentSource: newEnrollment.enrollmentSource,
+      isOnlineEnrollment: newEnrollment.isOnlineEnrollment,
+      onlineApplicationId: newEnrollment.onlineApplicationId,
+      completionStatus: newEnrollment.completionStatus,
+      missingFields: newEnrollment.missingFields,
+      sourceMetadata: newEnrollment.sourceMetadata,
+    });
+    if (enrollError) throw new Error("Failed to save the enrollment. Please try again.");
+
+    await Promise.all(enrollData.subjectCodes.map((code) => {
+      const subjectId = resolveSubjectId(code);
+      return subjectId ? dbInsert("enrollment_subjects", { enrollment_id: newEnrollmentId, subject_id: subjectId }) : Promise.resolve(null);
+    }));
+
+    const assessmentError = await dbInsert("assessments", {
+      id: newAssessmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester,
+      totalAmount, discountPercentage: 0, discountAmount: 0, paymentTerm: "Installment - 4 Payments", balance: totalAmount,
+    });
+    if (assessmentError) throw new Error("Enrollment saved, but the assessment could not be created. Please generate it manually.");
+    await Promise.all(baseFees.map((fee) => dbInsert("assessment_fees", { assessment_id: newAssessmentId, fee_name: fee.feeName, category: fee.category, amount: fee.amount })));
+
+    set((state) => ({
+      enrollments: [...state.enrollments, newEnrollment],
+      students: state.students.map((s) => (s.id === enrollData.studentId ? { ...s, enrollmentStatus: "For Assessment" } : s)),
+      assessments: [...state.assessments, newAssessment],
+    }));
+
+    const existingReqs = get().requirements.filter((r) => r.studentId === enrollData.studentId);
+    if (existingReqs.length === 0) {
+      const newReqs = getDefaultRequirementNames(isCollege ? "College" : "Basic Education").map((name) =>
+        createPendingRequirement(enrollData.studentId, name)
+      );
+      set((state) => ({ requirements: [...state.requirements, ...newReqs] }));
+      const persisted = persistRequirementsWithRecheck(enrollData.studentId, newReqs);
+      studentPersistence.set(enrollData.studentId, persisted);
+      persisted.finally(() => {
+        if (studentPersistence.get(enrollData.studentId) === persisted) studentPersistence.delete(enrollData.studentId);
       });
-      await Promise.all(enrollData.subjectCodes.map((code) => {
-        const subjectId = resolveSubjectId(code);
-        return subjectId ? dbInsert("enrollment_subjects", { enrollment_id: newEnrollmentId, subject_id: subjectId }) : Promise.resolve();
-      }));
-      await dbInsert("assessments", { id: newAssessmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester, totalAmount, discountPercentage: 0, discountAmount: 0, paymentTerm: "Installment - 4 Payments", balance: totalAmount });
-      await Promise.all(baseFees.map((fee) => dbInsert("assessment_fees", { assessment_id: newAssessmentId, fee_name: fee.feeName, category: fee.category, amount: fee.amount })));
-    });
-    studentPersistence.set(enrollData.studentId, persisted);
-    persisted.finally(() => {
-      if (studentPersistence.get(enrollData.studentId) === persisted) studentPersistence.delete(enrollData.studentId);
-    });
+    }
 
     return newEnrollment;
   },
@@ -1097,9 +1128,13 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const newPaymentId = newId();
     const paymentDate = new Date().toISOString().replace("T", " ").substring(0, 16);
     const newPayment: Payment = { ...paymentData, id: newPaymentId, paymentDate };
-    const targetAssessmentBeforePayment = get().assessments.find((a) =>
-      paymentData.assessmentId ? a.id === paymentData.assessmentId : a.studentId === paymentData.studentId
-    );
+    // "OR" (standalone/miscellaneous) collections are never applied against an assessment balance.
+    const isStandaloneOR = paymentData.transactionType === "OR";
+    const targetAssessmentBeforePayment = isStandaloneOR
+      ? undefined
+      : get().assessments.find((a) =>
+          paymentData.assessmentId ? a.id === paymentData.assessmentId : a.studentId === paymentData.studentId
+        );
     const nextAssessmentBalance = targetAssessmentBeforePayment
       ? Math.max(0, targetAssessmentBeforePayment.balance - paymentData.amount)
       : undefined;
@@ -1115,7 +1150,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
     set((state) => ({
       payments: [...state.payments, newPayment],
-      assessments: state.assessments.map((a) => {
+      assessments: isStandaloneOR ? state.assessments : state.assessments.map((a) => {
         // Only deduct from the specific assessment that was collected against.
         // If no assessmentId provided, fall back to the first matching assessment (legacy path).
         const isTarget = paymentData.assessmentId
@@ -1132,13 +1167,15 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     }));
 
     dbInsert("payments", { ...paymentData, id: newPaymentId, paymentDate });
-    const targetAssessment = get().assessments.find((a) =>
-      paymentData.assessmentId ? a.id === paymentData.assessmentId : a.studentId === paymentData.studentId
-    );
-    if (targetAssessment) dbUpdate("assessments", targetAssessment.id, { balance: Math.max(0, targetAssessment.balance - paymentData.amount) });
-    if (linkedEnrollment && nextEnrollmentStatus) {
-      dbUpdate("enrollments", linkedEnrollment.id, { status: nextEnrollmentStatus });
-      dbUpdate("students", linkedEnrollment.studentId, { enrollmentStatus: nextEnrollmentStatus });
+    if (!isStandaloneOR) {
+      const targetAssessment = get().assessments.find((a) =>
+        paymentData.assessmentId ? a.id === paymentData.assessmentId : a.studentId === paymentData.studentId
+      );
+      if (targetAssessment) dbUpdate("assessments", targetAssessment.id, { balance: Math.max(0, targetAssessment.balance - paymentData.amount) });
+      if (linkedEnrollment && nextEnrollmentStatus) {
+        dbUpdate("enrollments", linkedEnrollment.id, { status: nextEnrollmentStatus });
+        dbUpdate("students", linkedEnrollment.studentId, { enrollmentStatus: nextEnrollmentStatus });
+      }
     }
 
     return newPayment;
@@ -1247,6 +1284,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const newEmp: Employee = { ...employee, id: newId() };
     set((state) => ({ employees: [...state.employees, newEmp] }));
     dbInsert("employees", withSchoolFk(newEmp));
+    return newEmp;
   },
 
   updateEmployee: (id, updates) => {
@@ -1271,6 +1309,73 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     supabase
       .from("employee_faculty_profiles")
       .upsert({ employee_id: employeeId, ...profileUpdates }, { onConflict: "employee_id" })
+      .then(({ error }) => {
+        if (error) console.error("[supabase] upsert employee_faculty_profiles failed:", error);
+      });
+  },
+
+  upsertEmployeeFacultyProfile: (employeeId, profile) => {
+    const employee = get().employees.find((e) => e.id === employeeId);
+    if (!employee) return;
+    const isTeachingStaff = profile.isTeachingStaff ?? true;
+
+    set((state) => {
+      const employees = state.employees.map((e) =>
+        e.id === employeeId
+          ? {
+              ...e,
+              isTeachingStaff,
+              facultyRank: profile.facultyRank !== undefined ? profile.facultyRank : e.facultyRank,
+            }
+          : e,
+      );
+
+      const existingTeacher = state.teachers.find((t) => t.employeeId === employeeId);
+      let teachers = state.teachers;
+      if (existingTeacher) {
+        teachers = state.teachers.map((t) =>
+          t.employeeId === employeeId
+            ? {
+                ...t,
+                specialization: profile.specialization !== undefined ? profile.specialization : t.specialization,
+                advisorySection: profile.advisorySection !== undefined ? profile.advisorySection : t.advisorySection,
+              }
+            : t,
+        );
+      } else if (isTeachingStaff) {
+        // Brand-new faculty tagging: synthesize a Teacher entry with no legacy
+        // teacher_id, matching dataLoader's employee-backed teacher shape.
+        teachers = [
+          ...state.teachers,
+          {
+            id: employee.id,
+            schoolId: employee.schoolId,
+            userId: employee.userId,
+            employeeId: employee.id,
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+            middleName: employee.middleName ?? "",
+            department: employee.department as Teacher["department"],
+            email: employee.email ?? "",
+            phone: employee.contact ?? "",
+            specialization: profile.specialization ?? "",
+            advisorySection: profile.advisorySection,
+            isActive: employee.employmentStatus ? employee.employmentStatus === "Active" : true,
+          },
+        ];
+      }
+
+      return { employees, teachers };
+    });
+
+    const dbUpdates: Record<string, any> = { employee_id: employeeId, is_teaching_staff: isTeachingStaff };
+    if (profile.specialization !== undefined) dbUpdates.specialization = profile.specialization || null;
+    if (profile.advisorySection !== undefined) dbUpdates.advisory_section = profile.advisorySection || null;
+    if (profile.facultyRank !== undefined) dbUpdates.faculty_rank = profile.facultyRank || null;
+
+    supabase
+      .from("employee_faculty_profiles")
+      .upsert(dbUpdates, { onConflict: "employee_id" })
       .then(({ error }) => {
         if (error) console.error("[supabase] upsert employee_faculty_profiles failed:", error);
       });
@@ -1583,6 +1688,69 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     const actorRVR = get().currentUser;
     if (actorRVR && req) awActReject(id, "payment_void", actorRVR, `Void — OR ${req.orNumber}`, remarks, req.schoolId as string | undefined);
     if (req) get().addNotification({ title: "Void Request Rejected", body: `Void request for OR No. ${req.orNumber} was rejected: ${remarks}`, type: "rejection", entityType: "void", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: req.schoolId });
+  },
+
+  // ---- Cash Voucher Release Actions ----
+  submitCashVoucherRequest: (reqData) => {
+    const newVoucher: CashVoucher = { ...reqData, id: newId(), requestedAt: nowStamp(), status: "Pending Approval" };
+    set((state) => ({ cashVouchers: [newVoucher, ...state.cashVouchers] }));
+    dbInsert("cash_vouchers", newVoucher);
+    const actorSCV = get().currentUser;
+    if (actorSCV) {
+      createApprovalRequest({
+        workflowType: "cash_voucher_release",
+        entityType: "cash_voucher",
+        entityId: newVoucher.id,
+        schoolId: reqData.schoolId as string | undefined,
+        requestedBy: actorSCV.id,
+        requestedRole: actorSCV.role,
+        requestTitle: `Cash Voucher — ${newVoucher.voucherNo} for ${newVoucher.payeeName}`,
+        priority: "High",
+      }).then((reqId) => submitApprovalRequest(reqId, actorSCV))
+        .catch((e) => console.error("[approvalWorkflow] submitCashVoucherRequest failed:", e));
+    }
+    return newVoucher;
+  },
+
+  approveCashVoucher: (id, reviewedBy, remarks) => {
+    const now = nowStamp();
+    const voucher = get().cashVouchers.find((v) => v.id === id);
+    set((state) => ({
+      cashVouchers: state.cashVouchers.map((v) =>
+        v.id !== id ? v : { ...v, status: "Approved", approvedBy: reviewedBy, approvedAt: now, reviewRemarks: remarks }
+      ),
+    }));
+    dbUpdate("cash_vouchers", id, { status: "Approved", approvedBy: reviewedBy, approvedAt: now, reviewRemarks: remarks });
+    const actorACV = get().currentUser;
+    if (actorACV && voucher) awActApprove(id, "cash_voucher_release", actorACV, `Cash Voucher — ${voucher.voucherNo}`, voucher.schoolId as string | undefined, remarks);
+    if (voucher) get().addNotification({ title: "Cash Voucher Approved", body: `Voucher No. ${voucher.voucherNo} for ${voucher.payeeName} has been approved and is ready for release.`, type: "approval", entityType: "cash_voucher", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: voucher.schoolId });
+  },
+
+  rejectCashVoucher: (id, reviewedBy, remarks) => {
+    const now = nowStamp();
+    const voucher = get().cashVouchers.find((v) => v.id === id);
+    set((state) => ({
+      cashVouchers: state.cashVouchers.map((v) =>
+        v.id !== id ? v : { ...v, status: "Rejected", approvedBy: reviewedBy, approvedAt: now, reviewRemarks: remarks }
+      ),
+    }));
+    dbUpdate("cash_vouchers", id, { status: "Rejected", approvedBy: reviewedBy, approvedAt: now, reviewRemarks: remarks });
+    const actorRCV = get().currentUser;
+    if (actorRCV && voucher) awActReject(id, "cash_voucher_release", actorRCV, `Cash Voucher — ${voucher.voucherNo}`, remarks, voucher.schoolId as string | undefined);
+    if (voucher) get().addNotification({ title: "Cash Voucher Rejected", body: `Voucher No. ${voucher.voucherNo} for ${voucher.payeeName} was rejected: ${remarks}`, type: "rejection", entityType: "cash_voucher", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: voucher.schoolId });
+  },
+
+  releaseCashVoucher: (id, releasedBy, referenceNo) => {
+    const now = nowStamp();
+    const voucher = get().cashVouchers.find((v) => v.id === id);
+    if (!voucher || voucher.status !== "Approved") return;
+    set((state) => ({
+      cashVouchers: state.cashVouchers.map((v) =>
+        v.id !== id ? v : { ...v, status: "Released", releasedBy, releasedAt: now, referenceNo }
+      ),
+    }));
+    dbUpdate("cash_vouchers", id, { status: "Released", releasedBy, releasedAt: now, referenceNo });
+    get().addNotification({ title: "Cash Released", body: `Voucher No. ${voucher.voucherNo} for ${voucher.payeeName} (₱${voucher.amount.toLocaleString()}) has been released.`, type: "info", entityType: "cash_voucher", entityId: id, targetRoles: ["CASHIER", "ACCOUNTING", "SUPER_ADMIN", "ADMIN"], schoolId: voucher.schoolId });
   },
 
   // ---- Notification Actions ----

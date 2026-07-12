@@ -52,6 +52,7 @@ interface WizardProps {
     lrn?: string;
   }) => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 }
 
 // ---- Step indicator -------------------------------------------------------
@@ -115,7 +116,7 @@ interface Step1Fields {
   lrn: string;
 }
 
-export default function EnrollmentWizard({ schoolContext, onSubmit, onCancel }: WizardProps) {
+export default function EnrollmentWizard({ schoolContext, onSubmit, onCancel, isSubmitting }: WizardProps) {
   const { subjects, courses } = useSTSNStore();
   const isBasicEd = schoolContext === "BASIC_ED";
 
@@ -251,7 +252,7 @@ export default function EnrollmentWizard({ schoolContext, onSubmit, onCancel }: 
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Enrollment Type *</label>
               <div className="grid grid-cols-2 gap-2">
-                {(["New Student", "Old Student", "Transferee", "Returnee"] as const).map((t) => (
+                {(["New Student", "Old Student"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -611,14 +612,15 @@ export default function EnrollmentWizard({ schoolContext, onSubmit, onCancel }: 
             </div>
 
             <div className="flex justify-between pt-2">
-              <button onClick={back} className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer">
+              <button onClick={back} disabled={isSubmitting} className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                 Back
               </button>
               <button
                 onClick={handleSubmit}
-                className={`flex items-center gap-2 text-xs font-bold px-5 py-2 rounded-lg cursor-pointer transition ${accentBtn}`}
+                disabled={isSubmitting}
+                className={`flex items-center gap-2 text-xs font-bold px-5 py-2 rounded-lg cursor-pointer transition disabled:opacity-60 disabled:cursor-not-allowed ${accentBtn}`}
               >
-                <CheckCircle className="w-4 h-4" /> Submit Enrollment
+                <CheckCircle className="w-4 h-4" /> {isSubmitting ? "Submitting..." : "Submit Enrollment"}
               </button>
             </div>
           </div>

@@ -455,6 +455,8 @@ export interface Payment {
   orNumber: string; // Official Receipt Number
   term: string;
   remarks?: string;
+  transactionType?: "AR" | "OR"; // AR = applied to an assessment balance; OR = standalone collection. Defaults to "AR" when absent.
+  paymentCategory?: string; // only meaningful for "OR" — e.g. Transcript Fee, ID Replacement
 }
 
 export interface Grade {
@@ -586,6 +588,27 @@ export interface VoidRequest {
   reviewRemarks?: string;
 }
 
+export interface CashVoucher {
+  id: string;
+  schoolId?: SchoolId;
+  voucherNo: string;
+  payeeType: "Student" | "External";
+  payeeStudentId?: string; // set when payeeType === "Student"
+  payeeName: string; // resolved display name either way
+  category: string; // e.g. Refund/Overpayment, Reimbursement, Petty Cash Release
+  amount: number;
+  purpose: string;
+  requestedBy: string;
+  requestedAt: string;
+  status: "Pending Approval" | "Approved" | "Rejected" | "Released";
+  approvedBy?: string;
+  approvedAt?: string;
+  reviewRemarks?: string;
+  releasedBy?: string;
+  releasedAt?: string;
+  referenceNo?: string;
+}
+
 export type NotificationEntityType =
   | "assessment"
   | "discount"
@@ -593,7 +616,8 @@ export type NotificationEntityType =
   | "leave"
   | "payroll"
   | "void"
-  | "grade";
+  | "grade"
+  | "cash_voucher";
 
 export type NotificationType = "approval" | "rejection" | "return" | "reminder" | "info";
 

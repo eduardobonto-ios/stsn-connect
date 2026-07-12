@@ -20,6 +20,7 @@ import type {
   JobRequisition, JobApplicant, ApplicantInterview,
   OnboardingTemplate, OnboardingTask, EmployeeOnboardingTask,
   OnlineEnrollmentApplication,
+  CashVoucher,
   StudentGuardianContact,
   StudentEducationBackground,
   EmployeeProfileContact,
@@ -58,6 +59,7 @@ export interface LoadedData {
   setupData: Record<string, SetupItem[]>;
   discountTypes: DiscountType[];
   discountRequests: DiscountRequest[];
+  cashVouchers: CashVoucher[];
   classSchedules: ClassSchedule[];
   learningMaterials: LearningMaterial[];
   sections: SchoolSection[];
@@ -385,8 +387,19 @@ export async function loadAllData(): Promise<LoadedData> {
   // ---- Payments ----
   const { data: paymentRows } = await supabase.from("payments").select("*, schools(code)");
   const payments: Payment[] = (paymentRows ?? []).map((p: any) => ({
-    id: p.id, schoolId: p.schools?.code, studentId: p.student_id, amount: p.amount, paymentDate: p.payment_date,
+    id: p.id, schoolId: p.schools?.code, studentId: p.student_id, assessmentId: p.assessment_id, amount: p.amount, paymentDate: p.payment_date,
     paymentMethod: p.payment_method, orNumber: p.or_number, term: p.term, remarks: p.remarks,
+    transactionType: p.transaction_type ?? "AR", paymentCategory: p.payment_category,
+  }));
+
+  // ---- Cash Vouchers ----
+  const { data: cashVoucherRows } = await supabase.from("cash_vouchers").select("*, schools(code)");
+  const cashVouchers: CashVoucher[] = (cashVoucherRows ?? []).map((v: any) => ({
+    id: v.id, schoolId: v.schools?.code, voucherNo: v.voucher_no, payeeType: v.payee_type,
+    payeeStudentId: v.payee_student_id, payeeName: v.payee_name, category: v.category, amount: v.amount,
+    purpose: v.purpose, requestedBy: v.requested_by, requestedAt: v.requested_at, status: v.status,
+    approvedBy: v.approved_by, approvedAt: v.approved_at, reviewRemarks: v.review_remarks,
+    releasedBy: v.released_by, releasedAt: v.released_at, referenceNo: v.reference_no,
   }));
 
   // ---- Discount types & requests ----
@@ -891,7 +904,7 @@ export async function loadAllData(): Promise<LoadedData> {
   return {
     schools, users, students, teachers, employees, courses, subjects, curriculums, requirements, enrollments, onlineEnrollmentApplications,
     assessments, payments, grades, schedules, announcements, events, payroll, setupData, discountTypes,
-    discountRequests, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
+    discountRequests, cashVouchers, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
     financialHolds, assessmentBillingSummaries, paymentCollectionSummaries, promissoryNotes, bookPackages,
     classLoads, gradePeriods, studentGradeEntries, demoStudents, activityLogs,
     enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians, studentEducationBackgrounds,

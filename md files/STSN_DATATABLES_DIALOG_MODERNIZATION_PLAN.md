@@ -1,9 +1,10 @@
-# STSN Connect / Theresian Connect
+# STSN Connect / Teresian Connect
+
 # DataTables.net and Modern Dialog Modernization Plan
 
 ## Purpose
 
-This document serves as the reference plan for modernizing the table and prompt/dialog experience in **STSN Connect / Theresian Connect**.
+This document serves as the reference plan for modernizing the table and prompt/dialog experience in **STSN Connect / Teresian Connect**.
 
 The goal is to improve enterprise-grade usability by:
 
@@ -31,13 +32,13 @@ Based on the uploaded project zip, the current frontend project uses:
 
 ## Initial Findings
 
-| Area | Current Finding |
-|---|---:|
-| Existing DataTables dependency | None |
-| Native table usages found | 47 |
-| Files with table usage | 17 |
-| Native dialog usages found | 22 |
-| Native dialog types | `alert`, `confirm`, `prompt`, `window.alert`, `window.confirm`, `window.prompt` |
+| Area                           |                                                                 Current Finding |
+| ------------------------------ | ------------------------------------------------------------------------------: |
+| Existing DataTables dependency |                                                                            None |
+| Native table usages found      |                                                                              47 |
+| Files with table usage         |                                                                              17 |
+| Native dialog usages found     |                                                                              22 |
+| Native dialog types            | `alert`, `confirm`, `prompt`, `window.alert`, `window.confirm`, `window.prompt` |
 
 ---
 
@@ -77,7 +78,7 @@ npm install datatables.net-react datatables.net-dt
 Recommended global CSS import:
 
 ```ts
-import 'datatables.net-dt/css/dataTables.dataTables.css';
+import "datatables.net-dt/css/dataTables.dataTables.css";
 ```
 
 The project should use the official React integration approach instead of manually manipulating the DOM.
@@ -139,11 +140,11 @@ window.prompt(...)
 
 ### With These
 
-| Native Usage | Replacement |
-|---|---|
-| `alert()` | Toast or info dialog |
-| `confirm()` | `AppConfirmDialog` |
-| `prompt()` | `AppPromptDialog` |
+| Native Usage | Replacement          |
+| ------------ | -------------------- |
+| `alert()`    | Toast or info dialog |
+| `confirm()`  | `AppConfirmDialog`   |
+| `prompt()`   | `AppPromptDialog`    |
 
 ### Dialog Variants
 
@@ -362,12 +363,13 @@ Do not convert if the table is:
 You are a Principal React Frontend Architect and Enterprise School ERP UX Engineer.
 
 Project:
-STSN Connect / Theresian Connect
+STSN Connect / Teresian Connect
 
 Goal:
 Assess and implement a phased modernization of all native record tables and browser-native prompts.
 
 Important:
+
 - Use the existing project structure.
 - Preserve the brown/gold STSN institutional theme.
 - Do not redesign the entire app.
@@ -379,6 +381,7 @@ Important:
 - Run npm run build after each phase.
 
 Current project uses:
+
 - React 19
 - Vite
 - TypeScript
@@ -387,11 +390,13 @@ Current project uses:
 - No current DataTables dependency
 
 Known findings:
+
 - There are many native <table> usages across modules.
 - There are native alert/confirm/prompt usages that should be replaced.
 - Browser-native dialogs should be replaced with modern STSN-themed modal/toast components.
 
 Inspect these files:
+
 - package.json
 - src/App.tsx
 - src/index.css
@@ -420,6 +425,7 @@ Phase 1 — Foundation
    - src/components/common/STSNDataTable.tsx
 
 Requirements for STSNDataTable:
+
 - Accept columns and rows/data.
 - Support search, pagination, sorting.
 - Support empty state.
@@ -437,6 +443,7 @@ Requirements for STSNDataTable:
    - src/components/common/AppToast.tsx
 
 Dialog behavior:
+
 - replace alert with toast or info dialog
 - replace confirm with AppConfirmDialog
 - replace prompt with AppPromptDialog
@@ -450,6 +457,7 @@ Dialog behavior:
    npm run build
 
 Stop after Phase 1 and provide:
+
 - files changed
 - new reusable components created
 - build result
@@ -464,6 +472,7 @@ Stop after Phase 1 and provide:
 Using the existing STSNDataTable and modern dialog components created in Phase 1, replace all browser-native alert/confirm/prompt usage.
 
 Scope:
+
 - src/App.tsx
 - src/features/registrar/pages/RegistrarModulePage.tsx
 - src/features/accounting/pages/AccountingModulePage.tsx
@@ -475,6 +484,7 @@ Scope:
 - src/features/accounts/pages/AccountsManagementPage.tsx
 
 Rules:
+
 - Replace alert(...) with toast or info dialog.
 - Replace confirm(...) with async confirmation dialog.
 - Replace prompt(...) with async prompt dialog.
@@ -490,6 +500,7 @@ Rules:
   window.prompt(
 
 After changes:
+
 - Search the project and confirm there are no remaining native browser dialogs.
 - Run npm run build.
 - Provide summary of replaced dialogs by file.
@@ -503,6 +514,7 @@ After changes:
 Using the STSNDataTable wrapper, convert only high-value record/list tables to DataTables.
 
 Convert tables in:
+
 - src/features/registrar/pages/RegistrarModulePage.tsx
 - src/features/accounting/pages/AccountingModulePage.tsx
 - src/features/cashier/pages/CashierModulePage.tsx
@@ -513,6 +525,7 @@ Convert tables in:
 - src/features/scheduling/pages/SchedulingModulePage.tsx
 
 Do not convert:
+
 - src/components/ModalPreviews.tsx
 - COR preview tables
 - receipt preview tables
@@ -521,6 +534,7 @@ Do not convert:
 - small static summary tables that do not need search/sort/pagination
 
 Rules:
+
 - Preserve all existing row actions.
 - Preserve badges, status chips, buttons, and role-based visibility.
 - Preserve mock data behavior.
@@ -530,6 +544,7 @@ Rules:
 - Do not change business rules.
 
 After changes:
+
 - Run npm run build.
 - Provide converted table list by file.
 - Provide skipped table list with reason.

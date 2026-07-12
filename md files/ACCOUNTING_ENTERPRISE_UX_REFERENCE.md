@@ -1,7 +1,7 @@
 # STSN Connect — Accounting Module Enterprise UI/UX Reference
 
 **Module:** Treasury & Accounting Office  
-**Project:** Theresian Connect / STSN Connect Academia Enterprise V2  
+**Project:** Teresian Connect / STSN Connect Academia Enterprise V2  
 **Stack confirmed from ZIP:** React 19 + Vite + TypeScript + Zustand + Tailwind CSS + lucide-react  
 **Current source location:** `src/features/accounting/pages/AccountingModulePage.tsx`  
 **Purpose of this document:** Reference guide and Claude-ready implementation plan for improving the Accounting module into a more enterprise-grade school ERP workflow.

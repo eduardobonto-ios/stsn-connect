@@ -1,15 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Award,
-  Briefcase,
-  Building2,
   FileCheck,
   GraduationCap,
-  Hash,
   Phone,
-  ShieldAlert,
   User,
-  UserCog,
   Users,
 } from "lucide-react";
 import AppCard from "../../../components/common/AppCard";
@@ -613,38 +608,34 @@ export default function StaffProfileWorkspace({
           title="Locked Administrative Fields"
           description="Roster ownership, advisory assignment, and core identifiers still follow existing registrar and HR governance."
           fields={[
-            { label: "Employee No.", value: employee?.employeeNo || "—", variant: "primary", icon: Hash },
-            { label: "Department", value: teacher?.department || employee?.department || "—", variant: "info", icon: Building2 },
-            { label: "Advisory Section", value: teacher?.advisorySection || "—", variant: teacher?.advisorySection ? "warning" : "neutral", icon: ShieldAlert },
-            { label: "Supervisor", value: employee?.supervisorId || "—", variant: "neutral", icon: UserCog },
+            { label: "Employee No.", value: employee?.employeeNo || "—", variant: "brand" },
+            { label: "Department", value: teacher?.department || employee?.department || "—", variant: "info" },
+            { label: "Advisory Section", value: teacher?.advisorySection || "—", variant: teacher?.advisorySection ? "warning" : "neutral" },
+            { label: "Supervisor", value: employee?.supervisorId || "—", variant: "neutral" },
           ]}
         />
 
         <ProfileSectionCard title="Profile Snapshot" description="Quick summary for current staffing and records readiness.">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2.5">
             <ProfileInfoTile
               label="Role Track"
               value={mode === "faculty" ? "Faculty / Teacher" : "HR / Employee"}
-              variant="primary"
-              icon={Briefcase}
+              variant="brand"
             />
             <ProfileInfoTile
               label="Emergency Contacts"
               value={relatedContacts.filter((entry) => entry.isEmergencyContact).length}
               variant="neutral"
-              icon={Phone}
             />
             <ProfileInfoTile
               label="Education Entries"
               value={relatedEducation.length}
               variant="info"
-              icon={GraduationCap}
             />
             <ProfileInfoTile
               label="Licenses Active"
               value={relatedLicenses.filter((entry) => (entry.status ?? "Active") === "Active").length}
               variant="success"
-              icon={Award}
             />
           </div>
         </ProfileSectionCard>

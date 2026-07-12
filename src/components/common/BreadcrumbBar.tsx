@@ -23,7 +23,7 @@ export default function BreadcrumbBar({ crumbs }: BreadcrumbBarProps) {
       <div className="app-shell-breadcrumb-inner">
         <Home className="w-3 h-3 text-stone-400 flex-shrink-0" />
         <ChevronRight className="w-3 h-3 text-stone-300 flex-shrink-0" />
-        <span className="text-stone-400 flex-shrink-0">Theresian Connect</span>
+        <span className="text-stone-400 flex-shrink-0">Teresian Connect</span>
         {crumbs.map((crumb, i) => {
           const isLast = i === crumbs.length - 1;
           return (

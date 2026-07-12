@@ -1,5 +1,5 @@
 -- =============================================================================
--- STSN Connect / Theresian Connect
+-- STSN Connect / Teresian Connect
 -- Accounting Module — Database Schema
 -- Features: Chart of Accounts (Phase 1), Cost Centers (Phase 1),
 --           Journal Entries (Phase 2)

@@ -80,6 +80,7 @@ export default function PayrollManagementPage() {
     taxTables,
     addEmployee,
     updateEmployee,
+    upsertEmployeeFacultyProfile,
     markPaidPayroll,
     processGlobalPayroll,
     addPayrollPeriod,
@@ -115,6 +116,8 @@ export default function PayrollManagementPage() {
   const [empContact, setEmpContact] = useState("");
   const [empAddress, setEmpAddress] = useState("");
   const [empEmergencyContact, setEmpEmergencyContact] = useState("");
+  const [isTeachingStaff, setIsTeachingStaff] = useState(false);
+  const [facultySpecialization, setFacultySpecialization] = useState("");
 
   // Import Dialog States
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -243,13 +246,14 @@ export default function PayrollManagementPage() {
     setPosition("Instructor"); setPositionTitle("Instructor I");
     setDept("College"); setStatus("Full-Time"); setSalary(0);
     setEmpContact(""); setEmpAddress(""); setEmpEmergencyContact("");
+    setIsTeachingStaff(false); setFacultySpecialization("");
   };
 
   const handleRegisterEmployee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName || !lastName) return;
 
-    addEmployee({
+    const newEmployee = addEmployee({
       firstName, lastName, middleName,
       email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@stsn.edu.ph`,
       position, positionTitle,
@@ -262,6 +266,13 @@ export default function PayrollManagementPage() {
       emergencyContact: empEmergencyContact,
       schoolId: (effectiveSchool as any) || "STSN"
     });
+
+    if (isTeachingStaff) {
+      upsertEmployeeFacultyProfile(newEmployee.id, {
+        isTeachingStaff: true,
+        specialization: facultySpecialization,
+      });
+    }
 
     setIsNewEmpOpen(false);
     resetForm();

@@ -133,9 +133,11 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "CASHIER", label: "Cashiering", icon: Wallet, desc: "Payments, receipts & collections",
     children: [
-      { id: "queue",   label: "Payment Queue",      icon: Receipt,   desc: "Approved assessments awaiting payment" },
-      { id: "history", label: "Collection History", icon: History,   desc: "Posted payments & official receipts" },
-      { id: "reports", label: "Reports",            icon: BarChart3, desc: "Cashiering reports & summaries" },
+      { id: "queue",           label: "Payment Queue",   icon: Receipt,   desc: "Approved assessments awaiting payment" },
+      { id: "other-payments",  label: "Other Payments",  icon: FileText,  desc: "Standalone OR collections not tied to an assessment" },
+      { id: "vouchers",        label: "Cash Vouchers",   icon: Banknote,  desc: "Release of cash — refunds, reimbursements & petty cash" },
+      { id: "history",         label: "Collection History", icon: History,   desc: "Posted payments & official receipts" },
+      { id: "reports",         label: "Reports",         icon: BarChart3, desc: "Cashiering reports & summaries" },
     ],
   },
   {

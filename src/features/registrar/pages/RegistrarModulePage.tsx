@@ -279,6 +279,7 @@ export default function RegistrarModule() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("info");
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
+  const [isEnrollingCandidate, setIsEnrollingCandidate] = useState(false);
   const [isCorModalOpen, setIsCorModalOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<"directory" | "online_queue" | "bulk_import">(
     "directory",
@@ -819,10 +820,10 @@ export default function RegistrarModule() {
     0,
   );
 
-  const handleCreateStudent = () => {
+  const handleCreateStudent = async () => {
     const finalCourse = dept === "College" ? collegeCourse : courseCode;
     const finalYear = dept === "College" ? collegeYear : yearLvl;
-    const baseNewStudent = addStudent({
+    const baseNewStudent = await addStudent({
       firstName,
       lastName,
       middleName,
@@ -844,7 +845,7 @@ export default function RegistrarModule() {
       section: "",
       enrollmentStatus: "Pending",
     });
-    submitNewEnrollment({
+    await submitNewEnrollment({
       studentId: baseNewStudent.id,
       schoolYear: "2026-2027",
       semester: dept === "College" ? "First Semester" : "N/A",
@@ -1110,33 +1111,39 @@ export default function RegistrarModule() {
     if (!confirmed) return;
 
     const committedRows = new Set<RegistrarImportPreviewRow>();
-    rowsToCommit.forEach((row) => {
-      addStudent({
-        schoolId: activeSchool === "STSN" || activeSchool === "CDSTA" ? activeSchool : currentUser?.schoolId,
-        lrn: row.lrn,
-        firstName: row.firstName ?? "",
-        lastName: row.lastName ?? "",
-        middleName: row.middleName ?? "",
-        gender: row.gender === "Female" ? "Female" : "Male",
-        civilStatus: "Single",
-        religion: "",
-        nationality: "Filipino",
-        birthday: row.birthday ?? "",
-        birthplace: "",
-        email: "",
-        contactNo: "",
-        address: "",
-        province: "",
-        municipality: "",
-        zipCode: "",
-        department: "Basic Education",
-        yearLevel: row.yearLevel ?? "",
-        trackOrCourse: row.trackOrCourse ?? "",
-        section: "",
-        enrollmentStatus: "Pending",
-      });
-      committedRows.add(row);
-    });
+    let failedCount = 0;
+    for (const row of rowsToCommit) {
+      try {
+        await addStudent({
+          schoolId: activeSchool === "STSN" || activeSchool === "CDSTA" ? activeSchool : currentUser?.schoolId,
+          lrn: row.lrn,
+          firstName: row.firstName ?? "",
+          lastName: row.lastName ?? "",
+          middleName: row.middleName ?? "",
+          gender: row.gender === "Female" ? "Female" : "Male",
+          civilStatus: "Single",
+          religion: "",
+          nationality: "Filipino",
+          birthday: row.birthday ?? "",
+          birthplace: "",
+          email: "",
+          contactNo: "",
+          address: "",
+          province: "",
+          municipality: "",
+          zipCode: "",
+          department: "Basic Education",
+          yearLevel: row.yearLevel ?? "",
+          trackOrCourse: row.trackOrCourse ?? "",
+          section: "",
+          enrollmentStatus: "Pending",
+        });
+        committedRows.add(row);
+      } catch (error) {
+        failedCount += 1;
+        console.error(`[registrar import] row ${row.sheetRowNumber} failed to save:`, error);
+      }
+    }
 
     const nextRows = mockRowsPreview.map((row) =>
       committedRows.has(row) ? { ...row, importStatus: "committed" as const } : row,
@@ -1144,9 +1151,16 @@ export default function RegistrarModule() {
     setMockRowsPreview(nextRows);
     setImportSummary(summarizeImportRows(nextRows));
     setBulkImportSuccess(
-      `Uploaded ${rowsToCommit.length} student record(s). ${excludedRows.length} error/duplicate row(s) were excluded.`,
+      `Uploaded ${committedRows.size} student record(s). ${excludedRows.length} error/duplicate row(s) were excluded.` +
+        (failedCount > 0 ? ` ${failedCount} row(s) failed to save — check the console for details.` : ""),
     );
-    toast(`Uploaded ${rowsToCommit.length} student record(s).`, { variant: "success" });
+    if (failedCount > 0) {
+      toast(`${committedRows.size} imported, ${failedCount} failed to save. Check console for details.`, {
+        variant: committedRows.size === 0 ? "danger" : "warning",
+      });
+    } else {
+      toast(`Uploaded ${committedRows.size} student record(s).`, { variant: "success" });
+    }
   };
 
   const importErrorRows = useMemo(
@@ -1717,53 +1731,6 @@ export default function RegistrarModule() {
                           </span>
                         </div>
                       ))}
-                      {/* Requirements Checklist */}
-                      <div className="pt-3">
-                        <h4 className="text-[10px] font-display font-semibold text-stone-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-stsn-gold" />
-                          Credentials Checklist
-                        </h4>
-                        <div className="space-y-2">
-                          {studentReqs.length === 0 ? (
-                            <p className="text-[11px] text-stone-400 italic">
-                              No requirements found.
-                            </p>
-                          ) : (
-                            studentReqs.map((req) => (
-                              <div
-                                key={req.id}
-                                className="p-2.5 bg-stone-50 border border-stone-200/80 rounded-lg flex items-center justify-between"
-                              >
-                                <div>
-                                  <span className="text-stone-800 text-xs font-semibold block">
-                                    {req.name}
-                                  </span>
-                                  {req.submittedDate && (
-                                    <span className="text-[9px] text-stone-400 font-mono">
-                                      {req.submittedDate}
-                                    </span>
-                                  )}
-                                </div>
-                                <select
-                                  value={req.status}
-                                  onChange={(e: any) =>
-                                    updateStudentRequirements(
-                                      selectedStudent.id,
-                                      req.name,
-                                      e.target.value,
-                                    )
-                                  }
-                                  className={`text-[10px] font-bold rounded py-0.5 px-1.5 border focus:outline-none cursor-pointer ${req.status === "Submitted" ? "bg-green-50 border-green-200 text-green-700" : req.status === "Rejected" ? "bg-red-50 border-red-200 text-red-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}
-                                >
-                                  <option value="Pending">Pending</option>
-                                  <option value="Submitted">Approved</option>
-                                  <option value="Rejected">Missing</option>
-                                </select>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
                     </div>
                   )}
 
@@ -2711,7 +2678,8 @@ export default function RegistrarModule() {
                                     </button>
                                   </>
                                 )}
-                              {!req.hardcopySubmitted && (
+                              {!req.hardcopySubmitted &&
+                                req.verificationStatus !== "Verified" && (
                                 <button
                                   onClick={() =>
                                     markHardcopySubmitted(
@@ -3602,39 +3570,51 @@ export default function RegistrarModule() {
         open={isNewStudentModalOpen}
         title={`${schoolContext === "BASIC_ED" ? "Basic Ed" : "College"} Student Enrollment Form`}
         icon={UserPlus}
-        onClose={() => setIsNewStudentModalOpen(false)}
+        onClose={() => { if (!isEnrollingCandidate) setIsNewStudentModalOpen(false); }}
         maxWidthClass="max-w-xl"
         bodyClassName="p-0 overflow-hidden"
       >
         <EnrollmentWizard
           schoolContext={schoolContext}
+          isSubmitting={isEnrollingCandidate}
           onCancel={() => setIsNewStudentModalOpen(false)}
-          onSubmit={({ firstName, lastName, middleName, gender, dept, yearLevel, trackOrCourse, subjectCodes, enrollmentType }) => {
-            const baseNewStudent = addStudent({
-              firstName, lastName, middleName, gender,
-              civilStatus: "Single", religion: "Catholic", nationality: "Filipino",
-              birthday: "2008-01-01", birthplace: "Quezon City",
-              email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@stsn.edu.ph`,
-              contactNo: "+639170000000",
-              address: dept === "College" ? "Novaliches, QC" : "Zabarte Subdivision",
-              province: "Metro Manila", municipality: "Quezon City", zipCode: "1123",
-              department: dept, yearLevel, trackOrCourse, section: "",
-              enrollmentStatus: "Pending",
-            });
-            submitNewEnrollment({
-              studentId: baseNewStudent.id,
-              schoolYear: "2026-2027",
-              semester: dept === "College" ? "First Semester" : "N/A",
-              enrollmentType,
-              subjectCodes,
-              status: "Pending",
-              submittedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
-            });
-            setIsNewStudentModalOpen(false);
-            setFormStep(1);
-            setFirstName(""); setLastName(""); setMiddleName("");
-            setSelectedSubjectCodes([]);
-            setSelectedStudent(baseNewStudent);
+          onSubmit={async ({ firstName, lastName, middleName, gender, dept, yearLevel, trackOrCourse, subjectCodes, enrollmentType, lrn }) => {
+            setIsEnrollingCandidate(true);
+            try {
+              const resolvedSchoolId = activeSchool === "STSN" || activeSchool === "CDSTA" ? activeSchool : currentUser?.schoolId;
+              const baseNewStudent = await addStudent({
+                schoolId: resolvedSchoolId,
+                lrn,
+                firstName, lastName, middleName, gender,
+                civilStatus: "Single", religion: "Catholic", nationality: "Filipino",
+                birthday: "2008-01-01", birthplace: "Quezon City",
+                email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@stsn.edu.ph`,
+                contactNo: "+639170000000",
+                address: dept === "College" ? "Novaliches, QC" : "Zabarte Subdivision",
+                province: "Metro Manila", municipality: "Quezon City", zipCode: "1123",
+                department: dept, yearLevel, trackOrCourse, section: "",
+                enrollmentStatus: "Pending",
+              });
+              await submitNewEnrollment({
+                studentId: baseNewStudent.id,
+                schoolYear: "2026-2027",
+                semester: dept === "College" ? "First Semester" : "N/A",
+                enrollmentType,
+                subjectCodes,
+                status: "Pending",
+                submittedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
+              });
+              toast(`${firstName} ${lastName} was enrolled and saved successfully.`, { title: "Enrollment Submitted", variant: "success" });
+              setIsNewStudentModalOpen(false);
+              setFormStep(1);
+              setFirstName(""); setLastName(""); setMiddleName("");
+              setSelectedSubjectCodes([]);
+              setSelectedStudent(baseNewStudent);
+            } catch (error) {
+              toast(error instanceof Error ? error.message : "Failed to submit enrollment. Please try again.", { title: "Enrollment Failed", variant: "danger" });
+            } finally {
+              setIsEnrollingCandidate(false);
+            }
           }}
         />
       </AppModal>

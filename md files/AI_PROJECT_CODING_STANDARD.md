@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Use this file as the permanent coding standard for **STSN Connect / Theresian Connect** when asking Codex, Claude, or any AI coding agent to modify the project.
+Use this file as the permanent coding standard for **STSN Connect / Teresian Connect** when asking Codex, Claude, or any AI coding agent to modify the project.
 
 The goal is to make every AI command follow the same architecture, file paths, naming conventions, Supabase migration approach, and UI/UX standards. This prevents random file creation, duplicated modules, broken navigation, inconsistent database changes, and excessive unrelated edits.
 
@@ -34,23 +34,23 @@ STSN Connect is currently a React + TypeScript + Vite app using Supabase as the 
 
 Important existing locations:
 
-| Area | Standard path |
-|---|---|
-| App entry/routes | `src/App.tsx` |
-| Feature pages | `src/features/<module>/pages/` |
-| Shared UI components | `src/components/common/` |
-| Navigation/menu config | `src/config/navigation.config.ts` |
-| Role/module permissions | `src/config/permissions.config.ts` |
-| Role labels/descriptions | `src/config/roles.config.ts` |
-| School/academic-unit config | `src/config/schools.config.ts` |
-| Main UI/domain types | `src/types/index.ts` |
-| Supabase DB type map | `src/types/database.types.ts` |
-| Supabase client | `src/lib/supabase.ts` |
-| Supabase read/load mapper | `src/services/dataLoader.ts` |
-| Supabase write helpers | `src/services/supabaseCrud.ts` |
-| Zustand app store/actions | `src/services/store.ts` |
-| Database migrations | `supabase/migrations/` |
-| Project reference docs | Root `*.md` files |
+| Area                        | Standard path                      |
+| --------------------------- | ---------------------------------- |
+| App entry/routes            | `src/App.tsx`                      |
+| Feature pages               | `src/features/<module>/pages/`     |
+| Shared UI components        | `src/components/common/`           |
+| Navigation/menu config      | `src/config/navigation.config.ts`  |
+| Role/module permissions     | `src/config/permissions.config.ts` |
+| Role labels/descriptions    | `src/config/roles.config.ts`       |
+| School/academic-unit config | `src/config/schools.config.ts`     |
+| Main UI/domain types        | `src/types/index.ts`               |
+| Supabase DB type map        | `src/types/database.types.ts`      |
+| Supabase client             | `src/lib/supabase.ts`              |
+| Supabase read/load mapper   | `src/services/dataLoader.ts`       |
+| Supabase write helpers      | `src/services/supabaseCrud.ts`     |
+| Zustand app store/actions   | `src/services/store.ts`            |
+| Database migrations         | `supabase/migrations/`             |
+| Project reference docs      | Root `*.md` files                  |
 
 Do not introduce a new architecture unless explicitly requested.
 
@@ -144,13 +144,13 @@ Rules:
 
 Use config files for static catalogs, role/module mapping, and navigation labels.
 
-| Need | Update path |
-|---|---|
-| Add a module enum | `src/config/permissions.config.ts` |
-| Grant module access to a role | `src/config/permissions.config.ts` |
-| Add sidebar/menu item | `src/config/navigation.config.ts` |
-| Add role label/description | `src/config/roles.config.ts` |
-| Add academic-unit behavior | `src/config/schools.config.ts` or module-specific config |
+| Need                          | Update path                                              |
+| ----------------------------- | -------------------------------------------------------- |
+| Add a module enum             | `src/config/permissions.config.ts`                       |
+| Grant module access to a role | `src/config/permissions.config.ts`                       |
+| Add sidebar/menu item         | `src/config/navigation.config.ts`                        |
+| Add role label/description    | `src/config/roles.config.ts`                             |
+| Add academic-unit behavior    | `src/config/schools.config.ts` or module-specific config |
 
 Important rule:
 
@@ -184,20 +184,20 @@ For HR expansion, add new UI/domain types here or in `src/features/hr/types.ts` 
 Recommended HR domain types:
 
 ```ts
-EmployeeLifecycleRecord
-EmployeeAttendanceRecord
-EmployeeShiftAssignment
-EmployeeLeaveRequest
-PayrollPeriod
-PayrollRun
-PayrollRunLine
-SalaryPayoutBatch
-SalaryPayoutLine
-EmployeeBenefitEnrollment
-EmployeeTaxProfile
-RecruitmentRequest
-ApplicantCandidate
-OnboardingTask
+EmployeeLifecycleRecord;
+EmployeeAttendanceRecord;
+EmployeeShiftAssignment;
+EmployeeLeaveRequest;
+PayrollPeriod;
+PayrollRun;
+PayrollRunLine;
+SalaryPayoutBatch;
+SalaryPayoutLine;
+EmployeeBenefitEnrollment;
+EmployeeTaxProfile;
+RecruitmentRequest;
+ApplicantCandidate;
+OnboardingTask;
 ```
 
 ### 2. Supabase database types
@@ -229,7 +229,11 @@ Then register the table inside:
 export interface Database {
   public: {
     Tables: {
-      payroll_periods: { Row: PayrollPeriodsRow; Insert: PayrollPeriodsInsert; Update: PayrollPeriodsUpdate };
+      payroll_periods: {
+        Row: PayrollPeriodsRow;
+        Insert: PayrollPeriodsInsert;
+        Update: PayrollPeriodsUpdate;
+      };
     };
   };
 }
@@ -248,13 +252,13 @@ src/services/supabaseCrud.ts
 Important helpers:
 
 ```ts
-toCamel()
-toSnake()
-dbInsert()
-dbUpdate()
-dbDelete()
-dbDeleteWhere()
-dbSelectAll()
+toCamel();
+toSnake();
+dbInsert();
+dbUpdate();
+dbDelete();
+dbDeleteWhere();
+dbSelectAll();
 ```
 
 Do not manually mix snake_case fields into React state unless the component is directly handling Supabase rows.
@@ -286,14 +290,16 @@ const { data: payrollPeriodRows } = await supabase
   .from("payroll_periods")
   .select("*, schools(code)");
 
-const payrollPeriods: PayrollPeriod[] = (payrollPeriodRows ?? []).map((p: any) => ({
-  id: p.id,
-  schoolId: p.schools?.code,
-  periodCode: p.period_code,
-  periodStart: p.period_start,
-  periodEnd: p.period_end,
-  status: p.status,
-}));
+const payrollPeriods: PayrollPeriod[] = (payrollPeriodRows ?? []).map(
+  (p: any) => ({
+    id: p.id,
+    schoolId: p.schools?.code,
+    periodCode: p.period_code,
+    periodStart: p.period_start,
+    periodEnd: p.period_end,
+    status: p.status,
+  }),
+);
 ```
 
 ### 2. Write/action pattern
@@ -315,12 +321,12 @@ Standard write flow:
 Existing HR actions are currently:
 
 ```ts
-addEmployee()
-updateEmployee()
-addPayrollRow()
-markPaidPayroll()
-processGlobalPayroll()
-bulkImportEmployees()
+addEmployee();
+updateEmployee();
+addPayrollRow();
+markPaidPayroll();
+processGlobalPayroll();
+bulkImportEmployees();
 ```
 
 For production HR/payroll expansion, avoid keeping all payroll logic inside `processGlobalPayroll()`.
@@ -502,13 +508,13 @@ Then add policies in a separate migration such as:
 
 Recommended policy design by data sensitivity:
 
-| Data | Suggested access |
-|---|---|
-| HR reference catalogs | Readable by authenticated users; write by HR/Admin only |
-| Employee profile | HR/Admin full access; employee self-read if login mapping exists |
-| Attendance/leave | HR/Admin full access; employee self-read; supervisor workflow if supported |
-| Payroll/payslip | HR/Admin full access; employee self-read only own payslip |
-| Tax/bank fields | Highly restricted; avoid exposing unless absolutely needed |
+| Data                  | Suggested access                                                           |
+| --------------------- | -------------------------------------------------------------------------- |
+| HR reference catalogs | Readable by authenticated users; write by HR/Admin only                    |
+| Employee profile      | HR/Admin full access; employee self-read if login mapping exists           |
+| Attendance/leave      | HR/Admin full access; employee self-read; supervisor workflow if supported |
+| Payroll/payslip       | HR/Admin full access; employee self-read only own payslip                  |
+| Tax/bank fields       | Highly restricted; avoid exposing unless absolutely needed                 |
 
 If current auth claims do not yet support strict policies, document the limitation clearly in the migration comments and keep follow-up work listed.
 
@@ -670,9 +676,9 @@ src/components/common/AppToast.tsx
 No native:
 
 ```ts
-alert()
-confirm()
-prompt()
+alert();
+confirm();
+prompt();
 ```
 
 ### 4. Styling
@@ -699,7 +705,7 @@ src/config/permissions.config.ts
 For HR, current standard role access is:
 
 ```ts
-hr: ["DASHBOARD", "HR_MANAGEMENT", "NURSE_CLINIC"]
+hr: ["DASHBOARD", "HR_MANAGEMENT", "NURSE_CLINIC"];
 ```
 
 Modify only if the user requests expanded or reduced HR access.
@@ -768,10 +774,10 @@ src/features/hr/utils/payrollCalculations.ts
 Example functions:
 
 ```ts
-calculateGrossPay()
-calculateStatutoryDeductions()
-calculateTaxableIncome()
-calculateNetPay()
+calculateGrossPay();
+calculateStatutoryDeductions();
+calculateTaxableIncome();
+calculateNetPay();
 ```
 
 ### 4. Error handling
@@ -827,7 +833,7 @@ For Supabase migration work, also ask the AI to check:
 Use this template for future implementation prompts:
 
 ```text
-You are working on STSN Connect / Theresian Connect.
+You are working on STSN Connect / Teresian Connect.
 
 First, read and follow AI_PROJECT_CODING_STANDARD.md from the project root.
 
@@ -854,7 +860,7 @@ Expected output:
 ## HR-specific Claude/Codex prompt template
 
 ```text
-You are working on STSN Connect / Theresian Connect.
+You are working on STSN Connect / Teresian Connect.
 
 First, read and follow AI_PROJECT_CODING_STANDARD.md from the project root.
 

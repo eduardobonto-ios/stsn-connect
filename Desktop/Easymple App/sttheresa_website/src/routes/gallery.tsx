@@ -9,9 +9,13 @@ export const Route = createFileRoute("/gallery")({
   head: () => ({
     meta: [
       { title: "Gallery | St. Theresa's School of Novaliches" },
-      { name: "description", content: "Photo highlights from STSN events — Foundation Day, Recognition Day, Sports Festival, Fire Drill, Living Rosary, and Feast Day." },
+      {
+        name: "description",
+        content:
+          "Photo highlights from STSN events — Foundation Day, Recognition Day, Sports Festival, Fire Drill, Living Rosary, and Feast Day.",
+      },
       { property: "og:title", content: "Gallery — St. Theresa's School of Novaliches" },
-      { property: "og:description", content: "Moments and memories from Theresian school life." },
+      { property: "og:description", content: "Moments and memories from Teresian school life." },
     ],
   }),
   component: Gallery,
@@ -24,7 +28,11 @@ function Gallery() {
 
   return (
     <>
-      <PageHero eyebrow="Memories" title="Gallery" subtitle="Capturing the spirit of Theresian life, one event at a time." />
+      <PageHero
+        eyebrow="Memories"
+        title="Gallery"
+        subtitle="Capturing the spirit of Teresian life, one event at a time."
+      />
 
       <section className="py-16">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[260px_1fr] lg:px-8">
@@ -63,7 +71,9 @@ function Gallery() {
                     alt={`${tab.label} photo ${i + 1}`}
                     loading="lazy"
                     className="w-full object-cover"
-                    onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                    onError={(e) => {
+                      (e.currentTarget.parentElement as HTMLElement).style.display = "none";
+                    }}
                   />
                 </button>
               ))}
@@ -77,10 +87,17 @@ function Gallery() {
           className="fixed inset-0 z-[100] grid place-items-center bg-black/85 p-4 backdrop-blur-sm"
           onClick={() => setLightbox(null)}
         >
-          <button className="absolute right-5 top-5 grid size-11 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Close">
+          <button
+            className="absolute right-5 top-5 grid size-11 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            aria-label="Close"
+          >
             <X />
           </button>
-          <img src={lightbox} alt="Enlarged" className="max-h-[88vh] max-w-full rounded-xl object-contain shadow-elegant" />
+          <img
+            src={lightbox}
+            alt="Enlarged"
+            className="max-h-[88vh] max-w-full rounded-xl object-contain shadow-elegant"
+          />
         </div>
       )}
     </>

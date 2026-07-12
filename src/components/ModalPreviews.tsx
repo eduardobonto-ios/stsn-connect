@@ -5,7 +5,7 @@
 
 import React, { useRef } from "react";
 import { createPortal } from "react-dom";
-import { Student, Payment, Employee, StudentAssessment, Grade, Subject, PayrollRow, BookPackage } from "../types";
+import { Student, Payment, Employee, StudentAssessment, Grade, Subject, PayrollRow, BookPackage, CashVoucher } from "../types";
 import { X, Printer, CheckCircle, Award, ShieldAlert, Sparkles, QrCode, FileCheck, Landmark, GraduationCap } from "lucide-react";
 
 interface PreviewModalProps {
@@ -358,6 +358,76 @@ export function ReceiptPreview({
       {/* Footer */}
       <div className="text-center pt-4 border-t border-dashed border-stone-300 text-[10px] text-stone-400 space-y-0.5 mt-5">
         <p>Thank you for keeping your account updated!</p>
+        <p>"Virtus et Scientia" • St. Theresa School of Novaliches</p>
+        <p className="font-semibold text-stone-700 mt-1">SYSTEM GENERATED — NO SIGNATURE REQUIRED</p>
+      </div>
+    </div>
+  );
+}
+
+// 2b. CASH VOUCHER PREVIEW
+export function VoucherPreview({ voucher }: { voucher: CashVoucher }) {
+  return (
+    <div className="bg-white p-6 border-2 border-stone-100 shadow-sm print-card max-w-md mx-auto font-mono text-xs text-stone-700 leading-relaxed">
+
+      {/* Header */}
+      <div className="text-center pb-4 border-b border-dashed border-stone-300">
+        <h2 className="font-display font-extrabold text-[#3E1E09] tracking-tight text-base leading-tight">STSN CONNECT — TREASURY</h2>
+        <p className="text-[9px] text-stone-500 mt-0.5">Cash Disbursement Voucher</p>
+        <div className="mt-3">
+          <p className="text-stsn-gold font-bold text-sm tracking-widest uppercase">Cash Voucher</p>
+          <p className="font-black text-stone-950 text-base mt-0.5">{voucher.voucherNo}</p>
+        </div>
+      </div>
+
+      {/* Voucher Info */}
+      <div className="space-y-1.5 py-4 border-b border-dashed border-stone-300">
+        {[
+          ["DATE REQUESTED", voucher.requestedAt],
+          ["PAYEE", voucher.payeeName],
+          ["PAYEE TYPE", voucher.payeeType],
+          ["CATEGORY", voucher.category],
+          ["PURPOSE", voucher.purpose],
+          ["REQUESTED BY", voucher.requestedBy],
+          ["STATUS", voucher.status],
+          ...(voucher.approvedBy ? [["APPROVED BY", voucher.approvedBy]] : []),
+          ...(voucher.releasedBy ? [["RELEASED BY", voucher.releasedBy]] : []),
+          ...(voucher.releasedAt ? [["RELEASED AT", voucher.releasedAt]] : []),
+          ...(voucher.referenceNo ? [["REFERENCE NO.", voucher.referenceNo]] : []),
+        ].map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-2">
+            <span className="text-stone-400 shrink-0">{label}:</span>
+            <span className="font-bold text-stone-900 text-right truncate max-w-[220px]">{value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Amount */}
+      <div className="py-4 space-y-1.5 border-b border-dashed border-stone-300">
+        <div className="flex justify-between text-sm font-bold text-stone-950">
+          <span>AMOUNT RELEASED:</span>
+          <span>PHP {voucher.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+        </div>
+        {voucher.reviewRemarks && (
+          <p className="text-[10px] text-stone-500 italic mt-1">*{voucher.reviewRemarks}</p>
+        )}
+      </div>
+
+      {/* Signature Area */}
+      <div className="pt-5 grid grid-cols-2 gap-6">
+        <div className="text-center">
+          <div className="h-8 border-b border-stone-400 w-full" />
+          <p className="text-[9px] text-stone-400 uppercase tracking-wider mt-1.5">Cashier / Released By</p>
+        </div>
+        <div className="text-center">
+          <div className="h-8 border-b border-stone-400 w-full" />
+          <p className="text-[9px] text-stone-400 uppercase tracking-wider mt-1.5">Payee's Signature</p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center pt-4 border-t border-dashed border-stone-300 text-[10px] text-stone-400 space-y-0.5 mt-5">
+        <p>Requires Accounting approval prior to release.</p>
         <p>"Virtus et Scientia" • St. Theresa School of Novaliches</p>
         <p className="font-semibold text-stone-700 mt-1">SYSTEM GENERATED — NO SIGNATURE REQUIRED</p>
       </div>

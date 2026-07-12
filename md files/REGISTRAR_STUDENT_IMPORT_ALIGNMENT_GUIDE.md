@@ -1,6 +1,6 @@
 # Registrar Student Masterlist Import Alignment Guide
 
-**Project:** STSN Connect / Theresian Connect  
+**Project:** STSN Connect / Teresian Connect  
 **Target module:** Registrar  
 **Recommended file path:** `src/features/registrar/REGISTRAR_STUDENT_IMPORT_ALIGNMENT_GUIDE.md`  
 **Source Excel reviewed:** `SY 2026-2027 TF ASSESSMENT.xlsx`  
@@ -169,16 +169,16 @@ For the first production import, use only `DATABASE`. Other sheets can be review
 
 These checks were observed from the uploaded workbook and should be included in the validation process.
 
-| Check | Result |
-|---|---:|
-| Total student-like rows | 917 |
-| Rows with missing or placeholder LRN | 20 |
-| Duplicate LRN values found | 2 duplicate LRN groups |
-| Rows with missing email | 11 |
-| Rows with invalid-looking email | 13 |
-| Rows with missing birth date | 1 |
-| Rows with missing gender | 1 |
-| Rows with missing grade level | 1 |
+| Check                                |                 Result |
+| ------------------------------------ | ---------------------: |
+| Total student-like rows              |                    917 |
+| Rows with missing or placeholder LRN |                     20 |
+| Duplicate LRN values found           | 2 duplicate LRN groups |
+| Rows with missing email              |                     11 |
+| Rows with invalid-looking email      |                     13 |
+| Rows with missing birth date         |                      1 |
+| Rows with missing gender             |                      1 |
+| Rows with missing grade level        |                      1 |
 
 Observed student status values:
 
@@ -271,35 +271,35 @@ Use row 2 as the actual header row.
 
 ### 5.1 Core student fields
 
-| Excel Column | Excel Header | Target |
-|---|---|---|
-| B | Learner's Reference Number (LRN) | `students.lrn` or `student_registrar_profiles.lrn` |
-| C | Student's Last Name | `students.last_name` |
-| D | Student's Given Name | `students.first_name` |
-| E | Student's Middle Name | `students.middle_name` |
-| F | Name Extension | `student_registrar_profiles.name_extension` |
-| G | Student Status | `student_registrar_profiles.student_status` |
-| H | Birth Date | `students.birthday` |
-| I | Age | Do not store as source of truth; compute from birthday if needed |
-| J | Birth Place | `students.birthplace` |
-| K | Gender | `students.gender` |
-| L | Citizenship | `students.nationality` |
-| M | Religion | `students.religion` |
-| N | Complete Address | `students.address` |
-| U | Email of Parent/Guardian | `students.email` only if student email is unavailable; better store under guardian email |
-| V | Grade / Level | `students.year_level` and possibly `students.track_or_course` |
+| Excel Column | Excel Header                     | Target                                                                                   |
+| ------------ | -------------------------------- | ---------------------------------------------------------------------------------------- |
+| B            | Learner's Reference Number (LRN) | `students.lrn` or `student_registrar_profiles.lrn`                                       |
+| C            | Student's Last Name              | `students.last_name`                                                                     |
+| D            | Student's Given Name             | `students.first_name`                                                                    |
+| E            | Student's Middle Name            | `students.middle_name`                                                                   |
+| F            | Name Extension                   | `student_registrar_profiles.name_extension`                                              |
+| G            | Student Status                   | `student_registrar_profiles.student_status`                                              |
+| H            | Birth Date                       | `students.birthday`                                                                      |
+| I            | Age                              | Do not store as source of truth; compute from birthday if needed                         |
+| J            | Birth Place                      | `students.birthplace`                                                                    |
+| K            | Gender                           | `students.gender`                                                                        |
+| L            | Citizenship                      | `students.nationality`                                                                   |
+| M            | Religion                         | `students.religion`                                                                      |
+| N            | Complete Address                 | `students.address`                                                                       |
+| U            | Email of Parent/Guardian         | `students.email` only if student email is unavailable; better store under guardian email |
+| V            | Grade / Level                    | `students.year_level` and possibly `students.track_or_course`                            |
 
 ### 5.2 Parent and guardian fields
 
-| Excel Column | Excel Header | Target |
-|---|---|---|
-| O | Father's Full Name | `student_guardians.guardian_name`, relationship `Father` |
-| P | Father's Contact Number | `student_guardians.contact_no` |
-| Q | Mother's Full Name | `student_guardians.guardian_name`, relationship `Mother` |
-| R | Mother's Contact Number | `student_guardians.contact_no` |
-| S | Guardian | `student_guardians.relationship` or primary guardian remarks |
-| T | Guardian's Contact Number | `student_guardians.contact_no` for primary guardian |
-| U | Email of Parent/Guardian | `student_guardians.email` |
+| Excel Column | Excel Header              | Target                                                       |
+| ------------ | ------------------------- | ------------------------------------------------------------ |
+| O            | Father's Full Name        | `student_guardians.guardian_name`, relationship `Father`     |
+| P            | Father's Contact Number   | `student_guardians.contact_no`                               |
+| Q            | Mother's Full Name        | `student_guardians.guardian_name`, relationship `Mother`     |
+| R            | Mother's Contact Number   | `student_guardians.contact_no`                               |
+| S            | Guardian                  | `student_guardians.relationship` or primary guardian remarks |
+| T            | Guardian's Contact Number | `student_guardians.contact_no` for primary guardian          |
+| U            | Email of Parent/Guardian  | `student_guardians.email`                                    |
 
 Recommended production logic:
 
@@ -313,17 +313,17 @@ Recommended production logic:
 
 ### 5.3 Academic and enrollment remarks
 
-| Excel Column | Excel Header | Target |
-|---|---|---|
-| AD | Grade / Level | Backup/validated grade level source |
-| AE | Strand | `students.track_or_course` or `student_registrar_profiles.strand` |
-| AF | Student Status | `student_registrar_profiles.student_status` |
-| AG | ESC/QVR No | `student_registrar_profiles.esc_qvr_no` |
-| AH | Voucher Status | `student_registrar_profiles.voucher_status` |
-| AI | With Admission Slip | `student_registrar_profiles.admission_slip_status` |
-| AJ | Enrolled | map to `students.enrollment_status` carefully |
-| AR | Previous School | `student_registrar_profiles.previous_school` |
-| AS | Referral | `student_registrar_profiles.referral_source` |
+| Excel Column | Excel Header        | Target                                                            |
+| ------------ | ------------------- | ----------------------------------------------------------------- |
+| AD           | Grade / Level       | Backup/validated grade level source                               |
+| AE           | Strand              | `students.track_or_course` or `student_registrar_profiles.strand` |
+| AF           | Student Status      | `student_registrar_profiles.student_status`                       |
+| AG           | ESC/QVR No          | `student_registrar_profiles.esc_qvr_no`                           |
+| AH           | Voucher Status      | `student_registrar_profiles.voucher_status`                       |
+| AI           | With Admission Slip | `student_registrar_profiles.admission_slip_status`                |
+| AJ           | Enrolled            | map to `students.enrollment_status` carefully                     |
+| AR           | Previous School     | `student_registrar_profiles.previous_school`                      |
+| AS           | Referral            | `student_registrar_profiles.referral_source`                      |
 
 Recommended enrollment status mapping:
 
@@ -336,28 +336,28 @@ Blank AJ       -> if AF/G is New Student or Continuing, keep Pending until Regis
 
 ### 5.4 Payment preference and accounting remarks
 
-| Excel Column | Excel Header | Target |
-|---|---|---|
-| W-AA | Preferred Mode of Payment | `student_registrar_profiles.preferred_mode_of_payment` |
-| AK | Discount / Reservation Description | `student_registrar_profiles.discount_description` |
-| AL | Amount Discount | `student_registrar_profiles.discount_amount` |
-| AM | Amount Reservation | `student_registrar_profiles.reservation_amount` |
-| AN | Accounting Mode of Payment | `student_registrar_profiles.accounting_mode_of_payment` |
-| AO | Date | `student_registrar_profiles.accounting_or_date` |
-| AP | OR Number | `student_registrar_profiles.accounting_or_number` |
-| AQ | Assessed By | `student_registrar_profiles.assessed_by` |
+| Excel Column | Excel Header                       | Target                                                  |
+| ------------ | ---------------------------------- | ------------------------------------------------------- |
+| W-AA         | Preferred Mode of Payment          | `student_registrar_profiles.preferred_mode_of_payment`  |
+| AK           | Discount / Reservation Description | `student_registrar_profiles.discount_description`       |
+| AL           | Amount Discount                    | `student_registrar_profiles.discount_amount`            |
+| AM           | Amount Reservation                 | `student_registrar_profiles.reservation_amount`         |
+| AN           | Accounting Mode of Payment         | `student_registrar_profiles.accounting_mode_of_payment` |
+| AO           | Date                               | `student_registrar_profiles.accounting_or_date`         |
+| AP           | OR Number                          | `student_registrar_profiles.accounting_or_number`       |
+| AQ           | Assessed By                        | `student_registrar_profiles.assessed_by`                |
 
 Do not create official payments or ledger transactions from this first import unless the Accounting module explicitly validates and approves the records. For Registrar import, store these as historical/import remarks only.
 
 ### 5.5 Requirement fields
 
-| Excel Column | Excel Header | Target requirement name |
-|---|---|---|
-| AT | Birth Certificate | Birth Certificate |
-| AU | GMC | Good Moral Certificate |
-| AV | SF9 | SF9 / Report Card |
-| AW | Voucher Certificate | Voucher Certificate |
-| AX | SF10 | SF10 |
+| Excel Column | Excel Header        | Target requirement name |
+| ------------ | ------------------- | ----------------------- |
+| AT           | Birth Certificate   | Birth Certificate       |
+| AU           | GMC                 | Good Moral Certificate  |
+| AV           | SF9                 | SF9 / Report Card       |
+| AW           | Voucher Certificate | Voucher Certificate     |
+| AX           | SF10                | SF10                    |
 
 Recommended requirement status mapping:
 
@@ -549,13 +549,22 @@ bulkImportSuccess
 Recommended replacement state:
 
 ```ts
-type ImportStep = 'idle' | 'parsed' | 'validated' | 'committing' | 'committed' | 'failed';
+type ImportStep =
+  | "idle"
+  | "parsed"
+  | "validated"
+  | "committing"
+  | "committed"
+  | "failed";
 
 const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
 const [importBatchId, setImportBatchId] = useState<string | null>(null);
-const [importRowsPreview, setImportRowsPreview] = useState<RegistrarImportPreviewRow[]>([]);
-const [importSummary, setImportSummary] = useState<RegistrarImportSummary | null>(null);
-const [importStep, setImportStep] = useState<ImportStep>('idle');
+const [importRowsPreview, setImportRowsPreview] = useState<
+  RegistrarImportPreviewRow[]
+>([]);
+const [importSummary, setImportSummary] =
+  useState<RegistrarImportSummary | null>(null);
+const [importStep, setImportStep] = useState<ImportStep>("idle");
 ```
 
 ### Step 2: Parse Excel DATABASE sheet
@@ -737,7 +746,13 @@ export interface RegistrarImportBatch {
   importType: string;
   sourceFileName: string;
   sourceSheetName: string;
-  status: 'draft' | 'validated' | 'committing' | 'committed' | 'failed' | 'cancelled';
+  status:
+    | "draft"
+    | "validated"
+    | "committing"
+    | "committed"
+    | "failed"
+    | "cancelled";
   totalRows: number;
   validRows: number;
   warningRows: number;
@@ -755,7 +770,14 @@ export interface RegistrarImportPreviewRow {
   yearLevel?: string;
   trackOrCourse?: string;
   studentStatus?: string;
-  importStatus: 'parsed' | 'valid' | 'warning' | 'error' | 'duplicate' | 'skipped' | 'committed';
+  importStatus:
+    | "parsed"
+    | "valid"
+    | "warning"
+    | "error"
+    | "duplicate"
+    | "skipped"
+    | "committed";
   errors: string[];
   warnings: string[];
   matchedStudentId?: string;
