@@ -102,6 +102,11 @@ export default function App() {
     string[]
   >([]);
   const [expandedHRGroups, setExpandedHRGroups] = useState<string[]>([]);
+  // Home launcher grid (ModuleGrid) drill-down path — lifted here (rather
+  // than local to ModuleGrid) so the header breadcrumb can reflect it even
+  // though this grid never changes the URL (it's all "/").
+  const [homeRootModule, setHomeRootModule] = useState<NavItem | null>(null);
+  const [homeGroupStack, setHomeGroupStack] = useState<NavSubItem[]>([]);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -262,23 +267,61 @@ export default function App() {
   // (not `navigateToModule`, which isn't defined until after the early
   // `!currentUser` return below).
   const breadcrumbs = useMemo(() => {
+    // The Home launcher grid (ModuleGrid) drills down entirely client-side —
+    // the URL stays "/" — so its trail is derived from the lifted drill
+    // state instead of the route.
+    if (activeModule === "HOME") {
+      if (!homeRootModule) return [];
+      const crumbs: BreadcrumbCrumb[] = [
+        { label: homeRootModule.label, onClick: () => setHomeGroupStack([]) },
+      ];
+      homeGroupStack.forEach((node, i) => {
+        crumbs.push({
+          label: node.label,
+          onClick: () => setHomeGroupStack((stack) => stack.slice(0, i)),
+        });
+      });
+      return crumbs;
+    }
     const subPage = currentRoute?.subPage;
     const resolved = findNavPathForModule(renderedSidebarItems, activeModule, subPage);
     if (!resolved) {
       return activeModule === "MY_PROFILE" ? [{ label: "My Profile" }] : [];
     }
     const { group, path } = resolved;
+    const currentFullPath = `${location.pathname}${location.search}`;
+    // Some groups (e.g. Admission/REGISTRAR, whose "Enrollment" child routes
+    // back to the group's own default path) have no distinct landing page of
+    // their own — their crumb's route is literally the page already on
+    // screen, so `navigate` would be a no-op and the crumb would look dead.
+    // In that case open the same tile picker Home's ModuleGrid uses instead,
+    // so the click always does something visible.
+    const openPickerAt = (stackPath: NavSubItem[]) => () => {
+      navigate("/");
+      setHomeRootModule(group);
+      setHomeGroupStack(stackPath);
+    };
+    const moduleRoute = getPathForModule(group.id);
     const crumbs: BreadcrumbCrumb[] = [
-      { label: group.label, onClick: () => navigate(getPathForModule(group.id)) },
+      {
+        label: group.label,
+        onClick:
+          moduleRoute === currentFullPath
+            ? openPickerAt([])
+            : () => navigate(moduleRoute),
+      },
     ];
-    path.forEach((node) => {
+    path.forEach((node, index) => {
       const route = node.children?.length
         ? getFirstRouteForNavChild(group.id, node)
         : getRouteForNavChild(group.id, node);
-      crumbs.push({
-        label: node.label,
-        onClick: route ? () => navigate(route) : undefined,
-      });
+      let onClick: (() => void) | undefined;
+      if (route && route === currentFullPath) {
+        onClick = openPickerAt(path.slice(0, index + 1));
+      } else if (route) {
+        onClick = () => navigate(route);
+      }
+      crumbs.push({ label: node.label, onClick });
     });
     if (
       activeModule === "LIBRARY_SYSTEM" &&
@@ -288,7 +331,28 @@ export default function App() {
       crumbs.push({ label: LIBRARY_TAB_LABEL[subPage]! });
     }
     return crumbs;
-  }, [renderedSidebarItems, activeModule, currentRoute?.subPage, navigate]);
+  }, [
+    renderedSidebarItems,
+    activeModule,
+    currentRoute?.subPage,
+    navigate,
+    location.pathname,
+    location.search,
+    homeRootModule,
+    homeGroupStack,
+    setHomeRootModule,
+    setHomeGroupStack,
+  ]);
+
+  // Leaving Home clears its drill-down path so the next visit starts fresh —
+  // matches the old behavior where ModuleGrid unmounted (and reset its local
+  // state) whenever activeModule left "HOME".
+  useEffect(() => {
+    if (activeModule !== "HOME") {
+      setHomeRootModule(null);
+      setHomeGroupStack([]);
+    }
+  }, [activeModule]);
 
   // First menu item the current user can actually open, derived from the
   // RBAC-filtered sidebar. Used as the post-login landing route so a new user
@@ -875,7 +939,11 @@ export default function App() {
         </header>
         <BreadcrumbBar
           crumbs={breadcrumbs}
-          onHomeClick={() => navigateToModule("HOME")}
+          onHomeClick={() => {
+            navigateToModule("HOME");
+            setHomeRootModule(null);
+            setHomeGroupStack([]);
+          }}
         />
         <div className="app-shell-alert-slot">
           <UrgentAnnouncementBanner />
@@ -893,6 +961,10 @@ export default function App() {
                 items={moduleGridItems}
                 onNavigate={(path) => navigate(path)}
                 getBadgeCount={getBadgeCount}
+                rootModule={homeRootModule}
+                setRootModule={setHomeRootModule}
+                groupStack={homeGroupStack}
+                setGroupStack={setHomeGroupStack}
               />
             ) : (
               <AppModuleRenderer

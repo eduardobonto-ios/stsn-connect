@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { ArrowLeft, ChevronRight, Circle } from "lucide-react";
 import type { NavItem, NavSubItem, STSNModule } from "../../config/navigation.config";
 import { getPathForModule, getRouteForNavChild } from "../../config/app-routes.config";
@@ -12,6 +13,12 @@ interface ModuleGridProps {
   items: NavItem[];
   onNavigate: (path: string) => void;
   getBadgeCount: (moduleId: STSNModule, childId?: string) => number;
+  /** Drill-down state is lifted to App.tsx so the header breadcrumb can
+   * reflect it (this grid never changes the URL — it's all "/"). */
+  rootModule: NavItem | null;
+  setRootModule: Dispatch<SetStateAction<NavItem | null>>;
+  groupStack: NavSubItem[];
+  setGroupStack: Dispatch<SetStateAction<NavSubItem[]>>;
 }
 
 type LevelNode =
@@ -117,13 +124,11 @@ export default function ModuleGrid({
   items,
   onNavigate,
   getBadgeCount,
+  rootModule,
+  setRootModule,
+  groupStack,
+  setGroupStack,
 }: ModuleGridProps) {
-  // Drill-down path: the top-level module entered, then any nested submenu
-  // groups entered beneath it (e.g. Accounting -> Student Accounts). The
-  // route resolver always takes the top-level module id, regardless of depth.
-  const [rootModule, setRootModule] = useState<NavItem | null>(null);
-  const [groupStack, setGroupStack] = useState<NavSubItem[]>([]);
-
   if (items.length === 0) return null;
 
   const goBack = () => {
