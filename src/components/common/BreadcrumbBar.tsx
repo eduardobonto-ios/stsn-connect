@@ -13,17 +13,31 @@ export interface BreadcrumbCrumb {
 
 interface BreadcrumbBarProps {
   crumbs: BreadcrumbCrumb[];
+  onHomeClick?: () => void;
 }
 
-export default function BreadcrumbBar({ crumbs }: BreadcrumbBarProps) {
+export default function BreadcrumbBar({ crumbs, onHomeClick }: BreadcrumbBarProps) {
   if (crumbs.length === 0) return null;
 
   return (
     <div className="app-shell-breadcrumb flex-shrink-0">
       <div className="app-shell-breadcrumb-inner">
-        <Home className="w-3 h-3 text-stone-400 flex-shrink-0" />
-        <ChevronRight className="w-3 h-3 text-stone-300 flex-shrink-0" />
-        <span className="text-stone-400 flex-shrink-0">Teresian Connect</span>
+        {onHomeClick ? (
+          <button
+            onClick={onHomeClick}
+            className="flex items-center gap-1.5 text-stone-400 hover:text-stsn-brown transition cursor-pointer flex-shrink-0"
+          >
+            <Home className="w-3 h-3 flex-shrink-0" />
+            <ChevronRight className="w-3 h-3 text-stone-300 flex-shrink-0" />
+            <span>Teresian Connect</span>
+          </button>
+        ) : (
+          <>
+            <Home className="w-3 h-3 text-stone-400 flex-shrink-0" />
+            <ChevronRight className="w-3 h-3 text-stone-300 flex-shrink-0" />
+            <span className="text-stone-400 flex-shrink-0">Teresian Connect</span>
+          </>
+        )}
         {crumbs.map((crumb, i) => {
           const isLast = i === crumbs.length - 1;
           return (

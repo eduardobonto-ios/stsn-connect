@@ -267,6 +267,38 @@ export function findNavGroupForModule(
 }
 
 /**
+ * Resolves the full breadcrumb trail for the active module/subPage by walking
+ * the NAV_ITEMS tree: the owning group (as returned by findNavGroupForModule)
+ * plus the ordered chain of NavSubItem ancestors down to the active leaf —
+ * either a `targetModule` match (category-group pattern) or a plain child
+ * whose id equals subPage. Returns null only when the module has no
+ * representation in the nav tree at all (e.g. MY_PROFILE).
+ */
+export function findNavPathForModule(
+  items: NavItem[],
+  activeModule: STSNModule,
+  subPage?: string | null,
+): { group: NavItem; path: NavSubItem[] } | null {
+  const group = findNavGroupForModule(items, activeModule);
+  if (!group) return null;
+  if (!group.children) return { group, path: [] };
+
+  const search = (children: NavSubItem[]): NavSubItem[] | null => {
+    for (const child of children) {
+      if (child.targetModule === activeModule) return [child];
+      if (!child.targetModule && child.id === subPage) return [child];
+      if (child.children) {
+        const nested = search(child.children);
+        if (nested) return [child, ...nested];
+      }
+    }
+    return null;
+  };
+
+  return { group, path: search(group.children) ?? [] };
+}
+
+/**
  * Resolves the navigation items visible to a user.
  * Filtering is by ROLE (permissions) first; academicUnit is accepted so that
  * future academic-unit-specific modules can be gated here without scattering

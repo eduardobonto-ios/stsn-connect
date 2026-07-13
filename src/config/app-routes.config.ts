@@ -158,8 +158,9 @@ export function getPathForModule(
  * plain leaf children navigate to the parent module + child id, and group
  * headers / section markers have no route of their own (null).
  *
- * Shared by firstLeafRoute (sidebar landing-page resolution) and the main
- * screen's module icon grid, so both surfaces resolve navigation identically.
+ * Shared by getFirstRouteForNavChild (sidebar landing-page resolution and
+ * breadcrumb container-crumb navigation) and the main screen's module icon
+ * grid, so all surfaces resolve navigation identically.
  */
 export function getRouteForNavChild(
   parentModuleId: STSNModule,
@@ -176,12 +177,21 @@ export function getRouteForNavChild(
   return getPathForModule(parentModuleId, { subPage: child.id });
 }
 
-function firstLeafRoute(moduleId: STSNModule, child: NavSubItem): string | null {
+/**
+ * Resolves the route of the first navigable leaf under a nav child, recursing
+ * through nested groups. Used both to pick the sidebar landing route and to
+ * make container-only breadcrumb crumbs (e.g. "Talent Acquisition") clickable
+ * by sending the user to their first child page.
+ */
+export function getFirstRouteForNavChild(
+  moduleId: STSNModule,
+  child: NavSubItem,
+): string | null {
   const directRoute = getRouteForNavChild(moduleId, child);
   if (directRoute) return directRoute;
   if (child.children?.length) {
     for (const nested of child.children) {
-      const path = firstLeafRoute(moduleId, nested);
+      const path = getFirstRouteForNavChild(moduleId, nested);
       if (path) return path;
     }
   }
@@ -194,7 +204,7 @@ export function getFirstAllowedRoute(items: NavItem[]): string | null {
       return getPathForModule(item.id);
     }
     for (const child of item.children) {
-      const path = firstLeafRoute(item.id, child);
+      const path = getFirstRouteForNavChild(item.id, child);
       if (path) return path;
     }
   }

@@ -24,6 +24,7 @@ import {
   getAllowedModules,
   getNavItemsForRole,
   findNavGroupForModule,
+  findNavPathForModule,
   SIDEBAR_MODE,
   type NavSubItem,
   type NavItem,
@@ -31,7 +32,9 @@ import {
 import {
   getDefaultRouteForRole,
   getFirstAllowedRoute,
+  getFirstRouteForNavChild,
   getPathForModule,
+  getRouteForNavChild,
   resolveAppRoute,
 } from "./config/app-routes.config";
 
@@ -170,103 +173,19 @@ export default function App() {
   const portalStudentId =
     activeModule === "STUDENT_PORTAL" ? currentRoute?.studentId : undefined;
 
-  // Derive breadcrumb from active module / sub-page state
-  const breadcrumbs = (() => {
-    const crumbs: BreadcrumbCrumb[] = [];
-    const moduleLabel: Partial<Record<string, string>> = {
-      MY_PROFILE: "My Profile",
-      DASHBOARD: "Dashboard",
-      ACTION_CENTER: "Action Center",
-      REGISTRAR: "Enrollment",
-      REGISTRAR_REPORTS: "Registrar Reports",
-      ACCOUNTING: "Accounting",
-      GRADING: "Grades Directory",
-      CURRICULUM: "Curriculum",
-      STUDENT_DIRECTORY: "Student Directory",
-      STUDENT_PORTAL: "Student Portal",
-      FACULTY_ADMIN: "Faculty Admin",
-      FACULTY_PORTAL: "Teacher Board",
-      HR_MANAGEMENT: "HR Management",
-      PAYROLL_DASHBOARD: "Payroll Dashboard",
-      PAYROLL_MANAGEMENT: "Payroll Management",
-      ACCOUNTS_SECURITY: "Accounts & Security",
-      CORE_SETUP: "Core Setup",
-      SCHEDULING: "Class Scheduling",
-      CLASS_SECTIONING: "Class Sectioning",
-      LMS: "Learning Management",
-      BOOKS_SETUP: "Books & Library",
-      LIBRARY_SYSTEM: "Library System",
-      CASHIER: "Cashier",
-      NURSE_CLINIC: "Nurse Clinic",
-      GUIDANCE: "Guidance",
-      GUIDANCE_REPORTS: "Guidance Reports",
-      CLINIC_REPORTS: "Clinic Reports",
-      ADMIN_REPORTS: "Admin Reports",
-      CONSULTATION: "Consultation",
-    };
-    const subPageLabel: Partial<Record<string, string>> = {
-      dashboard: "Dashboard",
-      "accounting-student-accounts": "Student Accounts",
-      billing: "Assessment Billing",
-      discounts: "Discounts",
-      payments: "Payments",
-      "hr-dashboard": "HR Dashboard",
-      "overview-advisory": "Overview & Advisory",
-      "class-schedule-subjects": "Class Schedule & Subjects",
-      "attendance-monitoring": "Attendance Monitoring",
-      "student-grades-encoding": "Student Grades Encoding",
-      "faculty-profile": "Faculty Profile",
-      "new-employee-profile": "New Employee Profile",
-      "leave-management": "Leave Management",
-      "hr-time-attendance": "Time & Attendance",
-      "employee-management": "Employee Management",
-      "payroll-management": "Payroll Runs",
-      "payroll-settings": "Payroll Settings",
-      queue: "Payment Queue",
-      "cashier-reports": "Cashier Reports",
-      catalog: "Book Catalog",
-      inventory: "Book Inventory",
-      borrowing: "Borrowing",
-      returns: "Returns",
-      overdue: "Overdue",
-      "lost-damaged": "Lost / Damaged",
-      fines: "Fines",
-      maintenance: "Maintenance",
-      "user-security": "User Security",
-      "delegation-management": "Delegation Management",
-      "audit-log": "Audit Log",
-      courses: "Course Catalog",
-      progress: "My Progress",
-      assessments: "Assessments",
-      exams: "Exam Center",
-      "question-builder": "Question Builder",
-      "teacher-board": "Teacher Board",
-    };
-    const modLabel = moduleLabel[activeModule];
-    if (modLabel) crumbs.push({ label: modLabel });
-    const subPage =
-      activeModule === "ACCOUNTING"
-        ? accountingSubPage
-        : activeModule === "FACULTY_PORTAL"
-          ? facultySubPage
-          : activeModule === "HR_MANAGEMENT"
-            ? hrSubPage
-            : activeModule === "PAYROLL_MANAGEMENT"
-              ? payrollSubPage
-              : activeModule === "CASHIER"
-                ? cashierSubPage
-                : activeModule === "LIBRARY_SYSTEM"
-                  ? librarySubPage
-                  : activeModule === "LMS"
-                    ? lmsSubPage
-                    : activeModule === "ACCOUNTS_SECURITY"
-                      ? accountsSubPage
-                      : null;
-    if (subPage && subPage !== "dashboard" && subPageLabel[subPage]) {
-      crumbs.push({ label: subPageLabel[subPage]! });
-    }
-    return crumbs;
-  })();
+  // Library System's own tabs (catalog, borrowing, returns, ...) are internal
+  // to that module's page and aren't modeled as NAV_ITEMS children, so they
+  // can't be found by findNavPathForModule below — map them here instead.
+  const LIBRARY_TAB_LABEL: Partial<Record<string, string>> = {
+    catalog: "Book Catalog",
+    inventory: "Book Inventory",
+    borrowing: "Borrowing",
+    returns: "Returns",
+    overdue: "Overdue",
+    "lost-damaged": "Lost / Damaged",
+    fines: "Fines",
+    maintenance: "Maintenance",
+  };
 
   // Keyboard shortcuts — only when logged in
   useKeyboardShortcuts({
@@ -335,6 +254,41 @@ export default function App() {
       },
     );
   }, [academicUnit, currentRole, hasPageAccess, moduleOverride]);
+
+  // Derive the breadcrumb trail by walking NAV_ITEMS — the same hierarchy the
+  // sidebar renders — so every level with a real destination is clickable and
+  // no page falls through a hand-maintained label gap (e.g. HR > Talent
+  // Acquisition > Onboarding). Uses `navigate`/`getPathForModule` directly
+  // (not `navigateToModule`, which isn't defined until after the early
+  // `!currentUser` return below).
+  const breadcrumbs = useMemo(() => {
+    const subPage = currentRoute?.subPage;
+    const resolved = findNavPathForModule(renderedSidebarItems, activeModule, subPage);
+    if (!resolved) {
+      return activeModule === "MY_PROFILE" ? [{ label: "My Profile" }] : [];
+    }
+    const { group, path } = resolved;
+    const crumbs: BreadcrumbCrumb[] = [
+      { label: group.label, onClick: () => navigate(getPathForModule(group.id)) },
+    ];
+    path.forEach((node) => {
+      const route = node.children?.length
+        ? getFirstRouteForNavChild(group.id, node)
+        : getRouteForNavChild(group.id, node);
+      crumbs.push({
+        label: node.label,
+        onClick: route ? () => navigate(route) : undefined,
+      });
+    });
+    if (
+      activeModule === "LIBRARY_SYSTEM" &&
+      subPage &&
+      LIBRARY_TAB_LABEL[subPage]
+    ) {
+      crumbs.push({ label: LIBRARY_TAB_LABEL[subPage]! });
+    }
+    return crumbs;
+  }, [renderedSidebarItems, activeModule, currentRoute?.subPage, navigate]);
 
   // First menu item the current user can actually open, derived from the
   // RBAC-filtered sidebar. Used as the post-login landing route so a new user
@@ -919,7 +873,10 @@ export default function App() {
             <UserProfileDropdown />
           </div>
         </header>
-        <BreadcrumbBar crumbs={breadcrumbs} />
+        <BreadcrumbBar
+          crumbs={breadcrumbs}
+          onHomeClick={() => navigateToModule("HOME")}
+        />
         <div className="app-shell-alert-slot">
           <UrgentAnnouncementBanner />
         </div>
