@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSTSNStore } from "../../../services/store";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { Payment, Student, StudentAssessment, CashVoucher } from "../../../types";
@@ -16,7 +16,6 @@ import {
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import AppButton from "../../../components/common/AppButton";
 import AppCard from "../../../components/common/AppCard";
-import AppKpiCard from "../../../components/common/AppKpiCard";
 import AppModal from "../../../components/common/AppModal";
 import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import { ReceiptPreview, VoucherPreview } from "../../../components/ModalPreviews";
@@ -28,8 +27,12 @@ import { BookPackage } from "../../../types";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import { reportExportService } from "../../../services/reportExportService";
 import type { ReportColumn, ReportRow } from "../../reports/types";
+import CashieringTabs, { type CashierTab } from "../components/CashieringTabs";
+import CashieringToolbar from "../components/CashieringToolbar";
+import CashieringSummaryStrip from "../components/CashieringSummaryStrip";
+import PaymentQueueView from "../components/PaymentQueueView";
+import CashierDrawerShell from "../components/CashierDrawerShell";
 
-type CashierTab = "queue" | "other-payments" | "vouchers" | "history" | "reports";
 type CashierReportId =
   | "daily-collection"
   | "or-register"
@@ -270,8 +273,12 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     if (subPage && subPage !== activeTab) setActiveTab(subPage as CashierTab);
   }, [subPage]);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchByTab, setSearchByTab] = useState<Record<CashierTab, string>>({ queue: "", "other-payments": "", vouchers: "", history: "", reports: "" });
+  const searchQuery = searchByTab[activeTab];
+  const setSearchQuery = (value: string) => setSearchByTab((current) => ({ ...current, [activeTab]: value }));
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [historyDateFilter, setHistoryDateFilter] = useState("");
+  const [historyQuickFilter, setHistoryQuickFilter] = useState<"all" | "today" | "week" | "month" | "custom">("all");
   const [selectedReportId, setSelectedReportId] = useState<CashierReportId>("daily-collection");
   const [reportDateFrom, setReportDateFrom] = useState("");
   const [reportDateTo, setReportDateTo] = useState("");
@@ -281,6 +288,11 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     orNumber: "", amount: "", paymentMethod: "Cash", term: "Installment", reference: "",
   });
   const [orError, setOrError] = useState<string | null>(null);
+  const [amountReceived, setAmountReceived] = useState("");
+  const [overpaymentConfirmed, setOverpaymentConfirmed] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState<{ payment: Payment; student: Student; assessment?: StudentAssessment; remainingBalance: number; previousAssessmentId: string } | null>(null);
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
 
   const [receipt, setReceipt] = useState<{ payment: Payment; student: Student; assessment?: StudentAssessment } | null>(null);
 
@@ -296,6 +308,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     paymentMethod: Payment["paymentMethod"]; remarks: string;
   }>({ transactionType: "OR", studentId: "", category: "", orNumber: "", amount: "", paymentMethod: "Cash", remarks: "" });
   const [orCollectError, setOrCollectError] = useState<string | null>(null);
+  const [orAmountReceived, setOrAmountReceived] = useState("");
+  const [isSubmittingOtherPayment, setIsSubmittingOtherPayment] = useState(false);
 
   // ── Cash Vouchers ────────────────────────────────────────────────────────
   const [voucherModalOpen, setVoucherModalOpen] = useState(false);
@@ -305,9 +319,14 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     category: string; voucherNo: string; amount: string; purpose: string;
   }>({ payeeType: "Student", payeeStudentId: "", payeeNameExternal: "", category: "", voucherNo: "", amount: "", purpose: "" });
   const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [isSubmittingVoucher, setIsSubmittingVoucher] = useState(false);
   const [voucherDecision, setVoucherDecision] = useState<{ id: string; action: "approve" | "reject" } | null>(null);
   const [voucherDecisionRemarks, setVoucherDecisionRemarks] = useState("");
   const [voucherPreview, setVoucherPreview] = useState<CashVoucher | null>(null);
+  const [voucherStatusFilter, setVoucherStatusFilter] = useState<CashVoucher["status"] | "All">("All");
+  const [voucherCategoryFilter, setVoucherCategoryFilter] = useState("All");
+  const [selectedVoucherId, setSelectedVoucherId] = useState<string | null>(null);
+  const [selectedHistoryPaymentId, setSelectedHistoryPaymentId] = useState<string | null>(null);
 
   const rowsPerPage = 5;
   const [approvedPage, setApprovedPage] = useState(1);
@@ -375,7 +394,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   }, [searchQuery, academicUnit, activeSchool]);
 
   const matchesSearch = (student: Student | undefined) => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchByTab.queue.trim().toLowerCase();
     if (!q) return true;
     return `${student?.firstName} ${student?.lastName}`.toLowerCase().includes(q) || (student?.studentNo || "").toLowerCase().includes(q);
   };
@@ -393,16 +412,18 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       .filter((a) => a.approvalStatus === "Approved for Payment" && a.balance > 0)
       .map((a) => ({ assessment: a, student: scopedStudents.find((s) => s.id === a.studentId) }))
       .filter(({ student }) => matchesSearch(student));
-  }, [scopedAssessments, scopedStudents, searchQuery]);
+  }, [scopedAssessments, scopedStudents, searchByTab.queue]);
+  const collectibleAssessments = useMemo(() => scopedAssessments.filter((assessment) => assessment.approvalStatus === "Approved for Payment" && assessment.balance > 0), [scopedAssessments]);
 
   const awaitingRows = useMemo(() => {
     return scopedAssessments
       .filter((a) => !!a.approvalStatus && (a.approvalStatus !== "Approved for Payment" || a.balance <= 0))
       .map((a) => ({ assessment: a, student: scopedStudents.find((s) => s.id === a.studentId) }))
       .filter(({ student, assessment }) => matchesSearch(student) && assessment.balance > 0);
-  }, [scopedAssessments, scopedStudents, searchQuery]);
+  }, [scopedAssessments, scopedStudents, searchByTab.queue]);
 
   const historyRows = useMemo(() => {
+    const q = searchByTab.history.trim().toLowerCase();
     return scopedPayments
       .map((p) => ({
         payment: p,
@@ -411,29 +432,70 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
           ? scopedAssessments.find((a) => a.id === p.assessmentId)
           : scopedAssessments.find((a) => a.studentId === p.studentId),
       }))
-      .filter(({ student }) => matchesSearch(student))
+      .filter(({ student, payment }) => !q || [student?.firstName, student?.lastName, student?.studentNo, payment.orNumber, payment.paymentCategory, payment.term, payment.remarks, payment.transactionType].some((value) => String(value ?? "").toLowerCase().includes(q)))
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
-  }, [scopedPayments, scopedStudents, scopedAssessments, searchQuery]);
+  }, [scopedPayments, scopedStudents, scopedAssessments, searchByTab.history]);
 
   const orPaymentRows = useMemo(() => {
+    const q = searchByTab["other-payments"].trim().toLowerCase();
     return scopedPayments
-      .filter((p) => p.transactionType === "OR")
+      .filter((p) => p.transactionType === "OR" || p.remarks?.includes("Other Payment (AR)"))
       .map((p) => ({ payment: p, student: scopedStudents.find((s) => s.id === p.studentId) }))
-      .filter(({ student }) => matchesSearch(student))
+      .filter(({ student, payment }) => !q || [student?.firstName, student?.lastName, student?.studentNo, payment.orNumber, payment.paymentCategory, payment.term, payment.remarks].some((value) => String(value ?? "").toLowerCase().includes(q)))
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
-  }, [scopedPayments, scopedStudents, searchQuery]);
+  }, [scopedPayments, scopedStudents, searchByTab["other-payments"]]);
 
   const voucherRows = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchByTab.vouchers.trim().toLowerCase();
     return scopedCashVouchers
-      .filter((v) => !q || v.payeeName.toLowerCase().includes(q) || v.voucherNo.toLowerCase().includes(q))
+      .filter((v) => !q || [v.payeeName, v.voucherNo, v.category, v.purpose, v.referenceNo].some((value) => String(value ?? "").toLowerCase().includes(q)))
+      .filter((v) => voucherStatusFilter === "All" || v.status === voucherStatusFilter)
+      .filter((v) => voucherCategoryFilter === "All" || v.category === voucherCategoryFilter)
       .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
-  }, [scopedCashVouchers, searchQuery]);
+  }, [scopedCashVouchers, searchByTab.vouchers, voucherStatusFilter, voucherCategoryFilter]);
+  const selectedVoucher = scopedCashVouchers.find((voucher) => voucher.id === selectedVoucherId);
+  const selectedHistoryRow = historyRows.find((row) => row.payment.id === selectedHistoryPaymentId);
 
-  const filteredHistoryRows = useMemo(
-    () => historyRows.filter(({ payment }) => !historyDateFilter || toDateOnly(payment.paymentDate) === historyDateFilter),
-    [historyRows, historyDateFilter],
-  );
+  const filteredHistoryRows = useMemo(() => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const weekStartDate = new Date(now);
+    weekStartDate.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    const weekStart = weekStartDate.toISOString().slice(0, 10);
+    const monthStart = `${today.slice(0, 7)}-01`;
+    return historyRows.filter(({ payment }) => {
+      const date = toDateOnly(payment.paymentDate);
+      if (historyQuickFilter === "today") return date === today;
+      if (historyQuickFilter === "week") return date >= weekStart && date <= today;
+      if (historyQuickFilter === "month") return date >= monthStart && date <= today;
+      if (historyQuickFilter === "custom") return !historyDateFilter || date === historyDateFilter;
+      return true;
+    });
+  }, [historyRows, historyDateFilter, historyQuickFilter]);
+
+  useEffect(() => {
+    if (queueRows.length === 0) { setSelectedAssessmentId(null); return; }
+    if (!selectedAssessmentId || !queueRows.some(({ assessment }) => assessment.id === selectedAssessmentId)) {
+      setSelectedAssessmentId(queueRows[0].assessment.id);
+    }
+  }, [queueRows, selectedAssessmentId]);
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editable = target?.matches("input, textarea, select, [contenteditable='true']");
+      if (event.key === "/" && !editable && activeTab !== "reports") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && collectModalId && canCollectPayment && !isSubmittingPayment) {
+        event.preventDefault();
+        document.querySelector<HTMLFormElement>('form[role="dialog"]')?.requestSubmit();
+      }
+    };
+    window.addEventListener("keydown", handleKey, true);
+    return () => window.removeEventListener("keydown", handleKey, true);
+  }, [activeTab, collectModalId, canCollectPayment, isSubmittingPayment]);
 
   const reportPaymentRows = useMemo<CashierPaymentRow[]>(() => {
     return historyRows
@@ -604,7 +666,16 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const paginatedQueueRows = useMemo(() => paginateRecords(queueRows, approvedPage, rowsPerPage), [queueRows, approvedPage]);
   const paginatedAwaitingRows = useMemo(() => paginateRecords(awaitingRows, pendingPage, rowsPerPage), [awaitingRows, pendingPage]);
 
-  const collectRow = queueRows.find((r) => r.assessment.id === collectModalId);
+  const collectAssessment = scopedAssessments.find((assessment) => assessment.id === collectModalId);
+  const collectRow = collectAssessment ? { assessment: collectAssessment, student: scopedStudents.find((student) => student.id === collectAssessment.studentId) } : undefined;
+
+  const closePaymentDrawer = () => {
+    const dirty = !!(paymentForm.orNumber || paymentForm.reference || amountReceived) && !paymentSuccess;
+    if (dirty && !window.confirm("Discard the payment details you entered?")) return;
+    setCollectModalId(null);
+    setPaymentSuccess(null);
+    setOrError(null);
+  };
 
   const openCollect = (assessmentId: string) => {
     const row = queueRows.find((r) => r.assessment.id === assessmentId);
@@ -616,15 +687,26 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       reference: "",
     });
     setOrError(null);
+    setAmountReceived("");
+    setOverpaymentConfirmed(false);
+    setPaymentSuccess(null);
     setCollectModalId(assessmentId);
   };
 
   const handlePostPayment = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingPayment) return;
     if (!canCollectPayment) { setOrError("You don't have permission to collect payments."); return; }
     if (!collectRow?.student) return;
     const amount = Number(paymentForm.amount);
-    if (!amount || amount <= 0) return;
+    if (!amount || amount <= 0) { setOrError("Enter a valid payment amount."); return; }
+    const currentAssessment = useSTSNStore.getState().assessments.find((assessment) => assessment.id === collectRow.assessment.id);
+    if (!currentAssessment || currentAssessment.approvalStatus !== "Approved for Payment" || currentAssessment.balance <= 0) {
+      setOrError("This assessment is no longer available for collection. Refresh the queue and try again.");
+      return;
+    }
+    if (amount > currentAssessment.balance && !overpaymentConfirmed) { setOrError("Confirm the overpayment before collecting more than the outstanding balance."); return; }
+    if (paymentForm.paymentMethod === "Cash" && Number(amountReceived) < amount) { setOrError("Amount received must cover the amount to collect."); return; }
 
     const orNumber = paymentForm.orNumber.trim();
     if (!orNumber) { setOrError("BIR Official Receipt No. is required."); return; }
@@ -634,6 +716,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     }
     setOrError(null);
 
+    setIsSubmittingPayment(true);
     const posted = addPayment({
       studentId: collectRow.student.id,
       assessmentId: collectRow.assessment.id,
@@ -645,12 +728,14 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       remarks: `Collected by ${currentUser?.name || "Cashier"} via Cashiering module${paymentForm.reference ? ` — Ref: ${paymentForm.reference}` : ""}`,
     });
 
-    setCollectModalId(null);
-    setReceipt({
-      payment: posted,
-      student: collectRow.student,
-      assessment: { ...collectRow.assessment, balance: Math.max(0, collectRow.assessment.balance - amount) },
-    });
+    const remainingBalance = Math.max(0, currentAssessment.balance - amount);
+    const successAssessment = { ...currentAssessment, balance: remainingBalance };
+    setPaymentSuccess({ payment: posted, student: collectRow.student, assessment: successAssessment, remainingBalance, previousAssessmentId: currentAssessment.id });
+    setIsSubmittingPayment(false);
+    setReceipt(null);
+    /* Receipt preview remains an explicit success-state action. */
+    setSelectedAssessmentId(null);
+    /* Keep the drawer open and replace the form with the success state. */
   };
 
   const reprintReceipt = (row: { payment: Payment; student?: Student; assessment?: StudentAssessment }) => {
@@ -667,16 +752,26 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     });
     setOrCollectStudentQuery("");
     setOrCollectError(null);
+    setOrAmountReceived("");
     setOrCollectModalOpen(true);
+  };
+
+  const closeOtherPaymentDrawer = () => {
+    const dirty = !!(orCollectForm.studentId || orCollectForm.orNumber || orCollectForm.amount || orCollectForm.remarks || orAmountReceived);
+    if (dirty && !window.confirm("Discard the other-payment details you entered?")) return;
+    setOrCollectModalOpen(false);
+    setOrCollectError(null);
   };
 
   const handlePostOtherPayment = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingOtherPayment) return;
     if (!canCollectOtherPayment) { setOrCollectError("You don't have permission to collect other payments."); return; }
     const student = scopedStudents.find((s) => s.id === orCollectForm.studentId);
     if (!student) { setOrCollectError("Select a student first."); return; }
     const amount = Number(orCollectForm.amount);
     if (!amount || amount <= 0) { setOrCollectError("Enter a valid amount."); return; }
+    if (orCollectForm.paymentMethod === "Cash" && Number(orAmountReceived) < amount) { setOrCollectError("Amount received must cover the collection amount."); return; }
     if (!orCollectForm.category) {
       setOrCollectError(orCollectForm.transactionType === "AR" ? "Select a payment term." : "Select a category.");
       return;
@@ -692,6 +787,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     const orNumber = typedOrNumber || `NO-OR-${Date.now()}`;
     const isAr = orCollectForm.transactionType === "AR";
 
+    setIsSubmittingOtherPayment(true);
     const posted = addPayment({
       studentId: student.id,
       schoolId: student.schoolId,
@@ -705,6 +801,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     });
 
     setOrCollectModalOpen(false);
+    setIsSubmittingOtherPayment(false);
     // Mirror the Payment Queue receipt pattern: compute the post-payment
     // balance locally since the store hasn't re-rendered scopedAssessments yet.
     const matchedAssessment = isAr ? scopedAssessments.find((a) => a.studentId === student.id) : undefined;
@@ -725,8 +822,16 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     setVoucherModalOpen(true);
   };
 
+  const closeVoucherDrawer = () => {
+    const dirty = !!(voucherForm.payeeStudentId || voucherForm.payeeNameExternal || voucherForm.voucherNo || voucherForm.amount || voucherForm.purpose);
+    if (dirty && !window.confirm("Discard the cash-voucher request you entered?")) return;
+    setVoucherModalOpen(false);
+    setVoucherError(null);
+  };
+
   const handleSubmitVoucherRequest = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingVoucher) return;
     if (!canCreateVoucher || !currentUser) { setVoucherError("You don't have permission to request cash vouchers."); return; }
     const voucherNo = voucherForm.voucherNo.trim();
     if (!voucherNo) { setVoucherError("Voucher No. is required."); return; }
@@ -752,6 +857,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     }
     setVoucherError(null);
 
+    setIsSubmittingVoucher(true);
     submitCashVoucherRequest({
       schoolId: activeSchool === "ALL" ? undefined : activeSchool,
       voucherNo,
@@ -765,6 +871,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     });
 
     setVoucherModalOpen(false);
+    setIsSubmittingVoucher(false);
   };
 
   const submitVoucherDecision = () => {
@@ -1063,143 +1170,37 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
         subtitle="Collect payments on approved assessments, issue official receipts, and review collection history."
       />
 
-      {/* ── KPI Summary Strip ─────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <AppKpiCard
-          label="Today's Collections"
-          value={formatMoney(todayTotal)}
-          icon={TrendingUp}
-          tone="success"
-          hint={`${todayPayments.length} transaction${todayPayments.length !== 1 ? "s" : ""} posted`}
-        />
-        <AppKpiCard
-          label="Payment Queue"
-          value={queueRows.length}
-          icon={Receipt}
-          tone="warning"
-          hint="Approved with outstanding balance"
-        />
-        <AppKpiCard
-          label="Receipts Issued Today"
-          value={todayPayments.length}
-          icon={FileText}
-          tone="brand"
-          hint="Official receipts for today"
-        />
-        <AppKpiCard
-          label="Pending Voids"
-          value={pendingVoids.length}
-          icon={Ban}
-          tone={pendingVoids.length > 0 ? "danger" : "neutral"}
-          hint="Awaiting Accounting approval"
-        />
-      </div>
-
-      {/* ── Tab Bar + Search ─────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-        <div className="flex items-stretch border-b border-stone-100">
-          {/* Tabs */}
-          {pageAccessByTab.queue && (
-            <button
-              onClick={() => { setActiveTab("queue"); onSubPageChange?.("queue"); }}
-              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "queue" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-            >
-              <Receipt className="w-4 h-4" />
-              Payment Queue
-              {queueRows.length > 0 && (
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
-                  activeTab === "queue"
-                    ? "bg-stsn-brown/15 text-stsn-brown"
-                    : "bg-amber-100 text-amber-700"
-                }`}>
-                  {queueRows.length}
-                </span>
-              )}
-            </button>
-          )}
-          {pageAccessByTab["other-payments"] && (
-            <button
-              onClick={() => { setActiveTab("other-payments"); onSubPageChange?.("other-payments"); }}
-              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "other-payments" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-            >
-              <FileText className="w-4 h-4" />
-              Other Payments
-            </button>
-          )}
-          {pageAccessByTab.vouchers && (
-            <button
-              onClick={() => { setActiveTab("vouchers"); onSubPageChange?.("vouchers"); }}
-              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "vouchers" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-            >
-              <Banknote className="w-4 h-4" />
-              Cash Vouchers
-              {voucherRows.some((v) => v.status === "Pending Approval") && (
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
-                  activeTab === "vouchers"
-                    ? "bg-stsn-brown/15 text-stsn-brown"
-                    : "bg-amber-100 text-amber-700"
-                }`}>
-                  {voucherRows.filter((v) => v.status === "Pending Approval").length}
-                </span>
-              )}
-            </button>
-          )}
-          {pageAccessByTab.history && (
-            <button
-              onClick={() => { setActiveTab("history"); onSubPageChange?.("history"); }}
-              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "history" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-            >
-              <History className="w-4 h-4" />
-              Collection History
-            </button>
-          )}
-          {pageAccessByTab.reports && (
-            <button
-              onClick={() => { setActiveTab("reports"); onSubPageChange?.("reports"); }}
-              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === "reports" ? "tab-active-gradient" : "text-stone-500 hover:bg-stone-50"}`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              Reports
-            </button>
-          )}
-
-          {/* Search — flush right */}
-          <div className="flex-1 flex items-center justify-end px-3 py-2 gap-2">
-            {activeTab === "history" && (
-              <div className="flex items-center gap-1.5">
-                <CalendarDays className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
-                <input
-                  type="date"
-                  value={historyDateFilter}
-                  onChange={(e) => setHistoryDateFilter(e.target.value)}
-                  className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 px-2 text-xs font-semibold focus:ring-1 focus:ring-stsn-brown focus:outline-none w-36"
-                  title="Filter by date"
-                />
-                {historyDateFilter && (
-                  <button
-                    type="button"
-                    onClick={() => setHistoryDateFilter("")}
-                    className="text-stone-400 hover:text-stone-600 transition cursor-pointer"
-                    title="Clear date filter"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            )}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 w-3.5 h-3.5 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search student…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-stone-50 border border-stone-200 rounded-lg py-1.5 pl-7 pr-3 text-xs focus:ring-1 focus:ring-stsn-brown focus:outline-none font-medium w-44"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <CashieringTabs
+        value={activeTab}
+        access={pageAccessByTab}
+        queueCount={collectibleAssessments.length}
+        pendingVoucherCount={scopedCashVouchers.filter((voucher) => voucher.status === "Pending Approval").length}
+        onChange={(tab) => {
+          setActiveTab(tab);
+          setCollectModalId(null);
+          setOrCollectModalOpen(false);
+          setVoucherModalOpen(false);
+          setSelectedVoucherId(null);
+          setSelectedHistoryPaymentId(null);
+          onSubPageChange?.(tab);
+        }}
+      />
+      <CashieringSummaryStrip
+        queueCount={collectibleAssessments.length}
+        balanceDue={collectibleAssessments.reduce((sum, assessment) => sum + assessment.balance, 0)}
+        transactionsToday={todayPayments.length}
+        collectedToday={todayTotal}
+        formatMoney={formatMoney}
+      />
+      <CashieringToolbar
+        tab={activeTab}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        searchRef={searchInputRef}
+        historyDate={historyDateFilter}
+        onHistoryDateChange={(value) => { setHistoryDateFilter(value); setHistoryQuickFilter("custom"); }}
+        actions={activeTab === "other-payments" && canCollectOtherPayment ? <AppButton type="button" onClick={openOrCollectModal} leftIcon={Plus} size="sm">New Collection</AppButton> : activeTab === "vouchers" ? <><select aria-label="Voucher status" value={voucherStatusFilter} onChange={(event) => setVoucherStatusFilter(event.target.value as CashVoucher["status"] | "All")} className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs font-semibold"><option>All</option><option>Pending Approval</option><option>Approved</option><option>Rejected</option><option>Released</option></select><select aria-label="Voucher category" value={voucherCategoryFilter} onChange={(event) => setVoucherCategoryFilter(event.target.value)} className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs font-semibold"><option>All</option>{cashVoucherCategoryOptions.map((category) => <option key={category}>{category}</option>)}</select>{canCreateVoucher && <AppButton type="button" onClick={openVoucherModal} leftIcon={Plus} size="sm">New Voucher Request</AppButton>}</> : activeTab === "history" ? <>{(["today", "week", "month"] as const).map((value) => <AppButton key={value} type="button" variant={historyQuickFilter === value ? "primary" : "outline"} size="xs" onClick={() => { setHistoryQuickFilter(value); setHistoryDateFilter(""); }}>{value === "today" ? "Today" : value === "week" ? "This Week" : "This Month"}</AppButton>)}<AppButton type="button" variant={historyQuickFilter === "all" ? "primary" : "outline"} size="xs" onClick={() => { setHistoryQuickFilter("all"); setHistoryDateFilter(""); }}>All</AppButton></> : undefined}
+      />
 
       {/* ── PAYMENT QUEUE ─────────────────────────────────── */}
       {!activeTabAccessible && (
@@ -1211,124 +1212,18 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       )}
 
       {activeTabAccessible && activeTab === "queue" && (
-        <div className="space-y-4 animate-fade-in">
-
-          {/* Approved for Payment */}
-          <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-stsn-gold" />
-                <h3 className="text-sm font-display font-bold text-stone-900">Approved for Payment</h3>
-              </div>
-              <p className="text-[10px] text-stone-400 font-mono">{queueRows.length} in queue</p>
-            </div>
-
-            <div className="p-4">
-              {queueRows.length === 0 ? (
-                <EmptyState
-                  icon={Receipt}
-                  title="Payment Queue is Empty"
-                  description="Assessments approved by Accounting and with an outstanding balance will appear here."
-                  compact
-                />
-              ) : (
-                <div className="space-y-3">
-                  {paginatedQueueRows.map(({ assessment, student }) => {
-                    const books = getBookPackageInfo(assessment, scopedBookPackages);
-                    const netPayable = Math.max(0, assessment.totalAmount - assessment.discountAmount);
-                    return (
-                      <div
-                        key={assessment.id}
-                        className="border border-stone-200 rounded-xl overflow-hidden flex flex-col sm:flex-row"
-                      >
-                        {/* Left — student + assessment info */}
-                        <div className="flex-1 p-4 bg-stone-50/60">
-                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                            <AppStatusBadge status={ASSESSMENT_APPROVAL_STATUS_CONFIG["Approved for Payment"].label} />
-                            {books && (
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border text-purple-700 bg-purple-50 border-purple-200 flex items-center gap-1">
-                                <Package className="w-3 h-3" /> {books.packageName}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm font-bold text-stone-900 leading-tight">
-                            {student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}
-                          </p>
-                          <p className="text-[10px] font-mono text-stone-400 mt-0.5">{student?.studentNo}</p>
-                          <p className="text-[10px] text-stone-500 mt-1.5">{getAcademicLine(student, academicUnit)} • {assessment.schoolYear}</p>
-                          <p className="text-[10px] text-stone-500">Payment Term: <span className="font-semibold">{assessment.paymentTerm}</span></p>
-                          <div className="mt-2 flex items-center gap-3">
-                            <div>
-                              <p className="text-[9px] uppercase font-mono text-stone-400">Net Payable</p>
-                              <p className="text-xs font-mono font-bold text-stone-700">₱{netPayable.toLocaleString()}</p>
-                            </div>
-                            {assessment.discountAmount > 0 && (
-                              <div>
-                                <p className="text-[9px] uppercase font-mono text-stone-400">Discount</p>
-                                <p className="text-xs font-mono font-bold text-emerald-600">−₱{assessment.discountAmount.toLocaleString()}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Right — balance + action */}
-                        <div className="sm:w-44 flex flex-col items-center justify-center p-4 bg-emerald-50 border-t sm:border-t-0 sm:border-l border-emerald-200 gap-3">
-                          <div className="text-center">
-                            <p className="text-[9px] uppercase font-mono font-bold text-emerald-600 tracking-wider">Balance Due</p>
-                            <p className="text-2xl font-display font-black text-emerald-700 leading-tight mt-0.5">
-                              ₱{assessment.balance.toLocaleString()}
-                            </p>
-                          </div>
-                          {canCollectPayment && (
-                            <AppButton type="button" onClick={() => openCollect(assessment.id)} leftIcon={Banknote} variant="primary" size="sm" fullWidth>
-                              Collect Payment
-                            </AppButton>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <CardPagination page={approvedPage} totalRecords={queueRows.length} pageSize={rowsPerPage} onPageChange={setApprovedPage} />
-            </div>
-          </div>
-
-          {/* Awaiting Accounting — read-only context */}
-          {awaitingRows.length > 0 && (
-            <div className="bg-white rounded-xl border border-stsn-beige shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-stone-100 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-stone-400" />
-                <h3 className="text-sm font-display font-bold text-stone-900">Awaiting Accounting Approval</h3>
-                <p className="text-[10px] text-stone-400 font-mono ml-auto">{awaitingRows.length} pending</p>
-              </div>
-              <div className="p-4">
-                <p className="text-xs text-stone-500 mb-3">
-                  These assessments have not yet been approved for payment and cannot be collected at the cashier window.
-                </p>
-                <div className="space-y-2">
-                  {paginatedAwaitingRows.map(({ assessment, student }) => {
-                    const status = assessment.approvalStatus || DEFAULT_ASSESSMENT_APPROVAL_STATUS;
-                    const cfg = ASSESSMENT_APPROVAL_STATUS_CONFIG[status];
-                    return (
-                      <div key={assessment.id} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg p-3 opacity-80">
-                        <div>
-                          <p className="text-xs font-bold text-stone-700">{student ? `${student.lastName}, ${student.firstName}` : "Unknown Student"}</p>
-                          <p className="text-[10px] font-mono text-stone-400">{student?.studentNo} • {getAcademicLine(student, academicUnit)}</p>
-                        </div>
-                        <div className="text-right">
-                          <AppStatusBadge status={cfg.label} />
-                          <p className="text-[10px] text-stone-400 mt-1 font-mono">₱{assessment.balance.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <CardPagination page={pendingPage} totalRecords={awaitingRows.length} pageSize={rowsPerPage} onPageChange={setPendingPage} />
-              </div>
-            </div>
-          )}
-        </div>
+        <PaymentQueueView
+          rows={queueRows}
+          awaitingRows={awaitingRows}
+          selectedId={selectedAssessmentId}
+          academicUnit={academicUnit}
+          bookPackages={scopedBookPackages}
+          canCollect={canCollectPayment}
+          onSelect={setSelectedAssessmentId}
+          onCollect={openCollect}
+          formatMoney={formatMoney}
+          getAcademicLine={getAcademicLine}
+        />
       )}
 
       {/* ── OTHER PAYMENTS (OR) ───────────────────────────────── */}
@@ -1340,11 +1235,6 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               <h3 className="text-sm font-display font-bold text-stone-900">Other Payments</h3>
               <p className="text-[10px] text-stone-400 font-mono">{orPaymentRows.length} records</p>
             </div>
-            {canCollectOtherPayment && (
-              <AppButton type="button" onClick={openOrCollectModal} leftIcon={Plus} variant="primary" size="sm">
-                New Collection
-              </AppButton>
-            )}
           </div>
           <div className="p-4">
             <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 flex items-start gap-2">
@@ -1382,11 +1272,6 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               <h3 className="text-sm font-display font-bold text-stone-900">Cash Vouchers</h3>
               <p className="text-[10px] text-stone-400 font-mono">{voucherRows.length} records</p>
             </div>
-            {canCreateVoucher && (
-              <AppButton type="button" onClick={openVoucherModal} leftIcon={Plus} variant="primary" size="sm">
-                New Voucher Request
-              </AppButton>
-            )}
           </div>
           <div className="p-4">
             <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 flex items-start gap-2">
@@ -1404,6 +1289,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               <AppTable<CashVoucher>
                 columns={voucherColumns}
                 data={voucherRows}
+                onRowClick={(voucher) => setSelectedVoucherId(voucher.id)}
                 emptyMessage="No cash vouchers recorded yet."
                 initialPageSize={10}
                 pageSizeOptions={[10]}
@@ -1431,6 +1317,14 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
             )}
           </div>
           <div className="p-4">
+            <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+              {[
+                ["Total collected", filteredHistoryRows.reduce((sum, row) => sum + row.payment.amount, 0)],
+                ["Cash total", filteredHistoryRows.filter((row) => row.payment.paymentMethod === "Cash").reduce((sum, row) => sum + row.payment.amount, 0)],
+                ["Non-cash total", filteredHistoryRows.filter((row) => row.payment.paymentMethod !== "Cash").reduce((sum, row) => sum + row.payment.amount, 0)],
+                ["Transactions", filteredHistoryRows.length],
+              ].map(([label, value]) => <div key={String(label)} className="rounded-lg border border-stone-200 bg-stone-50 p-2.5"><p className="text-[9px] font-bold uppercase text-stone-400">{label}</p><p className="mt-1 font-mono text-sm font-black text-stone-900">{label === "Transactions" ? value : formatMoney(Number(value))}</p></div>)}
+            </div>
             {historyDateFilter && filteredHistoryRows.length === 0 ? (
               <EmptyState
                 icon={CalendarDays}
@@ -1442,6 +1336,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               <AppTable<CashierHistoryRow>
                 columns={historyColumns}
                 data={filteredHistoryRows}
+                onRowClick={(row) => setSelectedHistoryPaymentId(row.payment.id)}
                 emptyMessage="No payments recorded yet."
                 initialPageSize={10}
                 pageSizeOptions={[10]}
@@ -1536,24 +1431,43 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       )}
 
       {/* ── COLLECT PAYMENT MODAL ─────────────────────────── */}
-      {collectRow && (
-        <AppModal
+      {(collectRow || paymentSuccess) && (
+        <CashierDrawerShell
           open={true}
-          onClose={() => setCollectModalId(null)}
-          title="Collect Payment"
-          eyebrow="Cashier Window"
-          icon={Banknote}
+          onClose={closePaymentDrawer}
+          closeOnEscape={!isSubmittingPayment}
+          title={paymentSuccess ? "Payment Posted" : "Collect Payment"}
+          subtitle="Cashier Window"
           panelAs="form"
           onSubmit={handlePostPayment}
-          maxWidthClass="max-w-lg"
           footer={
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setCollectModalId(null)} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
-              <button type="submit" className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition"><CheckCircle className="w-3.5 h-3.5" /> Post Payment</button>
+              {paymentSuccess ? (
+                <>
+                  <AppButton type="button" variant="outline" size="sm" onClick={() => setReceipt({ payment: paymentSuccess.payment, student: paymentSuccess.student, assessment: paymentSuccess.assessment })} leftIcon={Printer}>Preview Receipt</AppButton>
+                  <AppButton type="button" variant="outline" size="sm" onClick={() => { const next = queueRows.find((row) => row.assessment.id !== paymentSuccess.previousAssessmentId); setPaymentSuccess(null); if (next) { setSelectedAssessmentId(next.assessment.id); openCollect(next.assessment.id); } else { setCollectModalId(null); } }}>Process Next Student</AppButton>
+                  <AppButton type="button" size="sm" onClick={closePaymentDrawer}>Close</AppButton>
+                </>
+              ) : (
+                <>
+                  <AppButton type="button" variant="outline" size="sm" onClick={closePaymentDrawer}>Cancel</AppButton>
+                  <AppButton type="submit" size="sm" loading={isSubmittingPayment} disabled={!collectRow || !paymentForm.orNumber.trim() || Number(paymentForm.amount) <= 0 || (paymentForm.paymentMethod === "Cash" && Number(amountReceived) < Number(paymentForm.amount))} leftIcon={CheckCircle}>Collect {formatMoney(Number(paymentForm.amount) || 0)}</AppButton>
+                </>
+              )}
             </div>
           }
         >
-          <div className="space-y-4 text-xs">
+          {paymentSuccess ? (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+              <CheckCircle className="h-12 w-12 text-emerald-600" />
+              <h3 className="mt-3 text-lg font-black text-emerald-900">Payment successfully posted</h3>
+              <dl className="mt-5 w-full max-w-sm space-y-2 rounded-xl bg-white p-4 text-sm shadow-sm">
+                <div className="flex justify-between"><dt className="text-stone-500">Official receipt</dt><dd className="font-mono font-bold">{paymentSuccess.payment.orNumber}</dd></div>
+                <div className="flex justify-between"><dt className="text-stone-500">Amount paid</dt><dd className="font-mono font-bold text-emerald-700">{formatMoney(paymentSuccess.payment.amount)}</dd></div>
+                <div className="flex justify-between border-t border-stone-100 pt-2"><dt className="text-stone-500">Remaining balance</dt><dd className="font-mono font-black">{formatMoney(paymentSuccess.remainingBalance)}</dd></div>
+              </dl>
+            </div>
+          ) : collectRow ? <div className="space-y-4 text-xs">
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-blue-700">
               <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
               <span>Fees, discounts, books, and approval status are read-only and were set by Accounting. Cashier may only record a payment.</span>
@@ -1659,10 +1573,29 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               <input
                 type="number" min="1" step="0.01" required
                 value={paymentForm.amount}
-                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                onChange={(e) => { setPaymentForm({ ...paymentForm, amount: e.target.value }); setOverpaymentConfirmed(false); setOrError(null); }}
                 className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
               />
+              {Number(paymentForm.amount) > collectRow.assessment.balance && (
+                <label className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[10px] text-amber-800">
+                  <input type="checkbox" checked={overpaymentConfirmed} onChange={(event) => { setOverpaymentConfirmed(event.target.checked); setOrError(null); }} className="mt-0.5" />
+                  Confirm collection above the current balance of {formatMoney(collectRow.assessment.balance)}. The store's existing balance rule will still apply.
+                </label>
+              )}
+              {Number(paymentForm.amount) > 0 && Number(paymentForm.amount) < collectRow.assessment.balance && <p className="mt-1 text-[10px] font-semibold text-amber-700">Partial payment: {formatMoney(collectRow.assessment.balance - Number(paymentForm.amount))} will remain.</p>}
             </div>
+            {paymentForm.paymentMethod === "Cash" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Amount Received</label>
+                  <input type="number" min="0" step="0.01" value={amountReceived} onChange={(event) => { setAmountReceived(event.target.value); setOrError(null); }} className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold" />
+                </div>
+                <div className="rounded-lg bg-stone-50 p-3">
+                  <p className="text-[9px] font-bold uppercase text-stone-400">Calculated Change</p>
+                  <p className="mt-1 font-mono text-sm font-black text-stone-900">{formatMoney(Math.max(0, Number(amountReceived) - Number(paymentForm.amount)))}</p>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Payment Method</label>
@@ -1695,8 +1628,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
               />
             </div>
-          </div>
-        </AppModal>
+          </div> : null}
+        </CashierDrawerShell>
       )}
 
       {/* ── VOID REQUEST MODAL ──────────────────────────────── */}
@@ -1822,19 +1755,18 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
       {/* ── OTHER PAYMENT (AR/OR) COLLECTION MODAL ──────────── */}
       {orCollectModalOpen && (
-        <AppModal
+        <CashierDrawerShell
           open={true}
-          onClose={() => setOrCollectModalOpen(false)}
+          onClose={closeOtherPaymentDrawer}
+          closeOnEscape={!isSubmittingOtherPayment}
           title={orCollectForm.transactionType === "AR" ? "Collect Payment (AR)" : "Collect Other Payment (OR)"}
-          eyebrow={orCollectForm.transactionType === "AR" ? "Applied to Balance" : "Standalone OR"}
-          icon={FileText}
+          subtitle={orCollectForm.transactionType === "AR" ? "Applied to Balance" : "Standalone OR"}
           panelAs="form"
           onSubmit={handlePostOtherPayment}
-          maxWidthClass="max-w-lg"
           footer={
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setOrCollectModalOpen(false)} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
-              <button type="submit" className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition"><CheckCircle className="w-3.5 h-3.5" /> Post Payment</button>
+              <AppButton type="button" variant="outline" size="sm" onClick={closeOtherPaymentDrawer}>Cancel</AppButton>
+              <AppButton type="submit" size="sm" loading={isSubmittingOtherPayment} disabled={Number(orCollectForm.amount) <= 0 || !orCollectForm.studentId || (orCollectForm.paymentMethod === "Cash" && Number(orAmountReceived) < Number(orCollectForm.amount))} leftIcon={CheckCircle}>Collect {formatMoney(Number(orCollectForm.amount) || 0)}</AppButton>
             </div>
           }
         >
@@ -1967,6 +1899,16 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               </div>
             </div>
 
+            {orCollectForm.paymentMethod === "Cash" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Amount Received</label>
+                  <input type="number" min="0" step="0.01" value={orAmountReceived} onChange={(event) => { setOrAmountReceived(event.target.value); setOrCollectError(null); }} className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold" />
+                </div>
+                <div className="rounded-lg bg-stone-50 p-3"><p className="text-[9px] font-bold uppercase text-stone-400">Calculated Change</p><p className="mt-1 font-mono text-sm font-black">{formatMoney(Math.max(0, Number(orAmountReceived) - Number(orCollectForm.amount)))}</p></div>
+              </div>
+            )}
+
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Remarks (optional)</label>
               <input
@@ -1978,24 +1920,46 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               />
             </div>
           </div>
-        </AppModal>
+        </CashierDrawerShell>
+      )}
+
+      {selectedHistoryRow && (
+        <CashierDrawerShell
+          open={true}
+          onClose={() => setSelectedHistoryPaymentId(null)}
+          title={`Receipt ${selectedHistoryRow.payment.orNumber}`}
+          subtitle="Transaction detail"
+          footer={<div className="flex flex-wrap justify-end gap-2"><AppButton type="button" variant="outline" size="sm" leftIcon={Printer} onClick={() => reprintReceipt(selectedHistoryRow)}>Preview Receipt</AppButton>{canVoidPayment && !voidRequests.some((request) => request.paymentId === selectedHistoryRow.payment.id) && <AppButton type="button" variant="danger-outline" size="sm" leftIcon={Ban} onClick={() => { setSelectedHistoryPaymentId(null); setVoidModalPaymentId(selectedHistoryRow.payment.id); }}>Submit Void Request</AppButton>}<AppButton type="button" size="sm" onClick={() => setSelectedHistoryPaymentId(null)}>Close</AppButton></div>}
+        >
+          <div className="space-y-4 text-xs">
+            <div className="rounded-xl border border-stone-200 bg-white p-4"><div className="flex justify-between gap-3"><div><p className="text-[9px] font-bold uppercase text-stone-400">Official receipt</p><p className="font-mono text-lg font-black text-stsn-brown">{selectedHistoryRow.payment.orNumber}</p></div><div className="text-right"><p className="text-[9px] font-bold uppercase text-stone-400">Amount paid</p><p className="font-mono text-lg font-black text-emerald-700">{formatMoney(selectedHistoryRow.payment.amount)}</p></div></div><dl className="mt-4 grid grid-cols-2 gap-3 border-t border-stone-100 pt-3"><div><dt className="text-[9px] uppercase text-stone-400">Date/time</dt><dd className="font-semibold">{selectedHistoryRow.payment.paymentDate}</dd></div><div><dt className="text-[9px] uppercase text-stone-400">Cashier</dt><dd className="font-semibold">{getCashierName(selectedHistoryRow.payment)}</dd></div><div><dt className="text-[9px] uppercase text-stone-400">Method</dt><dd className="font-semibold">{selectedHistoryRow.payment.paymentMethod}</dd></div><div><dt className="text-[9px] uppercase text-stone-400">Type/category</dt><dd className="font-semibold">{selectedHistoryRow.payment.transactionType ?? "AR"} • {selectedHistoryRow.payment.paymentCategory || selectedHistoryRow.payment.term}</dd></div></dl></div>
+            <div className="rounded-xl border border-stone-200 bg-white p-4"><p className="font-bold text-stone-900">{selectedHistoryRow.student ? `${selectedHistoryRow.student.lastName}, ${selectedHistoryRow.student.firstName}` : "Unknown Student"}</p><p className="font-mono text-[10px] text-stone-500">{selectedHistoryRow.student?.studentNo || "—"}</p><p className="mt-1 text-[10px] text-stone-500">{getAcademicLine(selectedHistoryRow.student, academicUnit)}</p>{selectedHistoryRow.assessment && <p className="mt-3 border-t border-stone-100 pt-3">Linked assessment balance: <strong className="font-mono">{formatMoney(selectedHistoryRow.assessment.balance)}</strong></p>}</div>
+            {selectedHistoryRow.payment.remarks && <div className="rounded-xl border border-stone-200 bg-white p-4"><p className="text-[9px] font-bold uppercase text-stone-400">Remarks / reference</p><p className="mt-1 text-stone-700">{selectedHistoryRow.payment.remarks}</p></div>}
+            {voidRequests.filter((request) => request.paymentId === selectedHistoryRow.payment.id).map((request) => <div key={request.id} className="rounded-xl border border-amber-200 bg-amber-50 p-4"><div className="flex items-center justify-between"><p className="font-bold text-amber-900">Void request</p><AppStatusBadge status={request.status} /></div><p className="mt-2 text-amber-800">{request.reason}</p><p className="mt-2 text-[10px] text-amber-700">Requested by {request.requestedBy} • {request.requestedAt}</p>{request.reviewedBy && <p className="mt-1 text-[10px] text-amber-700">Reviewed by {request.reviewedBy} • {request.reviewedAt}{request.reviewRemarks ? ` — ${request.reviewRemarks}` : ""}</p>}</div>)}
+          </div>
+        </CashierDrawerShell>
+      )}
+
+      {selectedVoucher && (
+        <CashierDrawerShell open={true} onClose={() => setSelectedVoucherId(null)} title={selectedVoucher.voucherNo} subtitle="Cash voucher detail" footer={<div className="flex flex-wrap justify-end gap-2"><AppButton type="button" variant="outline" size="sm" leftIcon={Printer} onClick={() => setVoucherPreview(selectedVoucher)}>Preview Voucher</AppButton>{selectedVoucher.status === "Pending Approval" && canApproveVoucher && <AppButton type="button" size="sm" onClick={() => { setSelectedVoucherId(null); setVoucherDecision({ id: selectedVoucher.id, action: "approve" }); }}>Approve</AppButton>}{selectedVoucher.status === "Pending Approval" && canRejectVoucher && <AppButton type="button" variant="danger-outline" size="sm" onClick={() => { setSelectedVoucherId(null); setVoucherDecision({ id: selectedVoucher.id, action: "reject" }); }}>Reject</AppButton>}{selectedVoucher.status === "Approved" && canReleaseVoucher && <AppButton type="button" size="sm" onClick={() => { handleReleaseVoucher(selectedVoucher.id); setSelectedVoucherId(null); }}>Release Cash</AppButton>}<AppButton type="button" variant="outline" size="sm" onClick={() => setSelectedVoucherId(null)}>Close</AppButton></div>}>
+          <div className="space-y-4 text-xs"><div className="rounded-xl border border-stone-200 bg-white p-4"><div className="flex justify-between gap-3"><div><p className="text-[9px] uppercase text-stone-400">Payee</p><p className="text-sm font-black text-stone-900">{selectedVoucher.payeeName}</p><p className="text-[10px] text-stone-500">{selectedVoucher.payeeType}{selectedVoucher.payeeStudentId ? ` • ${scopedStudents.find((student) => student.id === selectedVoucher.payeeStudentId)?.studentNo ?? ""}` : ""}</p></div><div className="text-right"><AppStatusBadge status={selectedVoucher.status} /><p className="mt-2 font-mono text-lg font-black">{formatMoney(selectedVoucher.amount)}</p></div></div><dl className="mt-4 space-y-2 border-t border-stone-100 pt-3"><div><dt className="text-[9px] uppercase text-stone-400">Category</dt><dd className="font-semibold">{selectedVoucher.category}</dd></div><div><dt className="text-[9px] uppercase text-stone-400">Purpose</dt><dd>{selectedVoucher.purpose}</dd></div></dl></div><div className="rounded-xl border border-stone-200 bg-white p-4"><h4 className="font-bold text-stone-900">Status timeline</h4><ol className="mt-3 space-y-3 border-l-2 border-stsn-beige pl-4"><li><p className="font-bold">Requested</p><p className="text-[10px] text-stone-500">{selectedVoucher.requestedBy} • {selectedVoucher.requestedAt}</p></li>{selectedVoucher.approvedAt && <li><p className="font-bold">Approved</p><p className="text-[10px] text-stone-500">{selectedVoucher.approvedBy} • {selectedVoucher.approvedAt}</p></li>}{selectedVoucher.status === "Rejected" && <li><p className="font-bold text-red-700">Rejected</p><p className="text-[10px] text-stone-500">{selectedVoucher.reviewRemarks || "No review remarks"}</p></li>}{selectedVoucher.releasedAt && <li><p className="font-bold text-emerald-700">Released</p><p className="text-[10px] text-stone-500">{selectedVoucher.releasedBy} • {selectedVoucher.releasedAt}{selectedVoucher.referenceNo ? ` • ${selectedVoucher.referenceNo}` : ""}</p></li>}</ol></div></div>
+        </CashierDrawerShell>
       )}
 
       {/* ── CASH VOUCHER REQUEST MODAL ──────────────────────── */}
       {voucherModalOpen && (
-        <AppModal
+        <CashierDrawerShell
           open={true}
-          onClose={() => setVoucherModalOpen(false)}
+          onClose={closeVoucherDrawer}
+          closeOnEscape={!isSubmittingVoucher}
           title="Request Cash Voucher"
-          eyebrow="Cash Release"
-          icon={Banknote}
+          subtitle="Cash Release"
           panelAs="form"
           onSubmit={handleSubmitVoucherRequest}
-          maxWidthClass="max-w-lg"
           footer={
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setVoucherModalOpen(false)} className="text-xs font-bold px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 cursor-pointer transition">Cancel</button>
-              <button type="submit" className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-stsn-brown hover:bg-stsn-brown/90 text-white cursor-pointer transition"><Send className="w-3.5 h-3.5" /> Submit Request</button>
+              <AppButton type="button" variant="outline" size="sm" onClick={closeVoucherDrawer}>Cancel</AppButton>
+              <AppButton type="submit" size="sm" loading={isSubmittingVoucher} leftIcon={Send}>Submit Request</AppButton>
             </div>
           }
         >
@@ -2133,7 +2097,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               />
             </div>
           </div>
-        </AppModal>
+        </CashierDrawerShell>
       )}
 
       {/* ── CASH VOUCHER DECISION MODAL (Approve / Reject) ──── */}

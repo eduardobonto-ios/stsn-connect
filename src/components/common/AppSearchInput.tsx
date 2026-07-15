@@ -24,7 +24,7 @@ export interface AppSearchInputProps
   uiSize?: "sm" | "md";
 }
 
-export default function AppSearchInput({
+const AppSearchInput = React.forwardRef<HTMLInputElement, AppSearchInputProps>(function AppSearchInput({
   onClear,
   variant = "default",
   wrapperClassName = "",
@@ -32,7 +32,7 @@ export default function AppSearchInput({
   className = "",
   value,
   ...props
-}: AppSearchInputProps) {
+}, ref) {
   const toneClasses =
     variant === "college"
       ? "focus:border-blue-500 focus:ring-blue-500/15"
@@ -48,6 +48,7 @@ export default function AppSearchInput({
     <div className={`relative flex-1 ${wrapperClassName}`}>
       <Search className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 ${iconSize}`} />
       <input
+        ref={ref}
         {...props}
         value={value}
         className={[
@@ -74,4 +75,6 @@ export default function AppSearchInput({
       )}
     </div>
   );
-}
+});
+
+export default AppSearchInput;
