@@ -73,7 +73,7 @@ export default function AccountsManagement({
   subPage = "user-security",
   onSubPageChange,
 }: AccountsManagementProps) {
-  const { users, toggleUserStatus, addUser } = useSTSNStore();
+  const { users, toggleUserStatus } = useSTSNStore();
   const { toast, confirm } = useAppDialog();
   const { canPage, hasPageAccess } = usePermissions();
   const canProvision = canPage("ACCOUNTS_SECURITY", "user-security", "create");
@@ -110,10 +110,15 @@ export default function AccountsManagement({
     );
     if (!ok) return;
 
-    toggleUserStatus(user.id);
-    toast(`Access ${action === "block" ? "blocked" : "granted"} for ${user.email}`, {
-      variant: action === "block" ? "warning" : "success",
-    });
+    try {
+      await toggleUserStatus(user.id);
+      toast(`Access ${action === "block" ? "blocked" : "granted"} for ${user.email}`, {
+        variant: action === "block" ? "warning" : "success",
+      });
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "User access could not be updated.", { variant: "danger" });
+      return;
+    }
 
     if (selectedUser?.id === user.id) {
       setSelectedUser((previous) => (previous ? { ...previous, isActive: !previous.isActive } : null));
@@ -125,14 +130,10 @@ export default function AccountsManagement({
     if (!email || !name) return;
 
     setIsSaving(true);
-    addUser({
-      id: `user-${Math.random().toString(36).substring(2, 9)}`,
-      name,
-      email,
-      role,
-      isActive: true,
-    });
-    toast(`Credentials provisioned for ${name}`, { variant: "success" });
+    toast(
+      "Interactive provisioning is disabled. Use the approved Supabase Auth invitation workflow.",
+      { variant: "warning" },
+    );
     setIsFormOpen(false);
     setEmail("");
     setName("");
@@ -231,9 +232,9 @@ export default function AccountsManagement({
                 <p className="mt-1 text-lg font-semibold text-white">{users.length}</p>
               </div>
               {canProvision && (
-                <AppButton onClick={() => setIsFormOpen(true)} leftIcon={Award}>
-                  Provision New Authority
-                </AppButton>
+                <span className="text-xs text-stone-500">
+                  New accounts are provisioned through the secured Supabase invitation workflow.
+                </span>
               )}
             </div>
           ) : undefined
@@ -316,7 +317,7 @@ export default function AccountsManagement({
               Cancel
             </AppButton>
             <AppButton type="submit" loading={isSaving} disabled={!email || !name} size="sm">
-              Provision User
+              Create Profile
             </AppButton>
           </div>
         }
@@ -333,7 +334,7 @@ export default function AccountsManagement({
         </AppFormField>
         <AppFormField
           label="Academic Email Address *"
-          hint='Default password will be "password123" - instruct user to change immediately.'
+          hint="Creates the application profile. Send the Supabase Auth invitation through the approved provisioning process."
         >
           <AppInput
             type="email"

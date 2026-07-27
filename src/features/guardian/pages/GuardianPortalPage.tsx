@@ -65,6 +65,9 @@ export default function GuardianPortalPage() {
     students,
     assessments,
     payments,
+    studentInvoices,
+    studentReceipts,
+    receiptAllocations,
     grades,
     announcements,
     requirements,
@@ -142,10 +145,47 @@ export default function GuardianPortalPage() {
 
   const selectedStudent = linkedStudents.find((student) => student.id === selectedStudentId) ?? linkedStudents[0];
   const selectedStudentAssessments = assessments.filter((assessment) => assessment.studentId === selectedStudent.id);
-  const latestAssessment = selectedStudentAssessments[selectedStudentAssessments.length - 1];
-  const selectedStudentPayments = payments
+  const latestEnrollment = [...enrollments]
+    .filter((enrollment) =>
+      enrollment.studentId === selectedStudent.id &&
+      !["Rejected", "Cancelled", "Withdrawn"].includes(enrollment.status)
+    )
+    .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt))[0];
+  const linkedAssessment = latestEnrollment?.assessmentId
+    ? selectedStudentAssessments.find((assessment) => assessment.id === latestEnrollment.assessmentId)
+    : undefined;
+  const latestAssessment = linkedAssessment
+    ?? [...selectedStudentAssessments].sort((left, right) =>
+        right.schoolYear.localeCompare(left.schoolYear) ||
+        (right.semester ?? "").localeCompare(left.semester ?? "")
+      )[0];
+  const selectedStudentPaymentHistory = payments
     .filter((payment) => payment.studentId === selectedStudent.id)
     .sort((left, right) => right.paymentDate.localeCompare(left.paymentDate));
+  const selectedStudentPayments = selectedStudentPaymentHistory
+    .filter((payment) => payment.status !== "Voided");
+  const latestInvoice = latestAssessment
+    ? studentInvoices.find((invoice) => invoice.assessmentId === latestAssessment.id)
+    : undefined;
+  const latestAssessmentPayments = latestInvoice
+      ? receiptAllocations.filter((allocation) =>
+        allocation.invoiceId === latestInvoice.id &&
+        (allocation.effectiveAmount ?? allocation.amount) > 0 &&
+        studentReceipts.some((receipt) =>
+          receipt.id === allocation.receiptId && receipt.status === "Posted"
+        )
+      )
+    : latestAssessment
+      ? selectedStudentPayments.filter((payment) =>
+          payment.transactionType !== "OR" &&
+          payment.assessmentId === latestAssessment.id
+        )
+      : [];
+  const assessmentPaymentCount = latestInvoice
+    ? new Set(latestAssessmentPayments.map((payment) => (
+        "receiptId" in payment ? payment.receiptId : payment.id
+      ))).size
+    : latestAssessmentPayments.length;
   const selectedStudentGrades = grades.filter((grade) => grade.studentId === selectedStudent.id);
   const finalizedGrades = selectedStudentGrades.filter((grade) => grade.finalGrade !== null);
   const selectedStudentRequirements = requirements
@@ -202,7 +242,12 @@ export default function GuardianPortalPage() {
     : "—";
   const passedCount = finalizedGrades.filter((grade) => (grade.finalGrade ?? 0) >= 75).length;
   const incompleteCount = Math.max(selectedStudentGrades.length - finalizedGrades.length, 0);
-  const totalPaid = selectedStudentPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const totalPaid = latestAssessmentPayments.reduce(
+    (sum, payment) => sum + ("effectiveAmount" in payment
+      ? (payment.effectiveAmount ?? payment.amount)
+      : payment.amount),
+    0,
+  );
   const pendingRequirements = selectedStudentRequirements.filter(
     (requirement) =>
       requirement.status === "Pending" ||
@@ -274,15 +319,24 @@ export default function GuardianPortalPage() {
 
   const paymentRows = useMemo<ParentPaymentRow[]>(
     () =>
-      selectedStudentPayments.map((payment) => ({
-        id: payment.id,
-        orNumber: payment.orNumber,
-        paymentDate: payment.paymentDate,
-        term: payment.term,
-        paymentMethod: payment.paymentMethod,
-        amount: payment.amount,
-      })),
-    [selectedStudentPayments],
+      selectedStudentPaymentHistory.map((payment) => {
+        const wasReallocated = receiptAllocations.some(
+          (allocation) => allocation.receiptId === payment.id
+            && (allocation.source === "Reallocation" || (allocation.reversedAmount ?? 0) > 0),
+        );
+        return {
+          id: payment.id,
+          orNumber: payment.orNumber,
+          paymentDate: payment.paymentDate,
+          term: payment.term,
+          paymentMethod: payment.paymentMethod,
+          amount: payment.amount,
+          status: payment.status === "Voided"
+            ? "Voided" as const
+            : wasReallocated ? "Reallocated" as const : "Posted" as const,
+        };
+      }),
+    [receiptAllocations, selectedStudentPaymentHistory],
   );
 
   const documentRows = useMemo<ParentDocumentRow[]>(
@@ -355,10 +409,16 @@ export default function GuardianPortalPage() {
         enableSorting: false,
       },
       {
+        accessorKey: "status",
+        header: "Audit Status",
+        cell: ({ row }) => <AppStatusBadge status={row.original.status} />,
+        enableSorting: false,
+      },
+      {
         accessorKey: "amount",
         header: "Amount",
         cell: ({ row }) => (
-          <span className="font-mono font-bold text-emerald-700">
+          <span className={`font-mono font-bold ${row.original.status === "Voided" ? "text-red-700 line-through" : "text-emerald-700"}`}>
             {formatCurrency(row.original.amount)}
           </span>
         ),
@@ -538,7 +598,7 @@ export default function GuardianPortalPage() {
             <BillingSnapshotCard
               latestAssessment={latestAssessment}
               totalPaid={totalPaid}
-              paymentCount={selectedStudentPayments.length}
+              paymentCount={assessmentPaymentCount}
               activeHoldCount={activeHolds.length}
             />
             <ParentAnnouncementsCard announcements={activeAnnouncements} />
@@ -584,7 +644,7 @@ export default function GuardianPortalPage() {
           <BillingSnapshotCard
             latestAssessment={latestAssessment}
             totalPaid={totalPaid}
-            paymentCount={selectedStudentPayments.length}
+            paymentCount={assessmentPaymentCount}
             activeHoldCount={activeHolds.length}
           />
           <AppTable<ParentPaymentRow>

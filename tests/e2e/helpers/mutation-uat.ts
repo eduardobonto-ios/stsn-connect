@@ -21,7 +21,7 @@ import { ensureLoggedOut } from "./auth";
 export const FACULTY_EMAIL =
   process.env.PLAYWRIGHT_TEST_USER_EMAIL ?? process.env.E2E_TEACHER_EMAIL ?? "teacher@stsn.edu.ph";
 const FACULTY_PASSWORD =
-  process.env.PLAYWRIGHT_TEST_USER_PASSWORD ?? process.env.E2E_PASSWORD ?? "password123";
+  process.env.PLAYWRIGHT_TEST_USER_PASSWORD ?? process.env.E2E_PASSWORD ?? "";
 
 /**
  * Target environments we consider safe to mutate. The runner must set

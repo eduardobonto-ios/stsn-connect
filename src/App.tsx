@@ -92,6 +92,8 @@ export default function App() {
     isLoading,
     initialize,
     effectivePermissions,
+    financeWritesEnabled,
+    financeRealtimeStatus,
   } = useSTSNStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -947,6 +949,25 @@ export default function App() {
         />
         <div className="app-shell-alert-slot">
           <UrgentAnnouncementBanner />
+          {!financeWritesEnabled &&
+            ["ACCOUNTING", "CASHIER", "REGISTRAR"].includes(activeModule) && (
+              <div
+                role="status"
+                className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-900"
+              >
+                Student finance maintenance is active. Records remain available for review,
+                but posting is disabled until reconciliation and smoke-test gates are cleared.
+              </div>
+            )}
+          {financeRealtimeStatus === "reconnecting" &&
+            ["ACCOUNTING", "CASHIER", "REGISTRAR"].includes(activeModule) && (
+              <div
+                role="alert"
+                className="border-b border-red-200 bg-red-50 px-4 py-2 text-center text-xs font-semibold text-red-800"
+              >
+                Live finance synchronization is reconnecting. Refresh before posting if this message persists.
+              </div>
+            )}
         </div>
 
         {/* MAIN CONTENT */}

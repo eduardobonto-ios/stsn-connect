@@ -88,6 +88,7 @@ export interface SetupItemsUpdate {
 
 export interface UsersRow {
   id: string;
+  auth_user_id: string | null;
   legacy_id: string | null;
   school_id: string | null;
   email: string;
@@ -101,6 +102,7 @@ export interface UsersRow {
 }
 export interface UsersInsert {
   id?: string;
+  auth_user_id?: string | null;
   legacy_id?: string | null;
   school_id?: string | null;
   email: string;
@@ -114,6 +116,7 @@ export interface UsersInsert {
 }
 export interface UsersUpdate {
   id?: string;
+  auth_user_id?: string | null;
   legacy_id?: string | null;
   school_id?: string | null;
   email?: string;
@@ -1057,6 +1060,8 @@ export interface AssessmentsRow {
   accounting_remarks: string | null;
   approved_by: string | null;
   approved_date: string | null;
+  enrollment_id: string | null;
+  approved_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1085,6 +1090,8 @@ export interface AssessmentsInsert {
   accounting_remarks?: string | null;
   approved_by?: string | null;
   approved_date?: string | null;
+  enrollment_id?: string | null;
+  approved_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -1113,6 +1120,8 @@ export interface AssessmentsUpdate {
   accounting_remarks?: string | null;
   approved_by?: string | null;
   approved_date?: string | null;
+  enrollment_id?: string | null;
+  approved_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -1120,17 +1129,25 @@ export interface AssessmentsUpdate {
 export interface AssessmentFeesRow {
   id: string;
   assessment_id: string;
+  invoice_id: string | null;
   fee_name: string;
   category: string;
   amount: number;
+  quantity: number;
+  unit_amount: number;
+  revenue_account_code: string;
   created_at: string;
 }
 export interface AssessmentFeesInsert {
   id?: string;
   assessment_id: string;
+  invoice_id?: string | null;
   fee_name: string;
   category: string;
   amount?: number;
+  quantity?: number;
+  unit_amount?: number;
+  revenue_account_code?: string;
   created_at?: string;
 }
 export interface AssessmentFeesUpdate {
@@ -1139,6 +1156,9 @@ export interface AssessmentFeesUpdate {
   fee_name?: string;
   category?: string;
   amount?: number;
+  quantity?: number;
+  unit_amount?: number;
+  revenue_account_code?: string;
   created_at?: string;
 }
 
@@ -1383,6 +1403,18 @@ export interface PaymentsRow {
   or_number: string | null;
   term: string | null;
   remarks: string | null;
+  transaction_type: string;
+  payment_category: string | null;
+  payment_method_id: string | null;
+  collection_category_id: string | null;
+  currency_code: string;
+  status: string;
+  posted_by: string | null;
+  posted_at: string;
+  voided_by: string | null;
+  voided_at: string | null;
+  void_reason: string | null;
+  idempotency_key: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1398,6 +1430,18 @@ export interface PaymentsInsert {
   or_number?: string | null;
   term?: string | null;
   remarks?: string | null;
+  transaction_type?: string;
+  payment_category?: string | null;
+  payment_method_id?: string | null;
+  collection_category_id?: string | null;
+  currency_code?: string;
+  status?: string;
+  posted_by?: string | null;
+  posted_at?: string;
+  voided_by?: string | null;
+  voided_at?: string | null;
+  void_reason?: string | null;
+  idempotency_key?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -1413,9 +1457,195 @@ export interface PaymentsUpdate {
   or_number?: string | null;
   term?: string | null;
   remarks?: string | null;
+  transaction_type?: string;
+  payment_category?: string | null;
+  payment_method_id?: string | null;
+  collection_category_id?: string | null;
+  currency_code?: string;
+  status?: string;
+  posted_by?: string | null;
+  posted_at?: string;
+  voided_by?: string | null;
+  voided_at?: string | null;
+  void_reason?: string | null;
+  idempotency_key?: string | null;
   created_at?: string;
   updated_at?: string;
 }
+
+export interface PaymentVoidRequestsRow {
+  id: string;
+  payment_id: string;
+  school_id: string | null;
+  requested_by: string;
+  requested_at: string;
+  reason: string;
+  status: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_remarks: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface PaymentVoidRequestsInsert {
+  id?: string;
+  payment_id: string;
+  school_id?: string | null;
+  requested_by: string;
+  requested_at?: string;
+  reason: string;
+  status?: string;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_remarks?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export type PaymentVoidRequestsUpdate = Partial<PaymentVoidRequestsInsert>;
+
+export interface StudentPaymentMethodsRow {
+  id: string;
+  code: string;
+  name: string;
+  cash_account_code: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface StudentPaymentMethodsInsert {
+  id?: string;
+  code: string;
+  name: string;
+  cash_account_code: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+export type StudentPaymentMethodsUpdate = Partial<StudentPaymentMethodsInsert>;
+
+export interface StudentCollectionCategoriesRow {
+  id: string;
+  code: string;
+  name: string;
+  revenue_account_code: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface StudentCollectionCategoriesInsert {
+  id?: string;
+  code: string;
+  name: string;
+  revenue_account_code: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+export type StudentCollectionCategoriesUpdate = Partial<StudentCollectionCategoriesInsert>;
+
+export interface StudentFinanceAdjustmentsRow {
+  id: string;
+  assessment_id: string;
+  discount_request_id: string | null;
+  adjustment_type: string;
+  amount: number;
+  description: string;
+  status: string;
+  reversal_of_id: string | null;
+  idempotency_key: string | null;
+  posted_by: string;
+  posted_at: string;
+  voided_by: string | null;
+  voided_at: string | null;
+  void_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface StudentFinanceAdjustmentsInsert {
+  id?: string;
+  assessment_id: string;
+  discount_request_id?: string | null;
+  adjustment_type: string;
+  amount: number;
+  description: string;
+  status?: string;
+  reversal_of_id?: string | null;
+  idempotency_key?: string | null;
+  posted_by: string;
+  posted_at?: string;
+  voided_by?: string | null;
+  voided_at?: string | null;
+  void_reason?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export type StudentFinanceAdjustmentsUpdate = Partial<StudentFinanceAdjustmentsInsert>;
+
+export interface StudentFinanceJournalLinksRow {
+  id: string;
+  event_type: string;
+  journal_entry_id: string;
+  assessment_id: string | null;
+  payment_id: string | null;
+  adjustment_id: string | null;
+  created_at: string;
+}
+export interface StudentFinanceJournalLinksInsert {
+  id?: string;
+  event_type: string;
+  journal_entry_id: string;
+  assessment_id?: string | null;
+  payment_id?: string | null;
+  adjustment_id?: string | null;
+  created_at?: string;
+}
+export type StudentFinanceJournalLinksUpdate = Partial<StudentFinanceJournalLinksInsert>;
+
+export interface CashVouchersRow {
+  id: string;
+  school_id: string | null;
+  voucher_no: string;
+  payee_type: string;
+  payee_student_id: string | null;
+  payee_name: string;
+  category: string;
+  amount: number;
+  purpose: string;
+  requested_by: string;
+  requested_at: string;
+  status: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  review_remarks: string | null;
+  released_by: string | null;
+  released_at: string | null;
+  reference_no: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface CashVouchersInsert {
+  id?: string;
+  school_id?: string | null;
+  voucher_no: string;
+  payee_type: string;
+  payee_student_id?: string | null;
+  payee_name: string;
+  category: string;
+  amount: number;
+  purpose: string;
+  requested_by: string;
+  requested_at?: string;
+  status?: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  review_remarks?: string | null;
+  released_by?: string | null;
+  released_at?: string | null;
+  reference_no?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+export type CashVouchersUpdate = Partial<CashVouchersInsert>;
 
 export interface DiscountTypesRow {
   id: string;
@@ -1639,6 +1869,10 @@ export interface LedgerTransactionsRow {
   credit: number;
   balance: number;
   reference: string | null;
+  school_year: string | null;
+  source_type: string | null;
+  source_id: string | null;
+  reversed_transaction_id: string | null;
   created_at: string;
 }
 export interface LedgerTransactionsInsert {
@@ -1652,6 +1886,10 @@ export interface LedgerTransactionsInsert {
   credit?: number;
   balance?: number;
   reference?: string | null;
+  school_year?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  reversed_transaction_id?: string | null;
   created_at?: string;
 }
 export interface LedgerTransactionsUpdate {
@@ -1665,6 +1903,10 @@ export interface LedgerTransactionsUpdate {
   credit?: number;
   balance?: number;
   reference?: string | null;
+  school_year?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  reversed_transaction_id?: string | null;
   created_at?: string;
 }
 
@@ -1720,6 +1962,7 @@ export interface FinancialHoldsUpdate {
 export interface AssessmentBillingSummariesRow {
   id: string;
   legacy_id: string | null;
+  assessment_id: string | null;
   student_id: string;
   school_year: string | null;
   semester: string | null;
@@ -1735,6 +1978,7 @@ export interface AssessmentBillingSummariesRow {
 export interface AssessmentBillingSummariesInsert {
   id?: string;
   legacy_id?: string | null;
+  assessment_id?: string | null;
   student_id: string;
   school_year?: string | null;
   semester?: string | null;
@@ -1750,6 +1994,7 @@ export interface AssessmentBillingSummariesInsert {
 export interface AssessmentBillingSummariesUpdate {
   id?: string;
   legacy_id?: string | null;
+  assessment_id?: string | null;
   student_id?: string;
   school_year?: string | null;
   semester?: string | null;
@@ -1766,6 +2011,7 @@ export interface AssessmentBillingSummariesUpdate {
 export interface PaymentCollectionSummariesRow {
   id: string;
   legacy_id: string | null;
+  payment_id: string | null;
   student_id: string;
   amount: number;
   payment_method: string | null;
@@ -1780,6 +2026,7 @@ export interface PaymentCollectionSummariesRow {
 export interface PaymentCollectionSummariesInsert {
   id?: string;
   legacy_id?: string | null;
+  payment_id?: string | null;
   student_id: string;
   amount?: number;
   payment_method?: string | null;
@@ -1794,6 +2041,7 @@ export interface PaymentCollectionSummariesInsert {
 export interface PaymentCollectionSummariesUpdate {
   id?: string;
   legacy_id?: string | null;
+  payment_id?: string | null;
   student_id?: string;
   amount?: number;
   payment_method?: string | null;
@@ -2462,12 +2710,233 @@ export interface PayrollUpdate {
   updated_at?: string;
 }
 
+export interface StudentFinanceInvoicesRow {
+  id: string;
+  assessment_id: string;
+  enrollment_id: string | null;
+  school_id: string;
+  student_id: string;
+  invoice_no: string;
+  academic_year: string;
+  semester: string | null;
+  currency_code: string;
+  status: "Draft" | "Posted" | "Voided";
+  issued_at: string | null;
+  issued_by: string | null;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export type StudentFinanceInvoicesInsert = Partial<StudentFinanceInvoicesRow> &
+  Pick<StudentFinanceInvoicesRow, "assessment_id" | "school_id" | "student_id" | "invoice_no" | "academic_year" | "status">;
+export type StudentFinanceInvoicesUpdate = Partial<StudentFinanceInvoicesRow>;
+
+export interface StudentFinanceInvoiceLinesRow {
+  id: string;
+  invoice_id: string;
+  assessment_fee_id: string | null;
+  line_no: number;
+  description: string;
+  category: string;
+  quantity: number;
+  unit_amount: number;
+  amount: number;
+  revenue_account_code: string;
+  created_at: string;
+}
+export type StudentFinanceInvoiceLinesInsert = Partial<StudentFinanceInvoiceLinesRow> &
+  Pick<StudentFinanceInvoiceLinesRow, "invoice_id" | "line_no" | "description" | "category" | "quantity" | "unit_amount" | "amount" | "revenue_account_code">;
+export type StudentFinanceInvoiceLinesUpdate = Partial<StudentFinanceInvoiceLinesRow>;
+
+export interface StudentInvoicePaymentPlansRow {
+  id: string;
+  invoice_id: string;
+  template_id: string;
+  template_version: number;
+  status: "Active" | "Superseded";
+  created_at: string;
+}
+export type StudentInvoicePaymentPlansInsert = Partial<StudentInvoicePaymentPlansRow> &
+  Pick<StudentInvoicePaymentPlansRow, "invoice_id" | "template_id" | "template_version">;
+export type StudentInvoicePaymentPlansUpdate = Partial<StudentInvoicePaymentPlansRow>;
+
+export interface StudentInvoiceInstallmentsRow {
+  id: string;
+  payment_plan_id: string;
+  sequence_no: number;
+  label: string;
+  due_date: string;
+  amount: number;
+  created_at: string;
+}
+export type StudentInvoiceInstallmentsInsert = Partial<StudentInvoiceInstallmentsRow> &
+  Pick<StudentInvoiceInstallmentsRow, "payment_plan_id" | "sequence_no" | "label" | "due_date" | "amount">;
+export type StudentInvoiceInstallmentsUpdate = Partial<StudentInvoiceInstallmentsRow>;
+
+export interface StudentReceiptsRow {
+  id: string;
+  legacy_payment_id: string | null;
+  school_id: string;
+  student_id: string;
+  receipt_no: string;
+  receipt_date: string;
+  payment_method_id: string;
+  amount: number;
+  currency_code: string;
+  status: "Posted" | "Voided";
+  remarks: string | null;
+  posted_by: string;
+  posted_at: string;
+  idempotency_key: string | null;
+  allow_unapplied_credit: boolean;
+  unapplied_authorized_by: string | null;
+  voided_by: string | null;
+  voided_at: string | null;
+  void_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export type StudentReceiptsInsert = Partial<StudentReceiptsRow> &
+  Pick<StudentReceiptsRow, "school_id" | "student_id" | "receipt_no" | "payment_method_id" | "amount" | "posted_by">;
+export type StudentReceiptsUpdate = Partial<StudentReceiptsRow>;
+
+export interface StudentReceiptAllocationsRow {
+  id: string;
+  receipt_id: string;
+  invoice_id: string;
+  amount: number;
+  source: "Receipt" | "UnappliedCredit" | "Reallocation";
+  idempotency_key: string | null;
+  allocated_by: string;
+  allocated_at: string;
+}
+export type StudentReceiptAllocationsInsert = Partial<StudentReceiptAllocationsRow> &
+  Pick<StudentReceiptAllocationsRow, "receipt_id" | "invoice_id" | "amount" | "allocated_by">;
+export type StudentReceiptAllocationsUpdate = Partial<StudentReceiptAllocationsRow>;
+
+export interface StudentDirectCollectionLinesRow {
+  id: string;
+  receipt_id: string;
+  collection_category_id: string;
+  amount: number;
+  description: string | null;
+  created_at: string;
+}
+export type StudentDirectCollectionLinesInsert = Partial<StudentDirectCollectionLinesRow> &
+  Pick<StudentDirectCollectionLinesRow, "receipt_id" | "collection_category_id" | "amount">;
+export type StudentDirectCollectionLinesUpdate = Partial<StudentDirectCollectionLinesRow>;
+
+export interface StudentAllocationReversalsRow {
+  id: string;
+  allocation_id: string;
+  amount: number;
+  reason: string;
+  reversed_by: string;
+  reversed_at: string;
+  replacement_allocation_id: string | null;
+  idempotency_key: string | null;
+}
+export type StudentAllocationReversalsInsert = Partial<StudentAllocationReversalsRow> &
+  Pick<StudentAllocationReversalsRow, "allocation_id" | "amount" | "reason" | "reversed_by">;
+export type StudentAllocationReversalsUpdate = Partial<StudentAllocationReversalsRow>;
+
+export interface StudentAllocationReallocationRequestsRow {
+  id: string;
+  allocation_id: string;
+  destination_invoice_id: string;
+  amount: number;
+  reason: string;
+  status: "Pending" | "Approved" | "Rejected";
+  requested_by: string;
+  requested_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_remarks: string | null;
+  created_at: string;
+}
+export type StudentAllocationReallocationRequestsInsert =
+  Partial<StudentAllocationReallocationRequestsRow> &
+  Pick<StudentAllocationReallocationRequestsRow, "allocation_id" | "destination_invoice_id" | "amount" | "reason" | "requested_by">;
+export type StudentAllocationReallocationRequestsUpdate =
+  Partial<StudentAllocationReallocationRequestsRow>;
+
+export interface StudentReceiptVoidRequestsRow {
+  id: string;
+  receipt_id: string;
+  reason: string;
+  status: "Pending" | "Approved" | "Rejected";
+  requested_by: string;
+  requested_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_remarks: string | null;
+}
+export type StudentReceiptVoidRequestsInsert = Partial<StudentReceiptVoidRequestsRow> &
+  Pick<StudentReceiptVoidRequestsRow, "receipt_id" | "reason" | "requested_by">;
+export type StudentReceiptVoidRequestsUpdate = Partial<StudentReceiptVoidRequestsRow>;
+
+export interface SystemRuntimeControlsRow {
+  control_key: string;
+  enabled: boolean;
+  changed_by: string | null;
+  changed_at: string;
+  remarks: string | null;
+}
+export type SystemRuntimeControlsInsert = Partial<SystemRuntimeControlsRow> &
+  Pick<SystemRuntimeControlsRow, "control_key">;
+export type SystemRuntimeControlsUpdate = Partial<SystemRuntimeControlsRow>;
+
+export interface StudentPaymentTermTemplatesRow {
+  id: string;
+  school_id: string;
+  academic_year: string;
+  code: string;
+  name: string;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export type StudentPaymentTermTemplatesInsert = Partial<StudentPaymentTermTemplatesRow> &
+  Pick<StudentPaymentTermTemplatesRow, "school_id" | "academic_year" | "code" | "name">;
+export type StudentPaymentTermTemplatesUpdate = Partial<StudentPaymentTermTemplatesRow>;
+
+export interface StudentPaymentTermTemplateInstallmentsRow {
+  id: string;
+  template_id: string;
+  sequence_no: number;
+  label: string;
+  percentage: number;
+  due_date: string;
+}
+export type StudentPaymentTermTemplateInstallmentsInsert =
+  Partial<StudentPaymentTermTemplateInstallmentsRow> &
+  Pick<StudentPaymentTermTemplateInstallmentsRow, "template_id" | "sequence_no" | "label" | "percentage" | "due_date">;
+export type StudentPaymentTermTemplateInstallmentsUpdate =
+  Partial<StudentPaymentTermTemplateInstallmentsRow>;
+
+export interface StudentReceiptJournalLinksRow {
+  id: string;
+  event_type: "Receipt" | "ReceiptVoid" | "CreditApplication" | "Reallocation";
+  journal_entry_id: string;
+  receipt_id: string | null;
+  allocation_id: string | null;
+  reversal_id: string | null;
+  created_at: string;
+}
+export type StudentReceiptJournalLinksInsert = Partial<StudentReceiptJournalLinksRow> &
+  Pick<StudentReceiptJournalLinksRow, "event_type" | "journal_entry_id">;
+export type StudentReceiptJournalLinksUpdate = Partial<StudentReceiptJournalLinksRow>;
+
 export interface Database {
   public: {
     Tables: {
       schools: { Row: SchoolsRow; Insert: SchoolsInsert; Update: SchoolsUpdate };
       setup_items: { Row: SetupItemsRow; Insert: SetupItemsInsert; Update: SetupItemsUpdate };
       users: { Row: UsersRow; Insert: UsersInsert; Update: UsersUpdate };
+      system_runtime_controls: { Row: SystemRuntimeControlsRow; Insert: SystemRuntimeControlsInsert; Update: SystemRuntimeControlsUpdate };
       courses: { Row: CoursesRow; Insert: CoursesInsert; Update: CoursesUpdate };
       subjects: { Row: SubjectsRow; Insert: SubjectsInsert; Update: SubjectsUpdate };
       teachers: { Row: TeachersRow; Insert: TeachersInsert; Update: TeachersUpdate };
@@ -2494,6 +2963,25 @@ export interface Database {
       online_enrollment_applications: { Row: OnlineEnrollmentApplicationsRow; Insert: OnlineEnrollmentApplicationsInsert; Update: OnlineEnrollmentApplicationsUpdate };
       enrollment_subjects: { Row: EnrollmentSubjectsRow; Insert: EnrollmentSubjectsInsert; Update: EnrollmentSubjectsUpdate };
       payments: { Row: PaymentsRow; Insert: PaymentsInsert; Update: PaymentsUpdate };
+      payment_void_requests: { Row: PaymentVoidRequestsRow; Insert: PaymentVoidRequestsInsert; Update: PaymentVoidRequestsUpdate };
+      student_payment_methods: { Row: StudentPaymentMethodsRow; Insert: StudentPaymentMethodsInsert; Update: StudentPaymentMethodsUpdate };
+      student_collection_categories: { Row: StudentCollectionCategoriesRow; Insert: StudentCollectionCategoriesInsert; Update: StudentCollectionCategoriesUpdate };
+      student_finance_adjustments: { Row: StudentFinanceAdjustmentsRow; Insert: StudentFinanceAdjustmentsInsert; Update: StudentFinanceAdjustmentsUpdate };
+      student_finance_journal_links: { Row: StudentFinanceJournalLinksRow; Insert: StudentFinanceJournalLinksInsert; Update: StudentFinanceJournalLinksUpdate };
+      student_payment_term_templates: { Row: StudentPaymentTermTemplatesRow; Insert: StudentPaymentTermTemplatesInsert; Update: StudentPaymentTermTemplatesUpdate };
+      student_payment_term_template_installments: { Row: StudentPaymentTermTemplateInstallmentsRow; Insert: StudentPaymentTermTemplateInstallmentsInsert; Update: StudentPaymentTermTemplateInstallmentsUpdate };
+      student_finance_invoices: { Row: StudentFinanceInvoicesRow; Insert: StudentFinanceInvoicesInsert; Update: StudentFinanceInvoicesUpdate };
+      student_finance_invoice_lines: { Row: StudentFinanceInvoiceLinesRow; Insert: StudentFinanceInvoiceLinesInsert; Update: StudentFinanceInvoiceLinesUpdate };
+      student_invoice_payment_plans: { Row: StudentInvoicePaymentPlansRow; Insert: StudentInvoicePaymentPlansInsert; Update: StudentInvoicePaymentPlansUpdate };
+      student_invoice_installments: { Row: StudentInvoiceInstallmentsRow; Insert: StudentInvoiceInstallmentsInsert; Update: StudentInvoiceInstallmentsUpdate };
+      student_receipts: { Row: StudentReceiptsRow; Insert: StudentReceiptsInsert; Update: StudentReceiptsUpdate };
+      student_receipt_allocations: { Row: StudentReceiptAllocationsRow; Insert: StudentReceiptAllocationsInsert; Update: StudentReceiptAllocationsUpdate };
+      student_direct_collection_lines: { Row: StudentDirectCollectionLinesRow; Insert: StudentDirectCollectionLinesInsert; Update: StudentDirectCollectionLinesUpdate };
+      student_allocation_reversals: { Row: StudentAllocationReversalsRow; Insert: StudentAllocationReversalsInsert; Update: StudentAllocationReversalsUpdate };
+      student_allocation_reallocation_requests: { Row: StudentAllocationReallocationRequestsRow; Insert: StudentAllocationReallocationRequestsInsert; Update: StudentAllocationReallocationRequestsUpdate };
+      student_receipt_void_requests: { Row: StudentReceiptVoidRequestsRow; Insert: StudentReceiptVoidRequestsInsert; Update: StudentReceiptVoidRequestsUpdate };
+      student_receipt_journal_links: { Row: StudentReceiptJournalLinksRow; Insert: StudentReceiptJournalLinksInsert; Update: StudentReceiptJournalLinksUpdate };
+      cash_vouchers: { Row: CashVouchersRow; Insert: CashVouchersInsert; Update: CashVouchersUpdate };
       discount_types: { Row: DiscountTypesRow; Insert: DiscountTypesInsert; Update: DiscountTypesUpdate };
       discount_requests: { Row: DiscountRequestsRow; Insert: DiscountRequestsInsert; Update: DiscountRequestsUpdate };
       discount_request_audit_trail: { Row: DiscountRequestAuditTrailRow; Insert: DiscountRequestAuditTrailInsert; Update: DiscountRequestAuditTrailUpdate };

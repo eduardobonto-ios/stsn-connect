@@ -23,7 +23,7 @@ export interface PaymentScheduleItem {
   dueLabel: string;
   dueDate: string;
   amount: number;
-  /** Status is mock only for demo. TODO: Replace with real payment status from accounting */
+  /** Estimate-only status. Posted invoices use canonical installment standing instead. */
   status: "Paid" | "Pending" | "Overdue";
 }
 

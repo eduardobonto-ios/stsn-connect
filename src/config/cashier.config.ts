@@ -52,9 +52,9 @@ export const CASHIER_RESTRICTED_ACTIONS = [
  * Reprinting a receipt is allowed unconditionally.
  * Voiding is request-only for Cashiers: the UI may submit a void request into
  * the approval workflow, but final void/reversal must stay with Accounting or
- * an authorized approver. Until a durable `payment_void_requests` business table
- * and transactional reversal service exist, this capability must not be wired
- * to an unconditional payment deletion or direct reversal action.
+ * an authorized approver. The normalized receipt-void RPC performs the complete
+ * allocation, direct-collection, unapplied-credit, and GL reversal atomically;
+ * this capability must never be wired to deletion or a direct status update.
  */
 export function canCashier(capability: CashierCapability): boolean {
   return CASHIER_CAPABILITIES.includes(capability);

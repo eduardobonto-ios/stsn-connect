@@ -24,6 +24,7 @@ export interface ParentPaymentRow {
   term: string;
   paymentMethod: string;
   amount: number;
+  status: "Posted" | "Voided" | "Reallocated";
 }
 
 export interface ParentDocumentRow {

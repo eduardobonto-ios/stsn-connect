@@ -23,15 +23,13 @@ test.describe("My Profile", () => {
     await expect(page.getByPlaceholder(/Enter new password/i)).toBeEnabled();
   });
 
-  test("New Password is editable and update surfaces the 'not connected' notice", async ({ page }) => {
+  test("New Password is editable and enforces the production minimum length", async ({ page }) => {
     await login(page, "TEACHER");
     await goto(page, "/profile");
 
     const newPassword = page.getByPlaceholder(/Enter new password/i);
     await expect(newPassword).toBeEditable();
-    await newPassword.fill("Sample-New-Pass-123");
-
-    await page.getByRole("button", { name: /Update Password/i }).click();
-    await expect(page.getByText(/aren't connected to the server yet/i)).toBeVisible();
+    await newPassword.fill("too-short");
+    await expect(page.getByRole("button", { name: /Update Password/i })).toBeDisabled();
   });
 });

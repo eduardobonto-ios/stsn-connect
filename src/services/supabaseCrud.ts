@@ -68,11 +68,17 @@ export function dbUpdate(table: string, id: string, updates: Record<string, any>
 }
 
 export function dbDelete(table: string, id: string) {
-  supabase.from(table).delete().eq("id", id).then(({ error }) => report(`delete ${table}`)(error));
+  return supabase.from(table).delete().eq("id", id).then(({ error }) => {
+    report(`delete ${table}`)(error);
+    return error;
+  });
 }
 
 export function dbDeleteWhere(table: string, column: string, value: string) {
-  return supabase.from(table).delete().eq(column, value).then(({ error }) => report(`delete ${table} where ${column}`)(error));
+  return supabase.from(table).delete().eq(column, value).then(({ error }) => {
+    report(`delete ${table} where ${column}`)(error);
+    return error;
+  });
 }
 
 /** PostgREST caps unpaginated selects at its configured max-rows (commonly

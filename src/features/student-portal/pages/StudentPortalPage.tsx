@@ -70,7 +70,6 @@ import {
 } from "../../../services/mockAssessmentService";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
-import { usePermissions } from "../../../hooks/usePermissions";
 import type { Grade, Payment, Requirement, Student, StudentEducationBackground, StudentGuardianContact } from "../../../types";
 
 type PortalTab = "overview" | "grades" | "ledger" | "profile" | "enrollment" | "elearning";
@@ -137,6 +136,7 @@ interface StudentPortalPaymentRow {
   term: string;
   paymentMethod: string;
   amount: number;
+  status: "Posted" | "Voided" | "Reallocated";
   highlighted?: boolean;
 }
 
@@ -145,6 +145,9 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     students,
     assessments,
     payments,
+    studentInvoices,
+    receiptAllocations,
+    paymentPlanInstallments,
     grades,
     subjects,
     enrollments,
@@ -175,10 +178,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     setupData,
     classSchedules,
     schools,
-    logAudit,
   } = useSTSNStore();
-  const { canPage, usingFallback } = usePermissions();
-
   // Registrar (and other staff) opening this module via the "Student Records"
   // entry point browse records read/edit; students see their own self-service portal.
   const isRecordsView = currentUser?.role !== "STUDENT";
@@ -215,6 +215,10 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   const scopedStudents = scopedData.students;
   const scopedAssessments = scopedData.assessments ?? [];
   const scopedPayments = scopedData.payments ?? [];
+  const postedPayments = useMemo(
+    () => scopedPayments.filter((payment) => payment.status !== "Voided"),
+    [scopedPayments],
+  );
   const scopedSubjects = scopedData.subjects ?? [];
   const scopedEnrollments = scopedData.enrollments ?? [];
   const scopedRequirements = scopedData.requirements ?? [];
@@ -287,7 +291,6 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   const [educationDrafts, setEducationDrafts] = useState<StudentEducationBackground[]>([]);
   const [guardianName, setGuardianName] = useState("");
   const [guardianContact, setGuardianContact] = useState("");
-  const [overrideSettleBalance, setOverrideSettleBalance] = useState(false);
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = useState("");
@@ -348,12 +351,12 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     );
   }, [student, studentEducationBackgrounds, studentGuardians]);
 
-  // Assessment Fees tab — TODO: Pre-populate from GET /api/scholarships/eligible?studentId=...
+  // Enrollment estimate controls. These values are used only when no approved
+  // canonical invoice exists for the student.
   const [selectedDiscountId, setSelectedDiscountId] = useState("none");
   const [selectedPaymentTerm, setSelectedPaymentTerm] = useState<MockPaymentTerm>("Quarterly");
   const selectedDiscount = discountOptions.find((d) => d.id === selectedDiscountId) ?? discountOptions[0] ?? { id: "none", label: "None", percentage: 0, badge: "" };
-  // TODO: Replace with GET /api/assessment/compute?studentId=...
-  const mockAssessment = useMemo(
+  const estimatedAssessment = useMemo(
     () =>
       computeMockAssessment(
         student.department,
@@ -369,7 +372,22 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     [student.department, student.yearLevel, student.trackOrCourse, selectedDiscount.percentage, selectedPaymentTerm, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments]
   );
 
-  const assessment = scopedAssessments.find((a) => a.studentId === student.id);
+  const activeEnrollment = [...scopedEnrollments]
+    .filter((enrollment) =>
+      enrollment.studentId === student.id &&
+      !["Rejected", "Cancelled", "Withdrawn"].includes(enrollment.status)
+    )
+    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0];
+  const linkedAssessment = activeEnrollment?.assessmentId
+    ? scopedAssessments.find((row) => row.id === activeEnrollment.assessmentId)
+    : undefined;
+  const assessment = linkedAssessment
+    ?? [...scopedAssessments]
+        .filter((row) => row.studentId === student.id)
+        .sort((a, b) =>
+          b.schoolYear.localeCompare(a.schoolYear) ||
+          (b.semester ?? "").localeCompare(a.semester ?? "")
+        )[0];
   const studentReqs = scopedRequirements.filter((r) => r.studentId === student.id);
   const studentProfileActivityLogs = activityLogs.filter((entry) => {
     const subject = (entry.subject || "").toLowerCase();
@@ -387,28 +405,10 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     ? "Attention Needed"
     : "Pending";
   const studentGrades = grades.filter((g) => g.studentId === student.id);
-  const hasOutstandingBalance = assessment ? (assessment.balance > 0 && !overrideSettleBalance) : false;
+  const hasOutstandingBalance = assessment ? assessment.balance > 0 : false;
   const isBasicEd = student.department === "Basic Education";
   const studentSchool = schools.find((s) => s.academicUnit === (isBasicEd ? "basic-ed" : "college"));
   const gradesLocked = hasOutstandingBalance;
-  // Fallback mode degrades canPage() to plain module access, which every Student
-  // Portal user (including the student) has — so this must fail closed rather
-  // than trust the fallback default for this specific override.
-  const canOverrideHold = !usingFallback && canPage("STUDENT_PORTAL", "grades", "manage");
-  const toggleGradesOverride = () => {
-    if (!canOverrideHold) return;
-    const next = !overrideSettleBalance;
-    setOverrideSettleBalance(next);
-    logAudit(
-      next ? "approved" : "rejected",
-      "grade",
-      student.id,
-      { locked: !overrideSettleBalance },
-      { locked: !next },
-      next ? "Treasury clearance override" : "Balance check re-enabled",
-    );
-  };
-
   useEffect(() => {
     if (student?.id) ensureStudentRequirements(student.id);
   }, [student?.id, ensureStudentRequirements]);
@@ -421,10 +421,26 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     return Array.from(totals, ([category, amount]) => ({ category, amount }));
   }, [assessment]);
 
-  // Installment schedule — derived from the assessment's real balance/paymentTerm,
-  // with "paid" status inferred from cumulative real payment records.
+  // Installment schedule is snapshotted by Accounting when the assessment
+  // becomes an invoice. The local calculation remains only as a pre-migration
+  // compatibility fallback.
   const installmentSchedule = useMemo(() => {
     if (!assessment) return [];
+    const invoice = studentInvoices.find((row) => row.assessmentId === assessment.id);
+    const canonicalSchedule = invoice
+      ? paymentPlanInstallments
+          .filter((item) => item.invoiceId === invoice.id)
+          .sort((left, right) => left.sequenceNo - right.sequenceNo)
+      : [];
+    if (canonicalSchedule.length > 0) {
+      return canonicalSchedule.map((item) => ({
+        label: item.label,
+        amount: item.amount,
+        due: item.dueDate,
+        paid: item.status === "Paid",
+        status: item.status,
+      }));
+    }
     const schoolYear = assessment.schoolYear || "2026-2027";
     let schedule: { label: string; amount: number; due: string }[];
     if (assessment.paymentTerm === "Installment - 2 Payments" || assessment.paymentTerm === "Installment - 4 Payments") {
@@ -439,13 +455,49 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
       schedule = generatePaymentSchedule(assessment.totalAmount, assessment.paymentTerm as MockPaymentTerm, schoolYear)
         .map((s) => ({ label: s.dueLabel, amount: s.amount, due: s.dueDate }));
     }
-    const paidToDate = scopedPayments.filter((p) => p.studentId === student.id).reduce((sum, p) => sum + p.amount, 0);
+    const paidToDate = postedPayments
+      .filter((payment) =>
+        payment.studentId === student.id &&
+        payment.transactionType !== "OR" &&
+        payment.assessmentId === assessment.id
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0);
     let cumulative = 0;
     return schedule.map((s) => {
       cumulative += s.amount;
-      return { ...s, paid: overrideSettleBalance || cumulative <= paidToDate };
+      const paid = cumulative <= paidToDate;
+      return { ...s, paid, status: paid ? "Paid" : "Pending" };
     });
-  }, [assessment, scopedPayments, student.id, overrideSettleBalance]);
+  }, [assessment, paymentPlanInstallments, postedPayments, student.id, studentInvoices]);
+
+  const canonicalInvoice = assessment
+    ? studentInvoices.find((row) => row.assessmentId === assessment.id)
+    : undefined;
+  const financeAssessmentPreview = useMemo(() => {
+    if (!assessment || !canonicalInvoice) return estimatedAssessment;
+    const categoryTotal = (category: string) => assessment.fees
+      .filter((fee) => fee.category === category)
+      .reduce((sum, fee) => sum + fee.amount, 0);
+    return {
+      fees: assessment.fees,
+      tuitionTotal: categoryTotal("Tuition"),
+      labTotal: categoryTotal("Laboratory"),
+      miscTotal: categoryTotal("Miscellaneous"),
+      grossTotal: canonicalInvoice.grossCharges + canonicalInvoice.debitAdjustments,
+      discountAmount: canonicalInvoice.discountAmount + canonicalInvoice.creditAdjustments,
+      netPayable: canonicalInvoice.balance,
+      paymentSchedule: installmentSchedule.map((installment) => ({
+        dueLabel: installment.label,
+        dueDate: installment.due,
+        amount: installment.amount,
+        status: installment.status ?? (installment.paid ? "Paid" : "Pending"),
+      })),
+    };
+  }, [assessment, canonicalInvoice, estimatedAssessment, installmentSchedule]);
+  const hasCanonicalFinanceAssessment = Boolean(assessment && canonicalInvoice);
+  const displayedPaymentTerm = hasCanonicalFinanceAssessment
+    ? assessment?.paymentTerm ?? selectedPaymentTerm
+    : selectedPaymentTerm;
 
   const currentEnrollment = scopedEnrollments.find((e) => e.studentId === student.id && e.status === "Enrolled");
   const loadedSubjects = scopedSubjects.filter((sub) => {
@@ -548,7 +600,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   }, [loadedSubjects, scopedClassSchedules, isBasicEd]);
 
   const statuses = ["Applicant", "Assessed", "Partially Paid", "Fully Paid", "Enrolled", "Sectioned"];
-  const currentStatusString = overrideSettleBalance ? "Fully Paid" : (student.enrollmentStatus || "Enrolled");
+  const currentStatusString = student.enrollmentStatus || "Enrolled";
   const getStepIndex = (status: string) => {
     if (status === "Pending" || status === "Draft") return 0;
     if (status === "Assessed" || status === "Approved") return 1;
@@ -588,30 +640,26 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
   const paymentHistoryRows = useMemo<StudentPortalPaymentRow[]>(() => {
     const paymentRows = scopedPayments
       .filter((payment) => payment.studentId === student.id)
-      .map((payment) => ({
-        id: payment.id,
-        orNumber: payment.orNumber,
-        paymentDate: payment.paymentDate,
-        term: payment.term,
-        paymentMethod: payment.paymentMethod,
-        amount: payment.amount,
-      }));
+      .map((payment) => {
+        const wasReallocated = receiptAllocations.some(
+          (allocation) => allocation.receiptId === payment.id
+            && (allocation.source === "Reallocation" || (allocation.reversedAmount ?? 0) > 0),
+        );
+        return {
+          id: payment.id,
+          orNumber: payment.orNumber,
+          paymentDate: payment.paymentDate,
+          term: payment.term,
+          paymentMethod: payment.paymentMethod,
+          amount: payment.amount,
+          status: payment.status === "Voided"
+            ? "Voided" as const
+            : wasReallocated ? "Reallocated" as const : "Posted" as const,
+        };
+      });
 
-    if (!overrideSettleBalance) return paymentRows;
-
-    return [
-      ...paymentRows,
-      {
-        id: "mock-clearance-row",
-        orNumber: "OR-MOCK-CLEARANCE",
-        paymentDate: "Today (Simulated)",
-        term: "Full Settlement",
-        paymentMethod: "Treasury Exemption",
-        amount: assessment?.balance ?? 0,
-        highlighted: true,
-      },
-    ];
-  }, [assessment?.balance, overrideSettleBalance, scopedPayments, student.id]);
+    return paymentRows;
+  }, [receiptAllocations, scopedPayments, student.id]);
 
   const collegeGradeColumns = useMemo<AppTableColumn<StudentPortalGradeRow>[]>(() => [
     {
@@ -758,11 +806,19 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
       cell: ({ row }) => <span className="font-semibold uppercase">{row.original.paymentMethod}</span>,
     },
     {
+      accessorKey: "status",
+      header: "Audit Status",
+      enableSorting: false,
+      cell: ({ row }) => <AppStatusBadge status={row.original.status} />,
+    },
+    {
       accessorKey: "amount",
       header: "Amount",
       enableSorting: false,
       cell: ({ row }) => (
-        <span className="font-mono font-bold text-green-700">₱{row.original.amount.toLocaleString()}</span>
+        <span className={`font-mono font-bold ${row.original.status === "Voided" ? "text-red-700 line-through" : "text-green-700"}`}>
+          ₱{row.original.amount.toLocaleString()}
+        </span>
       ),
       meta: { align: "right" },
     },
@@ -1347,7 +1403,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
             ledgerFeesByCategory={ledgerFeesByCategory}
             installmentSchedule={installmentSchedule}
             paymentHistoryRows={paymentHistoryRows}
-            effectiveBalance={overrideSettleBalance ? 0 : (assessment?.balance ?? 0)}
+            effectiveBalance={assessment?.balance ?? 0}
             schoolName={studentSchool?.shortName || studentSchool?.name}
           />
           <LoadedScheduleModal
@@ -1374,18 +1430,6 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                 </p>
               </div>
             </div>
-            {canOverrideHold && (
-              <button
-                onClick={toggleGradesOverride}
-                className={`text-xs px-4 py-2 font-bold uppercase rounded-lg border shadow-sm transition whitespace-nowrap cursor-pointer ${
-                  overrideSettleBalance
-                    ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
-                    : "bg-white border-amber-300 text-amber-800 hover:bg-amber-100"
-                }`}
-              >
-                {overrideSettleBalance ? "↩ Re-enable Balance Check" : "💳 Resolve Mock Balance"}
-              </button>
-            )}
           </div>
 
           {gradesLocked ? (
@@ -1400,18 +1444,9 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
               <p className="text-xs text-stone-500 leading-relaxed max-w-lg">
                 Your account balance is <strong className="text-red-700">₱{assessment?.balance.toLocaleString()}</strong>. Full treasury clearance is required prior to grade release.
               </p>
-              {canOverrideHold ? (
-                <button
-                  onClick={toggleGradesOverride}
-                  className="btn-primary-gradient text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer"
-                >
-                  Bypass with Treasury Clearance Authorization
-                </button>
-              ) : (
-                <p className="text-xs text-stone-500 leading-relaxed max-w-lg">
-                  Your grades are currently restricted due to an outstanding account balance. Please coordinate with the Accounting or Treasury Office for clearance.
-                </p>
-              )}
+              <p className="text-xs text-stone-500 leading-relaxed max-w-lg">
+                Your grades are currently restricted due to an outstanding account balance. Please coordinate with the Accounting or Treasury Office for clearance.
+              </p>
             </div>
           ) : (
             <div className="bg-white p-6 rounded-xl border border-stsn-beige shadow-sm space-y-4">
@@ -2388,7 +2423,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                     <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">Preview your tuition fees and payment schedule for the next enrollment.</p>
                     <div className="mt-3 flex justify-between text-xs font-mono">
                       <span className="text-stone-400">Estimated Total:</span>
-                      <strong className="text-stsn-brown">₱{mockAssessment.grossTotal.toLocaleString()}</strong>
+                      <strong className="text-stsn-brown">₱{financeAssessmentPreview.grossTotal.toLocaleString()}</strong>
                     </div>
                     <div className="mt-3 flex items-center gap-1 text-xs font-bold text-green-600 group-hover:gap-2 transition-all">
                       View Assessment <ChevronRight className="w-3.5 h-3.5" />
@@ -2510,7 +2545,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="text-[9px] font-mono bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full font-bold uppercase">
-                          Demo Preview
+                          {hasCanonicalFinanceAssessment ? "Posted Invoice" : "Fee Estimate"}
                         </span>
                         <button
                           onClick={() => {
@@ -2532,21 +2567,21 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                               <h1>St. Theresa School Network — Assessment of Fees</h1>
                               <p><strong>Student:</strong> ${student.lastName}, ${student.firstName} ${student.middleName || ""} &nbsp;&nbsp; <strong>Student No.:</strong> ${student.studentNo}</p>
                               <p><strong>Department:</strong> ${student.department} &nbsp; <strong>Year Level:</strong> ${student.yearLevel} &nbsp; <strong>Course/Strand:</strong> ${student.trackOrCourse || "—"}</p>
-                              <p><strong>Academic Year:</strong> 2026-2027 &nbsp; <strong>Payment Term:</strong> ${selectedPaymentTerm}${selectedDiscount.percentage > 0 ? ` &nbsp; <strong>Discount:</strong> ${selectedDiscount.label} (${selectedDiscount.percentage}%)` : ""}</p>
+                              <p><strong>Academic Year:</strong> ${assessment?.schoolYear ?? "2026-2027"} &nbsp; <strong>Payment Term:</strong> ${displayedPaymentTerm}</p>
                               <h2>Fee Breakdown</h2>
                               <table>
                                 <tr><th>Fee Name</th><th>Category</th><th class="right">Amount (PHP)</th></tr>
-                                ${mockAssessment.fees.map((f) => `<tr><td>${f.feeName}</td><td>${f.category}</td><td class="right">₱${f.amount.toLocaleString()}</td></tr>`).join("")}
-                                <tr class="sub"><td colspan="2">Gross Total</td><td class="right">₱${mockAssessment.grossTotal.toLocaleString()}</td></tr>
-                                ${mockAssessment.discountAmount > 0 ? `<tr class="disc"><td colspan="2">Discount — ${selectedDiscount.label} (${selectedDiscount.percentage}%)</td><td class="right">– ₱${mockAssessment.discountAmount.toLocaleString()}</td></tr>` : ""}
-                                <tr class="net"><td colspan="2">NET PAYABLE</td><td class="right">₱${mockAssessment.netPayable.toLocaleString()}</td></tr>
+                                ${financeAssessmentPreview.fees.map((f) => `<tr><td>${f.feeName}</td><td>${f.category}</td><td class="right">₱${f.amount.toLocaleString()}</td></tr>`).join("")}
+                                <tr class="sub"><td colspan="2">Gross Total</td><td class="right">₱${financeAssessmentPreview.grossTotal.toLocaleString()}</td></tr>
+                                ${financeAssessmentPreview.discountAmount > 0 ? `<tr class="disc"><td colspan="2">Discounts / Credits</td><td class="right">– ₱${financeAssessmentPreview.discountAmount.toLocaleString()}</td></tr>` : ""}
+                                <tr class="net"><td colspan="2">${hasCanonicalFinanceAssessment ? "OUTSTANDING BALANCE" : "ESTIMATED NET PAYABLE"}</td><td class="right">₱${financeAssessmentPreview.netPayable.toLocaleString()}</td></tr>
                               </table>
-                              <h2>Payment Schedule — ${selectedPaymentTerm}</h2>
+                              <h2>Payment Schedule — ${displayedPaymentTerm}</h2>
                               <table>
                                 <tr><th>#</th><th>Installment</th><th>Due Date</th><th class="right">Amount (PHP)</th></tr>
-                                ${mockAssessment.paymentSchedule.map((s, i) => `<tr><td>${i + 1}</td><td>${s.dueLabel}</td><td>${s.dueDate}</td><td class="right">₱${s.amount.toLocaleString()}</td></tr>`).join("")}
+                                ${financeAssessmentPreview.paymentSchedule.map((s, i) => `<tr><td>${i + 1}</td><td>${s.dueLabel}</td><td>${s.dueDate}</td><td class="right">₱${s.amount.toLocaleString()}</td></tr>`).join("")}
                               </table>
-                              <div class="footer">Computer-generated assessment preview. Subject to verification by the Accounting Office.<br/>Generated: ${new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}</div>
+                              <div class="footer">${hasCanonicalFinanceAssessment ? "Generated from the posted Accounting invoice and installment schedule." : "Fee estimate subject to Registrar and Accounting approval."}<br/>Generated: ${new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}</div>
                               </body></html>`;
                             const w = window.open("", "_blank");
                             if (w) { w.document.write(printContent); w.document.close(); w.print(); }
@@ -2580,10 +2615,10 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-stone-50">
-                            {mockAssessment.fees.filter((f) => f.category === "Tuition" || f.category === "Laboratory").map((fee) => (
+                            {financeAssessmentPreview.fees.filter((f) => f.category === "Tuition" || f.category === "Laboratory").map((fee) => (
                               <tr key={fee.feeName} className="hover:bg-stone-50/50 transition">
                                 <td className="px-4 py-2.5 text-xs font-semibold text-stone-800">{fee.feeName}</td>
-                                <td className="px-4 py-2.5 text-[10.5px] text-stone-400 hidden sm:table-cell">{fee.note}</td>
+                                <td className="px-4 py-2.5 text-[10.5px] text-stone-400 hidden sm:table-cell">{"note" in fee ? String(fee.note ?? "") : ""}</td>
                                 <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-stone-900">₱{fee.amount.toLocaleString()}</td>
                               </tr>
                             ))}
@@ -2591,7 +2626,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                           <tfoot className="bg-stsn-cream border-t border-stsn-beige">
                             <tr>
                               <td colSpan={2} className="px-4 py-2.5 text-xs font-bold text-stsn-brown">Sub-total (Tuition + Lab)</td>
-                              <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-stsn-brown">₱{(mockAssessment.tuitionTotal + mockAssessment.labTotal).toLocaleString()}</td>
+                              <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-stsn-brown">₱{(financeAssessmentPreview.tuitionTotal + financeAssessmentPreview.labTotal).toLocaleString()}</td>
                             </tr>
                           </tfoot>
                         </table>
@@ -2612,10 +2647,10 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-stone-50">
-                            {mockAssessment.fees.filter((f) => f.category === "Miscellaneous").map((fee) => (
+                            {financeAssessmentPreview.fees.filter((f) => f.category === "Miscellaneous").map((fee) => (
                               <tr key={fee.feeName} className="hover:bg-stone-50/50 transition">
                                 <td className="px-4 py-2.5 text-xs font-semibold text-stone-800">{fee.feeName}</td>
-                                <td className="px-4 py-2.5 text-[10.5px] text-stone-400 hidden sm:table-cell">{fee.note}</td>
+                                <td className="px-4 py-2.5 text-[10.5px] text-stone-400 hidden sm:table-cell">{"note" in fee ? String(fee.note ?? "") : ""}</td>
                                 <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-stone-900">₱{fee.amount.toLocaleString()}</td>
                               </tr>
                             ))}
@@ -2623,7 +2658,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                           <tfoot className="bg-blue-50 border-t border-blue-100">
                             <tr>
                               <td colSpan={2} className="px-4 py-2.5 text-xs font-bold text-blue-700">Miscellaneous Sub-total</td>
-                              <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-blue-700">₱{mockAssessment.miscTotal.toLocaleString()}</td>
+                              <td className="px-4 py-2.5 text-xs font-mono font-bold text-right text-blue-700">₱{financeAssessmentPreview.miscTotal.toLocaleString()}</td>
                             </tr>
                           </tfoot>
                         </table>
@@ -2635,7 +2670,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                           <Percent className="w-4 h-4 text-green-600" />
                           <span className="text-xs font-display font-bold text-stone-900 uppercase tracking-wide">C. Discount / Scholarship</span>
                           <span className="text-[9px] font-mono bg-amber-50 border border-amber-200 text-amber-600 px-1.5 py-0.5 rounded font-bold ml-auto">
-                            TODO: auto-fetch eligibility
+                            {hasCanonicalFinanceAssessment ? "Posted adjustment" : "Estimate selection"}
                           </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -2643,7 +2678,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                             const isSel = selectedDiscountId === opt.id;
                             return (
                               <label key={opt.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${isSel ? "bg-green-50 border-green-300 shadow-sm" : "bg-stone-50 border-stone-200 hover:border-stone-300"}`}>
-                                <input type="radio" name="portal-discount" value={opt.id} checked={isSel} onChange={() => setSelectedDiscountId(opt.id)} className="accent-green-600 flex-shrink-0" />
+                                <input type="radio" name="portal-discount" value={opt.id} checked={isSel} disabled={hasCanonicalFinanceAssessment} onChange={() => setSelectedDiscountId(opt.id)} className="accent-green-600 flex-shrink-0" />
                                 <span className="text-xs font-semibold text-stone-900 flex-1 leading-tight">{opt.label}</span>
                                 {opt.percentage > 0 && (
                                   <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${isSel ? "bg-green-100 border-green-300 text-green-700" : "bg-stone-100 border-stone-300 text-stone-500"}`}>
@@ -2668,7 +2703,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                             return (
                               <label key={term} className={`flex flex-col gap-2 p-4 rounded-xl border cursor-pointer transition ${isSel ? "bg-stsn-cream border-stsn-gold shadow-sm" : "bg-stone-50 border-stone-200 hover:border-stone-300"}`}>
                                 <div className="flex items-center gap-2">
-                                  <input type="radio" name="portal-term" value={term} checked={isSel} onChange={() => setSelectedPaymentTerm(term as MockPaymentTerm)} className="accent-stsn-brown flex-shrink-0" />
+                                  <input type="radio" name="portal-term" value={term} checked={isSel} disabled={hasCanonicalFinanceAssessment} onChange={() => setSelectedPaymentTerm(term as MockPaymentTerm)} className="accent-stsn-brown flex-shrink-0" />
                                   <span className={`text-xs font-bold ${isSel ? "text-stsn-brown" : "text-stone-700"}`}>{term}</span>
                                 </div>
                                 <p className="text-[10.5px] text-stone-500 leading-relaxed">{description}</p>
@@ -2691,29 +2726,28 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                         <div className="p-5 space-y-2.5">
                           <div className="flex justify-between text-xs py-1.5 border-b border-stone-100">
                             <span className="text-stone-500">Tuition &amp; Laboratory</span>
-                            <span className="font-mono font-bold text-stone-900">₱{(mockAssessment.tuitionTotal + mockAssessment.labTotal).toLocaleString()}</span>
+                            <span className="font-mono font-bold text-stone-900">₱{(financeAssessmentPreview.tuitionTotal + financeAssessmentPreview.labTotal).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between text-xs py-1.5 border-b border-stone-100">
                             <span className="text-stone-500">Miscellaneous Fees</span>
-                            <span className="font-mono font-bold text-stone-900">₱{mockAssessment.miscTotal.toLocaleString()}</span>
+                            <span className="font-mono font-bold text-stone-900">₱{financeAssessmentPreview.miscTotal.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between text-xs py-1.5 border-b border-stone-200">
                             <span className="font-bold text-stone-700">Gross Total</span>
-                            <span className="font-mono font-bold text-stone-900">₱{mockAssessment.grossTotal.toLocaleString()}</span>
+                            <span className="font-mono font-bold text-stone-900">₱{financeAssessmentPreview.grossTotal.toLocaleString()}</span>
                           </div>
-                          {mockAssessment.discountAmount > 0 && (
+                          {financeAssessmentPreview.discountAmount > 0 && (
                             <div className="flex justify-between text-xs py-1.5 border-b border-stone-100">
-                              <span className="text-green-600 font-medium">Discount ({selectedDiscount.percentage}%)</span>
-                              <span className="font-mono font-bold text-green-600">– ₱{mockAssessment.discountAmount.toLocaleString()}</span>
+                              <span className="text-green-600 font-medium">{hasCanonicalFinanceAssessment ? "Posted discounts / credits" : `Estimated discount (${selectedDiscount.percentage}%)`}</span>
+                              <span className="font-mono font-bold text-green-600">– ₱{financeAssessmentPreview.discountAmount.toLocaleString()}</span>
                             </div>
                           )}
                           <div className="flex justify-between items-center p-3.5 bg-stsn-brown rounded-xl mt-1">
-                            <span className="text-xs font-bold text-stsn-gold-light uppercase tracking-wide">Net Payable</span>
-                            <span className="font-mono text-lg font-black text-white">₱{mockAssessment.netPayable.toLocaleString()}</span>
+                            <span className="text-xs font-bold text-stsn-gold-light uppercase tracking-wide">{hasCanonicalFinanceAssessment ? "Outstanding Balance" : "Estimated Net Payable"}</span>
+                            <span className="font-mono text-lg font-black text-white">₱{financeAssessmentPreview.netPayable.toLocaleString()}</span>
                           </div>
                           <p className="text-[9.5px] text-stone-400 font-mono text-center leading-snug pt-1">
-                            Term: {selectedPaymentTerm} • SY 2026-2027
-                            {/* TODO: Connect real balance from accounting ledger */}
+                            Term: {displayedPaymentTerm} • SY {assessment?.schoolYear ?? "2026-2027"}
                           </p>
                         </div>
                       </div>
@@ -2725,7 +2759,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                           <span className="text-xs font-display font-bold text-amber-700 uppercase tracking-wide">F. Payment Schedule</span>
                         </div>
                         <div className="divide-y divide-stone-50">
-                          {mockAssessment.paymentSchedule.map((item, idx) => (
+                          {financeAssessmentPreview.paymentSchedule.map((item, idx) => (
                             <div key={idx} className="p-4 flex gap-3 hover:bg-stone-50/40 transition">
                               <div className="w-7 h-7 rounded-full bg-stsn-cream border border-stsn-beige flex items-center justify-center flex-shrink-0 mt-0.5">
                                 <span className="text-[9px] font-bold font-mono text-stsn-brown">{idx + 1}</span>
@@ -2744,21 +2778,24 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                           ))}
                         </div>
                         <div className="px-5 py-3 bg-stone-50 border-t border-stone-100">
-                          {/* TODO: Replace mock status with real payment status from accounting */}
                           <p className="text-[9.5px] text-stone-400 font-mono leading-snug">
-                            * Schedule is subject to change upon confirmation by the Accounting Office.
+                            {hasCanonicalFinanceAssessment
+                              ? "* Status and remaining amounts are synchronized from the Accounting installment schedule."
+                              : "* Estimate is subject to Registrar and Accounting approval."}
                           </p>
                         </div>
                       </div>
 
-                      {/* Demo notice */}
+                      {/* Canonical/estimate provenance notice */}
                       <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
                         <div className="flex items-start gap-2">
                           <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="font-bold uppercase font-mono text-[10px]">Demo Preview Mode</p>
+                            <p className="font-bold uppercase font-mono text-[10px]">{hasCanonicalFinanceAssessment ? "Canonical Finance Record" : "Estimate Only"}</p>
                             <p className="mt-1 leading-relaxed text-amber-700">
-                              This assessment is generated from standard fee schedules for demo purposes. Final figures will be confirmed by the Registrar and Accounting Office.
+                              {hasCanonicalFinanceAssessment
+                                ? "Amounts, balance, and installment standing come from the posted invoice and its active allocations."
+                                : "This fee estimate is generated from configured schedules and is not a posted invoice or payment obligation."}
                             </p>
                           </div>
                         </div>

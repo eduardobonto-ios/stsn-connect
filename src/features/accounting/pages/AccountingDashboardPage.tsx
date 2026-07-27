@@ -52,13 +52,14 @@ function buildAreaPath(
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function AccountingDashboardPage() {
-  const { payments, assessments, activeSchool } = useSTSNStore();
+  const { payments, assessments, studentInvoices, activeSchool } = useSTSNStore();
 
   const scopedPayments = useMemo(
     () =>
-      activeSchool === "ALL"
+      (activeSchool === "ALL"
         ? payments
-        : payments.filter((p) => (p as { schoolId?: string }).schoolId === activeSchool),
+        : payments.filter((p) => (p as { schoolId?: string }).schoolId === activeSchool))
+        .filter((payment) => payment.status !== "Voided"),
     [payments, activeSchool],
   );
 
@@ -68,11 +69,19 @@ export default function AccountingDashboardPage() {
   );
 
   const totalAR = useMemo(
-    () =>
-      assessments
+    () => {
+      if (studentInvoices.length > 0) {
+        return studentInvoices
+          .filter((invoice) => activeSchool === "ALL" || invoice.schoolId === activeSchool)
+          .filter((invoice) => invoice.status === "Posted" && invoice.balance > 0)
+          .reduce((sum, invoice) => sum + invoice.balance, 0);
+      }
+      return assessments
+        .filter((assessment) => activeSchool === "ALL" || assessment.schoolId === activeSchool)
         .filter((a) => a.balance > 0)
-        .reduce((sum, a) => sum + a.balance, 0),
-    [assessments],
+        .reduce((sum, a) => sum + a.balance, 0);
+    },
+    [assessments, activeSchool, studentInvoices],
   );
 
   const totalExpenses = useMemo(() => Math.round(totalRevenue * 0.62), [totalRevenue]);

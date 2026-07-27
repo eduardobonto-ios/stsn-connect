@@ -32,6 +32,7 @@ export type UserDesignation =
 
 export interface User {
   id: string;
+  authUserId?: string;
   schoolId?: SchoolId; // undefined = access to all schools (SUPER_ADMIN)
   email: string;
   name: string;
@@ -290,6 +291,7 @@ export interface Enrollment {
 export interface OnlineEnrollmentApplication {
   id: string;
   referenceNo: string;
+  schoolId?: SchoolId;
   studentId?: string;
   enrollmentId?: string;
   enrollmentType: string;
@@ -322,6 +324,7 @@ export interface OnlineEnrollmentApplication {
   missingFields: string[];
   submittedFrom: string;
   submittedAt: string;
+  reviewNotes?: string;
   payload?: Record<string, unknown>;
 }
 
@@ -334,6 +337,7 @@ export interface AssessmentFee {
 
 export interface StudentAssessment {
   id: string;
+  enrollmentId?: string;
   schoolId?: SchoolId;
   studentId: string;
   schoolYear: string;
@@ -457,6 +461,137 @@ export interface Payment {
   remarks?: string;
   transactionType?: "AR" | "OR"; // AR = applied to an assessment balance; OR = standalone collection. Defaults to "AR" when absent.
   paymentCategory?: string; // only meaningful for "OR" — e.g. Transcript Fee, ID Replacement
+  paymentMethodId?: string;
+  collectionCategoryId?: string;
+  currencyCode?: string;
+  status?: "Posted" | "Voided";
+  postedBy?: string;
+  postedAt?: string;
+  voidedBy?: string;
+  voidedAt?: string;
+  voidReason?: string;
+}
+
+export interface StudentInvoice {
+  id: string;
+  assessmentId: string;
+  enrollmentId?: string;
+  schoolId?: SchoolId;
+  studentId: string;
+  invoiceNo: string;
+  academicYear: string;
+  semester?: string;
+  currencyCode: string;
+  status: "Draft" | "Posted" | "Voided";
+  grossCharges: number;
+  debitAdjustments: number;
+  creditAdjustments: number;
+  discountAmount: number;
+  allocatedAmount: number;
+  balance: number;
+  isPaid: boolean;
+  issuedAt?: string;
+  issuedBy?: string;
+}
+
+export interface InvoiceLine {
+  id: string;
+  invoiceId: string;
+  assessmentFeeId?: string;
+  lineNo: number;
+  description: string;
+  category: string;
+  quantity: number;
+  unitAmount: number;
+  amount: number;
+  revenueAccountCode: string;
+}
+
+export interface PaymentPlan {
+  id: string;
+  invoiceId: string;
+  templateId: string;
+  templateVersion: number;
+  status: "Active" | "Superseded";
+}
+
+export interface PaymentPlanInstallment {
+  id: string;
+  invoiceId: string;
+  sequenceNo: number;
+  label: string;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: "Pending" | "Partially Paid" | "Paid" | "Overdue";
+}
+
+export interface StudentReceipt {
+  id: string;
+  schoolId?: SchoolId;
+  studentId: string;
+  receiptNo: string;
+  receiptDate: string;
+  paymentMethodId: string;
+  paymentMethod?: string;
+  amount: number;
+  currencyCode: string;
+  status: "Posted" | "Voided";
+  remarks?: string;
+  postedBy: string;
+  postedAt: string;
+  allocatedAmount: number;
+  directCollectionAmount: number;
+  unappliedAmount: number;
+  allowUnappliedCredit: boolean;
+  voidedBy?: string;
+  voidedAt?: string;
+  voidReason?: string;
+}
+
+export interface ReceiptAllocation {
+  id: string;
+  receiptId: string;
+  invoiceId: string;
+  amount: number;
+  source: "Receipt" | "UnappliedCredit" | "Reallocation";
+  allocatedBy: string;
+  allocatedAt: string;
+  reversedAmount?: number;
+  effectiveAmount?: number;
+}
+
+export interface DirectCollectionLine {
+  id: string;
+  receiptId: string;
+  collectionCategoryId: string;
+  amount: number;
+  description?: string;
+}
+
+export interface UnappliedCredit {
+  receiptId: string;
+  schoolId?: SchoolId;
+  studentId: string;
+  receiptNo: string;
+  receiptDate: string;
+  amount: number;
+  currencyCode: string;
+}
+
+export interface AllocationReallocationRequest {
+  id: string;
+  allocationId: string;
+  destinationInvoiceId: string;
+  amount: number;
+  reason: string;
+  status: "Pending" | "Approved" | "Rejected";
+  requestedBy: string;
+  requestedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewRemarks?: string;
 }
 
 export interface Grade {

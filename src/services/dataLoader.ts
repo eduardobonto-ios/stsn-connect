@@ -21,12 +21,22 @@ import type {
   OnboardingTemplate, OnboardingTask, EmployeeOnboardingTask,
   OnlineEnrollmentApplication,
   CashVoucher,
+  VoidRequest,
   StudentGuardianContact,
   StudentEducationBackground,
   EmployeeProfileContact,
   EmployeeEducationBackground,
   EmployeeLicenseCertification,
   EmployeeDocumentRecord,
+  StudentInvoice,
+  InvoiceLine,
+  PaymentPlan,
+  PaymentPlanInstallment,
+  StudentReceipt,
+  ReceiptAllocation,
+  DirectCollectionLine,
+  UnappliedCredit,
+  AllocationReallocationRequest,
 } from "../types";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent } from "../types/grading";
 
@@ -38,6 +48,7 @@ const personName = (
 ) => person ? `${person.first_name ?? person.firstName ?? ""} ${person.last_name ?? person.lastName ?? ""}`.trim() || undefined : undefined;
 
 export interface LoadedData {
+  financeWritesEnabled: boolean;
   schools: { id: string; uuid: string; name: string; shortName: string; location: string; academicUnit: string; brandingLabel: string; supportedRoles: string[] }[];
   users: User[];
   students: Student[];
@@ -51,6 +62,15 @@ export interface LoadedData {
   onlineEnrollmentApplications: OnlineEnrollmentApplication[];
   assessments: StudentAssessment[];
   payments: Payment[];
+  studentInvoices: StudentInvoice[];
+  invoiceLines: InvoiceLine[];
+  paymentPlans: PaymentPlan[];
+  paymentPlanInstallments: PaymentPlanInstallment[];
+  studentReceipts: StudentReceipt[];
+  receiptAllocations: ReceiptAllocation[];
+  directCollectionLines: DirectCollectionLine[];
+  unappliedCredits: UnappliedCredit[];
+  allocationReallocationRequests: AllocationReallocationRequest[];
   grades: Grade[];
   schedules: Schedule[];
   announcements: Announcement[];
@@ -59,6 +79,7 @@ export interface LoadedData {
   setupData: Record<string, SetupItem[]>;
   discountTypes: DiscountType[];
   discountRequests: DiscountRequest[];
+  voidRequests: VoidRequest[];
   cashVouchers: CashVoucher[];
   classSchedules: ClassSchedule[];
   learningMaterials: LearningMaterial[];
@@ -123,6 +144,7 @@ export async function loadAllData(): Promise<LoadedData> {
       academicUnit: s.academic_unit, brandingLabel: s.branding_label, supportedRoles: s.supported_roles ?? [],
     };
   });
+  const schoolIdToCode = new Map((schoolRows ?? []).map((school: any) => [school.id, school.code]));
 
   // ---- Subjects (drives subjectCodeToId map) ----
   const { data: subjectRows } = await supabase.from("subjects").select("*");
@@ -137,7 +159,8 @@ export async function loadAllData(): Promise<LoadedData> {
   // ---- Users ----
   const { data: userRows } = await supabase.from("users").select("*, schools(code)");
   const users: User[] = (userRows ?? []).map((u: any) => ({
-    id: u.id, schoolId: u.schools?.code, email: u.email, name: u.name, role: u.role,
+    id: u.id, authUserId: u.auth_user_id ?? undefined,
+    schoolId: u.schools?.code, email: u.email, name: u.name, role: u.role,
     designation: u.designation ?? undefined,
     isActive: u.is_active, avatarUrl: u.avatar_url, department: u.department,
   }));
@@ -314,21 +337,36 @@ export async function loadAllData(): Promise<LoadedData> {
 
   // ---- Assessments + fees + audit trail ----
   const { data: assessmentRows } = await supabase.from("assessments").select("*, schools(code), book_packages(legacy_id)");
+  const { data: assessmentFinancialRows } = await supabase.from("assessment_financials").select("*");
   const { data: assessmentFeeRows } = await supabase.from("assessment_fees").select("*");
   const { data: assessmentAuditRows } = await supabase.from("assessment_audit_trail").select("*");
-  const assessments: StudentAssessment[] = (assessmentRows ?? []).map((a: any) => ({
-    id: a.id, schoolId: a.schools?.code, studentId: a.student_id, schoolYear: a.school_year, semester: a.semester,
-    fees: (assessmentFeeRows ?? []).filter((f: any) => f.assessment_id === a.id).map((f: any) => ({ feeName: f.fee_name, category: f.category, amount: f.amount })),
-    totalAmount: a.total_amount, discountPercentage: a.discount_percentage, discountAmount: a.discount_amount,
-    scholarshipName: a.scholarship_name, paymentTerm: a.payment_term, balance: a.balance, isPaid: a.is_paid,
-    financialHoldStatus: a.financial_hold_status, lastPaymentDate: a.last_payment_date, booksAvailed: a.books_availed,
-    bookPackageId: a.book_package_id, approvalStatus: a.approval_status, submittedBy: a.submitted_by,
-    submittedDate: a.submitted_date, registrarRemarks: a.registrar_remarks, accountingRemarks: a.accounting_remarks,
-    approvedBy: a.approved_by, approvedDate: a.approved_date,
-    auditTrail: (assessmentAuditRows ?? []).filter((t: any) => t.assessment_id === a.id).map((t: any) => ({
-      id: t.id, action: t.action, performedBy: t.performed_by, performedAt: t.performed_at, details: t.details,
-    })),
-  }));
+  const assessmentFinancialById = new Map(
+    (assessmentFinancialRows ?? []).map((row: any) => [row.assessment_id, row]),
+  );
+  const assessments: StudentAssessment[] = (assessmentRows ?? []).map((a: any) => {
+    const financial: any = assessmentFinancialById.get(a.id);
+    const totalAmount = financial
+      ? Number(financial.gross_charges) + Number(financial.debit_adjustments)
+      : Number(a.total_amount);
+    const discountAmount = financial ? Number(financial.discount_amount) : Number(a.discount_amount);
+    return {
+      id: a.id, enrollmentId: a.enrollment_id, schoolId: a.schools?.code, studentId: a.student_id, schoolYear: a.school_year, semester: a.semester,
+      fees: (assessmentFeeRows ?? []).filter((f: any) => f.assessment_id === a.id).map((f: any) => ({ feeName: f.fee_name, category: f.category, amount: Number(f.amount) })),
+      totalAmount, discountPercentage: totalAmount > 0 ? (discountAmount / totalAmount) * 100 : 0, discountAmount,
+      scholarshipName: a.scholarship_name, paymentTerm: a.payment_term,
+      balance: financial ? Number(financial.balance) : Number(a.balance),
+      isPaid: financial ? financial.is_paid : a.is_paid,
+      financialHoldStatus: a.financial_hold_status,
+      lastPaymentDate: financial?.last_payment_date ?? a.last_payment_date,
+      booksAvailed: a.books_availed,
+      bookPackageId: a.book_package_id, approvalStatus: a.approval_status, submittedBy: a.submitted_by,
+      submittedDate: a.submitted_date, registrarRemarks: a.registrar_remarks, accountingRemarks: a.accounting_remarks,
+      approvedBy: a.approved_by, approvedDate: a.approved_date,
+      auditTrail: (assessmentAuditRows ?? []).filter((t: any) => t.assessment_id === a.id).map((t: any) => ({
+        id: t.id, action: t.action, performedBy: t.performed_by, performedAt: t.performed_at, details: t.details,
+      })),
+    };
+  });
 
   // ---- Enrollments + enrollment_subjects ----
   const { data: enrollmentRows } = await supabase.from("enrollments").select("*");
@@ -349,6 +387,7 @@ export async function loadAllData(): Promise<LoadedData> {
   const onlineEnrollmentApplications: OnlineEnrollmentApplication[] = (onlineApplicationRows ?? []).map((a: any) => ({
     id: a.id,
     referenceNo: a.reference_no,
+    schoolId: schoolIdToCode.get(a.school_id),
     studentId: a.student_id,
     enrollmentId: a.enrollment_id,
     enrollmentType: a.enrollment_type,
@@ -381,16 +420,145 @@ export async function loadAllData(): Promise<LoadedData> {
     missingFields: a.missing_fields ?? [],
     submittedFrom: a.submitted_from,
     submittedAt: a.submitted_at,
+    reviewNotes: a.review_notes,
     payload: a.payload ?? {},
   }));
 
-  // ---- Payments ----
-  const { data: paymentRows } = await supabase.from("payments").select("*, schools(code)");
-  const payments: Payment[] = (paymentRows ?? []).map((p: any) => ({
-    id: p.id, schoolId: p.schools?.code, studentId: p.student_id, assessmentId: p.assessment_id, amount: p.amount, paymentDate: p.payment_date,
-    paymentMethod: p.payment_method, orNumber: p.or_number, term: p.term, remarks: p.remarks,
-    transactionType: p.transaction_type ?? "AR", paymentCategory: p.payment_category,
+  // ---- Normalized invoices / receipts / allocations / schedules ----
+  const { data: invoiceRows } = await supabase
+    .from("student_invoice_financials").select("*");
+  const studentInvoices: StudentInvoice[] = (invoiceRows ?? []).map((i: any) => ({
+    id: i.invoice_id, assessmentId: i.assessment_id, enrollmentId: i.enrollment_id,
+    schoolId: schoolIdToCode.get(i.school_id), studentId: i.student_id,
+    invoiceNo: i.invoice_no, academicYear: i.academic_year, semester: i.semester,
+    currencyCode: "PHP", status: i.status, grossCharges: Number(i.gross_charges),
+    debitAdjustments: Number(i.debit_adjustments), creditAdjustments: Number(i.credit_adjustments),
+    discountAmount: Number(i.discount_amount), allocatedAmount: Number(i.allocated_amount),
+    balance: Number(i.balance), isPaid: i.is_paid,
   }));
+  const invoiceById = new Map(studentInvoices.map((invoice) => [invoice.id, invoice]));
+
+  const { data: invoiceLineRows } = await supabase.from("student_finance_invoice_lines").select("*");
+  const invoiceLines: InvoiceLine[] = (invoiceLineRows ?? []).map((line: any) => ({
+    id: line.id, invoiceId: line.invoice_id, assessmentFeeId: line.assessment_fee_id,
+    lineNo: line.line_no, description: line.description, category: line.category,
+    quantity: Number(line.quantity), unitAmount: Number(line.unit_amount),
+    amount: Number(line.amount), revenueAccountCode: line.revenue_account_code,
+  }));
+  const { data: planRows } = await supabase.from("student_invoice_payment_plans").select("*");
+  const paymentPlans: PaymentPlan[] = (planRows ?? []).map((plan: any) => ({
+    id: plan.id, invoiceId: plan.invoice_id, templateId: plan.template_id,
+    templateVersion: plan.template_version, status: plan.status,
+  }));
+  const { data: installmentRows } = await supabase.from("student_installment_standing").select("*");
+  const paymentPlanInstallments: PaymentPlanInstallment[] = (installmentRows ?? []).map((row: any) => ({
+    id: row.id, invoiceId: row.invoice_id, sequenceNo: row.sequence_no,
+    label: row.label, dueDate: row.due_date, amount: Number(row.amount),
+    paidAmount: Number(row.paid_amount), remainingAmount: Number(row.remaining_amount),
+    status: row.status,
+  }));
+
+  const { data: receiptRows } = await supabase
+    .from("student_receipt_financials").select("*, student_payment_methods(name), schools(code)");
+  const studentReceipts: StudentReceipt[] = (receiptRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.schools?.code, studentId: r.student_id,
+    receiptNo: r.receipt_no, receiptDate: r.receipt_date,
+    paymentMethodId: r.payment_method_id, paymentMethod: r.student_payment_methods?.name,
+    amount: Number(r.amount), currencyCode: r.currency_code, status: r.status,
+    remarks: r.remarks, postedBy: r.posted_by, postedAt: r.posted_at,
+    allocatedAmount: Number(r.allocated_amount), directCollectionAmount: Number(r.direct_collection_amount),
+    unappliedAmount: Number(r.unapplied_amount), allowUnappliedCredit: r.allow_unapplied_credit,
+    voidedBy: r.voided_by, voidedAt: r.voided_at, voidReason: r.void_reason,
+  }));
+  const { data: reversalRows } = await supabase.from("student_allocation_reversals").select("*");
+  const reversedByAllocation = new Map<string, number>();
+  (reversalRows ?? []).forEach((reversal: any) => {
+    reversedByAllocation.set(
+      reversal.allocation_id,
+      (reversedByAllocation.get(reversal.allocation_id) ?? 0) + Number(reversal.amount),
+    );
+  });
+  const { data: allocationRows } = await supabase.from("student_receipt_allocations").select("*");
+  const receiptAllocations: ReceiptAllocation[] = (allocationRows ?? []).map((a: any) => ({
+    id: a.id, receiptId: a.receipt_id, invoiceId: a.invoice_id,
+    amount: Number(a.amount), source: a.source, allocatedBy: a.allocated_by,
+    allocatedAt: a.allocated_at,
+    reversedAmount: reversedByAllocation.get(a.id) ?? 0,
+    effectiveAmount: Math.max(0, Number(a.amount) - (reversedByAllocation.get(a.id) ?? 0)),
+  }));
+  const allocationsByReceipt = new Map<string, ReceiptAllocation[]>();
+  receiptAllocations.forEach((allocation) => {
+    allocationsByReceipt.set(allocation.receiptId, [
+      ...(allocationsByReceipt.get(allocation.receiptId) ?? []), allocation,
+    ]);
+  });
+  const { data: directRows } = await supabase.from("student_direct_collection_lines").select("*");
+  const directCollectionLines: DirectCollectionLine[] = (directRows ?? []).map((line: any) => ({
+    id: line.id, receiptId: line.receipt_id, collectionCategoryId: line.collection_category_id,
+    amount: Number(line.amount), description: line.description,
+  }));
+  const { data: creditRows } = await supabase.from("student_unapplied_credits").select("*");
+  const unappliedCredits: UnappliedCredit[] = (creditRows ?? []).map((credit: any) => ({
+    receiptId: credit.receipt_id, schoolId: schoolIdToCode.get(credit.school_id),
+    studentId: credit.student_id, receiptNo: credit.receipt_no,
+    receiptDate: credit.receipt_date, amount: Number(credit.amount),
+    currencyCode: credit.currency_code,
+  }));
+  const { data: reallocationRows } = await supabase
+    .from("student_allocation_reallocation_requests").select("*");
+  const allocationReallocationRequests: AllocationReallocationRequest[] =
+    (reallocationRows ?? []).map((request: any) => ({
+      id: request.id, allocationId: request.allocation_id,
+      destinationInvoiceId: request.destination_invoice_id, amount: Number(request.amount),
+      reason: request.reason, status: request.status, requestedBy: request.requested_by,
+      requestedAt: request.requested_at, reviewedBy: request.reviewed_by,
+      reviewedAt: request.reviewed_at, reviewRemarks: request.review_remarks,
+    }));
+
+  const payments: Payment[] = studentReceipts.map((receipt) => {
+        const allocations = allocationsByReceipt.get(receipt.id) ?? [];
+        const invoiceIds = [...new Set(allocations.map((allocation) => allocation.invoiceId))];
+        const assessmentId = invoiceIds.length === 1
+          ? invoiceById.get(invoiceIds[0])?.assessmentId
+          : undefined;
+        return {
+          id: receipt.id, schoolId: receipt.schoolId, studentId: receipt.studentId,
+          assessmentId, amount: receipt.amount, paymentDate: receipt.receiptDate,
+          paymentMethod: receipt.paymentMethod ?? "", orNumber: receipt.receiptNo,
+          term: receipt.directCollectionAmount > 0 ? "Direct Collection" : "Invoice Allocation",
+          remarks: receipt.remarks,
+          transactionType: receipt.directCollectionAmount > 0 ? "OR" : "AR",
+          paymentMethodId: receipt.paymentMethodId, currencyCode: receipt.currencyCode,
+          status: receipt.status, postedBy: receipt.postedBy, postedAt: receipt.postedAt,
+          voidedBy: receipt.voidedBy, voidedAt: receipt.voidedAt, voidReason: receipt.voidReason,
+        };
+      });
+
+  // ---- Persisted Receipt Void Requests ----
+  const paymentById = new Map(payments.map((payment) => [payment.id, payment]));
+  const studentForVoidById = new Map((studentRows ?? []).map((s: any) => [s.id, s]));
+  const { data: receiptVoidRows } = await supabase
+    .from("student_receipt_void_requests").select("*");
+  const voidRequests: VoidRequest[] = (receiptVoidRows ?? []).map((v: any) => {
+    const payment: any = paymentById.get(v.receipt_id ?? v.payment_id);
+    const student: any = studentForVoidById.get(payment?.studentId);
+    return {
+      id: v.id,
+      schoolId: payment?.schoolId,
+      paymentId: v.receipt_id,
+      orNumber: payment?.orNumber ?? "",
+      amount: Number(payment?.amount ?? 0),
+      studentId: payment?.studentId ?? "",
+      studentName: student ? `${student.last_name}, ${student.first_name}` : "",
+      requestedBy: v.requested_by,
+      requestedAt: v.requested_at,
+      reason: v.reason,
+      status: v.status === "Pending" ? "Pending Void Approval" : v.status,
+      reviewedBy: v.reviewed_by,
+      reviewedAt: v.reviewed_at,
+      reviewRemarks: v.review_remarks,
+    };
+  });
 
   // ---- Cash Vouchers ----
   const { data: cashVoucherRows } = await supabase.from("cash_vouchers").select("*, schools(code)");
@@ -901,10 +1069,20 @@ export async function loadAllData(): Promise<LoadedData> {
     status: r.status, completedAt: r.completed_at, completedBy: r.completed_by, notes: r.notes, createdAt: r.created_at,
   }));
 
+  const { data: financeControl } = await supabase
+    .from("system_runtime_controls")
+    .select("enabled")
+    .eq("control_key", "student_finance_writes")
+    .maybeSingle();
+  const financeWritesEnabled = financeControl?.enabled === true;
+
   return {
+    financeWritesEnabled,
     schools, users, students, teachers, employees, courses, subjects, curriculums, requirements, enrollments, onlineEnrollmentApplications,
-    assessments, payments, grades, schedules, announcements, events, payroll, setupData, discountTypes,
-    discountRequests, cashVouchers, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
+    assessments, payments, studentInvoices, invoiceLines, paymentPlans, paymentPlanInstallments,
+    studentReceipts, receiptAllocations, directCollectionLines, unappliedCredits,
+    allocationReallocationRequests, grades, schedules, announcements, events, payroll, setupData, discountTypes,
+    discountRequests, voidRequests, cashVouchers, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
     financialHolds, assessmentBillingSummaries, paymentCollectionSummaries, promissoryNotes, bookPackages,
     classLoads, gradePeriods, studentGradeEntries, demoStudents, activityLogs,
     enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians, studentEducationBackgrounds,

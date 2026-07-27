@@ -1,10 +1,8 @@
 /**
  * Central test data for the STSN Connect E2E suite.
  *
- * Auth is a demo stub: any active user email + the literal password `password123`.
- * Emails are read from E2E_* env vars when present, otherwise fall back to the
- * known dev/demo seed accounts (confirmed in LoginOverlay + capture scripts).
- * No real secrets live here.
+ * Emails identify provisioned Supabase Auth test accounts. Passwords are
+ * supplied only through environment/CI secrets.
  */
 
 export type Role =
@@ -20,7 +18,7 @@ export type Role =
   | "NURSE"
   | "PAYROLL";
 
-export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "password123";
+export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "";
 
 export const ACCOUNTS: Record<Role, string> = {
   SUPER_ADMIN: process.env.E2E_SUPER_ADMIN_EMAIL ?? "admin@stsn.edu.ph",

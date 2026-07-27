@@ -523,15 +523,16 @@ export default function Dashboard({
     () =>
       getAcademicScopedData({
         currentUser, activeSchool, academicUnit,
-        students, enrollments, requirements, assessments, sections,
+        students, enrollments, requirements, assessments, payments, sections,
       }),
-    [currentUser, activeSchool, academicUnit, students, enrollments, requirements, assessments, sections],
+    [currentUser, activeSchool, academicUnit, students, enrollments, requirements, assessments, payments, sections],
   );
 
   const scopedStudents   = scopedData.students;
   const scopedEnrollments  = scopedData.enrollments ?? [];
   const scopedRequirements = scopedData.requirements ?? [];
   const scopedAssessments  = scopedData.assessments ?? [];
+  const scopedPayments     = scopedData.payments ?? [];
   const scopedSections     = scopedData.sections ?? [];
 
   const contextStudents = useMemo(
@@ -566,7 +567,12 @@ export default function Dashboard({
     ).length;
     return teachingEmployeeIds.size + unbridgedTeachers;
   }, [teachers, employees]);
-  const totalPayments = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
+  const totalPayments = useMemo(
+    () => scopedPayments
+      .filter((payment) => payment.status !== "Voided")
+      .reduce((sum, payment) => sum + payment.amount, 0),
+    [scopedPayments],
+  );
   const pendingEnrollments = useMemo(
     () => scopedEnrollments.filter((e) => e.status === "Pending" || e.status === "For Assessment").length,
     [scopedEnrollments]

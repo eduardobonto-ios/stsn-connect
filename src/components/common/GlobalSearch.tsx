@@ -89,7 +89,8 @@ export default function GlobalSearch({ open, onClose, onNavigate }: GlobalSearch
           id: pay.id,
           type: "payment",
           label: `OR # ${pay.orNumber}`,
-          sub: `₱${pay.amount.toLocaleString()} · ${pay.paymentDate} · ${pay.paymentMethod}`,
+          sub: `₱${pay.amount.toLocaleString()} · ${pay.paymentDate} · ${pay.paymentMethod}${pay.status === "Voided" ? " · VOIDED" : ""}`,
+          badge: pay.schoolId,
         });
         if (out.length >= 10) break;
       }

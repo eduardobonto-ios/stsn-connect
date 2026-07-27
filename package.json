@@ -13,7 +13,12 @@
     "test:e2e:consolidation:mutation": "playwright test tests/e2e/teacher-employee-consolidation-mutation.spec.ts",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
-    "validate:consolidation": "node scripts/validate-teacher-consolidation.mjs"
+    "validate:consolidation": "node scripts/validate-teacher-consolidation.mjs",
+    "provision:auth-users": "node scripts/provision-supabase-auth-users.mjs",
+    "provision:auth-users:apply": "node scripts/provision-supabase-auth-users.mjs --apply",
+    "validate:auth-bridge": "node scripts/provision-supabase-auth-users.mjs --validate-only",
+    "provision:auth-users:e2e": "node scripts/provision-supabase-auth-users.mjs --apply --set-e2e-password",
+    "test:db:finance": "npx --yes supabase@2.109.1 test db supabase/tests/student_finance_production_posting_test.sql"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -138,10 +138,24 @@ function AccountingDashboard() {
     financialHolds,
     paymentCollectionSummaries,
     promissoryNotes,
+    unappliedCredits,
+    allocationReallocationRequests,
+    studentInvoices,
+    applyUnappliedCredit,
+    reviewAllocationReallocation,
   } = useSTSNStore();
+  const { confirm, toast: dialogToast } = useAppDialog();
+  const [reviewingReallocationId, setReviewingReallocationId] = useState<string | null>(null);
+  const [allocatingCreditId, setAllocatingCreditId] = useState<string | null>(null);
+  const [creditAllocationAmounts, setCreditAllocationAmounts] = useState<Record<string, number>>({});
+  const [applyingCredit, setApplyingCredit] = useState(false);
+  const postedPayments = useMemo(
+    () => payments.filter((payment) => payment.status !== "Voided"),
+    [payments],
+  );
 
   const totalAssessed = useMemo(() => assessments.reduce((s, a) => s + a.totalAmount, 0), [assessments]);
-  const totalCollected = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
+  const totalCollected = useMemo(() => postedPayments.reduce((s, p) => s + p.amount, 0), [postedPayments]);
   const totalOutstanding = useMemo(() => assessments.reduce((s, a) => s + a.balance, 0), [assessments]);
   const totalDiscounts = useMemo(() => assessments.reduce((s, a) => s + a.discountAmount, 0), [assessments]);
   const studentsWithBalance = useMemo(() => assessments.filter((a) => a.balance > 0).length, [assessments]);
@@ -150,19 +164,24 @@ function AccountingDashboard() {
 
   const collectionByMethod = useMemo(() => {
     const map: Record<string, number> = {};
-    payments.forEach((p) => { map[p.paymentMethod] = (map[p.paymentMethod] || 0) + p.amount; });
+    postedPayments.forEach((p) => { map[p.paymentMethod] = (map[p.paymentMethod] || 0) + p.amount; });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [payments]);
+  }, [postedPayments]);
 
-  const recentPayments = useMemo(() => [...payments].sort((a, b) => b.paymentDate.localeCompare(a.paymentDate)).slice(0, 6), [payments]);
+  const recentPayments = useMemo(() => [...postedPayments].sort((a, b) => b.paymentDate.localeCompare(a.paymentDate)).slice(0, 6), [postedPayments]);
 
-  // "Today" surrogate for the prototype — most recent payment date present in the mock data.
-  const latestPaymentDate = useMemo(() => payments.reduce((max, p) => (p.paymentDate > max ? p.paymentDate : max), ""), [payments]);
-  const todaysCollection = useMemo(() => payments.filter((p) => p.paymentDate === latestPaymentDate).reduce((s, p) => s + p.amount, 0), [payments, latestPaymentDate]);
+  // Use the most recent posted payment date represented in the current dataset.
+  const latestPaymentDate = useMemo(() => postedPayments.reduce((max, p) => (p.paymentDate > max ? p.paymentDate : max), ""), [postedPayments]);
+  const todaysCollection = useMemo(() => postedPayments.filter((p) => p.paymentDate === latestPaymentDate).reduce((s, p) => s + p.amount, 0), [postedPayments, latestPaymentDate]);
 
   const pendingPaymentVerifications = useMemo(() => paymentCollectionSummaries.filter((p) => p.verificationStatus === "Pending Verification").length, [paymentCollectionSummaries]);
   const activeFinancialHolds = useMemo(() => financialHolds.filter((h) => h.status === "Active"), [financialHolds]);
   const promissoryNotesDue = useMemo(() => promissoryNotes.filter((n) => n.status !== "Settled").length, [promissoryNotes]);
+  const pendingReallocations = useMemo(
+    () => allocationReallocationRequests.filter((request) => request.status === "Pending"),
+    [allocationReallocationRequests],
+  );
+  const unappliedCreditCount = unappliedCredits.length;
 
   const receivables = useMemo(() => [...assessments].filter((a) => a.balance > 0).sort((a, b) => b.balance - a.balance), [assessments]);
 
@@ -178,7 +197,68 @@ function AccountingDashboard() {
     { icon: Wallet, label: "Payment(s) pending verification", count: pendingPaymentVerifications },
     { icon: Lock, label: "Student(s) on financial hold", count: activeFinancialHolds.length },
     { icon: Banknote, label: "Promissory note(s) due for follow-up", count: promissoryNotesDue },
+    { icon: Wallet, label: "Student unapplied credit(s) awaiting allocation", count: unappliedCreditCount },
+    { icon: AlertCircle, label: "Receipt reallocation request(s) awaiting approval", count: pendingReallocations.length },
   ];
+
+  const reviewReallocation = async (requestId: string, approved: boolean) => {
+    const confirmed = await confirm(
+      approved
+        ? "Approve this allocation correction? The original allocation will be reversed and a replacement allocation will be posted."
+        : "Reject this allocation correction? No financial facts will be changed.",
+      {
+        title: approved ? "Approve Reallocation" : "Reject Reallocation",
+        confirmText: approved ? "Approve" : "Reject",
+        variant: approved ? "success" : "danger",
+      },
+    );
+    if (!confirmed) return;
+    setReviewingReallocationId(requestId);
+    try {
+      await reviewAllocationReallocation(requestId, approved);
+      dialogToast(
+        approved ? "Allocation correction approved and posted." : "Allocation correction rejected.",
+        { variant: approved ? "success" : "warning" },
+      );
+    } catch (error) {
+      dialogToast(
+        error instanceof Error ? error.message : "The allocation correction could not be reviewed.",
+        { variant: "danger" },
+      );
+    } finally {
+      setReviewingReallocationId(null);
+    }
+  };
+
+  const applySelectedCredit = async (receiptId: string, available: number) => {
+    const allocations = Object.entries(creditAllocationAmounts)
+      .filter(([, amount]) => Number(amount) > 0)
+      .map(([invoiceId, amount]) => ({ invoiceId, amount: Number(amount) }));
+    const total = allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    if (allocations.length === 0 || total > available) {
+      dialogToast(
+        total > available
+          ? "Invoice allocations exceed the available student credit."
+          : "Enter at least one invoice allocation.",
+        { variant: "warning" },
+      );
+      return;
+    }
+    setApplyingCredit(true);
+    try {
+      await applyUnappliedCredit(receiptId, allocations);
+      setAllocatingCreditId(null);
+      setCreditAllocationAmounts({});
+      dialogToast("Student credit applied to the selected invoice(s).", { variant: "success" });
+    } catch (error) {
+      dialogToast(
+        error instanceof Error ? error.message : "The student credit could not be applied.",
+        { variant: "danger" },
+      );
+    } finally {
+      setApplyingCredit(false);
+    }
+  };
 
   const discountedAssessments = useMemo(() => assessments.filter((a) => a.discountAmount > 0), [assessments]);
 
@@ -326,6 +406,148 @@ function AccountingDashboard() {
               );
             })}
           </div>
+
+          {(pendingReallocations.length > 0 || unappliedCredits.length > 0) && (
+            <div className="mt-4 space-y-4 border-t border-stone-100 pt-4">
+              {pendingReallocations.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-stone-500">
+                    Reallocation approvals
+                  </p>
+                  <div className="space-y-2">
+                    {pendingReallocations.slice(0, 4).map((request) => {
+                      const destination = studentInvoices.find(
+                        (invoice) => invoice.id === request.destinationInvoiceId,
+                      );
+                      const busy = reviewingReallocationId === request.id;
+                      return (
+                        <div key={request.id} className="rounded-lg border border-blue-100 bg-blue-50 p-2.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-blue-900">
+                                ₱{request.amount.toLocaleString()} → {destination?.invoiceNo ?? "Invoice"}
+                              </p>
+                              <p className="truncate text-[10px] text-blue-700">{request.reason}</p>
+                              <p className="mt-0.5 text-[9px] text-blue-500">
+                                Requested by {request.requestedBy}
+                              </p>
+                            </div>
+                            <div className="flex flex-shrink-0 gap-1">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void reviewReallocation(request.id, false)}
+                                className="rounded border border-red-200 bg-white px-2 py-1 text-[9px] font-bold text-red-700 disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void reviewReallocation(request.id, true)}
+                                className="rounded border border-emerald-600 bg-emerald-600 px-2 py-1 text-[9px] font-bold text-white disabled:opacity-50"
+                              >
+                                {busy ? "Posting…" : "Approve"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {unappliedCredits.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-stone-500">
+                    Unapplied student credits
+                  </p>
+                  <div className="space-y-1.5">
+                    {unappliedCredits.slice(0, 4).map((credit) => {
+                      const student = students.find((item) => item.id === credit.studentId);
+                      const isAllocating = allocatingCreditId === credit.receiptId;
+                      const openInvoices = studentInvoices
+                        .filter((invoice) =>
+                          invoice.studentId === credit.studentId
+                          && invoice.status === "Posted"
+                          && invoice.balance > 0
+                          && (!credit.schoolId || invoice.schoolId === credit.schoolId))
+                        .sort((a, b) => (a.issuedAt ?? "").localeCompare(b.issuedAt ?? ""));
+                      const selectedTotal = Object.values(creditAllocationAmounts)
+                        .reduce((sum, amount) => sum + (Number(amount) || 0), 0);
+                      return (
+                        <div key={credit.receiptId} className="rounded-lg border border-amber-100 bg-amber-50 p-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-[10px] font-bold text-amber-900">
+                                {student ? `${student.lastName}, ${student.firstName}` : credit.receiptNo}
+                              </p>
+                              <p className="text-[9px] font-mono text-amber-700">{credit.receiptNo}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-black text-amber-800">
+                                ₱{credit.amount.toLocaleString()}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={openInvoices.length === 0}
+                                onClick={() => {
+                                  setAllocatingCreditId(isAllocating ? null : credit.receiptId);
+                                  setCreditAllocationAmounts({});
+                                }}
+                                className="rounded border border-amber-300 bg-white px-2 py-1 text-[9px] font-bold text-amber-800 disabled:opacity-50"
+                              >
+                                {isAllocating ? "Close" : "Allocate"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {isAllocating && (
+                            <div className="mt-2 space-y-2 border-t border-amber-200 pt-2">
+                              {openInvoices.map((invoice) => (
+                                <label key={invoice.id} className="flex items-center justify-between gap-2 text-[10px] text-amber-950">
+                                  <span className="min-w-0 truncate">
+                                    {invoice.invoiceNo} · Balance ₱{invoice.balance.toLocaleString()}
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={Math.min(invoice.balance, credit.amount)}
+                                    step="0.01"
+                                    value={creditAllocationAmounts[invoice.id] || ""}
+                                    onChange={(event) => setCreditAllocationAmounts((current) => ({
+                                      ...current,
+                                      [invoice.id]: Number(event.target.value),
+                                    }))}
+                                    className="w-28 rounded border border-amber-200 bg-white px-2 py-1 text-right font-mono outline-none focus:border-amber-500"
+                                    placeholder="0.00"
+                                  />
+                                </label>
+                              ))}
+                              <div className="flex items-center justify-between">
+                                <span className={`text-[9px] font-bold ${selectedTotal > credit.amount ? "text-red-700" : "text-amber-700"}`}>
+                                  Selected ₱{selectedTotal.toLocaleString()} / ₱{credit.amount.toLocaleString()}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={applyingCredit || selectedTotal <= 0 || selectedTotal > credit.amount}
+                                  onClick={() => void applySelectedCredit(credit.receiptId, credit.amount)}
+                                  className="rounded bg-amber-700 px-2.5 py-1 text-[9px] font-bold text-white disabled:opacity-50"
+                                >
+                                  {applyingCredit ? "Applying…" : "Apply Credit"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -446,7 +668,10 @@ function StudentLedger() {
     assessmentBillingSummaries,
     studentLedgerSummaries,
     paymentCollectionSummaries,
+    ledgerTransactions,
     setupData,
+    postStudentAdjustment,
+    setAssessmentHold,
   } = useSTSNStore();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
   const semesterOptions = setupData.semesters ?? [];
@@ -459,12 +684,10 @@ function StudentLedger() {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<Payment | null>(null);
 
-  // Session-only mock state for ledger actions (no backend persistence)
-  const [holdOverrides, setHoldOverrides] = useState<Record<string, "None" | "Hold" | "Cleared">>({});
-  const [manualEntries, setManualEntries] = useState<Record<string, Omit<LedgerRow, "balance">[]>>({});
   const [activeAction, setActiveAction] = useState<LedgerActionModal>(null);
   const [adjustmentForm, setAdjustmentForm] = useState<{ description: string; amount: string; direction: "debit" | "credit" }>({ description: "", amount: "", direction: "credit" });
   const [discountTypeId, setDiscountTypeId] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const filteredStudents = useMemo(() =>
     students.filter((s) => {
@@ -478,7 +701,7 @@ function StudentLedger() {
   const currentAssessment = assessments.find((a) => a.studentId === selectedStudentId && (filterYear === "All" || a.schoolYear === filterYear));
   const studentPayments = useMemo(() =>
     payments
-      .filter((p) => p.studentId === selectedStudentId)
+      .filter((p) => p.studentId === selectedStudentId && p.status !== "Voided")
       .sort((a, b) => a.paymentDate.localeCompare(b.paymentDate)),
     [payments, selectedStudentId]
   );
@@ -489,7 +712,7 @@ function StudentLedger() {
   const ledgerSummary = studentLedgerSummaries.find((s) => s.studentId === selectedStudentId && (filterYear === "All" || s.schoolYear === filterYear));
 
   const totalPaid = studentPayments.reduce((s, p) => s + p.amount, 0);
-  const holdStatus: "None" | "Hold" | "Cleared" = holdOverrides[selectedStudentId] ?? currentAssessment?.financialHoldStatus ?? ledgerSummary?.financialHoldStatus ?? "None";
+  const holdStatus: "None" | "Hold" | "Cleared" = currentAssessment?.financialHoldStatus ?? ledgerSummary?.financialHoldStatus ?? "None";
   const clearanceStatus: "Cleared" | "Not Cleared" = currentAssessment
     ? (currentAssessment.balance <= 0 && holdStatus !== "Hold" ? "Cleared" : "Not Cleared")
     : (ledgerSummary?.clearanceStatus ?? "Not Cleared");
@@ -499,42 +722,26 @@ function StudentLedger() {
     ? Math.max(0, currentAssessment.balance + (adjustmentForm.direction === "debit" ? adjustmentAmount : -adjustmentAmount))
     : 0;
 
-  // Build ledger rows with running balance
+  // Canonical rows are persisted by the finance posting functions/triggers.
   const ledgerRows = useMemo(() => {
-    if (!currentAssessment) return [];
-    const rows: LedgerRow[] = [];
-    let runningBalance = 0;
-
-    // Assessment row
-    runningBalance += currentAssessment.totalAmount;
-    rows.push({ date: currentAssessment.schoolYear, description: `Assessment — ${currentAssessment.schoolYear} ${currentAssessment.semester}`, debit: currentAssessment.totalAmount, credit: 0, balance: runningBalance, type: "Assessment", postedBy: "System (Auto-Generated)", status: "Posted" });
-
-    // Discount row
-    if (currentAssessment.discountAmount > 0) {
-      runningBalance -= currentAssessment.discountAmount;
-      rows.push({ date: currentAssessment.schoolYear, description: `Discount: ${currentAssessment.scholarshipName || "General Discount"} (${currentAssessment.discountPercentage}%)`, debit: 0, credit: currentAssessment.discountAmount, balance: runningBalance, type: "Discount", postedBy: "Accounting Office", status: "Posted" });
-    }
-
-    // Payment rows
-    studentPayments.forEach((pay) => {
-      if (filterTxType !== "All" && filterTxType !== "Payment") return;
-      runningBalance -= pay.amount;
-      const collection = paymentCollectionSummaries.find((p) => p.studentId === pay.studentId && p.amount === pay.amount);
-      rows.push({
-        date: pay.paymentDate, description: `Payment — ${pay.term} via ${pay.paymentMethod}`, debit: 0, credit: pay.amount, balance: runningBalance, type: "Payment", ref: pay.orNumber,
-        postedBy: collection?.cashier || "Eduardo Bonto, CPA",
-        status: collection?.verificationStatus === "Pending Verification" ? "Pending Verification" : "Posted",
-      });
-    });
-
-    // Session-only manual entries (Add Adjustment / Apply Discount actions)
-    (manualEntries[selectedStudentId] || []).forEach((entry) => {
-      runningBalance += entry.debit - entry.credit;
-      rows.push({ ...entry, balance: runningBalance });
-    });
-
-    return rows.filter((r) => filterTxType === "All" || r.type === filterTxType);
-  }, [currentAssessment, studentPayments, filterTxType, manualEntries, selectedStudentId]);
+    return ledgerTransactions
+      .filter((row) => row.studentId === selectedStudentId)
+      .filter((row) => filterTxType === "All" || row.type === filterTxType)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((row): LedgerRow => ({
+        date: row.date,
+        description: row.description,
+        debit: row.debit,
+        credit: row.credit,
+        balance: row.balance,
+        type: row.type,
+        ref: row.reference,
+        postedBy: row.type === "Payment"
+          ? paymentCollectionSummaries.find((entry) => entry.referenceNo === row.reference)?.cashier || "System"
+          : "Accounting Office",
+        status: "Posted",
+      }));
+  }, [filterTxType, ledgerTransactions, paymentCollectionSummaries, selectedStudentId]);
 
   const typeColors: Record<string, string> = {
     Assessment: "text-orange-600",
@@ -544,47 +751,51 @@ function StudentLedger() {
     Penalty: "text-red-600",
   };
 
-  // ---- Action handlers (mock-only, session state) ----
-  const handleAddAdjustment = (e: React.FormEvent) => {
+  // ---- Persisted accounting actions ----
+  const handleAddAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentStudent || !adjustmentForm.amount || !adjustmentForm.description.trim()) return;
+    if (!currentStudent || !currentAssessment || !adjustmentForm.amount || !adjustmentForm.description.trim()) return;
     const amt = Number(adjustmentForm.amount);
-    const entry: Omit<LedgerRow, "balance"> = {
-      date: new Date().toISOString().slice(0, 10),
-      description: adjustmentForm.description.trim(),
-      debit: adjustmentForm.direction === "debit" ? amt : 0,
-      credit: adjustmentForm.direction === "credit" ? amt : 0,
-      type: "Adjustment",
-      postedBy: currentUser?.name || "Accounting Staff",
-      status: "Posted",
-    };
-    setManualEntries((prev) => ({ ...prev, [currentStudent.id]: [...(prev[currentStudent.id] || []), entry] }));
-    setAdjustmentForm({ description: "", amount: "", direction: "credit" });
-    setActiveAction(null);
+    setActionError(null);
+    try {
+      await postStudentAdjustment(currentAssessment.id, amt, adjustmentForm.direction, adjustmentForm.description.trim());
+      setAdjustmentForm({ description: "", amount: "", direction: "credit" });
+      setActiveAction(null);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The adjustment could not be posted.");
+    }
   };
 
-  const handleApplyDiscount = (e: React.FormEvent) => {
+  const handleApplyDiscount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentStudent || !currentAssessment || !discountTypeId) return;
     const dt = discountTypes.find((d) => d.id === discountTypeId);
     if (!dt) return;
     const amt = Math.round((currentAssessment.totalAmount * dt.discountPercent) / 100);
-    const entry: Omit<LedgerRow, "balance"> = {
-      date: new Date().toISOString().slice(0, 10),
-      description: `Discount Applied: ${dt.name} (${dt.discountPercent}%)`,
-      debit: 0, credit: amt,
-      type: "Discount",
-      postedBy: currentUser?.name || "Accounting Staff",
-      status: "Posted",
-    };
-    setManualEntries((prev) => ({ ...prev, [currentStudent.id]: [...(prev[currentStudent.id] || []), entry] }));
-    setDiscountTypeId("");
-    setActiveAction(null);
+    setActionError(null);
+    try {
+      await postStudentAdjustment(
+        currentAssessment.id,
+        amt,
+        "credit",
+        `${dt.name} (${dt.discountPercent}%)`,
+        "Discount",
+      );
+      setDiscountTypeId("");
+      setActiveAction(null);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The discount could not be posted.");
+    }
   };
 
-  const toggleHold = () => {
-    if (!currentStudent) return;
-    setHoldOverrides((prev) => ({ ...prev, [currentStudent.id]: holdStatus === "Hold" ? "Cleared" : "Hold" }));
+  const toggleHold = async () => {
+    if (!currentAssessment) return;
+    setActionError(null);
+    try {
+      await setAssessmentHold(currentAssessment.id, holdStatus === "Hold" ? "Cleared" : "Hold");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The hold status could not be updated.");
+    }
   };
 
   const handleIssueReceipt = () => {
@@ -782,6 +993,7 @@ function StudentLedger() {
               {holdStatus === "Hold" ? "Clear Hold" : "Put on Hold"}
             </AppButton>
           </div>
+          {actionError && <p className="text-xs text-red-700">{actionError}</p>}
 
           {/* Accounting Summary */}
           {currentAssessment && (
@@ -1036,7 +1248,7 @@ function DiscountTypesSetupPage() {
   const {
     discountTypes, addDiscountType, updateDiscountType, deleteDiscountType, toggleDiscountTypeActive, setupData
   } = useSTSNStore();
-  const { confirm } = useAppDialog();
+  const { confirm, toast: dialogToast } = useAppDialog();
   const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
 
   const [searchTypes, setSearchTypes] = useState("");
@@ -1059,12 +1271,17 @@ function DiscountTypesSetupPage() {
     });
   }, [discountTypes, filterSource, searchTypes]);
 
-  const handleSaveType = (e: React.FormEvent) => {
+  const handleSaveType = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingType) {
-      updateDiscountType(editingType.id, typeForm);
-    } else {
-      addDiscountType({ ...typeForm, isActive: true });
+    try {
+      if (editingType) {
+        await updateDiscountType(editingType.id, typeForm);
+      } else {
+        await addDiscountType({ ...typeForm, isActive: true });
+      }
+    } catch (error) {
+      dialogToast(error instanceof Error ? error.message : "The discount type could not be saved.", { variant: "danger" });
+      return;
     }
     setIsTypeFormOpen(false);
     setEditingType(null);
@@ -1138,7 +1355,7 @@ function DiscountTypesSetupPage() {
       data: "isActive",
       searchable: false,
       render: (_value, dt) => (
-        <button onClick={() => toggleDiscountTypeActive(dt.id)} className={`text-[9px] font-bold px-2 py-0.5 rounded-full border cursor-pointer ${dt.isActive ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-stone-500 bg-stone-50 border-stone-200"}`}>
+        <button onClick={() => void toggleDiscountTypeActive(dt.id).catch((error) => dialogToast(error instanceof Error ? error.message : "The discount type status could not be updated.", { variant: "danger" }))} className={`text-[9px] font-bold px-2 py-0.5 rounded-full border cursor-pointer ${dt.isActive ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-stone-500 bg-stone-50 border-stone-200"}`}>
           {dt.isActive ? "Active" : "Inactive"}
         </button>
       ),
@@ -1163,13 +1380,20 @@ function DiscountTypesSetupPage() {
           }); setIsTypeFormOpen(true); }} className="p-1.5 hover:bg-stone-100 rounded text-stone-500 hover:text-stsn-brown cursor-pointer">
             <Edit2 className="w-3.5 h-3.5" />
           </button>
-          <button onClick={async () => { if (await confirm(`Delete "${dt.name}"?`, { variant: "danger" })) deleteDiscountType(dt.id); }} className="p-1.5 hover:bg-red-50 rounded text-stone-400 hover:text-red-600 cursor-pointer">
+          <button onClick={async () => {
+            if (!(await confirm(`Delete "${dt.name}"?`, { variant: "danger" }))) return;
+            try {
+              await deleteDiscountType(dt.id);
+            } catch (error) {
+              dialogToast(error instanceof Error ? error.message : "The discount type could not be deleted.", { variant: "danger" });
+            }
+          }} className="p-1.5 hover:bg-red-50 rounded text-stone-400 hover:text-red-600 cursor-pointer">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       ),
     },
-  ], [confirm, deleteDiscountType, toggleDiscountTypeActive]);
+  ], [confirm, deleteDiscountType, dialogToast, toggleDiscountTypeActive]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -1368,42 +1592,57 @@ function DiscountManagement() {
     });
   }, [discountRequests, filterStatus, searchRequests]);
 
-  const handleSubmitRequest = (e: React.FormEvent) => {
+  const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     const discountType = discountTypes.find((dt) => dt.id === requestForm.discountTypeId);
     const student = students.find((s) => s.id === requestForm.studentId);
     if (!discountType || !student) return;
-    addDiscountRequest({
-      studentId: student.id,
-      studentName: `${student.firstName} ${student.lastName}`,
-      studentNo: student.studentNo,
-      discountTypeId: discountType.id,
-      discountTypeName: discountType.name,
-      discountPercent: discountType.discountPercent,
-      requestedBy: currentUser?.name || "System",
-      siblingNames: requestForm.siblingNames ? requestForm.siblingNames.split(",").map((s) => s.trim()) : [],
-      remarks: requestForm.remarks,
-      attachmentNames: requestForm.attachmentNames ? requestForm.attachmentNames.split(",").map((s) => s.trim()) : [],
-      status: "Pending"
-    });
+    try {
+      await addDiscountRequest({
+        studentId: student.id,
+        studentName: `${student.firstName} ${student.lastName}`,
+        studentNo: student.studentNo,
+        discountTypeId: discountType.id,
+        discountTypeName: discountType.name,
+        discountPercent: discountType.discountPercent,
+        requestedBy: currentUser?.name || "System",
+        siblingNames: requestForm.siblingNames ? requestForm.siblingNames.split(",").map((s) => s.trim()) : [],
+        remarks: requestForm.remarks,
+        attachmentNames: requestForm.attachmentNames ? requestForm.attachmentNames.split(",").map((s) => s.trim()) : [],
+        status: "Pending"
+      });
+    } catch (error) {
+      dialogToast(error instanceof Error ? error.message : "The discount request could not be submitted.", { variant: "danger" });
+      return;
+    }
     setIsRequestFormOpen(false);
     setRequestForm({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" });
   };
 
-  const handleApproval = () => {
+  const handleApproval = async () => {
     if (!approvalModal) return;
     if (approvalModal.action === "approve") {
       if (!canApproveDiscounts) {
         dialogToast("You don't have permission to approve discounts.", { variant: "warning" });
         return;
       }
-      approveDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
+      try {
+        await approveDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
+      } catch (error) {
+        dialogToast(error instanceof Error ? error.message : "The discount could not be approved.", { variant: "danger" });
+        return;
+      }
     } else {
       if (!canRejectDiscounts) {
         dialogToast("You don't have permission to reject discounts.", { variant: "warning" });
         return;
       }
-      rejectDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
+      try {
+        await rejectDiscountRequest(approvalModal.req.id, approvalModal.level, currentUser?.name || "Admin", approvalRemarks);
+      } catch (error) {
+        dialogToast(error instanceof Error ? error.message : "The discount could not be rejected.", { variant: "danger" });
+        return;
+      }
     }
     setApprovalModal(null);
     setApprovalRemarks("");
@@ -1649,18 +1888,14 @@ type FinancialHoldRow = FinancialHold & {
 };
 
 function FinancialHolds() {
-  const { financialHolds } = useSTSNStore();
+  const { financialHolds, setFinancialHoldStatus } = useSTSNStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
 
-  // Session-only mock state for the "Action" toggle (no backend persistence)
-  const [overrides, setOverrides] = useState<Record<string, { status: FinancialHold["status"]; updatedAt: string }>>({});
-
   const rows = useMemo(() => {
     return financialHolds.map((hold) => {
-      const override = overrides[hold.id];
-      const status = override?.status ?? hold.status;
-      const lastUpdated = override?.updatedAt ?? (hold.status === "Cleared" ? hold.clearedAt : hold.createdAt) ?? hold.createdAt;
+      const status = hold.status;
+      const lastUpdated = (hold.status === "Cleared" ? hold.clearedAt : hold.createdAt) ?? hold.createdAt;
       return {
         ...hold,
         status,
@@ -1674,11 +1909,10 @@ function FinancialHolds() {
       const matchStatus = filterStatus === "All" || hold.status === filterStatus;
       return matchSearch && matchStatus;
     });
-  }, [overrides, searchQuery, filterStatus]);
+  }, [financialHolds, searchQuery, filterStatus]);
 
-  const toggleHold = (id: string, currentStatus: FinancialHold["status"]) => {
-    const now = new Date().toISOString().slice(0, 16).replace("T", " ");
-    setOverrides((prev) => ({ ...prev, [id]: { status: currentStatus === "Active" ? "Cleared" : "Active", updatedAt: now } }));
+  const toggleHold = async (id: string, currentStatus: FinancialHold["status"]) => {
+    await setFinancialHoldStatus(id, currentStatus === "Active" ? "Cleared" : "Active");
   };
 
   const holdColumns: AppTableLegacyColumn<FinancialHoldRow>[] = [
@@ -1960,9 +2194,13 @@ function AssessmentApproval() {
     const ok = await confirm(`Approve ${count} selected assessment${count > 1 ? "s" : ""} for payment?`, { title: "Bulk Approve Assessments", confirmText: "Approve All", variant: "success" });
     if (!ok) return;
     const by = currentUser?.name || "Accounting Office";
-    selectedQueueRows.forEach((row) => approveAssessment(row.id, by, "Bulk approved."));
-    setSelectedQueueRows([]);
-    dialogToast(`${count} assessments approved.`, { variant: "success" });
+    try {
+      await Promise.all(selectedQueueRows.map((row) => approveAssessment(row.id, by, "Bulk approved.")));
+      setSelectedQueueRows([]);
+      dialogToast(`${count} assessments approved.`, { variant: "success" });
+    } catch (error) {
+      dialogToast(error instanceof Error ? error.message : "One or more assessments could not be approved.", { variant: "danger" });
+    }
   };
   const handleBulkReturn = async () => {
     if (selectedQueueRows.length === 0) return;
@@ -1970,21 +2208,43 @@ function AssessmentApproval() {
     const r = await prompt(`Return ${count} selected assessment${count > 1 ? "s" : ""} to Registrar. Enter remarks:`, { title: "Bulk Return to Registrar", placeholder: "Remarks for all selected...", confirmText: "Return All" });
     if (r === null) return;
     const by = currentUser?.name || "Accounting Office";
-    selectedQueueRows.forEach((row) => returnAssessmentToRegistrar(row.id, by, r || "Returned for correction."));
-    setSelectedQueueRows([]);
-    dialogToast(`${count} assessments returned to Registrar.`, { variant: "warning" });
+    try {
+      await Promise.all(selectedQueueRows.map((row) =>
+        returnAssessmentToRegistrar(row.id, by, r || "Returned for correction."),
+      ));
+      setSelectedQueueRows([]);
+      dialogToast(`${count} assessments returned to Registrar.`, { variant: "warning" });
+    } catch (error) {
+      dialogToast(error instanceof Error ? error.message : "One or more assessments could not be returned.", { variant: "danger" });
+    }
   };
 
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (!selected || !actionModal) return;
     if ((actionModal === "approve" || actionModal === "reject") && !canApproveBilling) {
       dialogToast("You don't have permission to approve or reject assessments.", { variant: "warning" });
       return;
     }
     const by = currentUser?.name || "Accounting Office";
-    if (actionModal === "approve") approveAssessment(selected.assessment.id, by, remarks);
-    if (actionModal === "return") returnAssessmentToRegistrar(selected.assessment.id, by, remarks);
-    if (actionModal === "reject") rejectAssessment(selected.assessment.id, by, remarks);
+    if (actionModal === "approve") {
+      try {
+        await approveAssessment(selected.assessment.id, by, remarks);
+      } catch (error) {
+        dialogToast(error instanceof Error ? error.message : "Assessment could not be approved.", { variant: "danger" });
+        return;
+      }
+    }
+    try {
+      if (actionModal === "return") {
+        await returnAssessmentToRegistrar(selected.assessment.id, by, remarks);
+      }
+      if (actionModal === "reject") {
+        await rejectAssessment(selected.assessment.id, by, remarks);
+      }
+    } catch (error) {
+      dialogToast(error instanceof Error ? error.message : "Assessment review could not be completed.", { variant: "danger" });
+      return;
+    }
     setActionModal(null);
     setRemarks("");
   };

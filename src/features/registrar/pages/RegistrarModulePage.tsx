@@ -214,6 +214,7 @@ export default function RegistrarModule() {
     rejectEnrollment,
     updateEnrollmentStatus,
     updateOnlineEnrollmentApplicationStatus,
+    acceptOnlineEnrollmentApplication,
     assignStudentsToSection,
     updateAssessment,
     uploadRequirementFile,
@@ -508,8 +509,10 @@ export default function RegistrarModule() {
   };
 
   const onlineApplicationQueue = useMemo(() => {
-    return [...onlineEnrollmentApplications].sort((a, b) => (b.submittedAt ?? "").localeCompare(a.submittedAt ?? ""));
-  }, [onlineEnrollmentApplications]);
+    return onlineEnrollmentApplications
+      .filter((application) => activeSchool === "ALL" || !application.schoolId || application.schoolId === activeSchool)
+      .sort((a, b) => (b.submittedAt ?? "").localeCompare(a.submittedAt ?? ""));
+  }, [activeSchool, onlineEnrollmentApplications]);
 
   const onlineApplicationQueueColumns: AppTableLegacyColumn<OnlineEnrollmentApplication>[] = useMemo(
     () => [
@@ -568,11 +571,14 @@ export default function RegistrarModule() {
               For Completion
             </button>
             <button
-              onClick={(event) => {
+              onClick={async (event) => {
                 event.stopPropagation();
-                updateOnlineEnrollmentApplicationStatus(row.id, "Accepted");
-                if (row.enrollmentId) updateEnrollmentStatus(row.enrollmentId, "For Assessment");
-                toast(`${row.referenceNo} accepted for assessment.`);
+                try {
+                  await acceptOnlineEnrollmentApplication(row.id);
+                  toast(`${row.referenceNo} accepted for assessment.`);
+                } catch (error) {
+                  toast(error instanceof Error ? error.message : "Application could not be accepted.", { variant: "warning" });
+                }
               }}
               className="px-2 py-1 text-[10px] bg-emerald-600 text-white rounded font-bold cursor-pointer"
             >
@@ -593,7 +599,7 @@ export default function RegistrarModule() {
         ),
       },
     ],
-    [toast, updateEnrollmentStatus, updateOnlineEnrollmentApplicationStatus],
+    [acceptOnlineEnrollmentApplication, toast, updateEnrollmentStatus, updateOnlineEnrollmentApplicationStatus],
   );
 
   // Pending online applications for bulk actions
@@ -619,11 +625,16 @@ export default function RegistrarModule() {
       `Accept all ${pendingOnlineApps.length} pending application${pendingOnlineApps.length !== 1 ? "s" : ""} for assessment? Each will move to For Assessment status.`,
     );
     if (!ok) return;
+    let acceptedCount = 0;
     for (const app of pendingOnlineApps) {
-      updateOnlineEnrollmentApplicationStatus(app.id, "Accepted");
-      if (app.enrollmentId) updateEnrollmentStatus(app.enrollmentId, "For Assessment");
+      try {
+        await acceptOnlineEnrollmentApplication(app.id);
+        acceptedCount += 1;
+      } catch (error) {
+        console.error("[Registrar] bulk online application accept failed:", error);
+      }
     }
-    toast(`${pendingOnlineApps.length} application${pendingOnlineApps.length !== 1 ? "s" : ""} accepted for assessment.`);
+    toast(`${acceptedCount} application${acceptedCount !== 1 ? "s" : ""} accepted for assessment.`);
   };
 
   const handleBulkRejectApps = async () => {
@@ -649,17 +660,13 @@ export default function RegistrarModule() {
   const [regPaymentTerm, setRegPaymentTerm] =
     useState<MockPaymentTerm>("Quarterly");
   const [includeBooks, setIncludeBooks] = useState(false);
-  const [assessmentStatus, setAssessmentStatus] = useState<
-    "Draft" | "Pending Accounting Approval"
-  >("Draft");
   const regSelectedDiscount =
     discountOptions.find((d) => d.id === regDiscountId) ?? discountOptions[0] ?? { id: "none", label: "None", percentage: 0, badge: "" };
-  const isAssessmentLocked = assessmentStatus === "Pending Accounting Approval";
+  const isAssessmentLocked = false;
 
-  // Reset preview-only selections whenever the selected student changes
+  // Reset preview-only selections whenever the selected student changes.
   useEffect(() => {
     setIncludeBooks(false);
-    setAssessmentStatus("Draft");
   }, [selectedStudent?.id]);
 
   // Assigned Grade/Year Level book package — Basic Education only, full package only (no per-title selection)
@@ -1742,7 +1749,7 @@ export default function RegistrarModule() {
                       </h4>
 
                       {!studentAssessment ? (
-                        /* ── MOCK PREVIEW when no stored assessment exists ── */
+                        /* Read-only fee preview when no persisted assessment exists. */
                         mockFallbackAssessment && effectiveAssessment ? (
                           <div className="space-y-4">
                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between gap-2">
@@ -1754,14 +1761,8 @@ export default function RegistrarModule() {
                                   Accounting Office confirmation.
                                 </span>
                               </div>
-                              <span
-                                className={`text-[9px] font-bold px-2 py-1 rounded uppercase whitespace-nowrap ${
-                                  assessmentStatus === "Draft"
-                                    ? "bg-stone-100 text-stone-600 border border-stone-200"
-                                    : "bg-amber-50 text-amber-700 border border-amber-200"
-                                }`}
-                              >
-                                {assessmentStatus}
+                              <span className="text-[9px] font-bold px-2 py-1 rounded uppercase whitespace-nowrap bg-stone-100 text-stone-600 border border-stone-200">
+                                Estimate
                               </span>
                             </div>
 
@@ -2035,29 +2036,8 @@ export default function RegistrarModule() {
                               </div>
                             </div>
 
-                            {/* Submit for Accounting Approval */}
-                            <div className="flex items-center justify-end gap-2 pt-1">
-                              {assessmentStatus === "Draft" ? (
-                                <button
-                                  onClick={() =>
-                                    {
-                                      setAssessmentStatus(
-                                        "Pending Accounting Approval",
-                                      );
-                                      if (selectedEnrollment) updateEnrollmentStatus(selectedEnrollment.id, "For Assessment");
-                                    }
-                                  }
-                                  className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-2 bg-stsn-brown hover:bg-stsn-brown/90 text-white rounded-lg cursor-pointer transition"
-                                >
-                                  <CheckSquare className="w-3.5 h-3.5" /> Submit
-                                  for Accounting Approval
-                                </button>
-                              ) : (
-                                <span className="text-[10px] text-stone-400 italic flex items-center gap-1.5">
-                                  <Clock className="w-3.5 h-3.5" /> Fee editing
-                                  is locked while pending Accounting approval.
-                                </span>
-                              )}
+                            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
+                              This is a read-only fee estimate. Complete or repair the enrollment workflow to create a persisted assessment before submitting it to Accounting.
                             </div>
                           </div>
                         ) : null
@@ -2482,17 +2462,9 @@ export default function RegistrarModule() {
                                     </div>
                                   </div>
                                   {!isFeesPaid && (
-                                    <button
-                                      onClick={() =>
-                                        updateAssessment(studentAssessment.id, {
-                                          balance: 0,
-                                          isPaid: true,
-                                        })
-                                      }
-                                      className="text-[10px] font-bold px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg cursor-pointer transition"
-                                    >
-                                      Mark Paid
-                                    </button>
+                                    <span className="text-[10px] text-amber-700">
+                                      Payment must be posted by Cashiering against this assessment.
+                                    </span>
                                   )}
                                 </div>
 

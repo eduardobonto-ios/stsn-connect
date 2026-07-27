@@ -11,9 +11,8 @@
  *   • Every identity field (Full Name, Email, Employee ID, Role, Department, …)
  *     is DISPLAY-ONLY here — profile/role/rights management lives in User Access
  *     & Authority, never on a user's own profile.
- *   • No new auth, permission, or migration logic. The only editable controls are
- *     the Security Settings (password + 2FA), which surface as local UI state
- *     only, since no backend API exists yet.
+ *   • Password changes are delegated to the active Supabase Auth session.
+ *     MFA enrollment is not presented until a verified factor workflow exists.
  */
 
 import React, { useMemo, useState } from "react";
@@ -23,8 +22,6 @@ import {
   Building2,
   Calendar,
   Camera,
-  Eye,
-  EyeOff,
   KeyRound,
   Lock,
   Share2,
@@ -36,8 +33,8 @@ import AppCard from "../../../components/common/AppCard";
 import AppEmptyState from "../../../components/common/AppEmptyState";
 import AppFormField from "../../../components/common/AppFormField";
 import AppInput from "../../../components/common/AppInput";
-import AppToggle from "../../../components/common/AppToggle";
 import { useAppDialog } from "../../../components/common/useAppDialog";
+import { supabase } from "../../../lib/supabase";
 import { useSTSNStore } from "../../../services/store";
 
 function normalizeEmail(value?: string) {
@@ -77,8 +74,7 @@ export default function MyProfilePage() {
   const { currentUser, schools, teachers, employees, students } = useSTSNStore();
 
   const [newPassword, setNewPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [twoFactor, setTwoFactor] = useState(true);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   const linkedTeacher = useMemo(
     () =>
@@ -128,19 +124,24 @@ export default function MyProfilePage() {
 
   const handleBack = () => navigate("/dashboard");
 
-  const handleUpdatePassword = () => {
-    if (!newPassword.trim()) {
-      toast("Enter a new password first.", { variant: "warning" });
+  const handleUpdatePassword = async () => {
+    if (newPassword.length < 12) {
+      toast("Use a password with at least 12 characters.", { variant: "warning" });
       return;
     }
-    // No password API exists yet — acknowledge without pretending to persist.
-    toast("Password changes aren't connected to the server yet.", { variant: "info" });
+    setUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setUpdatingPassword(false);
+    if (error) {
+      toast(error.message || "Password update failed.", { variant: "danger" });
+      return;
+    }
+    toast("Password updated successfully.", { variant: "success" });
     setNewPassword("");
   };
 
-  const handleTwoFactor = (next: boolean) => {
-    setTwoFactor(next);
-    toast(`Two-factor authentication ${next ? "enabled" : "disabled"} for this session.`, {
+  const handleTwoFactor = () => {
+    toast("MFA enrollment must be completed through the approved Auth administration workflow.", {
       variant: "info",
     });
   };
@@ -299,23 +300,8 @@ export default function MyProfilePage() {
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <AppFormField label="Current Password">
-                <div className="relative">
-                  <AppInput
-                    type={showPassword ? "text" : "password"}
-                    value="password123"
-                    readOnly
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stsn-brown transition"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+              <AppFormField label="Authentication">
+                <AppInput value="Managed securely by Supabase Auth" readOnly disabled />
               </AppFormField>
               <AppFormField label="New Password">
                 <AppInput
@@ -333,7 +319,8 @@ export default function MyProfilePage() {
                 variant="secondary"
                 size="xs"
                 leftIcon={KeyRound}
-                disabled={!newPassword.trim()}
+                loading={updatingPassword}
+                disabled={newPassword.length < 12 || updatingPassword}
                 onClick={handleUpdatePassword}
               >
                 Update Password
@@ -352,7 +339,9 @@ export default function MyProfilePage() {
                   </p>
                 </div>
               </div>
-              <AppToggle checked={twoFactor} onChange={handleTwoFactor} aria-label="Toggle two-factor authentication" />
+              <AppButton type="button" variant="outline" size="xs" onClick={handleTwoFactor}>
+                MFA setup information
+              </AppButton>
             </div>
           </AppCard>
         </div>

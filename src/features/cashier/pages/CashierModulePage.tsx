@@ -247,8 +247,8 @@ function CardPagination({
 
 export default function CashierModule({ subPage, onSubPageChange }: { subPage?: string; onSubPageChange?: (page: string) => void }) {
   const {
-    students, assessments, payments, voidRequests, cashVouchers, currentUser, activeSchool, academicUnit,
-    addPayment, submitVoidRequest, submitCashVoucherRequest, approveCashVoucher, rejectCashVoucher, releaseCashVoucher,
+    students, assessments, payments, studentInvoices, voidRequests, cashVouchers, currentUser, activeSchool, academicUnit,
+    addPayment, postStudentReceipt, submitVoidRequest, submitCashVoucherRequest, approveCashVoucher, rejectCashVoucher, releaseCashVoucher,
     bookPackages, setupData,
   } = useSTSNStore();
   const { canPage, hasPageAccess } = usePermissions();
@@ -289,7 +289,6 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   });
   const [orError, setOrError] = useState<string | null>(null);
   const [amountReceived, setAmountReceived] = useState("");
-  const [overpaymentConfirmed, setOverpaymentConfirmed] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState<{ payment: Payment; student: Student; assessment?: StudentAssessment; remainingBalance: number; previousAssessmentId: string } | null>(null);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
@@ -299,6 +298,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const [voidModalPaymentId, setVoidModalPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [voidConfirmInput, setVoidConfirmInput] = useState("");
+  const [voidRequestError, setVoidRequestError] = useState<string | null>(null);
 
   // ── Other Payments (OR) — standalone collection modal ──────────────────
   const [orCollectModalOpen, setOrCollectModalOpen] = useState(false);
@@ -309,6 +309,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   }>({ transactionType: "OR", studentId: "", category: "", orNumber: "", amount: "", paymentMethod: "Cash", remarks: "" });
   const [orCollectError, setOrCollectError] = useState<string | null>(null);
   const [orAmountReceived, setOrAmountReceived] = useState("");
+  const [orInvoiceAllocations, setOrInvoiceAllocations] = useState<Record<string, string>>({});
+  const [allowUnappliedCredit, setAllowUnappliedCredit] = useState(false);
   const [isSubmittingOtherPayment, setIsSubmittingOtherPayment] = useState(false);
 
   // ── Cash Vouchers ────────────────────────────────────────────────────────
@@ -348,6 +350,10 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const scopedStudents = scopedData.students;
   const scopedAssessments = scopedData.assessments ?? [];
   const scopedPayments = scopedData.payments ?? [];
+  const postedPayments = useMemo(
+    () => scopedPayments.filter((payment) => payment.status !== "Voided"),
+    [scopedPayments],
+  );
   const scopedBookPackages = scopedData.bookPackages ?? [];
 
   const paymentMethodOptions = useMemo(
@@ -376,8 +382,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const todayPayments = useMemo(
-    () => scopedPayments.filter((p) => toDateOnly(p.paymentDate) === todayStr),
-    [scopedPayments, todayStr],
+    () => postedPayments.filter((p) => toDateOnly(p.paymentDate) === todayStr),
+    [postedPayments, todayStr],
   );
   const todayTotal = useMemo(
     () => todayPayments.reduce((sum, p) => sum + p.amount, 0),
@@ -499,6 +505,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
 
   const reportPaymentRows = useMemo<CashierPaymentRow[]>(() => {
     return historyRows
+      .filter(({ payment }) => payment.status !== "Voided")
       .filter(({ payment }) => (!reportDateFrom || toDateOnly(payment.paymentDate) >= reportDateFrom) && (!reportDateTo || toDateOnly(payment.paymentDate) <= reportDateTo))
       .sort((a, b) => b.payment.paymentDate.localeCompare(a.payment.paymentDate));
   }, [historyRows, reportDateFrom, reportDateTo]);
@@ -688,12 +695,11 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     });
     setOrError(null);
     setAmountReceived("");
-    setOverpaymentConfirmed(false);
     setPaymentSuccess(null);
     setCollectModalId(assessmentId);
   };
 
-  const handlePostPayment = (e: React.FormEvent) => {
+  const handlePostPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingPayment) return;
     if (!canCollectPayment) { setOrError("You don't have permission to collect payments."); return; }
@@ -705,37 +711,45 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       setOrError("This assessment is no longer available for collection. Refresh the queue and try again.");
       return;
     }
-    if (amount > currentAssessment.balance && !overpaymentConfirmed) { setOrError("Confirm the overpayment before collecting more than the outstanding balance."); return; }
+    if (amount > currentAssessment.balance) {
+      setOrError(`Amount exceeds the current assessment balance of ${formatMoney(currentAssessment.balance)}.`);
+      return;
+    }
     if (paymentForm.paymentMethod === "Cash" && Number(amountReceived) < amount) { setOrError("Amount received must cover the amount to collect."); return; }
 
     const orNumber = paymentForm.orNumber.trim();
     if (!orNumber) { setOrError("BIR Official Receipt No. is required."); return; }
-    if (payments.some((p) => p.orNumber === orNumber)) {
+    if (payments.some((p) => p.orNumber === orNumber && p.schoolId === collectRow.student?.schoolId)) {
       setOrError(`OR No. "${orNumber}" has already been used. Check your receipt booklet.`);
       return;
     }
     setOrError(null);
 
     setIsSubmittingPayment(true);
-    const posted = addPayment({
-      studentId: collectRow.student.id,
-      assessmentId: collectRow.assessment.id,
-      schoolId: collectRow.student.schoolId,
-      orNumber,
-      amount,
-      paymentMethod: paymentForm.paymentMethod,
-      term: paymentForm.term,
-      remarks: `Collected by ${currentUser?.name || "Cashier"} via Cashiering module${paymentForm.reference ? ` — Ref: ${paymentForm.reference}` : ""}`,
-    });
+    try {
+      const posted = await addPayment({
+        studentId: collectRow.student.id,
+        assessmentId: collectRow.assessment.id,
+        schoolId: collectRow.student.schoolId,
+        orNumber,
+        amount,
+        paymentMethod: paymentForm.paymentMethod,
+        term: paymentForm.term,
+        remarks: `Collected by ${currentUser?.name || "Cashier"} via Cashiering module${paymentForm.reference ? ` — Ref: ${paymentForm.reference}` : ""}`,
+      });
 
-    const remainingBalance = Math.max(0, currentAssessment.balance - amount);
-    const successAssessment = { ...currentAssessment, balance: remainingBalance };
-    setPaymentSuccess({ payment: posted, student: collectRow.student, assessment: successAssessment, remainingBalance, previousAssessmentId: currentAssessment.id });
-    setIsSubmittingPayment(false);
-    setReceipt(null);
-    /* Receipt preview remains an explicit success-state action. */
-    setSelectedAssessmentId(null);
-    /* Keep the drawer open and replace the form with the success state. */
+      const postedAssessment = useSTSNStore.getState().assessments.find((a) => a.id === currentAssessment.id);
+      const remainingBalance = postedAssessment?.balance ?? Math.max(0, currentAssessment.balance - amount);
+      const successAssessment = postedAssessment ?? { ...currentAssessment, balance: remainingBalance };
+      setPaymentSuccess({ payment: posted, student: collectRow.student, assessment: successAssessment, remainingBalance, previousAssessmentId: currentAssessment.id });
+      setReceipt(null);
+      setSelectedAssessmentId(null);
+      /* Keep the drawer open and replace the form with the success state. */
+    } catch (postingError) {
+      setOrError(postingError instanceof Error ? postingError.message : "Payment could not be posted.");
+    } finally {
+      setIsSubmittingPayment(false);
+    }
   };
 
   const reprintReceipt = (row: { payment: Payment; student?: Student; assessment?: StudentAssessment }) => {
@@ -753,6 +767,8 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     setOrCollectStudentQuery("");
     setOrCollectError(null);
     setOrAmountReceived("");
+    setOrInvoiceAllocations({});
+    setAllowUnappliedCredit(false);
     setOrCollectModalOpen(true);
   };
 
@@ -763,7 +779,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     setOrCollectError(null);
   };
 
-  const handlePostOtherPayment = (e: React.FormEvent) => {
+  const handlePostOtherPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingOtherPayment) return;
     if (!canCollectOtherPayment) { setOrCollectError("You don't have permission to collect other payments."); return; }
@@ -772,43 +788,75 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
     const amount = Number(orCollectForm.amount);
     if (!amount || amount <= 0) { setOrCollectError("Enter a valid amount."); return; }
     if (orCollectForm.paymentMethod === "Cash" && Number(orAmountReceived) < amount) { setOrCollectError("Amount received must cover the collection amount."); return; }
-    if (!orCollectForm.category) {
-      setOrCollectError(orCollectForm.transactionType === "AR" ? "Select a payment term." : "Select a category.");
+    if (orCollectForm.transactionType === "OR" && !orCollectForm.category) {
+      setOrCollectError("Select a category.");
       return;
     }
     const typedOrNumber = orCollectForm.orNumber.trim();
-    if (typedOrNumber && payments.some((p) => p.orNumber === typedOrNumber)) {
+    if (!typedOrNumber) {
+      setOrCollectError("BIR Official Receipt No. is required.");
+      return;
+    }
+    if (payments.some((p) => p.orNumber === typedOrNumber && p.schoolId === student.schoolId)) {
       setOrCollectError(`OR No. "${typedOrNumber}" has already been used. Check your receipt booklet.`);
       return;
     }
     setOrCollectError(null);
-    // BIR OR No. is optional here — fall back to an internal reference so the
-    // record still gets a unique receipt identifier when none was typed.
-    const orNumber = typedOrNumber || `NO-OR-${Date.now()}`;
+    const orNumber = typedOrNumber;
     const isAr = orCollectForm.transactionType === "AR";
+    const allocations = isAr
+      ? Object.entries(orInvoiceAllocations)
+          .map(([invoiceId, value]) => ({ invoiceId, amount: Number(value) }))
+          .filter((allocation) => allocation.amount > 0)
+      : [];
+    const allocatedTotal = allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    if (isAr && allocations.length === 0 && !allowUnappliedCredit) {
+      setOrCollectError("Allocate the receipt to at least one invoice or explicitly retain it as unapplied credit.");
+      return;
+    }
+    if (isAr && (allocatedTotal > amount || (!allowUnappliedCredit && allocatedTotal !== amount))) {
+      setOrCollectError(
+        allocatedTotal > amount
+          ? "Invoice allocations exceed the receipt amount."
+          : "Receipt amount must be fully allocated unless unapplied credit is explicitly selected.",
+      );
+      return;
+    }
 
     setIsSubmittingOtherPayment(true);
-    const posted = addPayment({
-      studentId: student.id,
-      schoolId: student.schoolId,
-      orNumber,
-      amount,
-      paymentMethod: orCollectForm.paymentMethod,
-      term: orCollectForm.category,
-      remarks: `Collected by ${currentUser?.name || "Cashier"} via Cashiering module — ${isAr ? "Other Payment (AR)" : "Other Payment (OR)"}${orCollectForm.remarks ? ` — ${orCollectForm.remarks}` : ""}`,
-      transactionType: orCollectForm.transactionType,
-      paymentCategory: isAr ? undefined : orCollectForm.category,
-    });
+    try {
+      const postedReceipt = await postStudentReceipt({
+        studentId: student.id,
+        schoolId: student.schoolId,
+        amount,
+        paymentMethod: orCollectForm.paymentMethod,
+        receiptNo: orNumber,
+        allocations,
+        directCollections: isAr ? [] : [{
+          category: orCollectForm.category,
+          amount,
+          description: orCollectForm.remarks,
+        }],
+        allowUnappliedCredit: isAr && allowUnappliedCredit,
+        remarks: `Collected by ${currentUser?.name || "Cashier"} via Cashiering module — ${isAr ? "Other Payment (AR)" : "Other Payment (OR)"}${orCollectForm.remarks ? ` — ${orCollectForm.remarks}` : ""}`,
+      });
 
-    setOrCollectModalOpen(false);
-    setIsSubmittingOtherPayment(false);
-    // Mirror the Payment Queue receipt pattern: compute the post-payment
-    // balance locally since the store hasn't re-rendered scopedAssessments yet.
-    const matchedAssessment = isAr ? scopedAssessments.find((a) => a.studentId === student.id) : undefined;
-    const receiptAssessment = matchedAssessment
-      ? { ...matchedAssessment, balance: Math.max(0, matchedAssessment.balance - amount) }
-      : undefined;
-    setReceipt({ payment: posted, student, assessment: receiptAssessment });
+      setOrCollectModalOpen(false);
+      const posted: Payment = {
+        id: postedReceipt.id, schoolId: student.schoolId, studentId: student.id,
+        amount: postedReceipt.amount, paymentDate: postedReceipt.receiptDate,
+        paymentMethod: postedReceipt.paymentMethod ?? orCollectForm.paymentMethod,
+        orNumber: postedReceipt.receiptNo, term: isAr ? "Invoice Allocation" : orCollectForm.category,
+        remarks: postedReceipt.remarks, transactionType: isAr ? "AR" : "OR",
+        status: postedReceipt.status, postedBy: postedReceipt.postedBy,
+        postedAt: postedReceipt.postedAt,
+      };
+      setReceipt({ payment: posted, student });
+    } catch (postingError) {
+      setOrCollectError(postingError instanceof Error ? postingError.message : "Payment could not be posted.");
+    } finally {
+      setIsSubmittingOtherPayment(false);
+    }
   };
 
   // ── Cash Vouchers ────────────────────────────────────────────────────────
@@ -1571,16 +1619,15 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">Amount to Collect</label>
               <input
-                type="number" min="1" step="0.01" required
+                type="number" min="1" max={collectRow.assessment.balance} step="0.01" required
                 value={paymentForm.amount}
-                onChange={(e) => { setPaymentForm({ ...paymentForm, amount: e.target.value }); setOverpaymentConfirmed(false); setOrError(null); }}
+                onChange={(e) => { setPaymentForm({ ...paymentForm, amount: e.target.value }); setOrError(null); }}
                 className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
               />
               {Number(paymentForm.amount) > collectRow.assessment.balance && (
-                <label className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[10px] text-amber-800">
-                  <input type="checkbox" checked={overpaymentConfirmed} onChange={(event) => { setOverpaymentConfirmed(event.target.checked); setOrError(null); }} className="mt-0.5" />
-                  Confirm collection above the current balance of {formatMoney(collectRow.assessment.balance)}. The store's existing balance rule will still apply.
-                </label>
+                <p className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-[10px] font-semibold text-red-700">
+                  The normalized posting service does not allow overpayment. Maximum: {formatMoney(collectRow.assessment.balance)}.
+                </p>
               )}
               {Number(paymentForm.amount) > 0 && Number(paymentForm.amount) < collectRow.assessment.balance && <p className="mt-1 text-[10px] font-semibold text-amber-700">Partial payment: {formatMoney(collectRow.assessment.balance - Number(paymentForm.amount))} will remain.</p>}
             </div>
@@ -1636,25 +1683,30 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
       {voidModalPaymentId && (() => {
         const voidPayment = scopedPayments.find((p) => p.id === voidModalPaymentId);
         const voidStudent = voidPayment ? scopedStudents.find((s) => s.id === voidPayment.studentId) : undefined;
-        const handleSubmitVoid = (e: React.FormEvent) => {
+        const handleSubmitVoid = async (e: React.FormEvent) => {
           e.preventDefault();
           if (!canVoidPayment) return;
           if (!voidPayment || !currentUser) return;
           const reason = voidReason.trim();
           if (!reason) return;
-          submitVoidRequest({
-            paymentId: voidPayment.id,
-            orNumber: voidPayment.orNumber,
-            amount: voidPayment.amount,
-            studentId: voidPayment.studentId,
-            studentName: voidStudent ? `${voidStudent.lastName}, ${voidStudent.firstName}` : voidPayment.studentId,
-            requestedBy: currentUser.name,
-            reason,
-            schoolId: voidStudent?.schoolId ?? undefined,
-          });
-          setVoidModalPaymentId(null);
-          setVoidReason("");
-          setVoidConfirmInput("");
+          setVoidRequestError(null);
+          try {
+            await submitVoidRequest({
+              paymentId: voidPayment.id,
+              orNumber: voidPayment.orNumber,
+              amount: voidPayment.amount,
+              studentId: voidPayment.studentId,
+              studentName: voidStudent ? `${voidStudent.lastName}, ${voidStudent.firstName}` : voidPayment.studentId,
+              requestedBy: currentUser.name,
+              reason,
+              schoolId: voidStudent?.schoolId ?? undefined,
+            });
+            setVoidModalPaymentId(null);
+            setVoidReason("");
+            setVoidConfirmInput("");
+          } catch (requestError) {
+            setVoidRequestError(requestError instanceof Error ? requestError.message : "The void request could not be saved.");
+          }
         };
         return (
           <AppModal
@@ -1678,6 +1730,11 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                 <span>A void request requires approval from Accounting. The receipt remains active until the request is approved. Per BIR regulations, void requests must state a valid reason.</span>
               </div>
+              {voidRequestError && (
+                <div className="p-3 bg-red-50 border border-red-300 rounded-xl text-red-700">
+                  {voidRequestError}
+                </div>
+              )}
 
               {voidPayment && (
                 <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
@@ -1776,14 +1833,18 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setOrCollectForm({ ...orCollectForm, transactionType: "OR", category: otherPaymentCategoryOptions[0] ?? "" })}
+                  onClick={() => {
+                    setOrCollectForm({ ...orCollectForm, transactionType: "OR", category: otherPaymentCategoryOptions[0] ?? "" });
+                    setOrInvoiceAllocations({});
+                    setAllowUnappliedCredit(false);
+                  }}
                   className={`flex-1 text-xs font-bold py-2 rounded-lg border cursor-pointer transition ${orCollectForm.transactionType === "OR" ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-600 hover:bg-stone-50"}`}
                 >
                   OR — Standalone Collection
                 </button>
                 <button
                   type="button"
-                  onClick={() => setOrCollectForm({ ...orCollectForm, transactionType: "AR", category: paymentRemittanceTermOptions[0] ?? "" })}
+                  onClick={() => setOrCollectForm({ ...orCollectForm, transactionType: "AR", category: "" })}
                   className={`flex-1 text-xs font-bold py-2 rounded-lg border cursor-pointer transition ${orCollectForm.transactionType === "AR" ? "bg-stsn-brown text-white border-stsn-brown" : "border-stone-200 text-stone-600 hover:bg-stone-50"}`}
                 >
                   AR — Apply to Balance
@@ -1794,7 +1855,7 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-blue-700">
               <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
               {orCollectForm.transactionType === "AR" ? (
-                <span>This will be applied against the student's outstanding assessment balance (first active assessment). For a specific assessment, use the Payment Queue tab instead.</span>
+                <span>Allocate this receipt across one or more posted invoices. Any remainder requires explicit unapplied-credit authorization.</span>
               ) : (
                 <span>This collection is not tied to an assessment and will not affect the student's outstanding balance.</span>
               )}
@@ -1811,7 +1872,11 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                         <p className="font-bold text-stone-800">{selected ? `${selected.lastName}, ${selected.firstName}` : "—"}</p>
                         <p className="text-[10px] font-mono text-stone-400">{selected?.studentNo}</p>
                       </div>
-                      <button type="button" onClick={() => setOrCollectForm({ ...orCollectForm, studentId: "" })} className="text-stone-400 hover:text-stone-600 cursor-pointer">
+                      <button type="button" onClick={() => {
+                        setOrCollectForm({ ...orCollectForm, studentId: "" });
+                        setOrInvoiceAllocations({});
+                        setAllowUnappliedCredit(false);
+                      }} className="text-stone-400 hover:text-stone-600 cursor-pointer">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -1837,7 +1902,12 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
                         <button
                           type="button"
                           key={s.id}
-                          onClick={() => { setOrCollectForm({ ...orCollectForm, studentId: s.id }); setOrCollectStudentQuery(""); }}
+                          onClick={() => {
+                            setOrCollectForm({ ...orCollectForm, studentId: s.id });
+                            setOrInvoiceAllocations({});
+                            setAllowUnappliedCredit(false);
+                            setOrCollectStudentQuery("");
+                          }}
                           className="w-full text-left px-3 py-2 text-xs hover:bg-stsn-cream cursor-pointer border-b border-stone-100 last:border-b-0"
                         >
                           <span className="font-semibold text-stone-800">{s.lastName}, {s.firstName}</span>
@@ -1850,28 +1920,88 @@ export default function CashierModule({ subPage, onSubPageChange }: { subPage?: 
               )}
             </div>
 
-            <div>
+            {orCollectForm.transactionType === "AR" && orCollectForm.studentId && (
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
+                  Invoice Allocations
+                </label>
+                <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-2.5">
+                  {studentInvoices
+                    .filter((invoice) =>
+                      invoice.studentId === orCollectForm.studentId &&
+                      invoice.status === "Posted" &&
+                      invoice.balance > 0
+                    )
+                    .map((invoice) => (
+                      <div key={invoice.id} className="grid grid-cols-[1fr_120px] items-center gap-3 rounded-lg bg-white p-2">
+                        <div>
+                          <p className="font-bold text-stone-800">{invoice.invoiceNo}</p>
+                          <p className="text-[10px] text-stone-500">
+                            {invoice.academicYear} {invoice.semester ? `· ${invoice.semester}` : ""} · Due {formatMoney(invoice.balance)}
+                          </p>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          max={invoice.balance}
+                          step="0.01"
+                          value={orInvoiceAllocations[invoice.id] ?? ""}
+                          onChange={(event) => setOrInvoiceAllocations((current) => ({
+                            ...current,
+                            [invoice.id]: event.target.value,
+                          }))}
+                          placeholder="0.00"
+                          className="w-full rounded-lg border border-stone-200 px-2 py-1.5 text-right font-mono text-xs"
+                        />
+                      </div>
+                    ))}
+                  {!studentInvoices.some((invoice) =>
+                    invoice.studentId === orCollectForm.studentId &&
+                    invoice.status === "Posted" &&
+                    invoice.balance > 0
+                  ) && (
+                    <p className="p-2 text-[10px] font-semibold text-amber-700">
+                      This student has no posted invoice with a collectible balance.
+                    </p>
+                  )}
+                </div>
+                <label className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                  <input
+                    type="checkbox"
+                    checked={allowUnappliedCredit}
+                    onChange={(event) => setAllowUnappliedCredit(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-[10px] font-semibold text-amber-800">
+                    Explicitly retain any unallocated remainder as student credit.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {orCollectForm.transactionType === "OR" && <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
-                {orCollectForm.transactionType === "AR" ? "Payment Term / Purpose" : "Category"} <span className="text-red-500">*</span>
+                Category <span className="text-red-500">*</span>
               </label>
               <select
                 value={orCollectForm.category}
                 onChange={(e) => setOrCollectForm({ ...orCollectForm, category: e.target.value })}
                 className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown"
               >
-                {(orCollectForm.transactionType === "AR" ? paymentRemittanceTermOptions : otherPaymentCategoryOptions).map((c) => <option key={c}>{c}</option>)}
+                {otherPaymentCategoryOptions.map((c) => <option key={c}>{c}</option>)}
               </select>
-            </div>
+            </div>}
 
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1.5 tracking-wide">
-                BIR Official Receipt No. <span className="text-stone-400 normal-case">(optional)</span>
+                BIR Official Receipt No. <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
+                required
                 value={orCollectForm.orNumber}
                 onChange={(e) => { setOrCollectForm({ ...orCollectForm, orNumber: e.target.value }); setOrCollectError(null); }}
-                placeholder="e.g. 0001234 — leave blank if no physical receipt is issued yet"
+                placeholder="e.g. 0001234 — must match the physical receipt"
                 className={`w-full bg-white border rounded-lg py-2 px-3 text-xs font-semibold font-mono focus:outline-none focus:ring-1 focus:ring-stsn-brown ${orCollectError ? "border-red-400 ring-1 ring-red-400" : "border-stone-200"}`}
               />
               {orCollectError && <p className="text-red-600 text-[10px] mt-1 font-semibold">{orCollectError}</p>}
