@@ -347,7 +347,8 @@ export interface StudentAssessment {
   discountPercentage: number;
   discountAmount: number;
   scholarshipName?: string;
-  paymentTerm: "Cash Basis" | "Quarterly" | "Semestral" | "Installment - 2 Payments" | "Installment - 4 Payments";
+  /** Immutable display snapshot of the selected database payment-term template. */
+  paymentTerm: string;
   balance: number;
   isPaid?: boolean;
   financialHoldStatus?: "None" | "Hold" | "Cleared";
@@ -369,6 +370,128 @@ export interface StudentAssessment {
   approvedBy?: string;
   approvedDate?: string;
   auditTrail?: AuditEntry[];
+}
+
+export interface AcademicYear {
+  id: string;
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: "Draft" | "Active" | "Closed" | "Archived";
+  isCurrent: boolean;
+}
+
+export interface AcademicYearLevel {
+  id: string;
+  code: string;
+  name: string;
+  academicUnit: "basic-ed" | "college";
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface StudentFeeCategory {
+  id: string;
+  schoolId: string;
+  code: string;
+  name: string;
+  postingCategory: "Tuition" | "Miscellaneous" | "Laboratory" | "ID/Other" | "Books";
+  revenueAccountCode: string;
+  isActive: boolean;
+}
+
+export interface StudentFeeItem {
+  id: string;
+  schoolId: string;
+  code: string;
+  name: string;
+  categoryId: string;
+  billingBasis: "Flat" | "Per Unit" | "Per Subject" | "Quantity";
+  isRequired: boolean;
+  isDiscountable: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface StudentFeeSchedule {
+  id: string;
+  schoolId: string;
+  academicYearId: string;
+  academicUnit: "basic-ed" | "college";
+  version: number;
+  status: "Draft" | "Published" | "Archived";
+  sourceReference?: string;
+  sourceNotes?: string;
+  publishedBy?: string;
+  publishedAt?: string;
+}
+
+export interface StudentFeeScheduleRate {
+  id: string;
+  scheduleId: string;
+  feeItemId: string;
+  yearLevelId: string;
+  courseId?: string;
+  amount: number;
+  isRequired?: boolean;
+  note?: string;
+}
+
+export interface ResolvedStudentFeeLine {
+  feeScheduleId: string;
+  feeScheduleRateId: string;
+  feeItemId: string;
+  feeCategoryId: string;
+  feeName: string;
+  category: StudentFeeCategory["postingCategory"];
+  amount: number;
+  quantity: number;
+  unitAmount: number;
+  revenueAccountCode: string;
+  isRequired: boolean;
+}
+
+export interface StudentPaymentTermTemplate {
+  id: string;
+  schoolId: string;
+  academicYear: string;
+  code: string;
+  name: string;
+  version: number;
+  isActive: boolean;
+  isDefault: boolean;
+}
+
+export interface StudentPaymentTermTemplateInstallment {
+  id: string;
+  templateId: string;
+  sequenceNo: number;
+  label: string;
+  percentage: number;
+  dueDate: string;
+}
+
+export interface StudentAidProgram {
+  id: string;
+  schoolId: string;
+  code: string;
+  name: string;
+  sponsorName: string;
+  benefitBasis: "Fixed Amount" | "Percentage";
+  benefitValue: number;
+  academicYearId?: string;
+  isActive: boolean;
+}
+
+export interface StudentAidAward {
+  id: string;
+  programId: string;
+  studentId: string;
+  enrollmentId?: string;
+  approvedAmount: number;
+  status: "Pending" | "Approved" | "Cancelled" | "Expired";
+  referenceNo?: string;
 }
 
 // ============================================================
@@ -696,6 +819,12 @@ export interface DiscountType {
   requiresDocument?: boolean;
   maxAmount?: number;
   glCode?: string;
+  schoolId?: string;
+  academicYearId?: string;
+  siblingPosition?: number;
+  exclusiveGroup?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
 }
 
 export interface AuditEntry {

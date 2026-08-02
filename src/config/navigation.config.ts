@@ -97,6 +97,7 @@ export const NAV_ITEMS: NavItem[] = [
           { id: "suppliers",         label: "Supplier Management",     icon: Truck,     desc: "Vendor & supplier master list" },
           { id: "items",             label: "Item / Product Mgmt",     icon: Package,   desc: "Product & service catalog" },
           { id: "discount-types",    label: "Discount Types",           icon: Percent,   desc: "Define discount types and eligibility rules" },
+          { id: "tuition-fees",      label: "Tuition Fees",             icon: Coins,     desc: "Versioned tuition and other-fee schedules" },
         ],
       },
       {

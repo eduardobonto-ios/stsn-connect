@@ -60,10 +60,10 @@ import AppTable, {
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import {
-  computeMockAssessment,
-  generatePaymentSchedule,
-  type MockPaymentTerm,
-} from "../../../services/mockAssessmentService";
+  buildConfiguredPaymentSchedule,
+  findDefaultPaymentTermTemplate,
+  resolveConfiguredStudentFees,
+} from "../../../services/studentFeeService";
 import {
   getAcademicTerms,
   academicUnitToDepartment,
@@ -76,58 +76,6 @@ import {
 } from "../../../config/accounting.config";
 import type { RegistrarImportPreviewRow, RegistrarImportSummary } from "../types/studentImport.types";
 import { parseRegistrarStudentCsvTemplate } from "../utils/studentImportParser";
-
-const PAYMENT_TERMS = [
-  "Cash Basis",
-  "Quarterly",
-  "Semestral",
-  "Installment - 2 Payments",
-  "Installment - 4 Payments",
-] as const;
-
-function getPaymentSchedule(
-  totalAfterDiscount: number,
-  term: string,
-  schoolYear: string,
-): { due: string; amount: number }[] {
-  if (term === "Cash Basis")
-    return [
-      { due: `${schoolYear} — Upon Enrollment`, amount: totalAfterDiscount },
-    ];
-  if (term === "Quarterly") {
-    const q = Math.round(totalAfterDiscount / 4);
-    return [
-      { due: "1st Quarter (June)", amount: q },
-      { due: "2nd Quarter (September)", amount: q },
-      { due: "3rd Quarter (December)", amount: q },
-      { due: "4th Quarter (March)", amount: totalAfterDiscount - q * 3 },
-    ];
-  }
-  if (term === "Semestral") {
-    const half = Math.round(totalAfterDiscount / 2);
-    return [
-      { due: "1st Semester (June)", amount: half },
-      { due: "2nd Semester (November)", amount: totalAfterDiscount - half },
-    ];
-  }
-  if (term === "Installment - 2 Payments") {
-    const h = Math.round(totalAfterDiscount / 2);
-    return [
-      { due: "1st Payment (Enrollment)", amount: h },
-      { due: "2nd Payment (Midterm)", amount: totalAfterDiscount - h },
-    ];
-  }
-  if (term === "Installment - 4 Payments") {
-    const q = Math.round(totalAfterDiscount / 4);
-    return [
-      { due: "Downpayment (Enrollment)", amount: q },
-      { due: "1st Installment", amount: q },
-      { due: "2nd Installment", amount: q },
-      { due: "Final Payment", amount: totalAfterDiscount - q * 3 },
-    ];
-  }
-  return [];
-}
 
 type SchoolContext = "BASIC_ED" | "COLLEGE";
 type DetailTab =
@@ -224,9 +172,16 @@ export default function RegistrarModule() {
     bookPackages,
     discountOptions,
     paymentTermOptions,
-    tuitionFeeSchedule,
-    miscFeeSchedule,
-    labFeeAdjustments,
+    discountTypes,
+    schools,
+    academicYears,
+    academicYearLevels,
+    studentFeeCategories,
+    studentFeeItems,
+    studentFeeSchedules,
+    studentFeeScheduleRates,
+    studentPaymentTermTemplates,
+    studentPaymentTermTemplateInstallments,
     setupData,
   } = useSTSNStore();
   const { toast, confirm, prompt } = useAppDialog();
@@ -656,18 +611,34 @@ export default function RegistrarModule() {
   };
 
   // Fallback mock assessment when no stored assessment exists for the selected student
-  const [regDiscountId, setRegDiscountId] = useState("none");
-  const [regPaymentTerm, setRegPaymentTerm] =
-    useState<MockPaymentTerm>("Quarterly");
+  const [regDiscountId, setRegDiscountId] = useState("");
+  const [regPaymentTerm, setRegPaymentTerm] = useState("");
   const [includeBooks, setIncludeBooks] = useState(false);
   const regSelectedDiscount =
-    discountOptions.find((d) => d.id === regDiscountId) ?? discountOptions[0] ?? { id: "none", label: "None", percentage: 0, badge: "" };
+    discountOptions.find((d) => d.id === regDiscountId)
+      ?? discountOptions.find((option) => option.percentage === 0)
+      ?? discountOptions[0];
   const isAssessmentLocked = false;
 
   // Reset preview-only selections whenever the selected student changes.
   useEffect(() => {
     setIncludeBooks(false);
   }, [selectedStudent?.id]);
+  useEffect(() => {
+    if (!discountOptions.some((option) => option.id === regDiscountId)) {
+      setRegDiscountId(discountOptions.find((option) => option.percentage === 0)?.id ?? "");
+    }
+  }, [discountOptions, regDiscountId]);
+  const currentAcademicYear = academicYears.find((year) => year.isCurrent)?.name;
+  const previewSchoolUuid = schools.find((school) => school.id === (activeSchool === "ALL" ? selectedStudent?.schoolId : activeSchool))?.uuid;
+  const availablePaymentTemplates = studentPaymentTermTemplates.filter((template) =>
+    template.isActive && template.schoolId === previewSchoolUuid && template.academicYear === currentAcademicYear
+  );
+  useEffect(() => {
+    if (!availablePaymentTemplates.some((template) => template.name === regPaymentTerm)) {
+      setRegPaymentTerm(availablePaymentTemplates.find((template) => template.isDefault)?.name ?? "");
+    }
+  }, [availablePaymentTemplates, regPaymentTerm]);
 
   // Assigned Grade/Year Level book package — Basic Education only, full package only (no per-title selection)
   const bookPackageResolution = useMemo(() => {
@@ -676,86 +647,50 @@ export default function RegistrarModule() {
     return getBookPackageByGradeLevel(
       bookPackages,
       selectedStudent.yearLevel,
-      "2026-2027",
+      currentAcademicYear ?? "",
       packageSchool,
     );
-  }, [schoolContext, selectedStudent, activeSchool]);
+  }, [schoolContext, selectedStudent, activeSchool, currentAcademicYear]);
   const bookPackage = bookPackageResolution.package;
 
   const mockFallbackAssessment = useMemo(() => {
-    if (!selectedStudent) return null;
-
-    // Use fee items configured in Core Setup > Fee Items when available
-    const feeItems = setupData.fee_items ?? [];
-    const feeCategories = setupData.fee_categories ?? [];
-    const yearLevels = setupData.year_levels ?? [];
-    if (feeItems.length > 0) {
-      const catByCode = new Map(feeCategories.map((c) => [c.code, c.name]));
-      const legacyMap: Record<string, string> = {
-        "fc-1": "Tuition", "fc-2": "Miscellaneous", "fc-3": "Laboratory",
-        "fc-4": "Other", "fc-5": "Other", "fc-6": "Other",
-      };
-      const resolveCategory = (catId: string) =>
-        catByCode.get(catId) ?? legacyMap[catId] ?? catId;
-
-      // When year-level-mapped tuition items exist for Basic Ed, use year-level matching
-      // so only ONE tuition fee is shown — the one for the student's year level.
-      const isBasicEd = selectedStudent.department === "Basic Education";
-      const hasYearLevelTuition = isBasicEd && feeItems.some(
-        (item) => item.isActive !== false &&
-          resolveCategory((item.categoryId as string) ?? "") === "Tuition" &&
-          item.yearLevel
-      );
-
-      const fees = feeItems
-        .filter((item) => item.isActive !== false)
-        .filter((item) => {
-          const catName = resolveCategory((item.categoryId as string) ?? "");
-          if (catName === "Penalty") return false;
-          if (catName === "Tuition" && isBasicEd && hasYearLevelTuition) {
-            const itemYearLevelCode = item.yearLevel as string | undefined;
-            if (!itemYearLevelCode) return false;
-            const resolved = yearLevels.find((yl) => yl.code === itemYearLevelCode)?.name ?? itemYearLevelCode;
-            return resolved === selectedStudent.yearLevel;
-          }
-          if (selectedStudent.department === "Basic Education" && (item.code as string)?.startsWith("COL")) return false;
-          if (selectedStudent.department === "College" && (item.code as string)?.startsWith("SHS")) return false;
-          return true;
-        })
-        .map((item) => {
-          const catName = resolveCategory((item.categoryId as string) ?? "");
-          const category: "Tuition" | "Laboratory" | "Miscellaneous" | "Other" | "Books" =
-            catName === "Tuition" ? "Tuition" :
-            catName === "Laboratory" ? "Laboratory" :
-            catName === "Miscellaneous" ? "Miscellaneous" : "Other";
-          return { feeName: item.name, category, amount: Number(item.amount) || 0, isRequired: true };
-        });
-
-      const grossTotal = fees.reduce((s, f) => s + f.amount, 0);
-      const discountAmount = Math.round(grossTotal * (regSelectedDiscount.percentage / 100));
-      const netPayable = Math.max(0, grossTotal - discountAmount);
-      return {
-        fees,
-        tuitionTotal: fees.filter((f) => f.category === "Tuition").reduce((s, f) => s + f.amount, 0),
-        labTotal: fees.filter((f) => f.category === "Laboratory").reduce((s, f) => s + f.amount, 0),
-        miscTotal: fees.filter((f) => f.category === "Miscellaneous").reduce((s, f) => s + f.amount, 0),
-        grossTotal, discountAmount, netPayable,
-        paymentSchedule: generatePaymentSchedule(netPayable, regPaymentTerm, "2026-2027"),
-      };
-    }
-
-    return computeMockAssessment(
-      selectedStudent.department,
-      selectedStudent.yearLevel ?? "Grade 11",
-      selectedStudent.trackOrCourse ?? undefined,
-      regSelectedDiscount.percentage,
-      regPaymentTerm,
-      tuitionFeeSchedule,
-      miscFeeSchedule,
-      labFeeAdjustments,
-      "2026-2027",
-    );
-  }, [selectedStudent, regSelectedDiscount.percentage, regPaymentTerm, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, setupData.fee_items, setupData.fee_categories, setupData.year_levels]);
+    if (!selectedStudent || !previewSchoolUuid || !currentAcademicYear || !regSelectedDiscount) return null;
+    const resolved = resolveConfiguredStudentFees({
+      academicYears, academicYearLevels, studentFeeCategories, studentFeeItems,
+      studentFeeSchedules, studentFeeScheduleRates,
+    }, {
+      schoolId: previewSchoolUuid, academicYear: currentAcademicYear,
+      yearLevel: selectedStudent.yearLevel,
+      courseId: courses.find((course) => course.code === selectedStudent.trackOrCourse)?.id,
+    });
+    const fees = resolved.map((fee) => ({
+      feeName: fee.feeName,
+      category: fee.category,
+      amount: fee.amount,
+      isRequired: fee.isRequired,
+    }));
+    const grossTotal = fees.reduce((sum, fee) => sum + fee.amount, 0);
+    const selectedPolicy = discountTypes.find((type) => type.id === regSelectedDiscount.id);
+    const discountBase = selectedPolicy?.appliesTo === "Tuition"
+      ? fees.filter((fee) => fee.category === "Tuition").reduce((sum, fee) => sum + fee.amount, 0)
+      : grossTotal;
+    const discountAmount = Math.round(discountBase * regSelectedDiscount.percentage) / 100;
+    const netPayable = Math.max(0, grossTotal - discountAmount);
+    const paymentTemplate = availablePaymentTemplates.find((template) => template.name === regPaymentTerm)
+      ?? findDefaultPaymentTermTemplate(studentPaymentTermTemplates, { schoolId: previewSchoolUuid, academicYear: currentAcademicYear });
+    return {
+      fees,
+      tuitionTotal: fees.filter((fee) => fee.category === "Tuition").reduce((sum, fee) => sum + fee.amount, 0),
+      labTotal: fees.filter((fee) => fee.category === "Laboratory").reduce((sum, fee) => sum + fee.amount, 0),
+      miscTotal: fees.filter((fee) => fee.category === "Miscellaneous").reduce((sum, fee) => sum + fee.amount, 0),
+      grossTotal, discountAmount, netPayable,
+      paymentSchedule: buildConfiguredPaymentSchedule(netPayable, paymentTemplate, studentPaymentTermTemplateInstallments)
+        .map((row) => ({ dueLabel: row.label, dueDate: row.dueDate, amount: row.amount, status: "Pending" as const })),
+    };
+  }, [selectedStudent, previewSchoolUuid, currentAcademicYear, academicYears, academicYearLevels,
+    studentFeeCategories, studentFeeItems, studentFeeSchedules, studentFeeScheduleRates, courses,
+    discountTypes, regSelectedDiscount.id, regSelectedDiscount.percentage, regPaymentTerm,
+    availablePaymentTemplates, studentPaymentTermTemplates, studentPaymentTermTemplateInstallments]);
 
   // Effective assessment = mock fallback + optional Books Package (Basic Ed only)
   const effectiveAssessment = useMemo(() => {
@@ -772,15 +707,13 @@ export default function RegistrarModule() {
     const fees = [...mockFallbackAssessment.fees, booksFee];
     const grossTotal =
       mockFallbackAssessment.grossTotal + bookPackage.totalAmount;
-    const discountAmount = Math.round(
-      grossTotal * (regSelectedDiscount.percentage / 100),
-    );
+    const discountAmount = mockFallbackAssessment.discountAmount;
     const netPayable = Math.max(0, grossTotal - discountAmount);
-    const paymentSchedule = generatePaymentSchedule(
-      netPayable,
-      regPaymentTerm,
-      "2026-2027",
-    );
+    const paymentTemplate = availablePaymentTemplates.find((template) => template.name === regPaymentTerm);
+    const paymentSchedule = paymentTemplate
+      ? buildConfiguredPaymentSchedule(netPayable, paymentTemplate, studentPaymentTermTemplateInstallments)
+        .map((row) => ({ dueLabel: row.label, dueDate: row.dueDate, amount: row.amount, status: "Pending" as const }))
+      : [];
 
     return {
       ...mockFallbackAssessment,
@@ -796,6 +729,8 @@ export default function RegistrarModule() {
     bookPackage,
     regSelectedDiscount.percentage,
     regPaymentTerm,
+    availablePaymentTemplates,
+    studentPaymentTermTemplateInstallments,
   ]);
 
   const getEnrolledSubjects = (studentId: string): Subject[] => {
@@ -854,7 +789,7 @@ export default function RegistrarModule() {
     });
     await submitNewEnrollment({
       studentId: baseNewStudent.id,
-      schoolYear: "2026-2027",
+      schoolYear: currentAcademicYear ?? "",
       semester: dept === "College" ? "First Semester" : "N/A",
       enrollmentType: "New Student",
       subjectCodes: selectedSubjectCodes,
@@ -1722,7 +1657,7 @@ export default function RegistrarModule() {
                           selectedStudent.section || "Unassigned",
                         ],
                         ["Enrollment Status", selectedStudent.enrollmentStatus],
-                        [terms.enrollmentUnit, "2026-2027"],
+                        [terms.enrollmentUnit, currentAcademicYear ?? "Not configured"],
                       ].map(([label, val]) => (
                         <div
                           key={label}
@@ -1978,11 +1913,7 @@ export default function RegistrarModule() {
                               </label>
                               <select
                                 value={regPaymentTerm}
-                                onChange={(e) =>
-                                  setRegPaymentTerm(
-                                    e.target.value as MockPaymentTerm,
-                                  )
-                                }
+                                onChange={(e) => setRegPaymentTerm(e.target.value)}
                                 disabled={isAssessmentLocked}
                                 className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown disabled:opacity-60 disabled:cursor-not-allowed"
                               >
@@ -2374,8 +2305,10 @@ export default function RegistrarModule() {
                                     disabled={isLocked}
                                     className="w-full bg-white border border-stone-200 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-stsn-brown disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed"
                                   >
-                                    {PAYMENT_TERMS.map((t) => (
-                                      <option key={t}>{t}</option>
+                                    {studentPaymentTermTemplates
+                                      .filter((template) => template.isActive && template.academicYear === studentAssessment.schoolYear)
+                                      .map((template) => (
+                                      <option key={template.id} value={template.name}>{template.name}</option>
                                     ))}
                                   </select>
                                   {isLocked && (
@@ -2392,11 +2325,15 @@ export default function RegistrarModule() {
                                   const netAmount =
                                     studentAssessment.totalAmount -
                                     studentAssessment.discountAmount;
-                                  const schedule = getPaymentSchedule(
-                                    netAmount,
-                                    studentAssessment.paymentTerm,
-                                    studentAssessment.schoolYear,
+                                  const termTemplate = studentPaymentTermTemplates.find((template) =>
+                                    template.isActive
+                                    && template.academicYear === studentAssessment.schoolYear
+                                    && template.name === studentAssessment.paymentTerm
                                   );
+                                  const schedule = termTemplate
+                                    ? buildConfiguredPaymentSchedule(netAmount, termTemplate, studentPaymentTermTemplateInstallments)
+                                      .map((row) => ({ due: `${row.label} — ${row.dueDate}`, amount: row.amount }))
+                                    : [];
                                   return (
                                     <div className="border border-stone-200 rounded-lg overflow-hidden">
                                       <div className="bg-stone-50 px-3 py-2 border-b border-stone-200 flex justify-between items-center">
@@ -2712,7 +2649,7 @@ export default function RegistrarModule() {
                           <span className="text-stone-400">
                             {terms.enrollmentUnit}:
                           </span>
-                          <strong>2026-2027</strong>
+                          <strong>{currentAcademicYear ?? "Not configured"}</strong>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-stone-400">
@@ -3569,7 +3506,7 @@ export default function RegistrarModule() {
               });
               await submitNewEnrollment({
                 studentId: baseNewStudent.id,
-                schoolYear: "2026-2027",
+                schoolYear: currentAcademicYear ?? "",
                 semester: dept === "College" ? "First Semester" : "N/A",
                 enrollmentType,
                 subjectCodes,

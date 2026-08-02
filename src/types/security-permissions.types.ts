@@ -156,7 +156,7 @@ export interface EffectivePermissions {
   roleCodes: UserRole[];
   /** Allowed permission keys (action-qualified, e.g. "CASHIER:queue:void"). */
   allowed: Set<PermissionKey>;
-  /** Module keys the user can access at all (any allowed permission in module). */
+  /** Module keys granted by an explicit module-level `view` permission. */
   modules: Set<STSNModule>;
   /**
    * True when resolved from the hardcoded ROLE_PERMISSIONS fallback (DB catalog

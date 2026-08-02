@@ -37,6 +37,16 @@ import type {
   DirectCollectionLine,
   UnappliedCredit,
   AllocationReallocationRequest,
+  AcademicYear,
+  AcademicYearLevel,
+  StudentFeeCategory,
+  StudentFeeItem,
+  StudentFeeSchedule,
+  StudentFeeScheduleRate,
+  StudentPaymentTermTemplate,
+  StudentPaymentTermTemplateInstallment,
+  StudentAidProgram,
+  StudentAidAward,
 } from "../types";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent } from "../types/grading";
 
@@ -49,6 +59,7 @@ const personName = (
 
 export interface LoadedData {
   financeWritesEnabled: boolean;
+  studentFeeEngineEnabled: boolean;
   schools: { id: string; uuid: string; name: string; shortName: string; location: string; academicUnit: string; brandingLabel: string; supportedRoles: string[] }[];
   users: User[];
   students: Student[];
@@ -103,6 +114,16 @@ export interface LoadedData {
   labFeeAdjustments: { scope: "SHS" | "College"; programCode: string; amount: number }[];
   discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
   paymentTermOptions: { term: string; description: string }[];
+  academicYears: AcademicYear[];
+  academicYearLevels: AcademicYearLevel[];
+  studentFeeCategories: StudentFeeCategory[];
+  studentFeeItems: StudentFeeItem[];
+  studentFeeSchedules: StudentFeeSchedule[];
+  studentFeeScheduleRates: StudentFeeScheduleRate[];
+  studentPaymentTermTemplates: StudentPaymentTermTemplate[];
+  studentPaymentTermTemplateInstallments: StudentPaymentTermTemplateInstallment[];
+  studentAidPrograms: StudentAidProgram[];
+  studentAidAwards: StudentAidAward[];
   studentGuardians: StudentGuardianContact[];
   studentEducationBackgrounds: StudentEducationBackground[];
   employeeProfileContacts: EmployeeProfileContact[];
@@ -579,6 +600,9 @@ export async function loadAllData(): Promise<LoadedData> {
     applicableAcademicUnit: d.applicable_academic_unit, appliesTo: d.applies_to, discountBasis: d.discount_basis,
     discountFixedAmount: d.discount_fixed_amount, isStackable: d.is_stackable, requiresDocument: d.requires_document,
     maxAmount: d.max_amount, glCode: d.gl_code,
+    schoolId: d.school_id, academicYearId: d.academic_year_id,
+    siblingPosition: d.sibling_position, exclusiveGroup: d.exclusive_group,
+    effectiveFrom: d.effective_from, effectiveTo: d.effective_to,
   }));
   const discountTypeById = new Map(discountTypeRows?.map((d: any) => [d.id, d]) ?? []);
   const { data: studentRowsForNames } = { data: studentRows } as any;
@@ -754,21 +778,75 @@ export async function loadAllData(): Promise<LoadedData> {
   }
   const enrollmentHistoryStats = Array.from(ehsMap.values());
 
-  // ---- Assessment fee-calculation engine data (replaces mockAssessmentService constants) ----
-  const { data: tfsRows } = await supabase.from("tuition_fee_schedule").select("*").order("sort_order");
-  const tuitionFeeSchedule = (tfsRows ?? []).map((t: any) => ({ yearLevel: t.year_level, tuition: t.tuition, lab: t.lab_fee, computer: t.computer_fee, label: t.label }));
+  // ---- Canonical student-fee and payment-term configuration ----
+  const { data: academicYearRows } = await supabase.from("academic_years").select("*").order("start_date");
+  const academicYears: AcademicYear[] = (academicYearRows ?? []).map((r: any) => ({
+    id: r.id, code: r.code, name: r.name, startDate: r.start_date, endDate: r.end_date,
+    status: r.status, isCurrent: r.is_current,
+  }));
+  const { data: levelRows } = await supabase.from("academic_year_levels").select("*").order("sort_order");
+  const academicYearLevels: AcademicYearLevel[] = (levelRows ?? []).map((r: any) => ({
+    id: r.id, code: r.code, name: r.name, academicUnit: r.academic_unit,
+    sortOrder: r.sort_order, isActive: r.is_active,
+  }));
+  const { data: feeCategoryRows } = await supabase.from("student_fee_categories").select("*");
+  const studentFeeCategories: StudentFeeCategory[] = (feeCategoryRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.school_id, code: r.code, name: r.name,
+    postingCategory: r.posting_category, revenueAccountCode: r.revenue_account_code, isActive: r.is_active,
+  }));
+  const { data: feeItemRows } = await supabase.from("student_fee_items").select("*").order("sort_order");
+  const studentFeeItems: StudentFeeItem[] = (feeItemRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.school_id, code: r.code, name: r.name, categoryId: r.category_id,
+    billingBasis: r.billing_basis, isRequired: r.is_required,
+    isDiscountable: r.is_discountable, isActive: r.is_active, sortOrder: r.sort_order,
+  }));
+  const { data: feeScheduleRows } = await supabase.from("student_fee_schedules").select("*").order("version", { ascending: false });
+  const studentFeeSchedules: StudentFeeSchedule[] = (feeScheduleRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.school_id, academicYearId: r.academic_year_id,
+    academicUnit: r.academic_unit, version: r.version, status: r.status,
+    sourceReference: r.source_reference, sourceNotes: r.source_notes,
+    publishedBy: r.published_by ?? undefined, publishedAt: r.published_at ?? undefined,
+  }));
+  const { data: feeRateRows } = await supabase.from("student_fee_schedule_rates").select("*");
+  const studentFeeScheduleRates: StudentFeeScheduleRate[] = (feeRateRows ?? []).map((r: any) => ({
+    id: r.id, scheduleId: r.schedule_id, feeItemId: r.fee_item_id,
+    yearLevelId: r.year_level_id, courseId: r.course_id ?? undefined,
+    amount: Number(r.amount), isRequired: r.is_required ?? undefined, note: r.note ?? undefined,
+  }));
+  const { data: termRows } = await supabase.from("student_payment_term_templates").select("*");
+  const studentPaymentTermTemplates: StudentPaymentTermTemplate[] = (termRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.school_id, academicYear: r.academic_year, code: r.code,
+    name: r.name, version: r.version, isActive: r.is_active, isDefault: r.is_default,
+  }));
+  const { data: termInstallmentRows } = await supabase.from("student_payment_term_template_installments").select("*").order("sequence_no");
+  const studentPaymentTermTemplateInstallments: StudentPaymentTermTemplateInstallment[] = (termInstallmentRows ?? []).map((r: any) => ({
+    id: r.id, templateId: r.template_id, sequenceNo: r.sequence_no, label: r.label,
+    percentage: Number(r.percentage), dueDate: r.due_date,
+  }));
+  const { data: aidProgramRows } = await supabase.from("student_aid_programs").select("*");
+  const studentAidPrograms: StudentAidProgram[] = (aidProgramRows ?? []).map((r: any) => ({
+    id: r.id, schoolId: r.school_id, code: r.code, name: r.name, sponsorName: r.sponsor_name,
+    benefitBasis: r.benefit_basis, benefitValue: Number(r.benefit_value),
+    academicYearId: r.academic_year_id ?? undefined, isActive: r.is_active,
+  }));
+  const { data: aidAwardRows } = await supabase.from("student_aid_awards").select("*");
+  const studentAidAwards: StudentAidAward[] = (aidAwardRows ?? []).map((r: any) => ({
+    id: r.id, programId: r.program_id, studentId: r.student_id,
+    enrollmentId: r.enrollment_id ?? undefined, approvedAmount: Number(r.approved_amount),
+    status: r.status, referenceNo: r.reference_no ?? undefined,
+  }));
 
-  const { data: mfsRows } = await supabase.from("misc_fee_schedule").select("*").order("sort_order");
-  const miscFeeSchedule = (mfsRows ?? []).map((m: any) => ({ feeName: m.fee_name, category: "Miscellaneous" as const, amount: m.amount, isRequired: m.is_required, note: m.note }));
-
-  const { data: lfaRows } = await supabase.from("lab_fee_adjustments").select("*");
-  const labFeeAdjustments = (lfaRows ?? []).map((l: any) => ({ scope: l.scope, programCode: l.program_code, amount: l.amount }));
-
-  const { data: adoRows } = await supabase.from("assessment_discount_options").select("*").order("sort_order");
-  const discountOptions = (adoRows ?? []).map((d: any) => ({ id: d.code, label: d.label, percentage: d.percentage, badge: d.badge }));
-
-  const { data: aptoRows } = await supabase.from("assessment_payment_term_options").select("*").order("sort_order");
-  const paymentTermOptions = (aptoRows ?? []).map((p: any) => ({ term: p.term, description: p.description }));
+  // Compatibility projections are derived from canonical rows only. Runtime no
+  // longer reads the legacy fee/discount/payment-option tables.
+  const tuitionFeeSchedule: LoadedData["tuitionFeeSchedule"] = [];
+  const miscFeeSchedule: LoadedData["miscFeeSchedule"] = [];
+  const labFeeAdjustments: LoadedData["labFeeAdjustments"] = [];
+  const discountOptions = discountTypes.filter((d) => d.isActive).map((d) => ({
+    id: d.id, label: d.name, percentage: Number(d.discountPercent),
+  }));
+  const paymentTermOptions = studentPaymentTermTemplates.filter((t) => t.isActive).map((t) => ({
+    term: t.name, description: t.code,
+  }));
 
   // ---- Student guardians ----
   const { data: guardianRows } = await supabase.from("student_guardians").select("*");
@@ -1075,9 +1153,15 @@ export async function loadAllData(): Promise<LoadedData> {
     .eq("control_key", "student_finance_writes")
     .maybeSingle();
   const financeWritesEnabled = financeControl?.enabled === true;
+  const { data: feeEngineControl } = await supabase
+    .from("system_runtime_controls")
+    .select("enabled")
+    .eq("control_key", "student_fee_schedule_engine_enabled")
+    .maybeSingle();
+  const studentFeeEngineEnabled = feeEngineControl?.enabled === true;
 
   return {
-    financeWritesEnabled,
+    financeWritesEnabled, studentFeeEngineEnabled,
     schools, users, students, teachers, employees, courses, subjects, curriculums, requirements, enrollments, onlineEnrollmentApplications,
     assessments, payments, studentInvoices, invoiceLines, paymentPlans, paymentPlanInstallments,
     studentReceipts, receiptAllocations, directCollectionLines, unappliedCredits,
@@ -1085,7 +1169,11 @@ export async function loadAllData(): Promise<LoadedData> {
     discountRequests, voidRequests, cashVouchers, classSchedules, learningMaterials, sections, rooms, studentLedgerSummaries, ledgerTransactions,
     financialHolds, assessmentBillingSummaries, paymentCollectionSummaries, promissoryNotes, bookPackages,
     classLoads, gradePeriods, studentGradeEntries, demoStudents, activityLogs,
-    enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions, studentGuardians, studentEducationBackgrounds,
+    enrollmentHistoryStats, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments, discountOptions, paymentTermOptions,
+    academicYears, academicYearLevels, studentFeeCategories, studentFeeItems, studentFeeSchedules,
+    studentFeeScheduleRates, studentPaymentTermTemplates, studentPaymentTermTemplateInstallments,
+    studentAidPrograms, studentAidAwards,
+    studentGuardians, studentEducationBackgrounds,
     employeeProfileContacts, employeeEducationBackgrounds, employeeLicenseCertifications, employeeDocuments,
     employeeLifecycleEvents, shiftTemplates, employeeShiftAssignments, employeeTimeLogs, employeeAttendance,
     leaveTypes, leaveRequests, payrollPeriods, payrollRuns, payrollLines,

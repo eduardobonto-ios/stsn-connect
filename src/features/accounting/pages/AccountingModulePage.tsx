@@ -27,6 +27,7 @@ import AppStatusBadge from "../../../components/common/AppStatusBadge";
 import AppTable, { appTableColumnsFromLegacy, type AppTableLegacyColumn } from "../../../components/common/AppTable";
 import SLABadge from "../../../components/common/SLABadge";
 import { Payment, StudentAssessment, Student } from "../../../types";
+import { buildConfiguredPaymentSchedule } from "../../../services/studentFeeService";
 import { getAccountingLabels, FINANCIAL_HOLD_STATUS_CONFIG, DISCOUNT_STATUS_CONFIG, BLOCKED_PROCESS_LABELS, DEFAULT_HOLD_CATEGORY, ASSESSMENT_APPROVAL_STATUS_CONFIG, DEFAULT_ASSESSMENT_APPROVAL_STATUS } from "../../../config/accounting.config";
 import { FinancialHold, AssessmentBillingSummary, BookPackage } from "../../../types";
 import ChartOfAccountsPage from "./sub-pages/ChartOfAccountsPage";
@@ -39,6 +40,7 @@ import PurchaseInvoicesPage from "./sub-pages/PurchaseInvoicesPage";
 import ARAgingPage from "./sub-pages/ARAgingPage";
 import APAgingPage from "./sub-pages/APAgingPage";
 import FinancialStatementsPage from "./sub-pages/FinancialStatementsPage";
+import TuitionFeesSetupPage from "./sub-pages/TuitionFeesSetupPage";
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 
 type AccountingTab = "dashboard" | "ledger" | "discounts" | "billing" | "holds";
@@ -52,7 +54,7 @@ const DEFAULT_TYPE_FORM = {
   discountSource: "Sibling" as DiscountType["discountSource"],
   requiresApproval: true,
   description: "",
-  effectiveSchoolYear: "2026-2027",
+  effectiveSchoolYear: "",
   applicableAcademicUnit: "both" as DiscountType["applicableAcademicUnit"],
   appliesTo: "Tuition" as NonNullable<DiscountType["appliesTo"]>,
   discountBasis: "Percentage" as NonNullable<DiscountType["discountBasis"]>,
@@ -670,15 +672,16 @@ function StudentLedger() {
     paymentCollectionSummaries,
     ledgerTransactions,
     setupData,
+    academicYears,
     postStudentAdjustment,
     setAssessmentHold,
   } = useSTSNStore();
-  const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
+  const schoolYearOptions = [...academicYears].reverse();
   const semesterOptions = setupData.semesters ?? [];
   const txTypeOptions = ["All", ...(setupData.transaction_types ?? []).map((t) => t.name)];
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string>(students[0]?.id ?? "");
-  const [filterYear, setFilterYear] = useState("2026-2027");
+  const [filterYear, setFilterYear] = useState(academicYears.find((year) => year.isCurrent)?.name ?? "All");
   const [filterSemester, setFilterSemester] = useState("All");
   const [filterTxType, setFilterTxType] = useState("All");
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
@@ -1246,10 +1249,10 @@ function StudentLedger() {
 // ============================================================
 function DiscountTypesSetupPage() {
   const {
-    discountTypes, addDiscountType, updateDiscountType, deleteDiscountType, toggleDiscountTypeActive, setupData
+    discountTypes, addDiscountType, updateDiscountType, deleteDiscountType, toggleDiscountTypeActive, academicYears, setupData
   } = useSTSNStore();
   const { confirm, toast: dialogToast } = useAppDialog();
-  const schoolYearOptions = [...(setupData.school_years ?? [])].reverse();
+  const schoolYearOptions = [...academicYears].reverse();
 
   const [searchTypes, setSearchTypes] = useState("");
   const [filterSource, setFilterSource] = useState("All");
@@ -1419,7 +1422,7 @@ function DiscountTypesSetupPage() {
               {SOURCES.map((s) => <option key={s}>{s}</option>)}
             </select>
             <button
-              onClick={() => { setEditingType(null); setTypeForm(DEFAULT_TYPE_FORM); setIsTypeFormOpen(true); }}
+              onClick={() => { setEditingType(null); setTypeForm({ ...DEFAULT_TYPE_FORM, effectiveSchoolYear: academicYears.find((year) => year.isCurrent)?.name ?? academicYears[0]?.name ?? "" }); setIsTypeFormOpen(true); }}
               className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-3 py-1.5 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
             >
               <Plus className="w-3.5 h-3.5" /> Add Discount Type
@@ -1574,7 +1577,7 @@ function DiscountManagement() {
 
   // New Request Form
   const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
-  const [requestForm, setRequestForm] = useState({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" });
+  const [requestForm, setRequestForm] = useState({ studentId: "", discountTypeId: "", siblingStudentIds: [] as string[], remarks: "", attachmentNames: "" });
 
   // Approval Modal
   const [approvalModal, setApprovalModal] = useState<{ req: DiscountRequest; action: "approve" | "reject"; level: 1 | 2 } | null>(null);
@@ -1606,7 +1609,9 @@ function DiscountManagement() {
         discountTypeName: discountType.name,
         discountPercent: discountType.discountPercent,
         requestedBy: currentUser?.name || "System",
-        siblingNames: requestForm.siblingNames ? requestForm.siblingNames.split(",").map((s) => s.trim()) : [],
+        siblingStudentIds: requestForm.siblingStudentIds,
+        siblingNames: students.filter((candidate) => requestForm.siblingStudentIds.includes(candidate.id))
+          .map((candidate) => `${candidate.firstName} ${candidate.lastName}`),
         remarks: requestForm.remarks,
         attachmentNames: requestForm.attachmentNames ? requestForm.attachmentNames.split(",").map((s) => s.trim()) : [],
         status: "Pending"
@@ -1616,7 +1621,7 @@ function DiscountManagement() {
       return;
     }
     setIsRequestFormOpen(false);
-    setRequestForm({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" });
+    setRequestForm({ studentId: "", discountTypeId: "", siblingStudentIds: [], remarks: "", attachmentNames: "" });
   };
 
   const handleApproval = async () => {
@@ -1664,7 +1669,7 @@ function DiscountManagement() {
                 </select>
               </div>
               <button
-                onClick={() => { setRequestForm({ studentId: "", discountTypeId: "", siblingNames: "", remarks: "", attachmentNames: "" }); setIsRequestFormOpen(true); }}
+                onClick={() => { setRequestForm({ studentId: "", discountTypeId: "", siblingStudentIds: [], remarks: "", attachmentNames: "" }); setIsRequestFormOpen(true); }}
                 className="flex items-center gap-1.5 bg-stsn-brown text-stsn-cream text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer hover:bg-stsn-brown-dark transition"
               >
                 <Plus className="w-4 h-4" /> New Request
@@ -1804,8 +1809,12 @@ function DiscountManagement() {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Sibling Names <span className="normal-case text-stone-400 text-[9px]">(Optional — comma-separated)</span></label>
-                <input value={requestForm.siblingNames} onChange={(e) => setRequestForm({ ...requestForm, siblingNames: e.target.value })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs focus:outline-none" placeholder="e.g. Juan Santos, Maria Santos" />
+                <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Supporting Sibling Students <span className="normal-case text-stone-400 text-[9px]">(select verified student records)</span></label>
+                <select multiple value={requestForm.siblingStudentIds} onChange={(e) => setRequestForm({ ...requestForm, siblingStudentIds: Array.from(e.target.selectedOptions, (option) => option.value) })} className="w-full bg-white border border-stone-200 rounded py-2 px-3 text-xs focus:outline-none min-h-24">
+                  {students.filter((candidate) => candidate.id !== requestForm.studentId
+                    && candidate.schoolId === students.find((beneficiary) => beneficiary.id === requestForm.studentId)?.schoolId
+                  ).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.lastName}, {candidate.firstName} ({candidate.studentNo})</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 mb-1">Attachment Files <span className="normal-case text-stone-400 text-[9px]">(Optional — filenames comma-separated)</span></label>
@@ -2044,54 +2053,6 @@ function getBookPackageInfo(assessment: StudentAssessment, bookPackages: BookPac
   if (!assessment.booksAvailed) return { included: false };
   const pkg = bookPackages.find((p) => p.id === assessment.bookPackageId);
   return { included: true, packageName: pkg?.packageName || "Book Package", amount: pkg?.totalAmount };
-}
-
-/** Builds a payment schedule preview from totalAmount/discountAmount/paymentTerm for the Assessment Approval detail panel. */
-function buildPaymentSchedulePreview(assessment: StudentAssessment): { label: string; amount: number }[] {
-  const net = Math.max(0, assessment.totalAmount - assessment.discountAmount);
-  switch (assessment.paymentTerm) {
-    case "Cash Basis":
-      return [{ label: "Full Payment — Upon Enrollment", amount: net }];
-    case "Quarterly": {
-      const dp = Math.round(net * 0.3);
-      const rem = net - dp;
-      const q = Math.round(rem / 3);
-      return [
-        { label: "Downpayment", amount: dp },
-        { label: "1st Quarter", amount: q },
-        { label: "2nd Quarter", amount: q },
-        { label: "3rd Quarter", amount: rem - q * 2 },
-      ];
-    }
-    case "Semestral": {
-      const dp = Math.round(net * 0.3);
-      const rem = net - dp;
-      const mid = Math.round(rem / 2);
-      return [
-        { label: "Downpayment", amount: dp },
-        { label: "Midterm", amount: mid },
-        { label: "Final", amount: rem - mid },
-      ];
-    }
-    case "Installment - 2 Payments": {
-      const half = Math.round(net / 2);
-      return [
-        { label: "1st Installment", amount: half },
-        { label: "2nd Installment", amount: net - half },
-      ];
-    }
-    case "Installment - 4 Payments": {
-      const part = Math.round(net / 4);
-      return [
-        { label: "1st Installment", amount: part },
-        { label: "2nd Installment", amount: part },
-        { label: "3rd Installment", amount: part },
-        { label: "4th Installment", amount: net - part * 3 },
-      ];
-    }
-    default:
-      return [{ label: "Full Payment", amount: net }];
-  }
 }
 
 type ApprovalQueueRow = {
@@ -2461,11 +2422,16 @@ function AssessmentApprovalDetail({
   onReturn: () => void;
   onReject: () => void;
 }) {
-  const { bookPackages } = useSTSNStore();
+  const { bookPackages, studentPaymentTermTemplates, studentPaymentTermTemplateInstallments } = useSTSNStore();
   const statusCfg = ASSESSMENT_APPROVAL_STATUS_CONFIG[status];
   const books = getBookPackageInfo(assessment, bookPackages);
   const netPayable = Math.max(0, assessment.totalAmount - assessment.discountAmount);
-  const schedule = buildPaymentSchedulePreview(assessment);
+  const termTemplate = studentPaymentTermTemplates.find((template) =>
+    template.isActive && template.academicYear === assessment.schoolYear && template.name === assessment.paymentTerm
+  );
+  const schedule = termTemplate
+    ? buildConfiguredPaymentSchedule(netPayable, termTemplate, studentPaymentTermTemplateInstallments)
+    : [];
   const isPending = status === "Pending Accounting Approval";
 
   return (
@@ -2841,6 +2807,7 @@ function AccountingSubPageRouter({ subPage }: { subPage: string }) {
     case "suppliers":          return <SupplierManagementPage />;
     case "items":              return <ItemProductManagementPage />;
     case "discount-types":     return <DiscountTypesSetupPage />;
+    case "tuition-fees":       return <TuitionFeesSetupPage />;
     case "sales-invoices":     return <SalesInvoicesPage />;
     case "purchase-invoices":  return <PurchaseInvoicesPage />;
     case "ar-aging":           return <ARAgingPage />;

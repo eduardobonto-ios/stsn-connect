@@ -157,10 +157,22 @@ export function computeEffectivePermissions(
 
   for (const k of denied) allowed.delete(k);
 
-  // Derive the set of modules the user can touch at all.
+  // A page/action grant must never unlock its parent module. Module access is
+  // granted only by the explicit module-level `view` permission. This keeps
+  // cross-module workflow permissions (for example Accounting oversight of a
+  // Cashier voucher action) from exposing the entire Cashiering workspace.
   const modules = new Set<STSNModule>();
   for (const p of catalog.permissions) {
-    if (allowed.has(keyFor(p))) modules.add(p.moduleKey);
+    if (p.pageKey === null && p.actionKey === "view" && allowed.has(keyFor(p))) {
+      modules.add(p.moduleKey);
+    }
+  }
+
+  // Temporary finance-UAT separation of duties: stale catalog grants,
+  // duplicate role assignments, and per-user overrides must not let a user
+  // whose active application role is Accounting enter Cashiering.
+  if (fallbackRole === "ACCOUNTING") {
+    modules.delete("CASHIER");
   }
 
   return { userId, roleCodes, allowed, modules, fallback: false };

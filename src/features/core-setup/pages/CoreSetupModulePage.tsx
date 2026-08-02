@@ -52,6 +52,7 @@ import AppTable, { type AppTableColumn } from "../../../components/common/AppTab
 import ModulePageHeader from "../../../components/common/ModulePageHeader";
 import { useAppDialog } from "../../../components/common/useAppDialog";
 import BooksSetupPage from "../../books/pages/BooksSetupPage";
+import TuitionFeesSetupPage from "../../accounting/pages/sub-pages/TuitionFeesSetupPage";
 import { useSTSNStore } from "../../../services/store";
 import { SetupItem } from "../../../types";
 
@@ -72,7 +73,7 @@ interface SetupCategoryConfig {
   description: string;
   icon: React.ElementType;
   color: string;
-  customPage?: "books_setup";
+  customPage?: "books_setup" | "tuition_fees_setup";
   extraFields?: FieldConfig[];
 }
 
@@ -240,15 +241,11 @@ const SETUP_GROUPS: SetupGroupConfig[] = [
       },
       {
         key: "fee_items",
-        label: "Fee Items",
-        description: "Specific fee line items with amounts",
+        label: "Tuition Fees",
+        description: "Versioned tuition and other-fee schedules",
         icon: Coins,
         color: "emerald",
-        extraFields: [
-          { key: "categoryId", label: "Category", type: "select", dataSourceKey: "fee_categories" },
-          { key: "amount", label: "Amount (PHP)", type: "number" },
-          { key: "yearLevel", label: "Year Level", type: "select", dataSourceKey: "year_levels" },
-        ],
+        customPage: "tuition_fees_setup",
       },
       {
         key: "or_series",
@@ -986,7 +983,7 @@ interface CoreSetupModuleProps {
 }
 
 export default function CoreSetupModule({ initialCategoryKey }: CoreSetupModuleProps) {
-  const { setupData, bookPackages } = useSTSNStore();
+  const { setupData, bookPackages, studentFeeItems } = useSTSNStore();
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>(
     initialCategoryKey || "academic_categories",
   );
@@ -1110,6 +1107,8 @@ export default function CoreSetupModule({ initialCategoryKey }: CoreSetupModuleP
                           const count =
                             category.customPage === "books_setup"
                               ? bookPackages.length
+                              : category.customPage === "tuition_fees_setup"
+                                ? studentFeeItems.length
                               : (setupData[category.key] || []).length;
                           const isSelected = selectedCategoryKey === category.key;
                           return (
@@ -1149,6 +1148,8 @@ export default function CoreSetupModule({ initialCategoryKey }: CoreSetupModuleP
         <div className="min-w-0 flex-1">
           {selectedConfig?.customPage === "books_setup" ? (
             <BooksSetupPage />
+          ) : selectedConfig?.customPage === "tuition_fees_setup" ? (
+            <TuitionFeesSetupPage />
           ) : selectedConfig ? (
             <GenericSetupTable categoryKey={selectedCategoryKey} config={selectedConfig} />
           ) : (

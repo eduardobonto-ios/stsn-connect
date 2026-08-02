@@ -64,10 +64,10 @@ import ProfileRepeatableEntryCard from "../../../components/common/profile/Profi
 import ProfileSectionCard from "../../../components/common/profile/ProfileSectionCard";
 import ProfileWorkspace from "../../../components/common/profile/ProfileWorkspace";
 import {
-  computeMockAssessment,
-  generatePaymentSchedule,
-  type MockPaymentTerm,
-} from "../../../services/mockAssessmentService";
+  buildConfiguredPaymentSchedule,
+  findDefaultPaymentTermTemplate,
+  resolveConfiguredStudentFees,
+} from "../../../services/studentFeeService";
 import { getAcademicTerms, academicUnitToDepartment } from "../../../config/schools.config";
 import { getAcademicScopedData } from "../../../services/academicUnitScopeService";
 import type { Grade, Payment, Requirement, Student, StudentEducationBackground, StudentGuardianContact } from "../../../types";
@@ -160,10 +160,16 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     ensureStudentRequirements,
     uploadRequirementFile,
     discountOptions,
-    paymentTermOptions,
-    tuitionFeeSchedule,
-    miscFeeSchedule,
-    labFeeAdjustments,
+    discountTypes,
+    courses,
+    academicYears,
+    academicYearLevels,
+    studentFeeCategories,
+    studentFeeItems,
+    studentFeeSchedules,
+    studentFeeScheduleRates,
+    studentPaymentTermTemplates,
+    studentPaymentTermTemplateInstallments,
     studentGuardians,
     addStudentGuardian,
     updateStudentGuardian,
@@ -353,24 +359,61 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
 
   // Enrollment estimate controls. These values are used only when no approved
   // canonical invoice exists for the student.
-  const [selectedDiscountId, setSelectedDiscountId] = useState("none");
-  const [selectedPaymentTerm, setSelectedPaymentTerm] = useState<MockPaymentTerm>("Quarterly");
-  const selectedDiscount = discountOptions.find((d) => d.id === selectedDiscountId) ?? discountOptions[0] ?? { id: "none", label: "None", percentage: 0, badge: "" };
-  const estimatedAssessment = useMemo(
-    () =>
-      computeMockAssessment(
-        student.department,
-        student.yearLevel ?? "Grade 11",
-        student.trackOrCourse ?? undefined,
-        selectedDiscount.percentage,
-        selectedPaymentTerm,
-        tuitionFeeSchedule,
-        miscFeeSchedule,
-        labFeeAdjustments,
-        "2026-2027"
-      ),
-    [student.department, student.yearLevel, student.trackOrCourse, selectedDiscount.percentage, selectedPaymentTerm, tuitionFeeSchedule, miscFeeSchedule, labFeeAdjustments]
+  const [selectedDiscountId, setSelectedDiscountId] = useState("");
+  const [selectedPaymentTerm, setSelectedPaymentTerm] = useState("");
+  const selectedDiscount = discountOptions.find((d) => d.id === selectedDiscountId)
+    ?? discountOptions.find((option) => option.percentage === 0)
+    ?? discountOptions[0];
+  useEffect(() => {
+    if (!discountOptions.some((option) => option.id === selectedDiscountId)) {
+      setSelectedDiscountId(discountOptions.find((option) => option.percentage === 0)?.id ?? "");
+    }
+  }, [discountOptions, selectedDiscountId]);
+  const currentAcademicYear = academicYears.find((year) => year.isCurrent)?.name;
+  const studentSchoolUuid = schools.find((school) => school.id === student.schoolId)?.uuid;
+  const portalPaymentTemplates = studentPaymentTermTemplates.filter((template) =>
+    template.isActive && template.schoolId === studentSchoolUuid && template.academicYear === currentAcademicYear
   );
+  useEffect(() => {
+    if (!portalPaymentTemplates.some((template) => template.name === selectedPaymentTerm)) {
+      setSelectedPaymentTerm(portalPaymentTemplates.find((template) => template.isDefault)?.name ?? "");
+    }
+  }, [portalPaymentTemplates, selectedPaymentTerm]);
+  const estimatedAssessment = useMemo(() => {
+    if (!studentSchoolUuid || !currentAcademicYear || !selectedDiscount) return null;
+    const resolved = resolveConfiguredStudentFees({
+      academicYears, academicYearLevels, studentFeeCategories, studentFeeItems,
+      studentFeeSchedules, studentFeeScheduleRates,
+    }, {
+      schoolId: studentSchoolUuid, academicYear: currentAcademicYear, yearLevel: student.yearLevel,
+      courseId: courses.find((course) => course.code === student.trackOrCourse)?.id,
+    });
+    const fees = resolved.map((fee) => ({
+      feeName: fee.feeName, category: fee.category,
+      amount: fee.amount, isRequired: fee.isRequired,
+    }));
+    const grossTotal = fees.reduce((sum, fee) => sum + fee.amount, 0);
+    const policy = discountTypes.find((type) => type.id === selectedDiscount.id);
+    const discountBase = policy?.appliesTo === "Tuition"
+      ? fees.filter((fee) => fee.category === "Tuition").reduce((sum, fee) => sum + fee.amount, 0)
+      : grossTotal;
+    const discountAmount = Math.round(discountBase * selectedDiscount.percentage) / 100;
+    const netPayable = Math.max(0, grossTotal - discountAmount);
+    const template = portalPaymentTemplates.find((candidate) => candidate.name === selectedPaymentTerm)
+      ?? findDefaultPaymentTermTemplate(studentPaymentTermTemplates, { schoolId: studentSchoolUuid, academicYear: currentAcademicYear });
+    return {
+      fees,
+      tuitionTotal: fees.filter((fee) => fee.category === "Tuition").reduce((sum, fee) => sum + fee.amount, 0),
+      labTotal: fees.filter((fee) => fee.category === "Laboratory").reduce((sum, fee) => sum + fee.amount, 0),
+      miscTotal: fees.filter((fee) => fee.category === "Miscellaneous").reduce((sum, fee) => sum + fee.amount, 0),
+      grossTotal, discountAmount, netPayable,
+      paymentSchedule: buildConfiguredPaymentSchedule(netPayable, template, studentPaymentTermTemplateInstallments)
+        .map((row) => ({ dueLabel: row.label, dueDate: row.dueDate, amount: row.amount, status: "Pending" as const })),
+    };
+  }, [studentSchoolUuid, currentAcademicYear, academicYears, academicYearLevels, studentFeeCategories,
+    studentFeeItems, studentFeeSchedules, studentFeeScheduleRates, student.yearLevel, student.trackOrCourse,
+    courses, discountTypes, selectedDiscount.id, selectedDiscount.percentage, selectedPaymentTerm,
+    portalPaymentTemplates, studentPaymentTermTemplates, studentPaymentTermTemplateInstallments]);
 
   const activeEnrollment = [...scopedEnrollments]
     .filter((enrollment) =>
@@ -421,9 +464,8 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
     return Array.from(totals, ([category, amount]) => ({ category, amount }));
   }, [assessment]);
 
-  // Installment schedule is snapshotted by Accounting when the assessment
-  // becomes an invoice. The local calculation remains only as a pre-migration
-  // compatibility fallback.
+  // Installment schedules are snapshotted by Accounting. Before invoicing, the
+  // preview is resolved from the same database payment-term template.
   const installmentSchedule = useMemo(() => {
     if (!assessment) return [];
     const invoice = studentInvoices.find((row) => row.assessmentId === assessment.id);
@@ -441,20 +483,16 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
         status: item.status,
       }));
     }
-    const schoolYear = assessment.schoolYear || "2026-2027";
-    let schedule: { label: string; amount: number; due: string }[];
-    if (assessment.paymentTerm === "Installment - 2 Payments" || assessment.paymentTerm === "Installment - 4 Payments") {
-      const n = assessment.paymentTerm === "Installment - 2 Payments" ? 2 : 4;
-      const per = Math.round(assessment.totalAmount / n);
-      schedule = Array.from({ length: n }, (_, i) => ({
-        label: `Installment ${i + 1} of ${n}`,
-        amount: i === n - 1 ? assessment.totalAmount - per * (n - 1) : per,
-        due: `Payment ${i + 1}`,
-      }));
-    } else {
-      schedule = generatePaymentSchedule(assessment.totalAmount, assessment.paymentTerm as MockPaymentTerm, schoolYear)
-        .map((s) => ({ label: s.dueLabel, amount: s.amount, due: s.dueDate }));
-    }
+    const template = studentPaymentTermTemplates.find((candidate) =>
+      candidate.isActive && candidate.academicYear === assessment.schoolYear
+      && candidate.name === assessment.paymentTerm
+    );
+    if (!template) return [];
+    const schedule = buildConfiguredPaymentSchedule(
+      Math.max(0, assessment.totalAmount - assessment.discountAmount),
+      template,
+      studentPaymentTermTemplateInstallments,
+    ).map((row) => ({ label: row.label, amount: row.amount, due: row.dueDate }));
     const paidToDate = postedPayments
       .filter((payment) =>
         payment.studentId === student.id &&
@@ -468,7 +506,8 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
       const paid = cumulative <= paidToDate;
       return { ...s, paid, status: paid ? "Paid" : "Pending" };
     });
-  }, [assessment, paymentPlanInstallments, postedPayments, student.id, studentInvoices]);
+  }, [assessment, paymentPlanInstallments, postedPayments, student.id, studentInvoices,
+    studentPaymentTermTemplates, studentPaymentTermTemplateInstallments]);
 
   const canonicalInvoice = assessment
     ? studentInvoices.find((row) => row.assessmentId === assessment.id)
@@ -1456,7 +1495,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                     <Unlock className="w-4 h-4 text-green-600" />
                     Unlocked Semestral Report Card
                   </h3>
-                  <p className="text-[10.5px] text-stone-400 font-mono mt-0.5 uppercase">Academic Year 2026-2027 • First Semester</p>
+                  <p className="text-[10.5px] text-stone-400 font-mono mt-0.5 uppercase">Academic Year {currentAcademicYear ?? "Not configured"} • First Semester</p>
                 </div>
                 <span className="text-[9.5px] bg-green-50 border border-green-200 text-green-700 px-2.5 py-0.5 rounded-full font-bold">FINANCIALLY CLEARED</span>
               </div>
@@ -2480,17 +2519,14 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                       <div>
                         <label className="block text-[10.5px] text-stone-500 font-bold uppercase mb-1">Payment Plan</label>
                         <select className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-xs outline-none focus:ring-1 focus:ring-stsn-gold">
-                          <option>Cash</option>
-                          <option>Installment - 2 Payments</option>
-                          <option>Installment - 4 Payments</option>
+                          {portalPaymentTemplates.map((template) => <option key={template.id}>{template.name}</option>)}
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10.5px] text-stone-500 font-bold uppercase mb-1">Scholarship / Discount</label>
                         <select className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-xs outline-none focus:ring-1 focus:ring-stsn-gold">
-                          <option>None</option>
-                          <option>Academic Excellence Award</option>
-                          <option>Sibling Discount (10%)</option>
+                          <option value="">None</option>
+                          {discountOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
                           <option>Faculty Dependent</option>
                           <option>Financial Assistance</option>
                         </select>
@@ -2537,7 +2573,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                         </button>
                         <h3 className="text-sm font-display font-bold text-stone-900 uppercase tracking-wide flex items-center gap-2">
                           <Receipt className="w-4 h-4 text-stsn-gold" />
-                          Assessment of Fees — SY 2026-2027
+                          Assessment of Fees — SY {assessment?.schoolYear ?? currentAcademicYear ?? "Not configured"}
                         </h3>
                         <p className="text-[10.5px] text-stone-400 font-mono mt-1">
                           {student.lastName}, {student.firstName} • {student.department} • {student.yearLevel}{student.trackOrCourse ? ` — ${student.trackOrCourse}` : ""}
@@ -2567,7 +2603,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                               <h1>St. Theresa School Network — Assessment of Fees</h1>
                               <p><strong>Student:</strong> ${student.lastName}, ${student.firstName} ${student.middleName || ""} &nbsp;&nbsp; <strong>Student No.:</strong> ${student.studentNo}</p>
                               <p><strong>Department:</strong> ${student.department} &nbsp; <strong>Year Level:</strong> ${student.yearLevel} &nbsp; <strong>Course/Strand:</strong> ${student.trackOrCourse || "—"}</p>
-                              <p><strong>Academic Year:</strong> ${assessment?.schoolYear ?? "2026-2027"} &nbsp; <strong>Payment Term:</strong> ${displayedPaymentTerm}</p>
+                              <p><strong>Academic Year:</strong> ${assessment?.schoolYear ?? currentAcademicYear ?? "Not configured"} &nbsp; <strong>Payment Term:</strong> ${displayedPaymentTerm}</p>
                               <h2>Fee Breakdown</h2>
                               <table>
                                 <tr><th>Fee Name</th><th>Category</th><th class="right">Amount (PHP)</th></tr>
@@ -2698,15 +2734,15 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                           <span className="text-xs font-display font-bold text-stone-900 uppercase tracking-wide">D. Payment Terms</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {paymentTermOptions.map(({ term, description }) => {
-                            const isSel = selectedPaymentTerm === term;
+                          {portalPaymentTemplates.map((template) => {
+                            const isSel = selectedPaymentTerm === template.name;
                             return (
-                              <label key={term} className={`flex flex-col gap-2 p-4 rounded-xl border cursor-pointer transition ${isSel ? "bg-stsn-cream border-stsn-gold shadow-sm" : "bg-stone-50 border-stone-200 hover:border-stone-300"}`}>
+                              <label key={template.id} className={`flex flex-col gap-2 p-4 rounded-xl border cursor-pointer transition ${isSel ? "bg-stsn-cream border-stsn-gold shadow-sm" : "bg-stone-50 border-stone-200 hover:border-stone-300"}`}>
                                 <div className="flex items-center gap-2">
-                                  <input type="radio" name="portal-term" value={term} checked={isSel} disabled={hasCanonicalFinanceAssessment} onChange={() => setSelectedPaymentTerm(term as MockPaymentTerm)} className="accent-stsn-brown flex-shrink-0" />
-                                  <span className={`text-xs font-bold ${isSel ? "text-stsn-brown" : "text-stone-700"}`}>{term}</span>
+                                  <input type="radio" name="portal-term" value={template.name} checked={isSel} disabled={hasCanonicalFinanceAssessment} onChange={() => setSelectedPaymentTerm(template.name)} className="accent-stsn-brown flex-shrink-0" />
+                                  <span className={`text-xs font-bold ${isSel ? "text-stsn-brown" : "text-stone-700"}`}>{template.name}</span>
                                 </div>
-                                <p className="text-[10.5px] text-stone-500 leading-relaxed">{description}</p>
+                                <p className="text-[10.5px] text-stone-500 leading-relaxed">{template.code}</p>
                               </label>
                             );
                           })}
@@ -2747,7 +2783,7 @@ export default function StudentPortal({ subPage, initialStudentId, compact }: { 
                             <span className="font-mono text-lg font-black text-white">₱{financeAssessmentPreview.netPayable.toLocaleString()}</span>
                           </div>
                           <p className="text-[9.5px] text-stone-400 font-mono text-center leading-snug pt-1">
-                            Term: {displayedPaymentTerm} • SY {assessment?.schoolYear ?? "2026-2027"}
+                            Term: {displayedPaymentTerm} • SY {assessment?.schoolYear ?? currentAcademicYear ?? "Not configured"}
                           </p>
                         </div>
                       </div>

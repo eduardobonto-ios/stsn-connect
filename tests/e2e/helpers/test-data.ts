@@ -114,7 +114,7 @@ export const RBAC_URL_MATRIX: Array<{
   { role: "CASHIER", deniedRoute: "/hr/hr-dashboard", allowedRoute: "/cashier/queue" },
   { role: "STUDENT", deniedRoute: "/accounting/dashboard", allowedRoute: "/student-portal/overview" },
   { role: "HR", deniedRoute: "/cashier/queue", allowedRoute: "/hr/hr-dashboard" },
-  { role: "ACCOUNTING", deniedRoute: "/hr/hr-dashboard", allowedRoute: "/accounting/dashboard" },
+  { role: "ACCOUNTING", deniedRoute: "/cashier/queue", allowedRoute: "/accounting/dashboard" },
 ];
 
 /** Read-only workflow smoke routes per role (navigation only, no writes). */

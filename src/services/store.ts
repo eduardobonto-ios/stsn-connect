@@ -92,22 +92,41 @@ import {
   DirectCollectionLine,
   UnappliedCredit,
   AllocationReallocationRequest,
+  AcademicYear,
+  AcademicYearLevel,
+  StudentFeeCategory,
+  StudentFeeItem,
+  StudentFeeSchedule,
+  StudentFeeScheduleRate,
+  StudentPaymentTermTemplate,
+  StudentPaymentTermTemplateInstallment,
+  StudentAidProgram,
+  StudentAidAward,
 } from "../types";
 import type { AcademicUnit } from "../types/school.types";
 import { getAcademicUnit } from "../config/schools.config";
 import type { GradePeriod, StudentGradeEntry, SubjectClassLoad, GradeRosterStudent, GradeItem, GradeCategory } from "../types/grading";
 import { supabase } from "../lib/supabase";
 import { loadAllData } from "./dataLoader";
-import { newId, dbInsert, dbInsertReturning, dbUpdate, dbDelete, dbDeleteWhere, toCamel } from "./supabaseCrud";
+import { newId, dbInsert, dbInsertReturning, dbUpdate, dbDelete, dbDeleteWhere, toCamel, toSnake } from "./supabaseCrud";
 import { resolveSchoolId, resolveSubjectId, subjectCodeToId } from "./idMaps";
-import { loadSecurityCatalog, computeEffectivePermissions, getPrimaryRoleCode } from "./securityPermissionService";
+import {
+  loadSecurityCatalog,
+  computeEffectivePermissions,
+  getPrimaryRoleCode,
+  canPage as hasEffectivePagePermission,
+} from "./securityPermissionService";
+import type { STSNModule } from "../config/permissions.config";
 import { EMPTY_SECURITY_CATALOG } from "../types/security-permissions.types";
-import type { SecurityCatalog, EffectivePermissions } from "../types/security-permissions.types";
+import type { SecurityAction, SecurityCatalog, EffectivePermissions } from "../types/security-permissions.types";
+import { findDefaultPaymentTermTemplate, resolveConfiguredStudentFees } from "./studentFeeService";
 
 const nowStamp = () => new Date().toISOString().replace("T", " ").substring(0, 16);
 const todayStamp = () => new Date().toISOString().split("T")[0];
 const financeMaintenanceError = () =>
   new Error("Student finance is in maintenance mode. Posting will reopen after reconciliation.");
+const financePermissionError = () =>
+  new Error("Your current application account does not have permission to perform this finance action.");
 const AUTH_SESSION_STORAGE_KEY = "stsn.currentSession";
 interface StoredAuthSession {
   userId: string;
@@ -215,6 +234,7 @@ const ensureFinanceRealtimeSubscription = (
 interface STSNState {
   isLoading: boolean;
   financeWritesEnabled: boolean;
+  studentFeeEngineEnabled: boolean;
   financeRealtimeStatus: FinanceRealtimeStatus;
   currentUser: User | null;
   /** RBAC catalog (security_* tables), loaded once on initialize. */
@@ -281,6 +301,16 @@ interface STSNState {
   labFeeAdjustments: { scope: "SHS" | "College"; programCode: string; amount: number }[];
   discountOptions: { id: string; label: string; percentage: number; badge?: string }[];
   paymentTermOptions: { term: string; description: string }[];
+  academicYears: AcademicYear[];
+  academicYearLevels: AcademicYearLevel[];
+  studentFeeCategories: StudentFeeCategory[];
+  studentFeeItems: StudentFeeItem[];
+  studentFeeSchedules: StudentFeeSchedule[];
+  studentFeeScheduleRates: StudentFeeScheduleRate[];
+  studentPaymentTermTemplates: StudentPaymentTermTemplate[];
+  studentPaymentTermTemplateInstallments: StudentPaymentTermTemplateInstallment[];
+  studentAidPrograms: StudentAidProgram[];
+  studentAidAwards: StudentAidAward[];
   studentGuardians: StudentGuardianContact[];
   studentEducationBackgrounds: StudentEducationBackground[];
   employeeProfileContacts: EmployeeProfileContact[];
@@ -599,6 +629,29 @@ const withSchoolFk = <T extends { schoolId?: string }>(row: T) => {
   const { schoolId, ...rest } = row as any;
   return { ...rest, school_id: resolveSchoolId(schoolId) };
 };
+
+/**
+ * Central application-layer guard for the temporary demo/UAT auth posture.
+ * This prevents accidental cross-role calls from application code, but it is
+ * not a trusted server authorization boundary while PostgREST runs as anon.
+ */
+const requireFinancePermission = (
+  state: STSNState,
+  moduleKey: STSNModule,
+  pageKey: string,
+  actionKey: SecurityAction,
+) => {
+  if (
+    moduleKey === "CASHIER" &&
+    state.currentUser?.role !== "CASHIER" &&
+    state.currentUser?.role !== "SUPER_ADMIN"
+  ) {
+    throw financePermissionError();
+  }
+  if (!state.effectivePermissions || !hasEffectivePagePermission(state.effectivePermissions, moduleKey, pageKey, actionKey)) {
+    throw financePermissionError();
+  }
+};
 const withSubjectFk = (row: any, codeField = "subjectCode") => {
   const { [codeField]: code, ...rest } = row;
   return { ...rest, subject_id: resolveSubjectId(code) };
@@ -746,6 +799,7 @@ async function awActReject(
 export const useSTSNStore = create<STSNState>((set, get) => ({
   isLoading: true,
   financeWritesEnabled: false,
+  studentFeeEngineEnabled: false,
   financeRealtimeStatus: "disconnected",
   currentUser: null,
   securityCatalog: EMPTY_SECURITY_CATALOG,
@@ -807,6 +861,16 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
   labFeeAdjustments: [],
   discountOptions: [],
   paymentTermOptions: [],
+  academicYears: [],
+  academicYearLevels: [],
+  studentFeeCategories: [],
+  studentFeeItems: [],
+  studentFeeSchedules: [],
+  studentFeeScheduleRates: [],
+  studentPaymentTermTemplates: [],
+  studentPaymentTermTemplateInstallments: [],
+  studentAidPrograms: [],
+  studentAidAwards: [],
   studentGuardians: [],
   studentEducationBackgrounds: [],
   employeeProfileContacts: [],
@@ -897,12 +961,26 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       unappliedCredits: data.unappliedCredits,
       allocationReallocationRequests: data.allocationReallocationRequests,
       financeWritesEnabled: data.financeWritesEnabled,
+      studentFeeEngineEnabled: data.studentFeeEngineEnabled,
       voidRequests: data.voidRequests,
       studentLedgerSummaries: data.studentLedgerSummaries,
       ledgerTransactions: data.ledgerTransactions,
       financialHolds: data.financialHolds,
       assessmentBillingSummaries: data.assessmentBillingSummaries,
       paymentCollectionSummaries: data.paymentCollectionSummaries,
+      academicYears: data.academicYears,
+      academicYearLevels: data.academicYearLevels,
+      studentFeeCategories: data.studentFeeCategories,
+      studentFeeItems: data.studentFeeItems,
+      studentFeeSchedules: data.studentFeeSchedules,
+      studentFeeScheduleRates: data.studentFeeScheduleRates,
+      studentPaymentTermTemplates: data.studentPaymentTermTemplates,
+      studentPaymentTermTemplateInstallments: data.studentPaymentTermTemplateInstallments,
+      studentAidPrograms: data.studentAidPrograms,
+      studentAidAwards: data.studentAidAwards,
+      discountTypes: data.discountTypes,
+      discountOptions: data.discountOptions,
+      paymentTermOptions: data.paymentTermOptions,
     });
   },
 
@@ -975,8 +1053,10 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   logout: async () => {
     clearStoredAuthSession();
-    if (financeRealtimeChannel) await supabase.removeChannel(financeRealtimeChannel);
-    financeRealtimeChannel = null;
+    if (financeRealtimeChannel) {
+      void supabase.removeChannel(financeRealtimeChannel);
+      financeRealtimeChannel = null;
+    }
     set({ currentUser: null, effectivePermissions: null, financeRealtimeStatus: "disconnected" });
   },
   setCurrentUser: (user) => {
@@ -1063,6 +1143,10 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   submitNewEnrollment: async (enrollData) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    if (!get().studentFeeEngineEnabled) {
+      throw new Error("The student fee schedule engine is not enabled. Ask Accounting to complete reconciliation and cutover setup.");
+    }
+    requireFinancePermission(get(), "REGISTRAR", "enrollment", "create");
     const newEnrollmentId = newId();
     const newEnrollment: Enrollment = {
       ...enrollData,
@@ -1084,16 +1168,23 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
     if (!assessmentSchoolId) {
       throw new Error("The student's school must be assigned before creating an assessment.");
     }
-    const isCollege = student?.department === "College";
-    const tuitionRate = isCollege ? 950 * enrollData.subjectCodes.length * 3 : 18000;
-    const totalAmount = tuitionRate + 4500 + 3500 + 1000;
-
-    const baseFees = [
-      { feeName: isCollege ? `College Tuition Fee` : "SHS Tuition Fee (Flat)", category: "Tuition", amount: tuitionRate },
-      { feeName: "Registration & Misc Fee", category: "Miscellaneous", amount: 4500 },
-      { feeName: "Computer Laboratory Fee", category: "Laboratory", amount: 3500 },
-      { feeName: "School ID / Facilities Fee", category: "ID/Other", amount: 1000 }
-    ];
+    if (!student) throw new Error("The selected student could not be loaded.");
+    const isCollege = student.department === "College";
+    const assessmentSchoolUuid = resolveSchoolId(assessmentSchoolId);
+    const configuredFees = resolveConfiguredStudentFees(get(), {
+      schoolId: assessmentSchoolUuid,
+      academicYear: enrollData.schoolYear,
+      yearLevel: student.yearLevel,
+      courseId: get().courses.find((course) => course.code === student.trackOrCourse)?.id,
+    });
+    const paymentTemplate = findDefaultPaymentTermTemplate(get().studentPaymentTermTemplates, {
+      schoolId: assessmentSchoolUuid,
+      academicYear: enrollData.schoolYear,
+    });
+    const totalAmount = configuredFees.reduce((sum, fee) => sum + fee.amount, 0);
+    const baseFees = configuredFees.map((fee) => ({
+      feeName: fee.feeName, category: fee.category, amount: fee.amount,
+    }));
 
     const newAssessmentId = newId();
     const newAssessment: StudentAssessment = {
@@ -1106,67 +1197,69 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       totalAmount,
       discountPercentage: 0,
       discountAmount: 0,
-      paymentTerm: "Installment - 4 Payments",
+      paymentTerm: paymentTemplate.name,
       balance: totalAmount
     };
 
-    // Await the core writes (enrollment, its subjects, and the assessment
-    // that gates it into the "For Assessment" queue) before touching local
-    // state, so a failed insert can never leave a ghost row that only
-    // disappears on the next reload — the caller sees a thrown error instead.
+    // Wait for the student row, then persist the enrollment, subject load,
+    // assessment, fees, links, and student status in one database transaction.
     await studentPersistence.get(enrollData.studentId);
 
-    const enrollError = await dbInsert("enrollments", {
-      id: newEnrollmentId,
-      studentId: enrollData.studentId,
-      schoolYear: enrollData.schoolYear,
-      semester: enrollData.semester,
-      enrollmentType: enrollData.enrollmentType,
-      status: "For Assessment",
-      submittedAt: enrollData.submittedAt,
-      enrollmentSource: newEnrollment.enrollmentSource,
-      isOnlineEnrollment: newEnrollment.isOnlineEnrollment,
-      onlineApplicationId: newEnrollment.onlineApplicationId,
-      completionStatus: newEnrollment.completionStatus,
-      missingFields: newEnrollment.missingFields,
-      sourceMetadata: newEnrollment.sourceMetadata,
-    });
-    if (enrollError) throw new Error("Failed to save the enrollment. Please try again.");
-
-    await Promise.all(enrollData.subjectCodes.map((code) => {
-      const subjectId = resolveSubjectId(code);
-      return subjectId ? dbInsert("enrollment_subjects", { enrollment_id: newEnrollmentId, subject_id: subjectId }) : Promise.resolve(null);
-    }));
-
-    const assessmentError = await dbInsert("assessments", withSchoolFk({
-      id: newAssessmentId, studentId: enrollData.studentId, schoolYear: enrollData.schoolYear, semester: enrollData.semester,
-      schoolId: assessmentSchoolId,
-      enrollmentId: newEnrollmentId,
-      totalAmount, discountPercentage: 0, discountAmount: 0, paymentTerm: "Installment - 4 Payments", balance: totalAmount,
-    }));
-    if (assessmentError) throw new Error("Enrollment saved, but the assessment could not be created. Please generate it manually.");
-    const { error: feeError } = await supabase.rpc("replace_draft_assessment_fees", {
-      p_assessment_id: newAssessmentId,
-      p_fees: baseFees.map((fee) => ({
-        fee_name: fee.feeName,
-        category: fee.category,
-        amount: fee.amount,
-        quantity: 1,
-        unit_amount: fee.amount,
-      })),
-    });
-    if (feeError) {
-      console.error("[supabase] replace_draft_assessment_fees failed:", feeError);
-      throw new Error("Enrollment saved, but its assessment charges could not be created.");
+    const subjectIds = enrollData.subjectCodes.map(resolveSubjectId);
+    if (subjectIds.some((id) => !id)) {
+      throw new Error("One or more selected subjects could not be resolved. Refresh the subject load and try again.");
     }
-    const linkError = await dbUpdate("enrollments", newEnrollmentId, { assessmentId: newAssessmentId });
-    if (linkError) throw new Error("Enrollment and assessment were saved, but their database link could not be completed.");
-    newEnrollment.assessmentId = newAssessmentId;
+    const { data, error } = await supabase.rpc("submit_walk_in_enrollment_v2", {
+      p_enrollment: toSnake({
+        id: newEnrollmentId,
+        studentId: enrollData.studentId,
+        schoolYear: enrollData.schoolYear,
+        semester: enrollData.semester,
+        enrollmentType: enrollData.enrollmentType,
+        submittedAt: enrollData.submittedAt,
+        enrollmentSource: newEnrollment.enrollmentSource,
+        isOnlineEnrollment: newEnrollment.isOnlineEnrollment,
+        onlineApplicationId: newEnrollment.onlineApplicationId,
+        completionStatus: newEnrollment.completionStatus,
+        missingFields: newEnrollment.missingFields,
+        sourceMetadata: newEnrollment.sourceMetadata,
+      }),
+      p_subject_ids: subjectIds as string[],
+      p_assessment: toSnake({
+        id: newAssessmentId,
+        enrollmentId: newEnrollmentId,
+        schoolId: assessmentSchoolUuid,
+        studentId: enrollData.studentId,
+        schoolYear: enrollData.schoolYear,
+        semester: enrollData.semester,
+        discountPercentage: 0,
+        discountAmount: 0,
+        approvalStatus: "Pending Accounting Approval",
+      }),
+      p_payment_term_template_id: paymentTemplate.id,
+      p_actor: get().currentUser?.name ?? "Registrar",
+    });
+    if (error || !data) {
+      console.error("[supabase] submit_walk_in_enrollment_v2 failed:", error);
+      throw new Error(error?.message || "Enrollment and assessment could not be submitted.");
+    }
+    const persisted = toCamel(data) as { enrollment: Enrollment; assessment: StudentAssessment };
+    const persistedEnrollment: Enrollment = {
+      ...newEnrollment,
+      ...persisted.enrollment,
+      subjectCodes: enrollData.subjectCodes,
+      assessmentId: persisted.assessment.id,
+    };
+    const persistedAssessment: StudentAssessment = {
+      ...newAssessment,
+      ...persisted.assessment,
+      schoolId: assessmentSchoolId,
+    };
 
     set((state) => ({
-      enrollments: [...state.enrollments, newEnrollment],
+      enrollments: [...state.enrollments, persistedEnrollment],
       students: state.students.map((s) => (s.id === enrollData.studentId ? { ...s, enrollmentStatus: "For Assessment" } : s)),
-      assessments: [...state.assessments, newAssessment],
+      assessments: [...state.assessments, persistedAssessment],
     }));
 
     const existingReqs = get().requirements.filter((r) => r.studentId === enrollData.studentId);
@@ -1182,7 +1275,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       });
     }
 
-    return newEnrollment;
+    return persistedEnrollment;
   },
 
   approveEnrollment: (enrollmentId, section) => {
@@ -1265,30 +1358,30 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   addAssessment: async (assessment) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    requireFinancePermission(get(), "REGISTRAR", "enrollment", "edit");
     const { fees, auditTrail, ...rest } = assessment;
     const schoolId = rest.schoolId ?? get().students.find((s) => s.id === rest.studentId)?.schoolId;
     if (!schoolId) throw new Error("The assessment requires a valid school.");
-    const assessmentError = await dbInsert(
-      "assessments",
-      withSchoolFk({ ...rest, schoolId }),
-    );
-    if (assessmentError) throw new Error("Assessment could not be created.");
-    if (fees) {
-      const { error } = await supabase.rpc("replace_draft_assessment_fees", {
-        p_assessment_id: assessment.id,
-        p_fees: fees.map((fee) => ({
-          fee_name: fee.feeName,
-          category: fee.category,
-          amount: fee.amount,
-          quantity: 1,
-          unit_amount: fee.amount,
-        })),
-      });
-      if (error) {
-        console.error("[supabase] replace_draft_assessment_fees failed:", error);
-        throw new Error("Assessment fees could not be saved.");
-      }
+    const { data, error } = await supabase.rpc("save_draft_student_assessment", {
+      p_assessment: toSnake(withSchoolFk({ ...rest, id: assessment.id, schoolId })),
+      p_fees: fees?.map((fee) => ({
+        fee_name: fee.feeName,
+        category: fee.category,
+        amount: fee.amount,
+        quantity: 1,
+        unit_amount: fee.amount,
+      })) ?? null,
+      p_actor: get().currentUser?.name ?? "Registrar",
+    });
+    if (error || !data) {
+      console.error("[supabase] save_draft_student_assessment failed:", error);
+      throw new Error(error?.message || "Assessment could not be created.");
     }
+    const persistedAssessment = {
+      ...assessment,
+      ...(toCamel(data) as Partial<StudentAssessment>),
+      schoolId,
+    };
     for (const entry of auditTrail ?? []) {
       const { error: auditError } = await supabase.rpc("append_student_assessment_audit", {
         p_assessment_id: assessment.id,
@@ -1297,38 +1390,30 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       });
       if (auditError) throw new Error("Assessment audit history could not be saved.");
     }
-    set((state) => ({ assessments: [...state.assessments, assessment] }));
+    set((state) => ({ assessments: [...state.assessments, persistedAssessment] }));
   },
 
   updateAssessment: async (id, updates) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    requireFinancePermission(get(), "REGISTRAR", "enrollment", "edit");
     const { fees, auditTrail, ...rest } = updates;
-    let canonicalAssessment: Partial<StudentAssessment> | null = null;
-    if (Object.keys(rest).length > 0) {
-      const updateError = await dbUpdate(
-        "assessments",
-        id,
-        "schoolId" in rest ? withSchoolFk(rest) : rest,
-      );
-      if (updateError) throw new Error("Assessment changes could not be saved.");
+    const assessmentPayload = "schoolId" in rest ? withSchoolFk({ ...rest, id }) : { ...rest, id };
+    const { data, error } = await supabase.rpc("save_draft_student_assessment", {
+      p_assessment: toSnake(assessmentPayload),
+      p_fees: fees?.map((fee) => ({
+        fee_name: fee.feeName,
+        category: fee.category,
+        amount: fee.amount,
+        quantity: 1,
+        unit_amount: fee.amount,
+      })) ?? null,
+      p_actor: get().currentUser?.name ?? "Registrar",
+    });
+    if (error || !data) {
+      console.error("[supabase] save_draft_student_assessment failed:", error);
+      throw new Error(error?.message || "Assessment changes could not be saved.");
     }
-    if (fees) {
-      const { data, error } = await supabase.rpc("replace_draft_assessment_fees", {
-        p_assessment_id: id,
-        p_fees: fees.map((fee) => ({
-          fee_name: fee.feeName,
-          category: fee.category,
-          amount: fee.amount,
-          quantity: 1,
-          unit_amount: fee.amount,
-        })),
-      });
-      if (error || !data) {
-        console.error("[supabase] replace_draft_assessment_fees failed:", error);
-        throw new Error(error?.message || "Assessment fees could not be replaced.");
-      }
-      canonicalAssessment = toCamel(data) as Partial<StudentAssessment>;
-    }
+    const canonicalAssessment = toCamel(data) as Partial<StudentAssessment>;
     if (auditTrail) {
       const existingIds = new Set(
         get().assessments.find((assessment) => assessment.id === id)?.auditTrail?.map((entry) => entry.id) ?? [],
@@ -1351,6 +1436,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   approveAssessment: async (assessmentId, approvedBy, remarks) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    requireFinancePermission(get(), "ACCOUNTING", "billing", "approve");
     const assessment = get().assessments.find((a) => a.id === assessmentId);
     const linkedEnrollment = assessment
       ? get().enrollments.find((e) => e.assessmentId === assessmentId || (
@@ -1394,6 +1480,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   returnAssessmentToRegistrar: async (assessmentId, performedBy, remarks) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    requireFinancePermission(get(), "ACCOUNTING", "billing", "approve");
     const { error } = await supabase.rpc("review_student_assessment", {
       p_assessment_id: assessmentId,
       p_decision: "Returned to Registrar",
@@ -1415,6 +1502,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   rejectAssessment: async (assessmentId, performedBy, remarks) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    requireFinancePermission(get(), "ACCOUNTING", "billing", "approve");
     const { error } = await supabase.rpc("review_student_assessment", {
       p_assessment_id: assessmentId,
       p_decision: "Rejected",
@@ -1435,6 +1523,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   addPayment: async (paymentData) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    requireFinancePermission(get(), "CASHIER", "queue", "create");
     const idempotencyKey = newId();
     const actorName = get().currentUser?.name ?? "System";
     const { data, error } = await supabase.rpc("post_student_payment", {
@@ -1540,6 +1629,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   postStudentReceipt: async (input) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
+    requireFinancePermission(get(), "CASHIER", "other-payments", "create");
     const actor = get().currentUser?.name ?? "System";
     const { data, error } = await supabase.rpc("post_student_receipt", {
       p_school_id: resolveSchoolId(input.schoolId),
@@ -1686,7 +1776,7 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
       }));
       dbUpdate("grades", existing.id, { teacherId, employeeId, midtermGrade: midterm, finalGrade: final, remarks: passed });
     } else {
-      const newGrade: Grade = { id: newId(), studentId, subjectCode, teacherId, employeeId, schoolYear: "2026-2027", semester: "First Semester", midtermGrade: midterm, finalGrade: final, remarks: passed };
+      const newGrade: Grade = { id: newId(), studentId, subjectCode, teacherId, employeeId, schoolYear: get().academicYears.find((year) => year.isCurrent)?.name ?? "", semester: "First Semester", midtermGrade: midterm, finalGrade: final, remarks: passed };
       set((state) => ({ grades: [...state.grades, newGrade] }));
       dbInsert("grades", withSubjectFk({ id: newGrade.id, studentId, teacherId: newGrade.teacherId, employeeId: newGrade.employeeId, schoolYear: newGrade.schoolYear, semester: newGrade.semester, midtermGrade: midterm, finalGrade: final, remarks: passed, subjectCode }));
     }
@@ -2064,15 +2154,15 @@ export const useSTSNStore = create<STSNState>((set, get) => ({
 
   addDiscountRequest: async (reqData) => {
     if (!get().financeWritesEnabled) throw financeMaintenanceError();
-    const { data, error } = await supabase.rpc("submit_student_discount_request", {
+    const { data, error } = await (supabase as any).rpc("submit_student_discount_request_v2", {
       p_student_id: reqData.studentId,
       p_discount_type_id: reqData.discountTypeId,
-      p_sibling_names: reqData.siblingNames,
+      p_sibling_student_ids: reqData.siblingStudentIds ?? [],
       p_remarks: reqData.remarks ?? null,
       p_attachment_names: reqData.attachmentNames,
     });
     if (error || !data) {
-      console.error("[supabase] submit_student_discount_request failed:", error);
+      console.error("[supabase] submit_student_discount_request_v2 failed:", error);
       throw new Error(error?.message || "The discount request could not be submitted.");
     }
     const persisted = toCamel(data) as Partial<DiscountRequest> & { id: string; referenceNo: string; requestedAt: string };

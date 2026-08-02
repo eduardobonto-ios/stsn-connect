@@ -1,5 +1,5 @@
-// AUTO-GENERATED from supabase/migrations/0001_schema.sql — do not hand-edit.
-// Regenerate with: node scripts/generate-types.mjs
+// Supabase schema reference, synchronized through migration 20260802090000.
+// Regenerate from the applied Supabase project when the migration is deployed.
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -1137,6 +1137,10 @@ export interface AssessmentFeesRow {
   unit_amount: number;
   revenue_account_code: string;
   created_at: string;
+  fee_schedule_id: string | null;
+  fee_schedule_rate_id: string | null;
+  fee_item_id: string | null;
+  fee_category_id: string | null;
 }
 export interface AssessmentFeesInsert {
   id?: string;
@@ -1149,6 +1153,10 @@ export interface AssessmentFeesInsert {
   unit_amount?: number;
   revenue_account_code?: string;
   created_at?: string;
+  fee_schedule_id?: string | null;
+  fee_schedule_rate_id?: string | null;
+  fee_item_id?: string | null;
+  fee_category_id?: string | null;
 }
 export interface AssessmentFeesUpdate {
   id?: string;
@@ -1160,6 +1168,10 @@ export interface AssessmentFeesUpdate {
   unit_amount?: number;
   revenue_account_code?: string;
   created_at?: string;
+  fee_schedule_id?: string | null;
+  fee_schedule_rate_id?: string | null;
+  fee_item_id?: string | null;
+  fee_category_id?: string | null;
 }
 
 export interface AssessmentAuditTrailRow {
@@ -1667,6 +1679,12 @@ export interface DiscountTypesRow {
   requires_document: boolean;
   max_amount: number | null;
   gl_code: string | null;
+  school_id: string | null;
+  academic_year_id: string | null;
+  sibling_position: number | null;
+  exclusive_group: string | null;
+  effective_from: string | null;
+  effective_to: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1690,6 +1708,12 @@ export interface DiscountTypesInsert {
   requires_document?: boolean;
   max_amount?: number | null;
   gl_code?: string | null;
+  school_id?: string | null;
+  academic_year_id?: string | null;
+  sibling_position?: number | null;
+  exclusive_group?: string | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -1713,6 +1737,12 @@ export interface DiscountTypesUpdate {
   requires_document?: boolean;
   max_amount?: number | null;
   gl_code?: string | null;
+  school_id?: string | null;
+  academic_year_id?: string | null;
+  sibling_position?: number | null;
+  exclusive_group?: string | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -2896,6 +2926,7 @@ export interface StudentPaymentTermTemplatesRow {
   name: string;
   version: number;
   is_active: boolean;
+  is_default: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -2929,6 +2960,37 @@ export interface StudentReceiptJournalLinksRow {
 export type StudentReceiptJournalLinksInsert = Partial<StudentReceiptJournalLinksRow> &
   Pick<StudentReceiptJournalLinksRow, "event_type" | "journal_entry_id">;
 export type StudentReceiptJournalLinksUpdate = Partial<StudentReceiptJournalLinksRow>;
+
+export interface AcademicYearsRow { id: string; code: string; name: string; start_date: string; end_date: string; status: string; is_current: boolean; created_at: string; updated_at: string }
+export type AcademicYearsInsert = Partial<AcademicYearsRow> & Pick<AcademicYearsRow,"code"|"name"|"start_date"|"end_date">;
+export type AcademicYearsUpdate = Partial<AcademicYearsRow>;
+export interface AcademicYearLevelsRow { id: string; code: string; name: string; academic_unit: string; sort_order: number; is_active: boolean; created_at: string; updated_at: string }
+export type AcademicYearLevelsInsert = Partial<AcademicYearLevelsRow> & Pick<AcademicYearLevelsRow,"code"|"name"|"academic_unit"|"sort_order">;
+export type AcademicYearLevelsUpdate = Partial<AcademicYearLevelsRow>;
+export interface StudentFeeCategoriesRow { id: string; school_id: string; code: string; name: string; posting_category: string; revenue_account_code: string; is_active: boolean; created_at: string; updated_at: string }
+export type StudentFeeCategoriesInsert = Partial<StudentFeeCategoriesRow> & Pick<StudentFeeCategoriesRow,"school_id"|"code"|"name"|"posting_category"|"revenue_account_code">;
+export type StudentFeeCategoriesUpdate = Partial<StudentFeeCategoriesRow>;
+export interface StudentFeeItemsRow { id: string; school_id: string; code: string; name: string; category_id: string; billing_basis: string; is_required: boolean; is_discountable: boolean; is_active: boolean; sort_order: number; created_at: string; updated_at: string }
+export type StudentFeeItemsInsert = Partial<StudentFeeItemsRow> & Pick<StudentFeeItemsRow,"school_id"|"code"|"name"|"category_id">;
+export type StudentFeeItemsUpdate = Partial<StudentFeeItemsRow>;
+export interface StudentFeeSchedulesRow { id: string; school_id: string; academic_year_id: string; academic_unit: string; version: number; status: string; source_reference: string|null; source_notes: string|null; created_by: string|null; published_by: string|null; published_at: string|null; created_at: string; updated_at: string }
+export type StudentFeeSchedulesInsert = Partial<StudentFeeSchedulesRow> & Pick<StudentFeeSchedulesRow,"school_id"|"academic_year_id"|"academic_unit">;
+export type StudentFeeSchedulesUpdate = Partial<StudentFeeSchedulesRow>;
+export interface StudentFeeScheduleRatesRow { id: string; schedule_id: string; fee_item_id: string; year_level_id: string; course_id: string|null; amount: number; is_required: boolean|null; note: string|null; created_at: string; updated_at: string }
+export type StudentFeeScheduleRatesInsert = Partial<StudentFeeScheduleRatesRow> & Pick<StudentFeeScheduleRatesRow,"schedule_id"|"fee_item_id"|"year_level_id"|"amount">;
+export type StudentFeeScheduleRatesUpdate = Partial<StudentFeeScheduleRatesRow>;
+export interface DiscountTypeFeeCategoriesRow { discount_type_id: string; fee_category_id: string; created_at: string }
+export type DiscountTypeFeeCategoriesInsert = Partial<DiscountTypeFeeCategoriesRow> & Pick<DiscountTypeFeeCategoriesRow,"discount_type_id"|"fee_category_id">;
+export type DiscountTypeFeeCategoriesUpdate = Partial<DiscountTypeFeeCategoriesRow>;
+export interface DiscountRequestStudentsRow { discount_request_id: string; student_id: string; enrollment_id: string|null; relationship_role: string; verified_at: string|null; verified_by: string|null; created_at: string }
+export type DiscountRequestStudentsInsert = Partial<DiscountRequestStudentsRow> & Pick<DiscountRequestStudentsRow,"discount_request_id"|"student_id"|"relationship_role">;
+export type DiscountRequestStudentsUpdate = Partial<DiscountRequestStudentsRow>;
+export interface StudentAidProgramsRow { id:string; school_id:string; code:string; name:string; sponsor_name:string; benefit_basis:string; benefit_value:number; academic_year_id:string|null; is_active:boolean; created_at:string; updated_at:string }
+export type StudentAidProgramsInsert = Partial<StudentAidProgramsRow> & Pick<StudentAidProgramsRow,"school_id"|"code"|"name"|"sponsor_name"|"benefit_basis"|"benefit_value">;
+export type StudentAidProgramsUpdate = Partial<StudentAidProgramsRow>;
+export interface StudentAidAwardsRow { id:string; program_id:string; student_id:string; enrollment_id:string|null; approved_amount:number; status:string; reference_no:string|null; approved_by:string|null; approved_at:string|null; created_at:string; updated_at:string }
+export type StudentAidAwardsInsert = Partial<StudentAidAwardsRow> & Pick<StudentAidAwardsRow,"program_id"|"student_id"|"approved_amount">;
+export type StudentAidAwardsUpdate = Partial<StudentAidAwardsRow>;
 
 export interface Database {
   public: {
@@ -2970,6 +3032,16 @@ export interface Database {
       student_finance_journal_links: { Row: StudentFinanceJournalLinksRow; Insert: StudentFinanceJournalLinksInsert; Update: StudentFinanceJournalLinksUpdate };
       student_payment_term_templates: { Row: StudentPaymentTermTemplatesRow; Insert: StudentPaymentTermTemplatesInsert; Update: StudentPaymentTermTemplatesUpdate };
       student_payment_term_template_installments: { Row: StudentPaymentTermTemplateInstallmentsRow; Insert: StudentPaymentTermTemplateInstallmentsInsert; Update: StudentPaymentTermTemplateInstallmentsUpdate };
+      academic_years: { Row: AcademicYearsRow; Insert: AcademicYearsInsert; Update: AcademicYearsUpdate };
+      academic_year_levels: { Row: AcademicYearLevelsRow; Insert: AcademicYearLevelsInsert; Update: AcademicYearLevelsUpdate };
+      student_fee_categories: { Row: StudentFeeCategoriesRow; Insert: StudentFeeCategoriesInsert; Update: StudentFeeCategoriesUpdate };
+      student_fee_items: { Row: StudentFeeItemsRow; Insert: StudentFeeItemsInsert; Update: StudentFeeItemsUpdate };
+      student_fee_schedules: { Row: StudentFeeSchedulesRow; Insert: StudentFeeSchedulesInsert; Update: StudentFeeSchedulesUpdate };
+      student_fee_schedule_rates: { Row: StudentFeeScheduleRatesRow; Insert: StudentFeeScheduleRatesInsert; Update: StudentFeeScheduleRatesUpdate };
+      discount_type_fee_categories: { Row: DiscountTypeFeeCategoriesRow; Insert: DiscountTypeFeeCategoriesInsert; Update: DiscountTypeFeeCategoriesUpdate };
+      discount_request_students: { Row: DiscountRequestStudentsRow; Insert: DiscountRequestStudentsInsert; Update: DiscountRequestStudentsUpdate };
+      student_aid_programs: { Row: StudentAidProgramsRow; Insert: StudentAidProgramsInsert; Update: StudentAidProgramsUpdate };
+      student_aid_awards: { Row: StudentAidAwardsRow; Insert: StudentAidAwardsInsert; Update: StudentAidAwardsUpdate };
       student_finance_invoices: { Row: StudentFinanceInvoicesRow; Insert: StudentFinanceInvoicesInsert; Update: StudentFinanceInvoicesUpdate };
       student_finance_invoice_lines: { Row: StudentFinanceInvoiceLinesRow; Insert: StudentFinanceInvoiceLinesInsert; Update: StudentFinanceInvoiceLinesUpdate };
       student_invoice_payment_plans: { Row: StudentInvoicePaymentPlansRow; Insert: StudentInvoicePaymentPlansInsert; Update: StudentInvoicePaymentPlansUpdate };

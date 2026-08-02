@@ -43,4 +43,12 @@ test.describe("RBAC — direct-URL enforcement", () => {
       await expectNotAccessDenied(page);
     });
   }
+
+  test("Accounting page-level voucher grants do not unlock Cashiering", async ({ page }) => {
+    await login(page, "ACCOUNTING");
+    for (const route of ["/cashier/queue", "/cashier/vouchers", "/cashier/history", "/cashier/reports"]) {
+      await goto(page, route);
+      await expectAccessDenied(page);
+    }
+  });
 });
