@@ -22,7 +22,7 @@ test.describe("Tuition Fees published history", () => {
     await expect(page.getByRole("button", { name: "Create Draft Version" })).toBeVisible();
 
     await page.getByRole("button", { name: /Drafts/ }).click();
-    const draftSchedule = page.getByRole("button", { name: /Version .* Draft/ }).first();
+    const draftSchedule = page.getByRole("button", { name: /Version \d+Draft/ }).first();
     if (await draftSchedule.isVisible().catch(() => false)) {
       await draftSchedule.click();
       await expect(page.locator("table input").first()).toBeVisible();
